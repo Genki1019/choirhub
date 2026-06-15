@@ -50,7 +50,7 @@ v1.route("/:orgSlug", outreachRouter);
 
 app.route("/api/v1", v1);
 
-app.get("/health", (c) => c.json({ ok: true }));
+app.get("/health", (c) => c.json({ ok: true, v: "f670c8a" }));
 
 app.post("/debug/post-ping", (c) => c.json({ ok: true, method: "POST" }));
 

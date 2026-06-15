@@ -4,8 +4,8 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { isAdmin, hasRole, isHiddenRole } from "../services/access.js";
 import type { TenantEnv } from "../middleware/tenant.js";
-import type { Event, EventCategory, Member } from "@prisma/client";
-import { Prisma } from "@prisma/client";
+import type { Event, EventCategory, Member } from "../generated/prisma/index.js";
+import { Prisma } from "../generated/prisma/index.js";
 
 // ────────────────────────────
 // 招待判定ヘルパー

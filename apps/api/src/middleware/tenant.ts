@@ -1,7 +1,7 @@
 import { createMiddleware } from "hono/factory";
 import { prisma } from "../lib/prisma.js";
 import type { AuthEnv } from "./auth.js";
-import type { Member, Organization } from "@prisma/client";
+import type { Member, Organization } from "../generated/prisma/index.js";
 
 export type TenantEnv = AuthEnv & {
   Variables: AuthEnv["Variables"] & {

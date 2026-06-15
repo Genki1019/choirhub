@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Hono } from "hono";
-import type { Member, Organization, Part, User } from "@prisma/client";
+import type { Member, Organization, Part, User } from "../../generated/prisma/index.js";
 import type { TenantEnv } from "../../middleware/tenant.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

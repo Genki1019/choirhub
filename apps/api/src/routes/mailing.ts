@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "../lib/prisma.js";
 import { sendBulkMail, getResendEmail } from "../services/mail.js";
 import { isMemberPlus, isAdmin } from "../services/access.js";

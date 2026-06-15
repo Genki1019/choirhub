@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { randomUUID } from "crypto";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "../lib/prisma.js";
 import { isAdmin, isHiddenRole, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
 import { sendInviteEmail } from "../services/mail.js";

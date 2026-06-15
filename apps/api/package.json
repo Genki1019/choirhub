@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "prisma generate && tsc",
-    "vercel-build": "prisma migrate deploy && prisma generate && tsc",
+    "vercel-build": "prisma migrate deploy && prisma generate",
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",

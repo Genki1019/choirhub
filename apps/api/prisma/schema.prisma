@@ -1,0 +1,704 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_DIRECT_URL")
+}
+
+// ────────────────────────────
+// ENUMs
+// ────────────────────────────
+
+enum MemberStatus {
+  active
+  offstage
+  alumni
+  suspended
+}
+
+enum AttendanceStatus {
+  attending
+  absent
+  maybe
+  undecided
+}
+
+enum AccessLevel {
+  secret
+  restricted
+  public
+}
+
+enum FileType {
+  full_score
+  part_score
+  midi
+  audio
+  other
+}
+
+enum ConcertStatus {
+  draft
+  survey_open
+  confirmed
+  past
+}
+
+enum OnStageStatus {
+  on
+  off
+  undecided
+}
+
+enum OutreachStatus {
+  pending
+  paid
+}
+
+enum FeeType {
+  per_rehearsal
+  monthly
+}
+
+enum PaymentMethod {
+  cash
+  paypay
+  bank_transfer
+  other
+}
+
+enum CollectionPaymentStatus {
+  pending
+  paid
+  waived
+}
+
+// ────────────────────────────
+// Core Domain
+// ────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  nameJa       String   @map("name_ja")
+  nameEn       String?  @map("name_en")
+  nameKana     String?  @map("name_kana")
+  avatarUrl    String?  @map("avatar_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  members              Member[]
+  sessions             Session[]
+  passwordResetTokens  PasswordResetToken[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  token     String    @unique @default(cuid())
+  userId    String    @map("user_id")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model Organization {
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  partTemplate     Json     @map("part_template")
+  roleNames        Json?    @map("role_names")
+  monthlyOrganizer String?  @map("monthly_organizer")
+  feeType          FeeType  @default(per_rehearsal) @map("fee_type")
+  defaultFeeAmount Int?     @map("default_fee_amount")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  parts             Part[]
+  members           Member[]
+  events            Event[]
+  scores            Score[]
+  concerts          Concert[]
+  mailLogs          MailLog[]
+  mailTemplates     MailTemplate[]
+  inviteTokens      InviteToken[]
+  expenses          Expense[]
+  expenseCategories ExpenseCategory[]
+  memberTypes       MemberType[]
+  eventCategories   EventCategory[]
+  collections       Collection[]
+
+  @@map("organizations")
+}
+
+model Part {
+  id        String  @id @default(cuid())
+  orgId     String  @map("org_id")
+  name      String
+  voiceType String  @map("voice_type")
+  sortOrder Int     @map("sort_order")
+  isCustom  Boolean @default(false) @map("is_custom")
+
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  members Member[]
+
+  @@map("parts")
+}
+
+model Member {
+  id           String       @id @default(cuid())
+  userId       String       @map("user_id")
+  orgId        String       @map("org_id")
+  partId       String?      @map("part_id")
+  memberTypeId String?      @map("member_type_id")
+  roles        String[]     @default(["member"])
+  status       MemberStatus @default(active)
+  bio          String?
+  job          String?
+  interests    String?
+  originGroup  String?      @map("origin_group")
+  joinedAt     DateTime?    @db.Date @map("joined_at")
+  phone        String?
+  adminMemo    String?      @map("admin_memo")
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userRef    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  part       Part?        @relation(fields: [partId], references: [id])
+  memberType MemberType?  @relation(fields: [memberTypeId], references: [id])
+
+  attendances                  Attendance[]
+  surveyResponses              SurveyResponse[]
+  onStageAssignments           OnStageAssignment[]
+  ticketAllocations            TicketAllocation[]
+  mailLogs                     MailLog[]
+  mailTemplates                MailTemplate[]
+  scoreAccessLogs              ScoreAccessLog[]
+  scorePurchases               ScorePurchase[]
+  recordedPurchases            ScorePurchase[]       @relation("PurchaseRecorder")
+  expenses                     Expense[]
+  collections                  Collection[]
+  collectionPayments           CollectionPayment[]
+  recordedPayments             CollectionPayment[]   @relation("CollectionPaymentRecorder")
+  outreachActivitiesCreated    OutreachActivity[]    @relation("OutreachCreator")
+  outreachParticipations       OutreachParticipant[] @relation("OutreachParticipantMember")
+
+  @@unique([userId, orgId])
+  @@index([userId])
+  @@index([orgId])
+  @@index([orgId, partId])
+  @@map("members")
+}
+
+// ────────────────────────────
+// Schedule & Attendance
+// ────────────────────────────
+
+model EventCategory {
+  id        String   @id @default(cuid())
+  orgId     String   @map("org_id")
+  name      String
+  slug      String?
+  color     String   @default("#6B7280")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  events Event[]
+
+  @@unique([orgId, name])
+  @@unique([orgId, slug])
+  @@map("event_categories")
+}
+
+model Event {
+  id            String    @id @default(cuid())
+  orgId         String    @map("org_id")
+  title         String
+  categoryId    String    @map("category_id")
+  startsAt      DateTime  @map("starts_at")
+  endsAt        DateTime  @map("ends_at")
+  location      String?
+  locationUrl   String?   @map("location_url")
+  deadline      DateTime?
+  pageMemo      String?   @map("page_memo")
+  isLocked      Boolean   @default(false) @map("is_locked")
+  targetRoles   String[]  @default([]) @map("target_roles")
+  targetPartIds String[]  @default([]) @map("target_part_ids")
+  concertId     String?   @unique @map("concert_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  org         Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  category    EventCategory @relation(fields: [categoryId], references: [id])
+  attendances Attendance[]
+  expenses    Expense[]
+  collections Collection[]
+  concert     Concert?      @relation("EventConcert", fields: [concertId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, startsAt])
+  @@index([categoryId])
+  @@map("events")
+}
+
+model Attendance {
+  id         String           @id @default(cuid())
+  eventId    String           @map("event_id")
+  memberId   String           @map("member_id")
+  status     AttendanceStatus @default(undecided)
+  arriveTime String?          @map("arrive_time")
+  leaveTime  String?          @map("leave_time")
+  dayMemo    String?          @map("day_memo")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+
+  event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, memberId])
+  @@map("attendances")
+}
+
+// ────────────────────────────
+// Scores
+// ────────────────────────────
+
+model Score {
+  id                String      @id @default(cuid())
+  orgId             String      @map("org_id")
+  title             String
+  composer          String?
+  arranger          String?
+  isCommissioned    Boolean     @default(false) @map("is_commissioned")
+  accessLevel       AccessLevel @default(restricted) @map("access_level")
+  purchaseDate      DateTime?   @db.Date @map("purchase_date")
+  distributionStart DateTime?   @db.Date @map("distribution_start")
+  purchasePrice     Int?        @map("purchase_price")
+  distributionPrice Int?        @map("distribution_price")
+  notes             String?
+  createdAt         DateTime    @default(now()) @map("created_at")
+
+  org             Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  files           ScoreFile[]
+  scoreAccessLogs ScoreAccessLog[]
+  programs        Program[]
+  purchases       ScorePurchase[]
+
+  @@index([orgId, accessLevel])
+  @@map("scores")
+}
+
+model ScoreFile {
+  id          String       @id @default(cuid())
+  scoreId     String       @map("score_id")
+  fileType    FileType     @map("file_type")
+  partId      String?      @map("part_id")
+  storageKey  String       @map("storage_key")
+  fileName    String       @map("file_name")
+  accessLevel AccessLevel? @map("access_level")
+  version     Int          @default(1)
+  uploadedBy  String       @map("uploaded_by")
+  uploadedAt  DateTime     @default(now()) @map("uploaded_at")
+
+  score Score @relation(fields: [scoreId], references: [id], onDelete: Cascade)
+
+  @@index([scoreId])
+  @@map("score_files")
+}
+
+model ScoreAccessLog {
+  id        String   @id @default(cuid())
+  scoreId   String   @map("score_id")
+  memberId  String   @map("member_id")
+  action    String
+  fileId    String?  @map("file_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  score  Score  @relation(fields: [scoreId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([scoreId, createdAt])
+  @@map("score_access_logs")
+}
+
+// ────────────────────────────
+// Concerts
+// ────────────────────────────
+
+model Concert {
+  id                     String        @id @default(cuid())
+  orgId                  String        @map("org_id")
+  title                  String
+  heldOn                 DateTime      @map("held_on")
+  venue                  String?
+  status                 ConcertStatus @default(draft)
+  racePublishedAt        DateTime?     @map("race_published_at")
+  ticketInputClosedAt    DateTime?     @map("ticket_input_closed_at")
+  outreachExpensePerTrip Int?          @map("outreach_expense_per_trip")
+  createdAt              DateTime      @default(now()) @map("created_at")
+
+  org                Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  stages              Stage[]
+  onStageAssignments  OnStageAssignment[]
+  concertSurveys      ConcertSurvey[]
+  ticketBatches       TicketBatch[]
+  outreachActivities  OutreachActivity[]
+  linkedEvent         Event?              @relation("EventConcert")
+
+  @@index([orgId, heldOn])
+  @@map("concerts")
+}
+
+model Stage {
+  id        String @id @default(cuid())
+  concertId String @map("concert_id")
+  name      String
+  sortOrder Int    @map("sort_order")
+
+  concert         Concert          @relation(fields: [concertId], references: [id], onDelete: Cascade)
+  programs        Program[]
+  surveyResponses SurveyResponse[]
+
+  @@map("stages")
+}
+
+model Program {
+  id        String  @id @default(cuid())
+  stageId   String  @map("stage_id")
+  scoreId   String? @map("score_id")
+  title     String
+  sortOrder Int     @map("sort_order")
+
+  stage              Stage               @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  score              Score?              @relation(fields: [scoreId], references: [id])
+  onStageAssignments OnStageAssignment[]
+
+  @@index([stageId, sortOrder])
+  @@map("programs")
+}
+
+model ConcertSurvey {
+  id        String    @id @default(cuid())
+  concertId String    @map("concert_id")
+  title     String
+  openAt    DateTime  @map("open_at")
+  closeAt   DateTime? @map("close_at")
+  isOpen    Boolean   @default(true) @map("is_open")
+
+  concert         Concert          @relation(fields: [concertId], references: [id], onDelete: Cascade)
+  surveyResponses SurveyResponse[]
+
+  @@map("concert_surveys")
+}
+
+model SurveyResponse {
+  id       String           @id @default(cuid())
+  surveyId String           @map("survey_id")
+  memberId String           @map("member_id")
+  stageId  String           @map("stage_id")
+  status   AttendanceStatus @default(undecided)
+  memo     String?
+
+  survey ConcertSurvey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  member Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  stage  Stage         @relation(fields: [stageId], references: [id], onDelete: Cascade)
+
+  @@unique([surveyId, memberId, stageId])
+  @@map("survey_responses")
+}
+
+model OnStageAssignment {
+  id        String        @id @default(cuid())
+  concertId String        @map("concert_id")
+  memberId  String        @map("member_id")
+  programId String?       @map("program_id")
+  status    OnStageStatus @default(undecided)
+  sortOrder Int?          @map("sort_order")
+
+  concert Concert  @relation(fields: [concertId], references: [id], onDelete: Cascade)
+  member  Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  program Program? @relation(fields: [programId], references: [id])
+
+  @@unique([concertId, memberId, programId])
+  @@map("on_stage_assignments")
+}
+
+// ────────────────────────────
+// Outreach Activities（情宣活動）
+// ────────────────────────────
+
+model OutreachActivity {
+  id           String         @id @default(cuid())
+  concertId    String         @map("concert_id")
+  destination  String
+  activityDate DateTime       @db.Date @map("activity_date")
+  note         String?
+  status       OutreachStatus @default(pending)
+  paidAt       DateTime?      @map("paid_at")
+  createdById  String         @map("created_by_id")
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  concert      Concert               @relation(fields: [concertId], references: [id], onDelete: Cascade)
+  creator      Member                @relation("OutreachCreator", fields: [createdById], references: [id])
+  participants OutreachParticipant[]
+
+  @@index([concertId])
+  @@map("outreach_activities")
+}
+
+model OutreachParticipant {
+  id          String @id @default(cuid())
+  activityId  String @map("activity_id")
+  memberId    String @map("member_id")
+  ticketsSold Int    @default(0) @map("tickets_sold")
+  expense     Int?
+
+  activity OutreachActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  member   Member           @relation("OutreachParticipantMember", fields: [memberId], references: [id])
+
+  @@unique([activityId, memberId])
+  @@map("outreach_participants")
+}
+
+// ────────────────────────────
+// Mailing
+// ────────────────────────────
+
+model MailTemplate {
+  id          String   @id @default(cuid())
+  orgId       String   @map("org_id")
+  createdById String   @map("created_by_id")
+  name        String
+  subject     String
+  body        String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  creator Member       @relation(fields: [createdById], references: [id])
+
+  @@index([orgId])
+  @@map("mail_templates")
+}
+
+model MailLog {
+  id                 String   @id @default(cuid())
+  orgId              String   @map("org_id")
+  sentById           String   @map("sent_by_id")
+  sentAt             DateTime @default(now()) @map("sent_at")
+  subject            String   @default("")
+  bodyPreview        String   @default("") @map("body_preview")
+  resendIds          String[] @default([]) @map("resend_ids")
+  recipientMemberIds String[] @default([]) @map("recipient_member_ids")
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  sentBy Member       @relation(fields: [sentById], references: [id])
+
+  @@index([orgId, sentAt])
+  @@map("mail_logs")
+}
+
+// ────────────────────────────
+// Tickets
+// ────────────────────────────
+
+model TicketBatch {
+  id              String    @id @default(cuid())
+  concertId       String    @map("concert_id")
+  name            String
+  price           Int
+  priceStudent    Int?      @map("price_student")
+  totalCount      Int       @map("total_count")
+  saleStart       DateTime? @map("sale_start")
+  saleEnd         DateTime? @map("sale_end")
+  racePublishedAt DateTime? @map("race_published_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  concert     Concert            @relation(fields: [concertId], references: [id], onDelete: Cascade)
+  allocations TicketAllocation[]
+
+  @@map("ticket_batches")
+}
+
+model TicketAllocation {
+  id                    String    @id @default(cuid())
+  batchId               String    @map("batch_id")
+  memberId              String    @map("member_id")
+  allocatedCount        Int       @default(0) @map("allocated_count")
+  requestedCount        Int?      @map("requested_count")
+  soldAdult             Int       @default(0) @map("sold_adult")
+  soldStudent           Int       @default(0) @map("sold_student")
+  soldOther             Int       @default(0) @map("sold_other")
+  returnedCount         Int       @default(0) @map("returned_count")
+  outreachCount         Int       @default(0) @map("outreach_count")
+  isOutreachExpensePaid Boolean   @default(false) @map("is_outreach_expense_paid")
+  outreachExpensePaidAt DateTime? @map("outreach_expense_paid_at")
+  isCollected           Boolean   @default(false) @map("is_collected")
+  reportedAt            DateTime? @map("reported_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+
+  batch  TicketBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  member Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, memberId])
+  @@map("ticket_allocations")
+}
+
+// ────────────────────────────
+// Invite Tokens
+// ────────────────────────────
+
+model InviteToken {
+  id        String    @id @default(cuid())
+  token     String    @unique @default(cuid())
+  email     String
+  nameJa    String?   @map("name_ja")
+  orgId     String    @map("org_id")
+  roles     String[]
+  partId    String?   @map("part_id")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("invite_tokens")
+}
+
+// ────────────────────────────
+// Finance（会計・費用管理）
+// ────────────────────────────
+
+model ExpenseCategory {
+  id        String   @id @default(cuid())
+  orgId     String   @map("org_id")
+  name      String
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+
+  @@unique([orgId, name])
+  @@map("expense_categories")
+}
+
+model MemberType {
+  id               String   @id @default(cuid())
+  orgId            String   @map("org_id")
+  name             String
+  defaultFeeAmount Int?     @map("default_fee_amount")
+  sortOrder        Int      @default(0) @map("sort_order")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  members Member[]
+
+  @@unique([orgId, name])
+  @@map("member_types")
+}
+
+model Expense {
+  id            String         @id @default(cuid())
+  orgId         String         @map("org_id")
+  categoryId    String         @map("category_id")
+  title         String
+  amount        Int
+  paymentMethod PaymentMethod? @map("payment_method")
+  paidAt        DateTime?      @db.Date @map("paid_at")
+  eventId       String?        @map("event_id")
+  note          String?
+  recordedById  String         @map("recorded_by_id")
+  createdAt     DateTime       @default(now()) @map("created_at")
+
+  org      Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  category ExpenseCategory @relation(fields: [categoryId], references: [id])
+  event    Event?          @relation(fields: [eventId], references: [id])
+  recorder Member          @relation(fields: [recordedById], references: [id])
+
+  @@index([orgId, paidAt])
+  @@map("expenses")
+}
+
+model Collection {
+  id          String    @id @default(cuid())
+  orgId       String    @map("org_id")
+  title       String
+  amount      Int
+  dueDate     DateTime? @db.Date @map("due_date")
+  eventId     String?   @map("event_id")
+  yearMonth   String?   @map("year_month")
+  note        String?
+  createdById String    @map("created_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  org      Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  event    Event?              @relation(fields: [eventId], references: [id])
+  creator  Member              @relation(fields: [createdById], references: [id])
+  payments CollectionPayment[]
+
+  @@index([orgId])
+  @@index([orgId, yearMonth])
+  @@map("collections")
+}
+
+model CollectionPayment {
+  id           String                  @id @default(cuid())
+  collectionId String                  @map("collection_id")
+  memberId     String                  @map("member_id")
+  status       CollectionPaymentStatus @default(pending)
+  amount       Int?
+  paidAt       DateTime?               @db.Date @map("paid_at")
+  method       PaymentMethod?
+  note         String?
+  recordedById String?                 @map("recorded_by_id")
+  createdAt    DateTime                @default(now()) @map("created_at")
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  member     Member     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  recorder   Member?    @relation("CollectionPaymentRecorder", fields: [recordedById], references: [id])
+
+  @@unique([collectionId, memberId])
+  @@index([collectionId])
+  @@map("collection_payments")
+}
+
+// ────────────────────────────
+// Score Purchases（楽譜購入記録）
+// ────────────────────────────
+
+model ScorePurchase {
+  id           String    @id @default(cuid())
+  scoreId      String    @map("score_id")
+  memberId     String    @map("member_id")
+  amount       Int?
+  purchasedAt  DateTime? @db.Date @map("purchased_at")
+  note         String?
+  recordedById String    @map("recorded_by_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  score    Score  @relation(fields: [scoreId], references: [id], onDelete: Cascade)
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  recorder Member @relation("PurchaseRecorder", fields: [recordedById], references: [id])
+
+  @@unique([scoreId, memberId])
+  @@index([scoreId])
+  @@map("score_purchases")
+}

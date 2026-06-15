@@ -94,7 +94,7 @@
 
 Next.js の App Router に UI とバックエンドを統合しています。API エンドポイントは Route Handlers として `app/api/` 配下に実装し、フロントエンドの Server Components・Client Components と同一デプロイ単位で動作します。
 
-```
+```text
 choirhub/
 ├── apps/
 │   └── web/
@@ -117,7 +117,7 @@ choirhub/
 
 ### 通信フロー
 
-```
+```text
 ブラウザ
   ↓ fetch("/api/...")
 Next.js (Vercel)
@@ -189,7 +189,7 @@ Next.js (Vercel)
 
 ### データ階層
 
-```
+```text
 Organization（団体）
   ├── Member（団員）  ← User（ユーザーアカウント）
   ├── Part（パート）
@@ -252,7 +252,7 @@ erDiagram
 
 ```bash
 # 1. リポジトリのクローン
-git clone https://github.com/Genky1019/choirhub.git
+git clone https://github.com/Genki1019/choirhub.git
 cd choirhub
 
 # 2. 依存パッケージのインストール

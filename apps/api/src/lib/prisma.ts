@@ -2,7 +2,8 @@ import { PrismaClient } from "../generated/prisma/index.js";
 import { PrismaNeonHTTP } from "@prisma/adapter-neon";
 
 function createPrismaClient() {
-  const adapter = new PrismaNeonHTTP(process.env.DATABASE_URL!, {});
+  const connectionString = process.env.DATABASE_DIRECT_URL ?? process.env.DATABASE_URL!;
+  const adapter = new PrismaNeonHTTP(connectionString, {});
   return new PrismaClient({ adapter });
 }
 

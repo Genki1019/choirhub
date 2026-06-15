@@ -15,21 +15,33 @@ const RESET_WINDOW_S = 900;
 
 export async function checkLoginRateLimit(ip: string): Promise<boolean> {
   if (!redis) return true;
-  const key = `rl:login:${ip}`;
-  const count = await redis.incr(key);
-  if (count === 1) await redis.expire(key, LOGIN_WINDOW_S);
-  return count <= LOGIN_MAX;
+  try {
+    const key = `rl:login:${ip}`;
+    const count = await redis.incr(key);
+    if (count === 1) await redis.expire(key, LOGIN_WINDOW_S);
+    return count <= LOGIN_MAX;
+  } catch {
+    return true;
+  }
 }
 
 export async function clearLoginRateLimit(ip: string): Promise<void> {
   if (!redis) return;
-  await redis.del(`rl:login:${ip}`);
+  try {
+    await redis.del(`rl:login:${ip}`);
+  } catch {
+    // ignore
+  }
 }
 
 export async function checkResetRateLimit(ip: string): Promise<boolean> {
   if (!redis) return true;
-  const key = `rl:reset:${ip}`;
-  const count = await redis.incr(key);
-  if (count === 1) await redis.expire(key, RESET_WINDOW_S);
-  return count <= RESET_MAX;
+  try {
+    const key = `rl:reset:${ip}`;
+    const count = await redis.incr(key);
+    if (count === 1) await redis.expire(key, RESET_WINDOW_S);
+    return count <= RESET_MAX;
+  } catch {
+    return true;
+  }
 }

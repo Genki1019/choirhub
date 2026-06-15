@@ -52,6 +52,8 @@ app.route("/api/v1", v1);
 
 app.get("/health", (c) => c.json({ ok: true }));
 
+app.post("/debug/post-ping", (c) => c.json({ ok: true, method: "POST" }));
+
 app.get("/debug/db", async (c) => {
   const steps: string[] = [];
   try {

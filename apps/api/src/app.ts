@@ -13,6 +13,7 @@ import { settingsRouter } from "./routes/settings.js";
 import { homeRouter } from "./routes/home.js";
 import { accountingRouter } from "./routes/accounting.js";
 import { outreachRouter } from "./routes/outreach.js";
+import { storage } from "./services/storage.js";
 
 const app = new Hono();
 
@@ -47,6 +48,19 @@ v1.route("/:orgSlug", settingsRouter);
 v1.route("/:orgSlug", homeRouter);
 v1.route("/:orgSlug", accountingRouter);
 v1.route("/:orgSlug", outreachRouter);
+
+// アバター画像配信 (認証不要: プロフィール画像は公開情報)
+// /:orgSlug/* ミドルウェアを通さないよう v1.route より先に登録
+app.get("/api/v1/files/avatar", async (c) => {
+  const key = c.req.query("k");
+  if (!key || !key.startsWith("avatars/")) {
+    return c.json({ error: { code: "BAD_REQUEST", message: "無効なキーです" } }, 400);
+  }
+  const result = await storage.serveAvatar(key);
+  if (result.type === "notfound") return c.json({ error: { code: "NOT_FOUND", message: "画像が見つかりません" } }, 404);
+  if (result.type === "redirect") return c.redirect(result.url, 302);
+  return new Response(result.data, { headers: { "Content-Type": result.contentType } });
+});
 
 app.route("/api/v1", v1);
 

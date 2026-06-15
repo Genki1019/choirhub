@@ -74,7 +74,36 @@ export const storage = {
     if (!keyOrUrl) return null;
     const key = normalizeKey(keyOrUrl);
     const cfg = getR2Config();
-    return cfg?.publicUrl ? `${cfg.publicUrl}/${key}` : `/uploads/${key}`;
+    // R2_PUBLIC_URL が設定されていれば直接 CDN URL を返す
+    if (cfg?.publicUrl) return `${cfg.publicUrl}/${key}`;
+    // 未設定時は API 経由でプレサインド URL リダイレクト
+    if (cfg) return `/api/v1/files/avatar?k=${encodeURIComponent(key)}`;
+    // ローカル開発: /uploads/ 経由
+    return `/uploads/${key}`;
+  },
+
+  /** アバター画像を配信する（R2: presigned redirect / ローカル: Buffer 返却） */
+  async serveAvatar(key: string): Promise<
+    | { type: "redirect"; url: string }
+    | { type: "buffer"; data: Buffer; contentType: string }
+    | { type: "notfound" }
+  > {
+    const cfg = getR2Config();
+    if (cfg) {
+      const url = await getSignedUrl(
+        getS3(cfg),
+        new GetObjectCommand({ Bucket: cfg.bucket, Key: key }),
+        { expiresIn: 3600 },
+      );
+      return { type: "redirect", url };
+    }
+    try {
+      const data = await readFile(localPath(key));
+      const contentType = CONTENT_TYPES[extname(key).toLowerCase()] ?? "image/jpeg";
+      return { type: "buffer", data, contentType };
+    } catch {
+      return { type: "notfound" };
+    }
   },
 
   async upload(key: string, buffer: Buffer, contentType: string): Promise<void> {

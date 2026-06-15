@@ -8,6 +8,7 @@ import { prisma } from "../lib/prisma.js";
 import { sessionManager } from "../lib/session.js";
 import { checkLoginRateLimit, clearLoginRateLimit, checkResetRateLimit } from "../lib/redis.js";
 import { sendPasswordResetEmail } from "../services/mail.js";
+import { storage } from "../services/storage.js";
 import { logger } from "../lib/logger.js";
 
 const ARGON2_OPTIONS = {
@@ -108,7 +109,7 @@ export const authRouter = new Hono()
 
       return c.json({
         data: {
-          user: { id: user.id, nameJa: user.nameJa, email: user.email, avatarUrl: user.avatarUrl },
+          user: { id: user.id, nameJa: user.nameJa, email: user.email, avatarUrl: storage.resolveAvatarUrl(user.avatarUrl) },
           orgs: memberships.map((m) => ({
             orgSlug: m.org.slug,
             orgName: m.org.name,
@@ -225,7 +226,7 @@ export const authRouter = new Hono()
 
     return c.json({
       data: {
-        user: { id: user.id, nameJa: user.nameJa, email: user.email, avatarUrl: user.avatarUrl },
+        user: { id: user.id, nameJa: user.nameJa, email: user.email, avatarUrl: storage.resolveAvatarUrl(user.avatarUrl) },
         orgs: memberships.map((m) => ({
           orgSlug: m.org.slug,
           orgName: m.org.name,

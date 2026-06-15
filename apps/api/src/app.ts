@@ -74,4 +74,22 @@ app.get("/debug/db", async (c) => {
   }
 });
 
+app.get("/debug/prisma", async (c) => {
+  const steps: string[] = [];
+  try {
+    steps.push("start");
+    const { prisma } = await import("./lib/prisma.js");
+    steps.push("prisma_imported");
+    const result = await Promise.race([
+      prisma.user.findMany({ take: 1, select: { id: true } }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("timeout_10s")), 10000)),
+    ]);
+    steps.push("query_done");
+    return c.json({ ok: true, steps, count: (result as unknown[]).length });
+  } catch (e: unknown) {
+    steps.push(`error:${(e as Error).message?.slice(0, 200)}`);
+    return c.json({ ok: false, steps }, 500);
+  }
+});
+
 export { app };

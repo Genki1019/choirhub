@@ -11,10 +11,10 @@ import { sendPasswordResetEmail } from "../services/mail.js";
 import { logger } from "../lib/logger.js";
 
 const ARGON2_OPTIONS = {
-  type: 2,           // Argon2id
-  memoryCost: 65536, // 64 MiB (OWASP recommended)
-  timeCost: 3,
-  parallelism: 4,
+  type: 2,       // Argon2id
+  memoryCost: 19456, // 19 MiB (OWASP minimum — serverless 環境でのタイムアウト対策)
+  timeCost: 2,
+  parallelism: 1,
 } as const;
 
 async function hashPassword(password: string): Promise<string> {
@@ -73,7 +73,7 @@ export const authRouter = new Hono()
       // ユーザーが存在しない場合でも argon2id の full computation を実行し
       // タイミング攻撃によるメールアドレス存在確認を防ぐ。
       // ダミーハッシュは base64url として有効なフォーマット（16 byte salt / 32 byte hash）
-      const DUMMY_HASH = "$argon2id$v=19$m=65536,t=3,p=4$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+      const DUMMY_HASH = "$argon2id$v=19$m=19456,t=2,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
       const storedHash = user?.passwordHash ?? DUMMY_HASH;
       const passwordOk = await verifyPassword(password, storedHash);
       if (!user || !passwordOk) {

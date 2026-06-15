@@ -91,7 +91,7 @@ export default function LoginPage() {
           </button>
 
           <p className="text-center text-xs text-gray-400">
-            <Link href="/password-reset" className="text-blue-500 hover:underline">
+            <Link href="/password-reset" prefetch={false} className="text-blue-500 hover:underline">
               パスワードをお忘れですか？
             </Link>
           </p>

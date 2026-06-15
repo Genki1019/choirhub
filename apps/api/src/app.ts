@@ -64,6 +64,6 @@ app.get("/api/v1/files/avatar", async (c) => {
 
 app.route("/api/v1", v1);
 
-app.get("/health", (c) => c.json({ ok: true }));
+app.get("/health", (c) => c.json({ ok: true, v: "90a7df6" }));
 
 export { app };

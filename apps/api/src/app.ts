@@ -74,6 +74,49 @@ app.get("/debug/db", async (c) => {
   }
 });
 
+app.post("/debug/login-trace", async (c) => {
+  const steps: string[] = [];
+  const t = () => Date.now();
+  const race = <T>(p: Promise<T>, label: string, ms = 10000): Promise<T> =>
+    Promise.race([p, new Promise<T>((_, r) => setTimeout(() => r(new Error(`timeout:${label}`)), ms))]);
+
+  try {
+    const { email, password } = await c.req.json<{ email: string; password: string }>();
+    steps.push("json_parsed");
+
+    const { prisma } = await import("./lib/prisma.js");
+    const t1 = t();
+    const user = await race(prisma.user.findUnique({ where: { email } }), "findUnique");
+    steps.push(`findUnique_ms:${t() - t1}:found=${!!user}`);
+
+    const DUMMY = "$argon2id$v=19$m=19456,t=2,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    const stored = (user as { passwordHash: string } | null)?.passwordHash ?? DUMMY;
+    steps.push(`hash_type:${stored.startsWith("$argon2") ? "argon2" : stored.length === 64 ? "sha256" : "unknown"}`);
+
+    const { verify } = await import("argon2");
+    const t2 = t();
+    const ok = await race(verify(stored, password), "argon2_verify", 15000);
+    steps.push(`verify_ms:${t() - t2}:ok=${ok}`);
+
+    if (user && ok) {
+      const sessionData = { id: crypto.randomUUID(), userId: (user as { id: string }).id, expiresAt: new Date(Date.now() + 86400000) };
+      const t3 = t();
+      await race(prisma.session.create({ data: sessionData }), "session_create");
+      steps.push(`session_create_ms:${t() - t3}`);
+
+      const t4 = t();
+      await race(prisma.member.findMany({ where: { userId: (user as { id: string }).id }, take: 5 }), "member_findMany");
+      steps.push(`member_findMany_ms:${t() - t4}`);
+    }
+
+    steps.push("done");
+    return c.json({ ok: true, steps });
+  } catch (e: unknown) {
+    steps.push(`ERROR:${(e as Error).message?.slice(0, 200)}`);
+    return c.json({ ok: false, steps }, 500);
+  }
+});
+
 app.get("/debug/argon2", async (c) => {
   const steps: string[] = [];
   try {

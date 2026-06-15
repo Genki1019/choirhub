@@ -74,6 +74,26 @@ app.get("/debug/db", async (c) => {
   }
 });
 
+app.get("/debug/argon2", async (c) => {
+  const steps: string[] = [];
+  try {
+    steps.push("start");
+    const { verify } = await import("argon2");
+    steps.push("argon2_imported");
+    const DUMMY_HASH = "$argon2id$v=19$m=19456,t=2,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    const t0 = Date.now();
+    await Promise.race([
+      verify(DUMMY_HASH, "testpassword"),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("timeout_15s")), 15000)),
+    ]);
+    steps.push(`verify_done_ms:${Date.now() - t0}`);
+    return c.json({ ok: true, steps });
+  } catch (e: unknown) {
+    steps.push(`error:${(e as Error).message?.slice(0, 200)}`);
+    return c.json({ ok: false, steps }, 500);
+  }
+});
+
 app.get("/debug/prisma", async (c) => {
   const steps: string[] = [];
   try {

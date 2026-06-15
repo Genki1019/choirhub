@@ -52,4 +52,26 @@ app.route("/api/v1", v1);
 
 app.get("/health", (c) => c.json({ ok: true }));
 
+app.get("/debug/db", async (c) => {
+  const steps: string[] = [];
+  try {
+    steps.push("start");
+    const { neon } = await import("@neondatabase/serverless");
+    steps.push("neon_imported");
+    const dbUrl = process.env.DATABASE_DIRECT_URL ?? process.env.DATABASE_URL ?? "not_set";
+    steps.push(`url_prefix:${dbUrl.slice(0, 30)}`);
+    const sql = neon(dbUrl);
+    steps.push("neon_created");
+    const result = await Promise.race([
+      sql`SELECT 1 as ok`,
+      new Promise((_, reject) => setTimeout(() => reject(new Error("timeout_10s")), 10000)),
+    ]);
+    steps.push("query_done");
+    return c.json({ ok: true, steps, result });
+  } catch (e: unknown) {
+    steps.push(`error:${(e as Error).message?.slice(0, 100)}`);
+    return c.json({ ok: false, steps }, 500);
+  }
+});
+
 export { app };

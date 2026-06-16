@@ -348,14 +348,25 @@ export const authRouter = new Hono()
         data: { name, slug, partTemplate: {} },
       });
 
-      await prisma.eventCategory.createMany({
-        data: [
-          { orgId: org.id, name: "練習",   slug: "rehearsal", color: "#3B82F6", sortOrder: 1 },
-          { orgId: org.id, name: "本番",   slug: "concert",   color: "#EF4444", sortOrder: 2 },
-          { orgId: org.id, name: "会議",   slug: "meeting",   color: "#F59E0B", sortOrder: 3 },
-          { orgId: org.id, name: "その他", slug: "other",     color: "#6B7280", sortOrder: 4 },
-        ],
-      });
+      const defaultCategories = [
+        { orgId: org.id, name: "練習",   slug: "rehearsal", color: "#3B82F6", sortOrder: 1 },
+        { orgId: org.id, name: "本番",   slug: "concert",   color: "#EF4444", sortOrder: 2 },
+        { orgId: org.id, name: "会議",   slug: "meeting",   color: "#F59E0B", sortOrder: 3 },
+        { orgId: org.id, name: "その他", slug: "other",     color: "#6B7280", sortOrder: 4 },
+      ];
+      for (const cat of defaultCategories) {
+        await prisma.eventCategory.create({ data: cat });
+      }
+
+      const defaultParts = [
+        { orgId: org.id, name: "テナー I",  voiceType: "tenor-1",  sortOrder: 1, isCustom: false },
+        { orgId: org.id, name: "テナー II", voiceType: "tenor-2",  sortOrder: 2, isCustom: false },
+        { orgId: org.id, name: "バリトン",  voiceType: "baritone", sortOrder: 3, isCustom: false },
+        { orgId: org.id, name: "バス",      voiceType: "bass",     sortOrder: 4, isCustom: false },
+      ];
+      for (const part of defaultParts) {
+        await prisma.part.create({ data: part });
+      }
 
       await prisma.member.create({
         data: { userId: user.id, orgId: org.id, roles: ["admin"], joinedAt: new Date() },

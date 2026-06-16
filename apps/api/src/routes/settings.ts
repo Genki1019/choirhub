@@ -156,6 +156,10 @@ export const settingsRouter = new Hono<TenantEnv>()
       return c.json({ error: { code: "NOT_FOUND", message: "パートが見つかりません" } }, 404);
     }
 
+    if (!target.isCustom) {
+      return c.json({ error: { code: "CONFLICT", message: "デフォルトパートは削除できません" } }, 409);
+    }
+
     const activeCount = await prisma.member.count({
       where: { partId, orgId: org.id, status: "active" },
     });

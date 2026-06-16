@@ -63,8 +63,8 @@ export const homeRouter = new Hono<TenantEnv>()
     });
 
     const upcomingEvents   = visibleEvents.slice(0, 3).map(mapEvent);
-    const nextRehearsalRaw = visibleEvents.find((e) => e.category.slug === "rehearsal");
-    const nextConcertRaw   = visibleEvents.find((e) => e.category.slug === "concert");
+    const nextRehearsalRaw = visibleEvents.find((e) => e.category.slug === "rehearsal" || e.category.name === "練習");
+    const nextConcertRaw   = visibleEvents.find((e) => e.category.slug === "concert"   || e.category.name === "本番");
 
     const canViewTickets = isTicketManager(member);
 

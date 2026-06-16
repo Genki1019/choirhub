@@ -342,7 +342,146 @@ export const scoresRouter = new Hono<TenantEnv>()
     }
   )
 
-  // ── POST /scores/:scoreId/files ── ファイルアップロード（admin/tech/score）
+  // ── POST /scores/:scoreId/files/presign ── R2プレサインドPUT URL発行
+  .post(
+    "/scores/:scoreId/files/presign",
+    zValidator("json", z.object({
+      fileType:    z.enum(SCORE_FILE_TYPES),
+      fileName:    z.string().min(1),
+      partId:      z.string().nullable().optional(),
+      contentType: z.string().min(1),
+    }), (r, c) => {
+      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+    }),
+    async (c) => {
+      const actingMember = c.get("member");
+      const org = c.get("org");
+      const { scoreId } = c.req.param();
+
+      const score = await prisma.score.findUnique({ where: { id: scoreId } });
+      if (!score || score.orgId !== org.id) {
+        return c.json({ error: { code: "NOT_FOUND", message: "楽譜が見つかりません" } }, 404);
+      }
+
+      const { fileType, fileName, partId, contentType } = c.req.valid("json");
+
+      if (fileType === "midi") {
+        if (!canManageScoreMidi(actingMember.roles)) {
+          return c.json({ error: { code: "FORBIDDEN", message: "MIDIファイルの管理には管理者または技術系の権限が必要です" } }, 403);
+        }
+      } else {
+        if (!canManageScorePdf(actingMember.roles)) {
+          return c.json({ error: { code: "FORBIDDEN", message: "楽譜ファイルの管理には管理者または楽譜がかりの権限が必要です" } }, 403);
+        }
+      }
+
+      if (partId) {
+        const part = await prisma.part.findUnique({ where: { id: partId } });
+        if (!part || part.orgId !== org.id) {
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "パートが見つかりません" } }, 400);
+        }
+      }
+
+      const ext = extname(fileName).toLowerCase();
+      if (fileType === "full_score" && ext !== ".pdf") {
+        return c.json({ error: { code: "VALIDATION_ERROR", message: "楽譜ファイルはPDF形式でアップロードしてください" } }, 400);
+      }
+      if (fileType === "midi" && ![".mid", ".midi", ".mp3"].includes(ext)) {
+        return c.json({ error: { code: "VALIDATION_ERROR", message: "MIDIは .mid / .midi / .mp3 形式でアップロードしてください" } }, 400);
+      }
+      if (fileType === "other" && ![".pdf", ".mp3", ".wav"].includes(ext)) {
+        return c.json({ error: { code: "VALIDATION_ERROR", message: "その他ファイルは .pdf / .mp3 / .wav 形式でアップロードしてください" } }, 400);
+      }
+
+      if (fileType === "full_score") {
+        const existing = await prisma.scoreFile.findFirst({ where: { scoreId, fileType: "full_score" } });
+        if (existing) {
+          return c.json({ error: { code: "CONFLICT", message: "楽譜PDFはすでに登録されています。差し替えるには既存ファイルを削除してから追加してください" } }, 409);
+        }
+      }
+
+      const key = `scores/${randomUUID()}${ext}`;
+      const presignedUrl = await storage.getPresignedPutUrl(key, contentType);
+
+      return c.json({ data: { presignedUrl, key } });
+    }
+  )
+
+  // ── POST /scores/:scoreId/files/confirm ── R2アップロード後のDB登録
+  .post(
+    "/scores/:scoreId/files/confirm",
+    zValidator("json", z.object({
+      key:      z.string().regex(/^scores\/[0-9a-f-]+\.[a-z0-9]+$/i),
+      fileType: z.enum(SCORE_FILE_TYPES),
+      fileName: z.string().min(1),
+      partId:   z.string().nullable().optional(),
+    }), (r, c) => {
+      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+    }),
+    async (c) => {
+      const actingMember = c.get("member");
+      const org = c.get("org");
+      const { scoreId } = c.req.param();
+
+      const score = await prisma.score.findUnique({ where: { id: scoreId } });
+      if (!score || score.orgId !== org.id) {
+        return c.json({ error: { code: "NOT_FOUND", message: "楽譜が見つかりません" } }, 404);
+      }
+
+      const { key, fileType, fileName, partId } = c.req.valid("json");
+      const resolvedPartId = partId ?? null;
+
+      if (fileType === "midi") {
+        if (!canManageScoreMidi(actingMember.roles)) {
+          return c.json({ error: { code: "FORBIDDEN", message: "権限がありません" } }, 403);
+        }
+      } else {
+        if (!canManageScorePdf(actingMember.roles)) {
+          return c.json({ error: { code: "FORBIDDEN", message: "権限がありません" } }, 403);
+        }
+      }
+
+      const ext = extname(key).toLowerCase();
+      const maxVer = await prisma.scoreFile.aggregate({
+        where: { scoreId, fileType: fileType as ScoreFileType, partId: resolvedPartId },
+        _max: { version: true },
+      });
+      const version = (maxVer._max.version ?? 0) + 1;
+
+      let created: Awaited<ReturnType<typeof prisma.scoreFile.create>>;
+      try {
+        created = await prisma.$transaction(async (tx) => {
+          if (fileType === "full_score") {
+            const conflict = await tx.scoreFile.findFirst({ where: { scoreId, fileType: "full_score" } });
+            if (conflict) throw new Error("CONFLICT");
+          }
+          return tx.scoreFile.create({
+            data: { scoreId, fileType: fileType as ScoreFileType, partId: resolvedPartId, storageKey: key, fileName, version, uploadedBy: actingMember.id },
+          });
+        });
+      } catch (err) {
+        if (err instanceof Error && err.message === "CONFLICT") {
+          await storage.delete(key);
+          return c.json({ error: { code: "CONFLICT", message: "楽譜PDFはすでに登録されています" } }, 409);
+        }
+        throw err;
+      }
+
+      const partName = resolvedPartId
+        ? (await prisma.part.findUnique({ where: { id: resolvedPartId }, select: { name: true } }))?.name ?? null
+        : null;
+
+      return c.json({
+        data: {
+          id: created.id, fileType: created.fileType, fileName: created.fileName,
+          partId: created.partId, partName, version: created.version,
+          downloadUrl: `/api/v1/${org.slug}/scores/${scoreId}/files/${created.id}/download`,
+        },
+      }, 201);
+    }
+  )
+
+  // ── POST /scores/:scoreId/files ── ファイルアップロード（ローカル開発用・R2未設定時のフォールバック）
   .post("/scores/:scoreId/files", async (c) => {
     const actingMember = c.get("member");
     const org = c.get("org");

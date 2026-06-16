@@ -136,6 +136,20 @@ export const storage = {
   },
 
   /**
+   * R2 プレサインド PUT URL を発行（ブラウザ直接アップロード用）。
+   * R2 が未設定のローカル環境では null を返す。
+   */
+  async getPresignedPutUrl(key: string, contentType: string): Promise<string | null> {
+    const cfg = getR2Config();
+    if (!cfg) return null;
+    return getSignedUrl(
+      getS3(cfg),
+      new PutObjectCommand({ Bucket: cfg.bucket, Key: key, ContentType: contentType }),
+      { expiresIn: 300 },
+    );
+  },
+
+  /**
    * スコアファイルのダウンロード。
    * - ローカル: ファイルを読み込んでバッファを返す
    * - R2: Presigned URL（5分有効）へのリダイレクトを返す

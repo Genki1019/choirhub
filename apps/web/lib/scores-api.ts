@@ -96,6 +96,42 @@ export const scoresApi = {
     apiClient.patch<{ id: string; distributionPrice: number | null }>(`/${orgSlug}/scores/${scoreId}/price`, { price }),
 
   uploadFile: async (orgSlug: string, scoreId: string, formData: FormData): Promise<ScoreFile> => {
+    const file = formData.get("file") as File | null;
+    const fileType = formData.get("fileType") as string;
+    const partId = (formData.get("partId") as string | null) || null;
+
+    if (!file) throw new ApiClientError("BAD_REQUEST", "ファイルが選択されていません", 400);
+
+    // Step 1: プレサインド PUT URL を取得
+    const presignData = await apiClient.post<{ presignedUrl: string | null; key: string }>(
+      `/${orgSlug}/scores/${scoreId}/files/presign`,
+      {
+        fileType,
+        fileName: file.name,
+        partId,
+        contentType: file.type || "application/octet-stream",
+      }
+    );
+
+    if (presignData.presignedUrl) {
+      // Step 2: R2 に直接アップロード（Lambda を通さないので 4.5MB 制限なし）
+      const uploadRes = await fetch(presignData.presignedUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+      });
+      if (!uploadRes.ok) {
+        throw new ApiClientError("UPLOAD_FAILED", `R2へのアップロードに失敗しました (${uploadRes.status})`, uploadRes.status);
+      }
+
+      // Step 3: API に DB 登録を依頼
+      return apiClient.post<ScoreFile>(
+        `/${orgSlug}/scores/${scoreId}/files/confirm`,
+        { key: presignData.key, fileType, fileName: file.name, partId }
+      );
+    }
+
+    // R2 未設定（ローカル開発）: 従来のマルチパート方式にフォールバック
     const res = await fetch(`${API_BASE}/api/v1/${orgSlug}/scores/${scoreId}/files`, {
       method: "POST",
       credentials: "include",

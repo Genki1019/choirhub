@@ -46,7 +46,7 @@ export const accountingRouter = new Hono<TenantEnv>()
   // ════════════════════════════════════════
 
   // GET /finance/summary?year=2026
-  .get("/accounting/summary", async (c) => {
+  .get("/finance/summary", async (c) => {
     const org    = c.get("org");
     const member = c.get("member");
 
@@ -116,7 +116,7 @@ export const accountingRouter = new Hono<TenantEnv>()
   // ════════════════════════════════════════
 
   // GET /finance/expenses
-  .get("/accounting/expenses", async (c) => {
+  .get("/finance/expenses", async (c) => {
     const org    = c.get("org");
     const member = c.get("member");
 
@@ -167,7 +167,7 @@ export const accountingRouter = new Hono<TenantEnv>()
 
   // POST /finance/expenses
   .post(
-    "/accounting/expenses",
+    "/finance/expenses",
     zValidator("json", expenseBodySchema, (result, c) => {
       if (!result.success) {
         return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
@@ -221,7 +221,7 @@ export const accountingRouter = new Hono<TenantEnv>()
 
   // PATCH /finance/expenses/:expenseId
   .patch(
-    "/accounting/expenses/:expenseId",
+    "/finance/expenses/:expenseId",
     zValidator("json", expenseBodySchema.partial(), (result, c) => {
       if (!result.success) {
         return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
@@ -274,7 +274,7 @@ export const accountingRouter = new Hono<TenantEnv>()
   )
 
   // DELETE /finance/expenses/:expenseId
-  .delete("/accounting/expenses/:expenseId", async (c) => {
+  .delete("/finance/expenses/:expenseId", async (c) => {
     const org    = c.get("org");
     const member = c.get("member");
     const { expenseId } = c.req.param();
@@ -297,7 +297,7 @@ export const accountingRouter = new Hono<TenantEnv>()
   // ════════════════════════════════════════
 
   // GET /finance/collections
-  .get("/accounting/collections", async (c) => {
+  .get("/finance/collections", async (c) => {
     const org    = c.get("org");
     const member = c.get("member");
 
@@ -346,7 +346,7 @@ export const accountingRouter = new Hono<TenantEnv>()
 
   // POST /finance/collections
   .post(
-    "/accounting/collections",
+    "/finance/collections",
     zValidator("json", collectionBodySchema, (result, c) => {
       if (!result.success) {
         return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
@@ -397,7 +397,7 @@ export const accountingRouter = new Hono<TenantEnv>()
   )
 
   // GET /finance/collections/:collectionId
-  .get("/accounting/collections/:collectionId", async (c) => {
+  .get("/finance/collections/:collectionId", async (c) => {
     const org    = c.get("org");
     const member = c.get("member");
     const { collectionId } = c.req.param();
@@ -458,7 +458,7 @@ export const accountingRouter = new Hono<TenantEnv>()
 
   // PATCH /finance/collections/:collectionId
   .patch(
-    "/accounting/collections/:collectionId",
+    "/finance/collections/:collectionId",
     zValidator("json", collectionBodySchema.omit({ memberIds: true }).partial(), (result, c) => {
       if (!result.success) {
         return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
@@ -497,7 +497,7 @@ export const accountingRouter = new Hono<TenantEnv>()
   )
 
   // DELETE /finance/collections/:collectionId
-  .delete("/accounting/collections/:collectionId", async (c) => {
+  .delete("/finance/collections/:collectionId", async (c) => {
     const org    = c.get("org");
     const member = c.get("member");
     const { collectionId } = c.req.param();
@@ -521,7 +521,7 @@ export const accountingRouter = new Hono<TenantEnv>()
 
   // PATCH /finance/collections/:collectionId/payments/:memberId
   .patch(
-    "/accounting/collections/:collectionId/payments/:memberId",
+    "/finance/collections/:collectionId/payments/:memberId",
     zValidator("json", z.object({
       status: z.enum(["pending", "paid", "waived"]),
       amount: z.number().int().positive().optional().nullable(),
@@ -596,7 +596,7 @@ export const accountingRouter = new Hono<TenantEnv>()
   // POST /finance/collections/:collectionId/payments/bulk
   // 複数メンバーの支払い状態を一括更新
   .post(
-    "/accounting/collections/:collectionId/payments/bulk",
+    "/finance/collections/:collectionId/payments/bulk",
     zValidator("json", z.object({
       memberIds: z.array(z.string()).min(1),
       status:    z.enum(["pending", "paid", "waived"]),

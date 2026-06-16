@@ -3,7 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import type { TenantEnv } from "../middleware/tenant.js";
-import { isVisitor, isTicketManager } from "../services/access.js";
+import { isAdmin, isVisitor, isTicketManager } from "../services/access.js";
 
 export const homeRouter = new Hono<TenantEnv>()
   .get("/home", async (c) => {
@@ -40,7 +40,15 @@ export const homeRouter = new Hono<TenantEnv>()
           }),
     ]);
 
-    const unansweredEventCount = upcomingRaw.filter(
+    const visibleEvents = isAdmin(member)
+      ? upcomingRaw
+      : upcomingRaw.filter((e) => {
+          const roleOk = e.targetRoles.length === 0 || e.targetRoles.some((r) => member.roles.includes(r));
+          const partOk = e.targetPartIds.length === 0 || (member.partId !== null && e.targetPartIds.includes(member.partId));
+          return roleOk && partOk;
+        });
+
+    const unansweredEventCount = visibleEvents.filter(
       (e) => (e.attendances[0]?.status ?? "undecided") === "undecided"
     ).length;
 
@@ -54,9 +62,9 @@ export const homeRouter = new Hono<TenantEnv>()
       myAttendance: e.attendances[0]?.status ?? "undecided",
     });
 
-    const upcomingEvents   = upcomingRaw.slice(0, 3).map(mapEvent);
-    const nextRehearsalRaw = upcomingRaw.find((e) => e.category.slug === "rehearsal");
-    const nextConcertRaw   = upcomingRaw.find((e) => e.category.slug === "concert");
+    const upcomingEvents   = visibleEvents.slice(0, 3).map(mapEvent);
+    const nextRehearsalRaw = visibleEvents.find((e) => e.category.slug === "rehearsal");
+    const nextConcertRaw   = visibleEvents.find((e) => e.category.slug === "concert");
 
     const canViewTickets = isTicketManager(member);
 

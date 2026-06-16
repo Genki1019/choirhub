@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, X, Check } from "lucide-react";
+import { Loader2, X, Check, Copy, CheckCheck } from "lucide-react";
 import { membersApi, type PartSummary } from "@/lib/members-api";
 import { ApiClientError } from "@/lib/api-client";
 import { ROLE_OPTIONS } from "@/lib/roles";
@@ -22,6 +22,8 @@ interface InviteModalProps {
 
 export function InviteModal({ org, parts, onClose, onSuccess }: InviteModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const {
     register,
@@ -36,12 +38,14 @@ export function InviteModal({ org, parts, onClose, onSuccess }: InviteModalProps
 
   const onSubmit = async (data: InviteMemberInput) => {
     try {
-      await membersApi.invite(org, {
+      const result = await membersApi.invite(org, {
         email:  data.email,
         nameJa: data.nameJa || undefined,
         roles:  data.roles,
         partId: data.partId || undefined,
       });
+      const link = `${window.location.origin}/invite/${result.inviteToken}`;
+      setInviteLink(link);
       onSuccess();
     } catch (err) {
       const message = err instanceof ApiClientError && err.status === 409
@@ -50,6 +54,53 @@ export function InviteModal({ org, parts, onClose, onSuccess }: InviteModalProps
       setError("root", { message });
     }
   };
+
+  const handleCopy = async () => {
+    if (!inviteLink) return;
+    await navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (inviteLink) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="w-full max-w-md mx-4 bg-white rounded-2xl border border-gray-200 shadow-xl p-8 space-y-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Check size={20} className="text-teal-500" />
+              <h2 className="text-base font-semibold text-gray-800">招待リンクを作成しました</h2>
+            </div>
+            <button onClick={onClose} aria-label="閉じる" className="text-gray-400 hover:text-gray-600">
+              <X size={18} />
+            </button>
+          </div>
+
+          <p className="text-sm text-gray-500">
+            下記のリンクを招待する方に共有してください。有効期限は7日間です。
+          </p>
+
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+            <span className="text-xs text-gray-600 break-all flex-1 font-mono">{inviteLink}</span>
+            <button
+              onClick={handleCopy}
+              className="shrink-0 text-gray-400 hover:text-blue-600 transition-colors"
+              aria-label="コピー"
+            >
+              {copied ? <CheckCheck size={16} className="text-teal-500" /> : <Copy size={16} />}
+            </button>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm"
+          >
+            閉じる
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -156,7 +207,7 @@ export function InviteModal({ org, parts, onClose, onSuccess }: InviteModalProps
               className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
             >
               {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-              招待メールを送信
+              招待リンクを作成
             </button>
             <button
               type="button"
@@ -177,9 +228,9 @@ export function InviteSuccessModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="w-full max-w-sm mx-4 bg-white rounded-2xl border border-gray-200 shadow-xl p-8 text-center space-y-4">
         <Check size={40} className="text-teal-500 mx-auto" />
-        <p className="text-base font-semibold text-gray-800">招待メールを送信しました</p>
+        <p className="text-base font-semibold text-gray-800">招待リンクを作成しました</p>
         <p className="text-sm text-gray-500">
-          新団員にパスワード設定のリンクを送りました。<br />
+          招待リンクをコピーして新団員に共有してください。<br />
           リンクの有効期限は7日間です。
         </p>
         <button

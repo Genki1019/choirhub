@@ -119,7 +119,7 @@ export default function MemberDetailPage() {
           />
         )}
 
-        {isAdmin && !isSelf && (
+        {isAdmin && (
           <AdminPanel member={member} parts={parts} memberTypes={memberTypes} onUpdate={handleAdminSave} />
         )}
       </main>

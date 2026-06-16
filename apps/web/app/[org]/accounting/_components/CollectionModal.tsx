@@ -10,16 +10,18 @@ type Mode = "flat" | "per_type";
 interface CollectionModalProps {
   org: string;
   memberTypes: MemberType[];
+  initialTitle?: string;
+  initialAmount?: number;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export function CollectionModal({ org, memberTypes, onClose, onSaved }: CollectionModalProps) {
-  const [title,      setTitle]      = useState("");
+export function CollectionModal({ org, memberTypes, initialTitle, initialAmount, onClose, onSaved }: CollectionModalProps) {
+  const [title,      setTitle]      = useState(initialTitle ?? "");
   const [yearMonth,  setYearMonth]  = useState("");
   const [note,       setNote]       = useState("");
   const [mode,       setMode]       = useState<Mode>("flat");
-  const [baseAmount, setBaseAmount] = useState("");
+  const [baseAmount, setBaseAmount] = useState(initialAmount != null ? String(initialAmount) : "");
   const [typeAmounts, setTypeAmounts] = useState<Record<string, string>>(
     () => Object.fromEntries(memberTypes.map((t) => [t.id, t.defaultFeeAmount?.toString() ?? ""]))
   );

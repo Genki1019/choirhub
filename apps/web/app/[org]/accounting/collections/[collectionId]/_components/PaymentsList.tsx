@@ -104,11 +104,13 @@ export function PaymentsList({
                       {payment.status === "paid" && payment.method && (
                         <span>{PAYMENT_METHOD_LABEL[payment.method]}</span>
                       )}
-                      {payment.amount != null && payment.amount !== amount && (
-                        <span className={payment.status === "pending" ? "text-amber-500 font-medium" : "text-teal-600"}>
-                          ¥{payment.amount.toLocaleString()}
-                        </span>
-                      )}
+                      <span className={
+                        payment.amount != null && payment.amount !== amount
+                          ? (payment.status === "pending" ? "text-amber-500 font-medium" : "text-teal-600")
+                          : "text-gray-400"
+                      }>
+                        ¥{(payment.amount ?? amount).toLocaleString()}
+                      </span>
                     </div>
                   </div>
 

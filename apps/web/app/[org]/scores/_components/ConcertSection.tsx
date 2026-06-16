@@ -18,6 +18,7 @@ interface ConcertSectionProps {
   onMidiClick: (s: ScoreSummary) => void;
   onPurchaseClick: (s: ScoreSummary) => void;
   onFileManage: (s: ScoreSummary) => void;
+  onCreateCollection?: (s: ScoreSummary) => void;
   isPrivileged: boolean;
   isFileManager: boolean;
   canViewPrice: boolean;
@@ -26,7 +27,7 @@ interface ConcertSectionProps {
 }
 
 export const ConcertSection = memo(function ConcertSection({
-  concert, orgSlug, onMidiClick, onPurchaseClick, onFileManage,
+  concert, orgSlug, onMidiClick, onPurchaseClick, onFileManage, onCreateCollection,
   isPrivileged, isFileManager, canViewPrice, canSetPrice, onPriceUpdate,
 }: ConcertSectionProps) {
   const [open, setOpen] = useState(true);
@@ -83,6 +84,7 @@ export const ConcertSection = memo(function ConcertSection({
                         onMidiClick={onMidiClick}
                         onPurchaseClick={onPurchaseClick}
                         onFileManage={onFileManage}
+                        onCreateCollection={onCreateCollection}
                         isPrivileged={isPrivileged}
                         isFileManager={isFileManager}
                         canViewPrice={canViewPrice}

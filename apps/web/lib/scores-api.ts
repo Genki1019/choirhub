@@ -21,6 +21,7 @@ export interface ScoreSummary {
   distributionPrice: number | null;
   canAccessFiles: boolean;
   canDownload: boolean;
+  purchaseCount?: number;
   files: ScoreFile[];
 }
 

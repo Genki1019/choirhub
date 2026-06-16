@@ -11,6 +11,7 @@ import {
 } from "@/lib/scores-api";
 import { ApiClientError } from "@/lib/api-client";
 import { membersApi, type PartSummary } from "@/lib/members-api";
+import { settingsApi, type MemberType } from "@/lib/settings-api";
 import { MEMBER_LEVEL_ROLES } from "@/lib/roles";
 import { MidiModal } from "./_components/MidiModal";
 import { PurchaseModal } from "./_components/PurchaseModal";
@@ -18,6 +19,7 @@ import { FileManageModal } from "./_components/FileManageModal";
 import { AddScoreModal } from "./_components/AddScoreModal";
 import { ConcertSection } from "./_components/ConcertSection";
 import { UnassignedSection } from "./_components/UnassignedSection";
+import { CollectionModal } from "../accounting/_components/CollectionModal";
 
 export default function ScoresPage() {
   const { org } = useParams<{ org: string }>();
@@ -26,12 +28,14 @@ export default function ScoresPage() {
   const [data, setData] = useState<{ concerts: ConcertWithScores[]; unassigned: ScoreSummary[] } | null>(null);
   const [myRoles, setMyRoles] = useState<string[]>([]);
   const [parts, setParts] = useState<PartSummary[]>([]);
+  const [memberTypes, setMemberTypes] = useState<MemberType[]>([]);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [midiTarget, setMidiTarget] = useState<ScoreSummary | null>(null);
   const [purchaseTarget, setPurchaseTarget] = useState<ScoreSummary | null>(null);
   const [fileManageTarget, setFileManageTarget] = useState<ScoreSummary | null>(null);
+  const [collectionTarget, setCollectionTarget] = useState<ScoreSummary | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
 
   const loading = loadedFor !== org;
@@ -51,12 +55,13 @@ export default function ScoresPage() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([scoresApi.grouped(org), membersApi.me(org), membersApi.parts(org)])
-      .then(([scoreData, me, partData]) => {
+    Promise.all([scoresApi.grouped(org), membersApi.me(org), membersApi.parts(org), settingsApi.listMemberTypes(org)])
+      .then(([scoreData, me, partData, types]) => {
         if (cancelled) return;
         setData(scoreData);
         setMyRoles(me.roles);
         setParts(partData);
+        setMemberTypes(types);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -181,6 +186,7 @@ export default function ScoresPage() {
                 onMidiClick={setMidiTarget}
                 onPurchaseClick={setPurchaseTarget}
                 onFileManage={setFileManageTarget}
+                onCreateCollection={isPrivileged ? setCollectionTarget : undefined}
                 isPrivileged={isPrivileged}
                 isFileManager={isFileManager}
                 canViewPrice={canViewPrice}
@@ -195,6 +201,7 @@ export default function ScoresPage() {
               onMidiClick={setMidiTarget}
               onPurchaseClick={setPurchaseTarget}
               onFileManage={setFileManageTarget}
+              onCreateCollection={isPrivileged ? setCollectionTarget : undefined}
               isPrivileged={isPrivileged}
               isFileManager={isFileManager}
               canViewPrice={canViewPrice}
@@ -236,6 +243,17 @@ export default function ScoresPage() {
             updateScoreFiles(fileManageTarget.id, updatedFiles);
             setFileManageTarget(null);
           }}
+        />
+      )}
+
+      {collectionTarget && (
+        <CollectionModal
+          org={org}
+          memberTypes={memberTypes}
+          initialTitle={collectionTarget.title}
+          initialAmount={collectionTarget.distributionPrice ?? undefined}
+          onClose={() => setCollectionTarget(null)}
+          onSaved={() => setCollectionTarget(null)}
         />
       )}
     </div>

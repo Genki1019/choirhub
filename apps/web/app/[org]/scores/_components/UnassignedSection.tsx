@@ -11,6 +11,7 @@ interface UnassignedSectionProps {
   onMidiClick: (s: ScoreSummary) => void;
   onPurchaseClick: (s: ScoreSummary) => void;
   onFileManage: (s: ScoreSummary) => void;
+  onCreateCollection?: (s: ScoreSummary) => void;
   isPrivileged: boolean;
   isFileManager: boolean;
   canViewPrice: boolean;
@@ -19,7 +20,7 @@ interface UnassignedSectionProps {
 }
 
 export const UnassignedSection = memo(function UnassignedSection({
-  scores, orgSlug, onMidiClick, onPurchaseClick, onFileManage,
+  scores, orgSlug, onMidiClick, onPurchaseClick, onFileManage, onCreateCollection,
   isPrivileged, isFileManager, canViewPrice, canSetPrice, onPriceUpdate,
 }: UnassignedSectionProps) {
   const [open, setOpen] = useState(true);
@@ -47,6 +48,7 @@ export const UnassignedSection = memo(function UnassignedSection({
               <ScoreRow
                 score={score} orgSlug={orgSlug} onMidiClick={onMidiClick}
                 onPurchaseClick={onPurchaseClick} onFileManage={onFileManage}
+                onCreateCollection={onCreateCollection}
                 isPrivileged={isPrivileged} isFileManager={isFileManager}
                 canViewPrice={canViewPrice} canSetPrice={canSetPrice} onPriceUpdate={onPriceUpdate}
               />

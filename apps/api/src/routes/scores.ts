@@ -80,6 +80,17 @@ export const scoresRouter = new Hono<TenantEnv>()
 
     const privileged = isScorePrivileged(actingMember.roles);
 
+    // 楽譜ごとの購入者数（権限ありユーザー向け）
+    const purchaseCountMap = privileged
+      ? new Map(
+          (await prisma.scorePurchase.groupBy({
+            by: ["scoreId"],
+            where: { score: { orgId: org.id } },
+            _count: { scoreId: true },
+          })).map((r) => [r.scoreId, r._count.scoreId])
+        )
+      : null;
+
     // 購入記録のある scoreId セットを取得（権限判定用）
     const myPurchasedScoreIds = privileged
       ? null
@@ -154,6 +165,7 @@ export const scoresRouter = new Hono<TenantEnv>()
         accessLevel: s.accessLevel, distributionPrice: s.distributionPrice,
         canAccessFiles: access,
         canDownload: access && !visitorAccess,
+        purchaseCount: purchaseCountMap !== null ? (purchaseCountMap.get(s.id) ?? 0) : undefined,
         // visitor には full_score のみ公開（MIDI の download URL を漏らさない）
         files: access
           ? s.files

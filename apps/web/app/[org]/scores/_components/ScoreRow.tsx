@@ -14,6 +14,7 @@ interface ScoreRowProps {
   onMidiClick: (s: ScoreSummary) => void;
   onPurchaseClick?: (s: ScoreSummary) => void;
   onFileManage?: (s: ScoreSummary) => void;
+  onCreateCollection?: (s: ScoreSummary) => void;
   isPrivileged: boolean;
   isFileManager: boolean;
   canViewPrice: boolean;
@@ -22,7 +23,7 @@ interface ScoreRowProps {
 }
 
 export function ScoreRow({
-  score, orgSlug, onMidiClick, onPurchaseClick, onFileManage,
+  score, orgSlug, onMidiClick, onPurchaseClick, onFileManage, onCreateCollection,
   isPrivileged, isFileManager, canViewPrice, canSetPrice, onPriceUpdate,
 }: ScoreRowProps) {
   const [editingPrice, setEditingPrice] = useState(false);
@@ -89,7 +90,7 @@ export function ScoreRow({
                   {savingPrice && <Loader2 size={11} className="animate-spin text-gray-400" />}
                 </div>
               ) : score.distributionPrice !== null ? (
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
                     <Tag size={10} />
                     ¥{score.distributionPrice.toLocaleString()}
@@ -101,6 +102,23 @@ export function ScoreRow({
                       title="価格を変更"
                     >
                       <Pencil size={10} />
+                    </button>
+                  )}
+                  {score.purchaseCount !== undefined && onPurchaseClick && (
+                    <button
+                      onClick={() => onPurchaseClick(score)}
+                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                    >
+                      <Users size={10} />
+                      購入済 {score.purchaseCount}名
+                    </button>
+                  )}
+                  {onCreateCollection && (
+                    <button
+                      onClick={() => onCreateCollection(score)}
+                      className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 border border-gray-200 hover:border-blue-300 rounded px-1.5 py-0.5 transition-colors"
+                    >
+                      + 徴収を作成
                     </button>
                   )}
                 </div>

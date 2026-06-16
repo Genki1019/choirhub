@@ -57,6 +57,7 @@ export function MemberCard({ member, org }: { member: MemberProfile; org: string
             alt="avatar"
             width={80}
             height={80}
+            unoptimized
             className="w-12 h-12 sm:w-20 sm:h-20 rounded-full object-cover"
           />
         ) : (

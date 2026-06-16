@@ -121,7 +121,7 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
           disabled={uploading}
         >
           {avatarPreview ? (
-            <Image src={avatarPreview} alt="preview" width={80} height={80} className="w-20 h-20 rounded-full object-cover" />
+            <Image src={avatarPreview} alt="preview" width={80} height={80} unoptimized className="w-20 h-20 rounded-full object-cover" />
           ) : (
             <div className={`w-20 h-20 rounded-full ${avatarColor(member.id)} flex items-center justify-center text-white text-2xl font-bold`}>
               {member.nameJa.charAt(0)}

@@ -29,7 +29,7 @@ export function ProfileCard({ member }: ProfileCardProps) {
       <div className="flex items-start gap-5">
         <div className="shrink-0">
           {member.avatarUrl ? (
-            <Image src={member.avatarUrl} alt="avatar" width={80} height={80} className="w-20 h-20 rounded-full object-cover" />
+            <Image src={member.avatarUrl} alt="avatar" width={80} height={80} unoptimized className="w-20 h-20 rounded-full object-cover" />
           ) : (
             <div className={`w-20 h-20 rounded-full ${avatarColor(member.id)} flex items-center justify-center text-white text-3xl font-bold`}>
               {member.nameJa.charAt(0)}

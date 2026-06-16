@@ -448,24 +448,16 @@ export const scoresRouter = new Hono<TenantEnv>()
       });
       const version = (maxVer._max.version ?? 0) + 1;
 
-      let created: Awaited<ReturnType<typeof prisma.scoreFile.create>>;
-      try {
-        created = await prisma.$transaction(async (tx) => {
-          if (fileType === "full_score") {
-            const conflict = await tx.scoreFile.findFirst({ where: { scoreId, fileType: "full_score" } });
-            if (conflict) throw new Error("CONFLICT");
-          }
-          return tx.scoreFile.create({
-            data: { scoreId, fileType: fileType as ScoreFileType, partId: resolvedPartId, storageKey: key, fileName, version, uploadedBy: actingMember.id },
-          });
-        });
-      } catch (err) {
-        if (err instanceof Error && err.message === "CONFLICT") {
+      if (fileType === "full_score") {
+        const conflict = await prisma.scoreFile.findFirst({ where: { scoreId, fileType: "full_score" } });
+        if (conflict) {
           await storage.delete(key);
           return c.json({ error: { code: "CONFLICT", message: "楽譜PDFはすでに登録されています" } }, 409);
         }
-        throw err;
       }
+      const created = await prisma.scoreFile.create({
+        data: { scoreId, fileType: fileType as ScoreFileType, partId: resolvedPartId, storageKey: key, fileName, version, uploadedBy: actingMember.id },
+      });
 
       const partName = resolvedPartId
         ? (await prisma.part.findUnique({ where: { id: resolvedPartId }, select: { name: true } }))?.name ?? null
@@ -553,32 +545,24 @@ export const scoresRouter = new Hono<TenantEnv>()
     const storageKey = `scores/${randomUUID()}${ext}`;
     await storage.upload(storageKey, Buffer.from(await file.arrayBuffer()), CONTENT_TYPES[ext] ?? "application/octet-stream");
 
-    let created: Awaited<ReturnType<typeof prisma.scoreFile.create>>;
-    try {
-      created = await prisma.$transaction(async (tx) => {
-        if (fileType === "full_score") {
-          const conflict = await tx.scoreFile.findFirst({ where: { scoreId, fileType: "full_score" } });
-          if (conflict) throw new Error("CONFLICT");
-        }
-        return tx.scoreFile.create({
-          data: {
-            scoreId,
-            fileType: fileType as ScoreFileType,
-            partId,
-            storageKey,
-            fileName: file.name,
-            version,
-            uploadedBy: actingMember.id,
-          },
-        });
-      });
-    } catch (err) {
-      await storage.delete(storageKey);
-      if (err instanceof Error && err.message === "CONFLICT") {
+    if (fileType === "full_score") {
+      const conflict = await prisma.scoreFile.findFirst({ where: { scoreId, fileType: "full_score" } });
+      if (conflict) {
+        await storage.delete(storageKey);
         return c.json({ error: { code: "CONFLICT", message: "楽譜PDFはすでに登録されています。差し替えるには既存ファイルを削除してから追加してください" } }, 409);
       }
-      throw err;
     }
+    const created = await prisma.scoreFile.create({
+      data: {
+        scoreId,
+        fileType: fileType as ScoreFileType,
+        partId,
+        storageKey,
+        fileName: file.name,
+        version,
+        uploadedBy: actingMember.id,
+      },
+    });
 
     const partName = partId
       ? (await prisma.part.findUnique({ where: { id: partId }, select: { name: true } }))?.name ?? null

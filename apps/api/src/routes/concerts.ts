@@ -38,9 +38,9 @@ export const concertsRouter = new Hono<TenantEnv>()
         data: { orgId: org.id, title, heldOn: new Date(heldOn), venue: venue ?? null },
       });
 
-      // "concert" スラグのイベント区分を探す。なければ自動作成する
+      // slug="concert" または name="本番" で既存のカテゴリを探す
       let concertCategory = await prisma.eventCategory.findFirst({
-        where: { orgId: org.id, slug: "concert" },
+        where: { orgId: org.id, OR: [{ slug: "concert" }, { name: "本番" }] },
       });
       if (!concertCategory) {
         concertCategory = await prisma.eventCategory.create({

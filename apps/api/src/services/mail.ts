@@ -273,11 +273,14 @@ export async function sendBulkMail(params: {
     return [];
   }
 
+  logger.info(`[mail] DEV_MAIL_TO="${DEV_MAIL_TO || "(未設定)"}"`);
+
   const devNotice = DEV_MAIL_TO
     ? `本来の宛先 ${to.length}名: ${to.map((t) => t.email).join(", ")}`
     : undefined;
   const html = buildBulkMailHtml({ orgName, subject, body, devNotice });
   const recipients = DEV_MAIL_TO ? [{ email: DEV_MAIL_TO }] : to;
+  logger.info(`[mail] 送信先: ${recipients.map((r) => r.email).join(", ")}`);
 
   const resend = new Resend(RESEND_API_KEY);
   const { data, error } = await resend.batch.send(

@@ -191,83 +191,57 @@ export const eventsRouter = new Hono<TenantEnv>()
     }
 
     if (selectedCategory.slug === "concert") {
-      // Concert と Event を同時生成してリンク
-      const result = await prisma.$transaction(async (tx) => {
-        const concert = await tx.concert.create({
-          data: {
-            orgId:       org.id,
-            title:       body.title,
-            heldOn: new Date(body.startsAt),
-            venue:       body.location ?? null,
-          },
-        });
-        const event = await tx.event.create({
-          data: {
-            orgId:         org.id,
-            title:         body.title,
-            categoryId:    body.categoryId,
-            startsAt:      new Date(body.startsAt),
-            endsAt:        new Date(body.endsAt),
-            location:      body.location ?? null,
-            locationUrl:   body.locationUrl ?? null,
-            deadline:      body.deadline ? new Date(body.deadline) : null,
-            pageMemo:      body.pageMemo ?? null,
-            targetRoles:   body.targetRoles   ?? [],
-            targetPartIds: body.targetPartIds ?? [],
-            concertId:     concert.id,
-          },
-          include: { category: true },
-        });
-        return event;
+      const concert = await prisma.concert.create({
+        data: { orgId: org.id, title: body.title, heldOn: new Date(body.startsAt), venue: body.location ?? null },
       });
-      return c.json({ data: formatEvent(result) }, 201);
+      await prisma.event.create({
+        data: {
+          orgId: org.id, title: body.title, categoryId: body.categoryId,
+          startsAt: new Date(body.startsAt), endsAt: new Date(body.endsAt),
+          location: body.location ?? null, locationUrl: body.locationUrl ?? null,
+          deadline: body.deadline ? new Date(body.deadline) : null,
+          pageMemo: body.pageMemo ?? null,
+          targetRoles: body.targetRoles ?? [], targetPartIds: body.targetPartIds ?? [],
+          concertId: concert.id,
+        },
+      });
+      const result = await prisma.event.findFirst({ where: { concertId: concert.id }, include: { category: true } });
+      return c.json({ data: formatEvent(result!) }, 201);
     }
 
-    const event = await prisma.$transaction(async (tx) => {
-      const ev = await tx.event.create({
-        data: {
-          orgId:         org.id,
-          title:         body.title,
-          categoryId:    body.categoryId,
-          startsAt:      new Date(body.startsAt),
-          endsAt:        new Date(body.endsAt),
-          location:      body.location ?? null,
-          locationUrl:   body.locationUrl ?? null,
-          deadline:      body.deadline   ? new Date(body.deadline) : null,
-          pageMemo:      body.pageMemo   ?? null,
-          targetRoles:   body.targetRoles   ?? [],
-          targetPartIds: body.targetPartIds ?? [],
-        },
-        include: { category: true },
-      });
-
-      // per_rehearsal モードの練習イベントは徴収を自動生成
-      if (selectedCategory.slug === "rehearsal" && org.feeType === "per_rehearsal" && org.defaultFeeAmount) {
-        const activeMembers = await tx.member.findMany({
-          where: { orgId: org.id, status: "active", NOT: { roles: { hasSome: ["visitor"] } } },
-          select: { id: true, memberType: { select: { defaultFeeAmount: true } } },
-        });
-        if (activeMembers.length > 0) {
-          const collection = await tx.collection.create({
-            data: { orgId: org.id, title: `${body.title} 場所代`, amount: org.defaultFeeAmount, eventId: ev.id, createdById: member.id },
-          });
-          await tx.collectionPayment.createMany({
-            data: activeMembers.map((m) => ({
-              collectionId: collection.id,
-              memberId: m.id,
-              status: "pending" as const,
-              amount: (m.memberType?.defaultFeeAmount != null && m.memberType.defaultFeeAmount !== org.defaultFeeAmount)
-                ? m.memberType.defaultFeeAmount
-                : null,
-            })),
-          });
-        }
-      }
-
-      return ev;
+    const ev = await prisma.event.create({
+      data: {
+        orgId: org.id, title: body.title, categoryId: body.categoryId,
+        startsAt: new Date(body.startsAt), endsAt: new Date(body.endsAt),
+        location: body.location ?? null, locationUrl: body.locationUrl ?? null,
+        deadline: body.deadline ? new Date(body.deadline) : null,
+        pageMemo: body.pageMemo ?? null,
+        targetRoles: body.targetRoles ?? [], targetPartIds: body.targetPartIds ?? [],
+      },
     });
 
-    return c.json({ data: formatEvent(event) }, 201);
+    // per_rehearsal モードの練習イベントは徴収を自動生成
+    if (selectedCategory.slug === "rehearsal" && org.feeType === "per_rehearsal" && org.defaultFeeAmount) {
+      const activeMembers = await prisma.member.findMany({
+        where: { orgId: org.id, status: "active", NOT: { roles: { hasSome: ["visitor"] } } },
+        select: { id: true, memberType: { select: { defaultFeeAmount: true } } },
+      });
+      if (activeMembers.length > 0) {
+        const collection = await prisma.collection.create({
+          data: { orgId: org.id, title: `${body.title} 場所代`, amount: org.defaultFeeAmount, eventId: ev.id, createdById: member.id },
+        });
+        await prisma.collectionPayment.createMany({
+          data: activeMembers.map((m) => ({
+            collectionId: collection.id, memberId: m.id, status: "pending" as const,
+            amount: (m.memberType?.defaultFeeAmount != null && m.memberType.defaultFeeAmount !== org.defaultFeeAmount)
+              ? m.memberType.defaultFeeAmount : null,
+          })),
+        });
+      }
+    }
+
+    const event = await prisma.event.findUnique({ where: { id: ev.id }, include: { category: true } });
+    return c.json({ data: formatEvent(event!) }, 201);
   })
 
   // ── GET /events/:id ───────────────────────────────────────────────────────
@@ -344,39 +318,35 @@ export const eventsRouter = new Hono<TenantEnv>()
 
     const body = c.req.valid("json");
 
-    const updated = await prisma.$transaction(async (tx) => {
-      const ev = await tx.event.update({
-        where: { id, orgId: org.id },
-        data: {
-          ...(body.title        !== undefined && { title: body.title }),
-          ...(body.categoryId   !== undefined && { categoryId: body.categoryId }),
-          ...(body.startsAt     !== undefined && { startsAt: new Date(body.startsAt) }),
-          ...(body.endsAt       !== undefined && { endsAt: new Date(body.endsAt) }),
-          ...(body.location     !== undefined && { location: body.location }),
-          ...(body.locationUrl  !== undefined && { locationUrl: body.locationUrl }),
-          ...(body.deadline     !== undefined && { deadline: body.deadline ? new Date(body.deadline) : null }),
-          ...(body.pageMemo     !== undefined && { pageMemo: body.pageMemo }),
-          ...(body.targetRoles     !== undefined && { targetRoles: body.targetRoles ?? [] }),
-          ...(body.targetPartIds   !== undefined && { targetPartIds: body.targetPartIds ?? [] }),
-        },
-        include: { category: true },
-      });
-
-      if (event.concertId) {
-        await tx.concert.update({
-          where: { id: event.concertId, orgId: org.id },
-          data: {
-            ...(body.title    !== undefined && { title: body.title }),
-            ...(body.startsAt !== undefined && { heldOn: new Date(body.startsAt) }),
-            ...(body.location !== undefined && { venue: body.location }),
-          },
-        });
-      }
-
-      return ev;
+    await prisma.event.update({
+      where: { id, orgId: org.id },
+      data: {
+        ...(body.title        !== undefined && { title: body.title }),
+        ...(body.categoryId   !== undefined && { categoryId: body.categoryId }),
+        ...(body.startsAt     !== undefined && { startsAt: new Date(body.startsAt) }),
+        ...(body.endsAt       !== undefined && { endsAt: new Date(body.endsAt) }),
+        ...(body.location     !== undefined && { location: body.location }),
+        ...(body.locationUrl  !== undefined && { locationUrl: body.locationUrl }),
+        ...(body.deadline     !== undefined && { deadline: body.deadline ? new Date(body.deadline) : null }),
+        ...(body.pageMemo     !== undefined && { pageMemo: body.pageMemo }),
+        ...(body.targetRoles     !== undefined && { targetRoles: body.targetRoles ?? [] }),
+        ...(body.targetPartIds   !== undefined && { targetPartIds: body.targetPartIds ?? [] }),
+      },
     });
 
-    return c.json({ data: formatEvent(updated) });
+    if (event.concertId) {
+      await prisma.concert.update({
+        where: { id: event.concertId, orgId: org.id },
+        data: {
+          ...(body.title    !== undefined && { title: body.title }),
+          ...(body.startsAt !== undefined && { heldOn: new Date(body.startsAt) }),
+          ...(body.location !== undefined && { venue: body.location }),
+        },
+      });
+    }
+
+    const updated = await prisma.event.findUnique({ where: { id }, include: { category: true } });
+    return c.json({ data: formatEvent(updated!) });
   })
 
   // ── DELETE /events/:id ────────────────────────────────────────────────────
@@ -395,12 +365,10 @@ export const eventsRouter = new Hono<TenantEnv>()
       return c.json({ error: { code: "NOT_FOUND", message: "イベントが見つかりません" } }, 404);
     }
 
-    await prisma.$transaction(async (tx) => {
-      await tx.event.delete({ where: { id } });
-      if (event.concertId) {
-        await tx.concert.delete({ where: { id: event.concertId } });
-      }
-    });
+    await prisma.event.delete({ where: { id } });
+    if (event.concertId) {
+      await prisma.concert.delete({ where: { id: event.concertId } });
+    }
 
     return new Response(null, { status: 204 });
   })

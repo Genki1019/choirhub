@@ -291,10 +291,9 @@ export const scoresRouter = new Hono<TenantEnv>()
         return c.json({ error: { code: "BAD_REQUEST", message: "このユーザーに所属しないメンバーIDが含まれています" } }, 400);
       }
 
-      // トランザクションで既存レコードを削除して再作成
-      await prisma.$transaction([
-        prisma.scorePurchase.deleteMany({ where: { scoreId, score: { orgId: org.id } } }),
-        prisma.scorePurchase.createMany({
+      await prisma.scorePurchase.deleteMany({ where: { scoreId, score: { orgId: org.id } } });
+      if (filteredIds.length > 0) {
+        await prisma.scorePurchase.createMany({
           data: filteredIds.map((memberId) => ({
             scoreId,
             memberId,
@@ -302,8 +301,8 @@ export const scoresRouter = new Hono<TenantEnv>()
             note: note ?? null,
             recordedById: actingMember.id,
           })),
-        }),
-      ]);
+        });
+      }
 
       return c.json({ data: { updated: filteredIds.length } });
     }

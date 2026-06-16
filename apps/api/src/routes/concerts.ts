@@ -222,9 +222,7 @@ export const concertsRouter = new Hono<TenantEnv>()
         return c.json({ error: { code: "BAD_REQUEST", message: "このコンサートに属さないステージが含まれています" } }, 400);
       }
 
-      await prisma.$transaction(
-        ids.map((id, i) => prisma.stage.update({ where: { id }, data: { sortOrder: i + 1 } }))
-      );
+      await Promise.all(ids.map((id, i) => prisma.stage.update({ where: { id }, data: { sortOrder: i + 1 } })));
 
       return new Response(null, { status: 204 });
     }
@@ -270,9 +268,7 @@ export const concertsRouter = new Hono<TenantEnv>()
         return c.json({ error: { code: "BAD_REQUEST", message: "このステージに属さない演目が含まれています" } }, 400);
       }
 
-      await prisma.$transaction(
-        ids.map((id, i) => prisma.program.update({ where: { id }, data: { sortOrder: i + 1 } }))
-      );
+      await Promise.all(ids.map((id, i) => prisma.program.update({ where: { id }, data: { sortOrder: i + 1 } })));
 
       return new Response(null, { status: 204 });
     }
@@ -894,16 +890,10 @@ export const concertsRouter = new Hono<TenantEnv>()
         return c.json({ error: { code: "NOT_FOUND", message: "無効なステージIDが含まれています" } }, 404);
       }
 
-      await prisma.$transaction(
+      await Promise.all(
         responses.map((r) =>
           prisma.surveyResponse.upsert({
-            where: {
-              surveyId_memberId_stageId: {
-                surveyId: survey.id,
-                memberId,
-                stageId:  r.stageId,
-              },
-            },
+            where: { surveyId_memberId_stageId: { surveyId: survey.id, memberId, stageId: r.stageId } },
             create: { surveyId: survey.id, memberId, stageId: r.stageId, status: r.status, memo: memo ?? null },
             update: { status: r.status, ...(memo !== undefined && { memo: memo ?? null }) },
           })

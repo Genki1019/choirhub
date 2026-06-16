@@ -632,7 +632,7 @@ export const accountingRouter = new Hono<TenantEnv>()
 
       const paidAt = body.paidAt ? new Date(body.paidAt) : null;
 
-      await prisma.$transaction(
+      await Promise.all(
         body.memberIds.map((mid) =>
           prisma.collectionPayment.upsert({
             where:  { collectionId_memberId: { collectionId, memberId: mid } },

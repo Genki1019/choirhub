@@ -314,13 +314,8 @@ export const authRouter = new Hono()
         return c.json({ error: { code: "INVALID_TOKEN", message: "リンクが無効または期限切れです" } }, 404);
       }
 
-      await prisma.$transaction([
-        prisma.user.update({
-          where: { id: resetToken.userId },
-          data:  { passwordHash },
-        }),
-        prisma.session.deleteMany({ where: { userId: resetToken.userId } }),
-      ]);
+      await prisma.user.update({ where: { id: resetToken.userId }, data: { passwordHash } });
+      await prisma.session.deleteMany({ where: { userId: resetToken.userId } });
 
       return c.json({ data: { message: "パスワードをリセットしました" } });
     }

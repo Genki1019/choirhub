@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { AlertCircle, Loader2, CalendarDays, Mail } from "lucide-react";
 import { homeApi, type HomeData } from "@/lib/home-api";
 import { ApiClientError } from "@/lib/api-client";
@@ -144,8 +145,12 @@ export default function HomePage() {
                       href={`/${org}/mailing/${mail.id}`}
                       className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors"
                     >
-                      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-semibold text-xs flex items-center justify-center shrink-0">
-                        {mail.senderName.charAt(0)}
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-blue-100 text-blue-600 font-semibold text-xs flex items-center justify-center shrink-0">
+                        {mail.senderAvatarUrl ? (
+                          <Image src={mail.senderAvatarUrl} alt={mail.senderName} width={32} height={32} className="w-full h-full object-cover" unoptimized />
+                        ) : (
+                          mail.senderName.charAt(0)
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-gray-400 truncate">{mail.senderName}</p>

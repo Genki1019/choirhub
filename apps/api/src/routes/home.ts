@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 import { isAdmin, isVisitor, isTicketManager } from "../services/access.js";
+import { storage } from "../services/storage.js";
 
 export const homeRouter = new Hono<TenantEnv>()
   .get("/home", async (c) => {
@@ -35,7 +36,7 @@ export const homeRouter = new Hono<TenantEnv>()
             take: 3,
             select: {
               id: true, subject: true, sentAt: true,
-              sentBy: { select: { userRef: { select: { nameJa: true } } } },
+              sentBy: { select: { userRef: { select: { nameJa: true, avatarUrl: true } } } },
             },
           }),
     ]);
@@ -79,6 +80,7 @@ export const homeRouter = new Hono<TenantEnv>()
           subject: m.subject,
           sentAt: m.sentAt.toISOString(),
           senderName: m.sentBy.userRef.nameJa,
+          senderAvatarUrl: storage.resolveAvatarUrl(m.sentBy.userRef.avatarUrl),
         })),
         canViewTickets,
         monthlyOrganizer: org.monthlyOrganizer ?? null,

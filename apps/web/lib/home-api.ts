@@ -16,6 +16,7 @@ export interface HomeRecentMail {
   subject: string;
   sentAt: string;
   senderName: string;
+  senderAvatarUrl: string | null;
 }
 
 export interface HomeData {

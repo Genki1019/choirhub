@@ -10,13 +10,6 @@ const ATTENDANCE_LABEL: Record<AttendanceStatus, { label: string; className: str
   undecided: { label: "未回答", className: "text-gray-400" },
 };
 
-const SLUG_COLOR: Record<string, string> = {
-  rehearsal: "bg-teal-400",
-  concert:   "bg-orange-400",
-  meeting:   "bg-blue-400",
-  other:     "bg-gray-400",
-};
-
 function formatEventDate(isoString: string): string {
   const d = new Date(isoString);
   const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
@@ -24,17 +17,14 @@ function formatEventDate(isoString: string): string {
 }
 
 export function EventCard({ event, org }: { event: HomeUpcomingEvent; org: string }) {
-  const status      = ATTENDANCE_LABEL[event.myAttendance];
-  const accentColor = (event.category.slug && SLUG_COLOR[event.category.slug])
-    ? SLUG_COLOR[event.category.slug]
-    : "bg-purple-400";
+  const status = ATTENDANCE_LABEL[event.myAttendance];
 
   return (
     <Link
       href={event.concertId ? `/${org}/concerts/${event.concertId}` : `/${org}/schedule/${event.id}`}
       className="flex bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-sm transition-shadow"
     >
-      <div className={`w-1 shrink-0 ${accentColor}`} />
+      <div className="w-1 shrink-0" style={{ backgroundColor: event.category.color }} />
       <div className="flex-1 px-5 py-4">
         <p className="text-xs text-gray-400 mb-1">{formatEventDate(event.startsAt)}</p>
         <p className="font-semibold text-gray-800">{event.title}</p>

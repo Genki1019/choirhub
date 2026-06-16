@@ -349,23 +349,21 @@ export const authRouter = new Hono()
         return c.json({ error: { code: "CONFLICT", message: "このスラグはすでに使用されています" } }, 409);
       }
 
-      await prisma.$transaction(async (tx) => {
-        const org = await tx.organization.create({
-          data: { name, slug, partTemplate: {} },
-        });
+      const org = await prisma.organization.create({
+        data: { name, slug, partTemplate: {} },
+      });
 
-        await tx.eventCategory.createMany({
-          data: [
-            { orgId: org.id, name: "練習",   slug: "rehearsal", color: "#3B82F6", sortOrder: 1 },
-            { orgId: org.id, name: "本番",   slug: "concert",   color: "#EF4444", sortOrder: 2 },
-            { orgId: org.id, name: "会議",   slug: "meeting",   color: "#F59E0B", sortOrder: 3 },
-            { orgId: org.id, name: "その他", slug: "other",     color: "#6B7280", sortOrder: 4 },
-          ],
-        });
+      await prisma.eventCategory.createMany({
+        data: [
+          { orgId: org.id, name: "練習",   slug: "rehearsal", color: "#3B82F6", sortOrder: 1 },
+          { orgId: org.id, name: "本番",   slug: "concert",   color: "#EF4444", sortOrder: 2 },
+          { orgId: org.id, name: "会議",   slug: "meeting",   color: "#F59E0B", sortOrder: 3 },
+          { orgId: org.id, name: "その他", slug: "other",     color: "#6B7280", sortOrder: 4 },
+        ],
+      });
 
-        await tx.member.create({
-          data: { userId: user.id, orgId: org.id, roles: ["admin"], joinedAt: new Date() },
-        });
+      await prisma.member.create({
+        data: { userId: user.id, orgId: org.id, roles: ["admin"], joinedAt: new Date() },
       });
 
       return c.json({ data: { orgSlug: slug, orgName: name } }, 201);

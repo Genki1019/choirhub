@@ -191,17 +191,21 @@ export const membersRouter = new Hono<TenantEnv>()
         }
       }
 
-      let updated;
       try {
-        updated = await prisma.member.update({
+        await prisma.member.update({
           where: { userId_orgId: { userId: actingMember.userId, orgId: org.id } },
           data: memberFields,
-          include: memberInclude,
         });
       } catch (e: unknown) {
         logger.error("[PATCH /members/me] member update error:", e);
         return c.json({ error: { code: "INTERNAL_ERROR", message: "プロフィールの更新に失敗しました" } }, 500);
       }
+
+      const updated = await prisma.member.findUnique({
+        where: { userId_orgId: { userId: actingMember.userId, orgId: org.id } },
+        include: memberInclude,
+      });
+      if (!updated) return c.json({ error: { code: "NOT_FOUND", message: "メンバーが見つかりません" } }, 404);
 
       return c.json({ data: formatMember(updated, true, true) });
     }

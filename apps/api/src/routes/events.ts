@@ -230,13 +230,17 @@ export const eventsRouter = new Hono<TenantEnv>()
         const collection = await prisma.collection.create({
           data: { orgId: org.id, title: `${body.title} 場所代`, amount: org.defaultFeeAmount, eventId: ev.id, createdById: member.id },
         });
-        await prisma.collectionPayment.createMany({
-          data: activeMembers.map((m) => ({
-            collectionId: collection.id, memberId: m.id, status: "pending" as const,
-            amount: (m.memberType?.defaultFeeAmount != null && m.memberType.defaultFeeAmount !== org.defaultFeeAmount)
-              ? m.memberType.defaultFeeAmount : null,
-          })),
-        });
+        for (const m of activeMembers) {
+          await prisma.collectionPayment.create({
+            data: {
+              collectionId: collection.id,
+              memberId:     m.id,
+              status:       "pending",
+              amount: (m.memberType?.defaultFeeAmount != null && m.memberType.defaultFeeAmount !== org.defaultFeeAmount)
+                ? m.memberType.defaultFeeAmount : null,
+            },
+          });
+        }
       }
     }
 

@@ -662,12 +662,13 @@ export const concertsRouter = new Hono<TenantEnv>()
       await prisma.concert.update({ where: { id: concertId }, data: { status: "survey_open" } });
 
       if (stages.length > 0 && members.length > 0) {
-        await prisma.surveyResponse.createMany({
-          data: members.flatMap((m) =>
-            stages.map((st) => ({ surveyId: survey.id, memberId: m.id, stageId: st.id, status: "undecided" as const }))
-          ),
-          skipDuplicates: true,
-        });
+        for (const m of members) {
+          for (const st of stages) {
+            await prisma.surveyResponse.create({
+              data: { surveyId: survey.id, memberId: m.id, stageId: st.id, status: "undecided" },
+            });
+          }
+        }
       }
 
       return c.json({

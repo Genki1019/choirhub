@@ -5,6 +5,7 @@ import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "../lib/prisma.js";
 import { sendBulkMail, getResendEmail } from "../services/mail.js";
 import { isMemberPlus, isAdmin } from "../services/access.js";
+import { storage } from "../services/storage.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 const BODY_PREVIEW_LEN = 200;
@@ -41,7 +42,7 @@ export const mailingRouter = new Hono<TenantEnv>()
     return c.json({
       data: mails.map((m) => ({
         id:             m.id,
-        sentBy:         { id: m.sentById, nameJa: m.sentBy.userRef.nameJa, avatarUrl: m.sentBy.userRef.avatarUrl },
+        sentBy:         { id: m.sentById, nameJa: m.sentBy.userRef.nameJa, avatarUrl: storage.resolveAvatarUrl(m.sentBy.userRef.avatarUrl) },
         sentAt:         m.sentAt.toISOString(),
         recipientCount: m.recipientMemberIds.length,
         subject:        m.subject,
@@ -53,7 +54,13 @@ export const mailingRouter = new Hono<TenantEnv>()
 
   // ── GET /mailing/templates ── テンプレート一覧（/mailing/:id より先に定義）
   .get("/mailing/templates", async (c) => {
+    const member = c.get("member");
     const org = c.get("org");
+
+    if (!isMemberPlus(member)) {
+      return c.json({ error: { code: "FORBIDDEN", message: "閲覧権限がありません" } }, 403);
+    }
+
     const templates = await prisma.mailTemplate.findMany({
       where: { orgId: org.id },
       orderBy: { updatedAt: "desc" },

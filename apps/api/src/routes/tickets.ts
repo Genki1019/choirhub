@@ -275,7 +275,7 @@ export const ticketsRouter = new Hono<TenantEnv>()
       }
 
       const updated = await prisma.ticketAllocation.update({
-        where: { id },
+        where: { id, batch: { concert: { orgId: c.get("org").id } } },
         data: {
           ...salesBody,
           ...(allocatedCount !== undefined ? { allocatedCount, requestedCount: null } : {}),
@@ -339,7 +339,7 @@ export const ticketsRouter = new Hono<TenantEnv>()
       const { count } = await prisma.ticketAllocation.updateMany({
         where: {
           id:    { in: allocationIds },
-          batch: { concertId },
+          batch: { concertId, concert: { orgId: org.id } },
         },
         data: {
           isOutreachExpensePaid: paid,

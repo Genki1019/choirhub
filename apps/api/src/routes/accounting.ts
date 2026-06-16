@@ -379,16 +379,18 @@ export const accountingRouter = new Hono<TenantEnv>()
         ? await prisma.member.findMany({ where: { id: { in: body.memberIds }, orgId: org.id }, include: { memberType: true } })
         : await prisma.member.findMany({ where: { orgId: org.id, status: "active", NOT: { roles: { hasSome: ["visitor"] } } }, include: { memberType: true } });
 
-      await prisma.collectionPayment.createMany({
-        data: targets.map((m) => ({
-          collectionId: col.id,
-          memberId:     m.id,
-          status:       "pending" as const,
-          amount: (m.memberType?.defaultFeeAmount != null && m.memberType.defaultFeeAmount !== body.amount)
-            ? m.memberType.defaultFeeAmount
-            : null,
-        })),
-      });
+      for (const m of targets) {
+        await prisma.collectionPayment.create({
+          data: {
+            collectionId: col.id,
+            memberId:     m.id,
+            status:       "pending",
+            amount: (m.memberType?.defaultFeeAmount != null && m.memberType.defaultFeeAmount !== body.amount)
+              ? m.memberType.defaultFeeAmount
+              : null,
+          },
+        });
+      }
 
       return c.json({ data: { id: col.id, title: col.title, amount: col.amount } }, 201);
     }

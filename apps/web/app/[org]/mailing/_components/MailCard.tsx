@@ -15,7 +15,7 @@ function formatDate(iso: string): string {
 
 function SenderAvatar({ nameJa, avatarUrl }: { nameJa: string; avatarUrl: string | null }) {
   if (avatarUrl) {
-    return <Image src={avatarUrl} alt={nameJa} width={36} height={36} className="w-9 h-9 rounded-full object-cover shrink-0 mt-0.5" />;
+    return <Image src={avatarUrl} alt={nameJa} width={36} height={36} className="w-9 h-9 rounded-full object-cover shrink-0 mt-0.5" unoptimized />;
   }
   return (
     <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-bold shrink-0 mt-0.5">

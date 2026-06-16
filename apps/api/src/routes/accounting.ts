@@ -362,47 +362,35 @@ export const accountingRouter = new Hono<TenantEnv>()
 
       const body = c.req.valid("json");
 
-      const result = await prisma.$transaction(async (tx) => {
-        const col = await tx.collection.create({
-          data: {
-            orgId:     org.id,
-            title:     body.title,
-            amount:    body.amount,
-            dueDate:   body.dueDate   ? new Date(body.dueDate)   : null,
-            eventId:   body.eventId   ?? null,
-            yearMonth: body.yearMonth ?? null,
-            note:      body.note      ?? null,
-            createdById: member.id,
-          },
-        });
-
-        // memberIds 指定があればその対象、なければアクティブな一般団員全員
-        const targets = body.memberIds
-          ? await tx.member.findMany({
-              where:   { id: { in: body.memberIds }, orgId: org.id },
-              include: { memberType: true },
-            })
-          : await tx.member.findMany({
-              where:   { orgId: org.id, status: "active", NOT: { roles: { hasSome: ["visitor"] } } },
-              include: { memberType: true },
-            });
-
-        await tx.collectionPayment.createMany({
-          data: targets.map((m) => ({
-            collectionId: col.id,
-            memberId:     m.id,
-            status:       "pending" as const,
-            // メンバー区分に異なる会費が設定されている場合は個別金額を記録
-            amount: (m.memberType?.defaultFeeAmount != null && m.memberType.defaultFeeAmount !== body.amount)
-              ? m.memberType.defaultFeeAmount
-              : null,
-          })),
-        });
-
-        return col;
+      const col = await prisma.collection.create({
+        data: {
+          orgId:       org.id,
+          title:       body.title,
+          amount:      body.amount,
+          dueDate:     body.dueDate   ? new Date(body.dueDate)   : null,
+          eventId:     body.eventId   ?? null,
+          yearMonth:   body.yearMonth ?? null,
+          note:        body.note      ?? null,
+          createdById: member.id,
+        },
       });
 
-      return c.json({ data: { id: result.id, title: result.title, amount: result.amount } }, 201);
+      const targets = body.memberIds
+        ? await prisma.member.findMany({ where: { id: { in: body.memberIds }, orgId: org.id }, include: { memberType: true } })
+        : await prisma.member.findMany({ where: { orgId: org.id, status: "active", NOT: { roles: { hasSome: ["visitor"] } } }, include: { memberType: true } });
+
+      await prisma.collectionPayment.createMany({
+        data: targets.map((m) => ({
+          collectionId: col.id,
+          memberId:     m.id,
+          status:       "pending" as const,
+          amount: (m.memberType?.defaultFeeAmount != null && m.memberType.defaultFeeAmount !== body.amount)
+            ? m.memberType.defaultFeeAmount
+            : null,
+        })),
+      });
+
+      return c.json({ data: { id: col.id, title: col.title, amount: col.amount } }, 201);
     }
   )
 

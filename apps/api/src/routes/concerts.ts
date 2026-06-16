@@ -138,16 +138,9 @@ export const concertsRouter = new Hono<TenantEnv>()
 
       const { name } = c.req.valid("json");
 
-      const stage = await prisma.$transaction(async (tx) => {
-        const maxOrder = await tx.stage.aggregate({
-          where: { concertId },
-          _max: { sortOrder: true },
-        });
-        const sortOrder = (maxOrder._max.sortOrder ?? 0) + 1;
-        return tx.stage.create({
-          data: { concertId, name, sortOrder },
-        });
-      });
+      const maxStageOrder = await prisma.stage.aggregate({ where: { concertId }, _max: { sortOrder: true } });
+      const stageSortOrder = (maxStageOrder._max.sortOrder ?? 0) + 1;
+      const stage = await prisma.stage.create({ data: { concertId, name, sortOrder: stageSortOrder } });
 
       return c.json({
         data: {
@@ -332,35 +325,23 @@ export const concertsRouter = new Hono<TenantEnv>()
           return c.json({ error: { code: "NOT_FOUND", message: "楽譜が見つかりません" } }, 404);
         }
         const programTitle = title?.trim() || existingScore.title;
-        const result = await prisma.$transaction(async (tx) => {
-          const maxOrder = await tx.program.aggregate({ where: { stageId }, _max: { sortOrder: true } });
-          const sortOrder = (maxOrder._max.sortOrder ?? 0) + 1;
-          const updatedScore = await tx.score.update({
-            where: { id: scoreId },
-            data: { ...(accessLevel ? { accessLevel } : {}) },
-          });
-          const createdProgram = await tx.program.create({
-            data: { stageId, scoreId, title: programTitle, sortOrder },
-          });
-          return { updatedScore, createdProgram };
+        const maxOrder1 = await prisma.program.aggregate({ where: { stageId }, _max: { sortOrder: true } });
+        const sortOrder1 = (maxOrder1._max.sortOrder ?? 0) + 1;
+        const updatedScore = await prisma.score.update({
+          where: { id: scoreId },
+          data: { ...(accessLevel ? { accessLevel } : {}) },
         });
-        program = result.createdProgram;
-        responseScore = { id: result.updatedScore.id, composer: result.updatedScore.composer, arranger: result.updatedScore.arranger };
+        program = await prisma.program.create({ data: { stageId, scoreId, title: programTitle, sortOrder: sortOrder1 } });
+        responseScore = { id: updatedScore.id, composer: updatedScore.composer, arranger: updatedScore.arranger };
       } else {
         const trimmedTitle = title!.trim();
-        const result = await prisma.$transaction(async (tx) => {
-          const maxOrder = await tx.program.aggregate({ where: { stageId }, _max: { sortOrder: true } });
-          const sortOrder = (maxOrder._max.sortOrder ?? 0) + 1;
-          const s = await tx.score.create({
-            data: { orgId: org.id, title: trimmedTitle, composer: composer ?? null, arranger: arranger ?? null, accessLevel },
-          });
-          const p = await tx.program.create({
-            data: { stageId, scoreId: s.id, title: trimmedTitle, sortOrder },
-          });
-          return { s, p };
+        const maxOrder2 = await prisma.program.aggregate({ where: { stageId }, _max: { sortOrder: true } });
+        const sortOrder2 = (maxOrder2._max.sortOrder ?? 0) + 1;
+        const newScore = await prisma.score.create({
+          data: { orgId: org.id, title: trimmedTitle, composer: composer ?? null, arranger: arranger ?? null, accessLevel },
         });
-        responseScore = { id: result.s.id, composer: result.s.composer, arranger: result.s.arranger };
-        program = result.p;
+        program = await prisma.program.create({ data: { stageId, scoreId: newScore.id, title: trimmedTitle, sortOrder: sortOrder2 } });
+        responseScore = { id: newScore.id, composer: newScore.composer, arranger: newScore.arranger };
       }
 
       return c.json({
@@ -581,30 +562,26 @@ export const concertsRouter = new Hono<TenantEnv>()
 
       const body = c.req.valid("json");
 
-      const updated = await prisma.$transaction(async (tx) => {
-        const result = await tx.concert.update({
-          where: { id },
+      const updated = await prisma.concert.update({
+        where: { id },
+        data: {
+          ...(body.title                  !== undefined && { title: body.title }),
+          ...(body.heldOn                 !== undefined && { heldOn: new Date(body.heldOn) }),
+          ...(body.venue                  !== undefined && { venue: body.venue }),
+          ...(body.status                 !== undefined && { status: body.status }),
+          ...(body.outreachExpensePerTrip !== undefined && { outreachExpensePerTrip: body.outreachExpensePerTrip }),
+        },
+      });
+      if (concert.linkedEvent) {
+        await prisma.event.update({
+          where: { id: concert.linkedEvent.id, orgId: org.id },
           data: {
-            ...(body.title                  !== undefined && { title: body.title }),
-            ...(body.heldOn                 !== undefined && { heldOn: new Date(body.heldOn) }),
-            ...(body.venue                  !== undefined && { venue: body.venue }),
-            ...(body.status                 !== undefined && { status: body.status }),
-            ...(body.outreachExpensePerTrip !== undefined && { outreachExpensePerTrip: body.outreachExpensePerTrip }),
+            ...(body.title  !== undefined && { title: body.title }),
+            ...(body.heldOn !== undefined && { startsAt: new Date(body.heldOn), endsAt: new Date(body.heldOn) }),
+            ...(body.venue  !== undefined && { location: body.venue }),
           },
         });
-
-        if (concert.linkedEvent) {
-          await tx.event.update({
-            where: { id: concert.linkedEvent.id, orgId: org.id },
-            data: {
-              ...(body.title       !== undefined && { title: body.title }),
-              ...(body.heldOn !== undefined && { startsAt: new Date(body.heldOn), endsAt: new Date(body.heldOn) }),
-              ...(body.venue       !== undefined && { location: body.venue }),
-            },
-          });
-        }
-        return result;
-      });
+      }
       return c.json({
         data: {
           id:          updated.id,
@@ -635,12 +612,10 @@ export const concertsRouter = new Hono<TenantEnv>()
       return c.json({ error: { code: "NOT_FOUND", message: "演奏会が見つかりません" } }, 404);
     }
 
-    await prisma.$transaction(async (tx) => {
-      if (concert.linkedEvent) {
-        await tx.event.delete({ where: { id: concert.linkedEvent.id } });
-      }
-      await tx.concert.delete({ where: { id } });
-    });
+    if (concert.linkedEvent) {
+      await prisma.event.delete({ where: { id: concert.linkedEvent.id } });
+    }
+    await prisma.concert.delete({ where: { id } });
 
     return new Response(null, { status: 204 });
   })
@@ -681,52 +656,23 @@ export const concertsRouter = new Hono<TenantEnv>()
         select: { id: true },
       });
 
-      const survey = await prisma.$transaction(async (tx) => {
-        // 既存の開放中調査をすべてクローズ
-        await tx.concertSurvey.updateMany({
-          where: { concertId, isOpen: true },
-          data:  { isOpen: false },
-        });
+      await prisma.concertSurvey.updateMany({ where: { concertId, isOpen: true }, data: { isOpen: false } });
 
-        const s = await tx.concertSurvey.create({
-          data: {
-            concertId,
-            title,
-            openAt:  new Date(),
-            closeAt: closeAt ? new Date(closeAt) : null,
-            isOpen:  true,
-          },
-          select: {
-            id:      true,
-            title:   true,
-            isOpen:  true,
-            openAt:  true,
-            closeAt: true,
-            _count:  { select: { surveyResponses: true } },
-          },
-        });
-
-        await tx.concert.update({
-          where: { id: concertId },
-          data:  { status: "survey_open" },
-        });
-
-        if (stages.length > 0 && members.length > 0) {
-          await tx.surveyResponse.createMany({
-            data: members.flatMap((m) =>
-              stages.map((st) => ({
-                surveyId: s.id,
-                memberId: m.id,
-                stageId:  st.id,
-                status:   "undecided" as const,
-              }))
-            ),
-            skipDuplicates: true,
-          });
-        }
-
-        return s;
+      const survey = await prisma.concertSurvey.create({
+        data: { concertId, title, openAt: new Date(), closeAt: closeAt ? new Date(closeAt) : null, isOpen: true },
+        select: { id: true, title: true, isOpen: true, openAt: true, closeAt: true, _count: { select: { surveyResponses: true } } },
       });
+
+      await prisma.concert.update({ where: { id: concertId }, data: { status: "survey_open" } });
+
+      if (stages.length > 0 && members.length > 0) {
+        await prisma.surveyResponse.createMany({
+          data: members.flatMap((m) =>
+            stages.map((st) => ({ surveyId: survey.id, memberId: m.id, stageId: st.id, status: "undecided" as const }))
+          ),
+          skipDuplicates: true,
+        });
+      }
 
       return c.json({
         data: {
@@ -861,39 +807,28 @@ export const concertsRouter = new Hono<TenantEnv>()
 
       const body = c.req.valid("json");
 
-      const { survey: updated, concertStatus } = await prisma.$transaction(async (tx) => {
-        const s = await tx.concertSurvey.update({
-          where: { id: surveyId },
-          data: {
-            ...(body.title  !== undefined && { title: body.title }),
-            ...(body.isOpen !== undefined && { isOpen: body.isOpen }),
-          },
-        });
-
-        let status = concert.status;
-        if (body.isOpen === true) {
-          // 再開放：他の開放中調査をクローズし concert を survey_open に
-          await tx.concertSurvey.updateMany({
-            where: { concertId, isOpen: true, id: { not: surveyId } },
-            data:  { isOpen: false },
-          });
-          await tx.concert.update({ where: { id: concertId }, data: { status: "survey_open" } });
-          status = "survey_open";
-        } else if (body.isOpen === false) {
-          // クローズ：他に開放中調査がなければ concert を confirmed に
-          const stillOpen = await tx.concertSurvey.count({
-            where: { concertId, isOpen: true, id: { not: surveyId } },
-          });
-          if (stillOpen === 0) {
-            await tx.concert.update({ where: { id: concertId }, data: { status: "confirmed" } });
-            status = "confirmed";
-          } else {
-            status = "survey_open";
-          }
-        }
-
-        return { survey: s, concertStatus: status };
+      const updated = await prisma.concertSurvey.update({
+        where: { id: surveyId },
+        data: {
+          ...(body.title  !== undefined && { title: body.title }),
+          ...(body.isOpen !== undefined && { isOpen: body.isOpen }),
+        },
       });
+
+      let concertStatus = concert.status;
+      if (body.isOpen === true) {
+        await prisma.concertSurvey.updateMany({ where: { concertId, isOpen: true, id: { not: surveyId } }, data: { isOpen: false } });
+        await prisma.concert.update({ where: { id: concertId }, data: { status: "survey_open" } });
+        concertStatus = "survey_open";
+      } else if (body.isOpen === false) {
+        const stillOpen = await prisma.concertSurvey.count({ where: { concertId, isOpen: true, id: { not: surveyId } } });
+        if (stillOpen === 0) {
+          await prisma.concert.update({ where: { id: concertId }, data: { status: "confirmed" } });
+          concertStatus = "confirmed";
+        } else {
+          concertStatus = "survey_open";
+        }
+      }
 
       return c.json({ data: { id: updated.id, title: updated.title, isOpen: updated.isOpen, concertStatus } });
     }

@@ -50,6 +50,7 @@ v1.route("/:orgSlug", accountingRouter);
 v1.route("/:orgSlug", outreachRouter);
 
 // アバター画像配信 (認証不要: プロフィール画像は公開情報)
+// R2からプロキシして返すことで Next.js <Image> の外部ドメイン制限を回避
 // /:orgSlug/* ミドルウェアを通さないよう v1.route より先に登録
 app.get("/api/v1/files/avatar", async (c) => {
   const key = c.req.query("k");
@@ -58,8 +59,12 @@ app.get("/api/v1/files/avatar", async (c) => {
   }
   const result = await storage.serveAvatar(key);
   if (result.type === "notfound") return c.json({ error: { code: "NOT_FOUND", message: "画像が見つかりません" } }, 404);
-  if (result.type === "redirect") return c.redirect(result.url, 302);
-  return new Response(result.data, { headers: { "Content-Type": result.contentType } });
+  return new Response(result.data, {
+    headers: {
+      "Content-Type": result.contentType,
+      "Cache-Control": "public, max-age=3600",
+    },
+  });
 });
 
 app.route("/api/v1", v1);

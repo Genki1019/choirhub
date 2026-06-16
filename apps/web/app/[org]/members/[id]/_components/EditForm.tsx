@@ -45,7 +45,6 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
     phone:       member.phone       ?? "",
   });
   const [avatarPreview, setAvatarPreview] = useState<string | null>(member.avatarUrl ?? null);
-  const [pendingAvatarUrl, setPendingAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -81,8 +80,7 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
         throw new Error(json.error?.message ?? "アップロードに失敗しました");
       }
 
-      const json = await res.json() as { data: { avatarUrl: string } };
-      setPendingAvatarUrl(json.data.avatarUrl);
+      // アバターはアップロード時点でDBが更新済み。プレビューのみ更新する。
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "アップロードに失敗しました");
       setAvatarPreview(member.avatarUrl ?? null);
@@ -104,7 +102,7 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
         interests:   form.interests   || null,
         originGroup: form.originGroup || null,
         phone:       form.phone       || null,
-        ...(pendingAvatarUrl !== null && { avatarUrl: pendingAvatarUrl }),
+        // avatarUrl は POST /members/me/avatar で既にDBが更新済みなので PATCH に含めない
       });
     } finally {
       setSaving(false);

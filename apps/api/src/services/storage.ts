@@ -82,20 +82,32 @@ export const storage = {
     return `/uploads/${key}`;
   },
 
-  /** アバター画像を配信する（R2: presigned redirect / ローカル: Buffer 返却） */
+  /**
+   * アバター画像を配信する（R2: 署名URL経由でフェッチしてプロキシ / ローカル: Buffer 返却）
+   * リダイレクトではなくプロキシにすることで Next.js <Image> の外部ドメイン制限を回避する。
+   */
   async serveAvatar(key: string): Promise<
-    | { type: "redirect"; url: string }
     | { type: "buffer"; data: Buffer; contentType: string }
     | { type: "notfound" }
   > {
     const cfg = getR2Config();
     if (cfg) {
-      const url = await getSignedUrl(
-        getS3(cfg),
-        new GetObjectCommand({ Bucket: cfg.bucket, Key: key }),
-        { expiresIn: 3600 },
-      );
-      return { type: "redirect", url };
+      try {
+        const presignedUrl = await getSignedUrl(
+          getS3(cfg),
+          new GetObjectCommand({ Bucket: cfg.bucket, Key: key }),
+          { expiresIn: 60 },
+        );
+        const res = await fetch(presignedUrl);
+        if (!res.ok) return { type: "notfound" };
+        const data = Buffer.from(await res.arrayBuffer());
+        const contentType = res.headers.get("content-type")
+          ?? CONTENT_TYPES[extname(key).toLowerCase()]
+          ?? "image/jpeg";
+        return { type: "buffer", data, contentType };
+      } catch {
+        return { type: "notfound" };
+      }
     }
     try {
       const data = await readFile(localPath(key));

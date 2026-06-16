@@ -291,16 +291,16 @@ export const scoresRouter = new Hono<TenantEnv>()
         return c.json({ error: { code: "BAD_REQUEST", message: "このユーザーに所属しないメンバーIDが含まれています" } }, 400);
       }
 
-      await prisma.scorePurchase.deleteMany({ where: { scoreId } });
-      if (filteredIds.length > 0) {
-        await prisma.scorePurchase.createMany({
-          data: filteredIds.map((memberId) => ({
+      await prisma.$executeRaw`DELETE FROM score_purchases WHERE score_id = ${scoreId}`;
+      for (const memberId of filteredIds) {
+        await prisma.scorePurchase.create({
+          data: {
             scoreId,
             memberId,
             purchasedAt: purchasedAt ? new Date(purchasedAt) : null,
             note: note ?? null,
             recordedById: actingMember.id,
-          })),
+          },
         });
       }
 

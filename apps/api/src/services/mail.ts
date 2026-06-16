@@ -234,10 +234,8 @@ export async function sendPasswordResetEmail(params: {
     return;
   }
 
-  const actualTo  = (isDev && DEV_MAIL_TO) ? DEV_MAIL_TO : to;
-  const devNotice = (isDev && DEV_MAIL_TO && DEV_MAIL_TO !== to)
-    ? `本来の宛先: ${to}`
-    : undefined;
+  const actualTo  = DEV_MAIL_TO || to;
+  const devNotice = (DEV_MAIL_TO && DEV_MAIL_TO !== to) ? `本来の宛先: ${to}` : undefined;
 
   const html = buildPasswordResetHtml({ nameJa, resetUrl, expiresLabel, devNotice });
 
@@ -275,11 +273,11 @@ export async function sendBulkMail(params: {
     return [];
   }
 
-  const devNotice = (isDev && DEV_MAIL_TO)
+  const devNotice = DEV_MAIL_TO
     ? `本来の宛先 ${to.length}名: ${to.map((t) => t.email).join(", ")}`
     : undefined;
   const html = buildBulkMailHtml({ orgName, subject, body, devNotice });
-  const recipients = (isDev && DEV_MAIL_TO) ? [{ email: DEV_MAIL_TO }] : to;
+  const recipients = DEV_MAIL_TO ? [{ email: DEV_MAIL_TO }] : to;
 
   const resend = new Resend(RESEND_API_KEY);
   const { data, error } = await resend.batch.send(
@@ -346,11 +344,8 @@ export async function sendInviteEmail(params: {
     return;
   }
 
-  // 開発環境：DEV_MAIL_TO に転送（onboarding@resend.dev は自分のアドレスにしか送れない制限のため）
-  const actualTo  = (isDev && DEV_MAIL_TO) ? DEV_MAIL_TO : to;
-  const devNotice = (isDev && DEV_MAIL_TO && DEV_MAIL_TO !== to)
-    ? `本来の宛先: ${to}`
-    : undefined;
+  const actualTo  = DEV_MAIL_TO || to;
+  const devNotice = (DEV_MAIL_TO && DEV_MAIL_TO !== to) ? `本来の宛先: ${to}` : undefined;
 
   const html = buildInviteHtml({ greeting, orgName, inviteUrl, expiresLabel, devNotice });
 

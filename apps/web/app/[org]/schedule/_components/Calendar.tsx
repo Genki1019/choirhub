@@ -4,17 +4,8 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { EventSummary, EventCategory, AttendanceStatus } from "@/lib/events-api";
 
-// ── スラグベースのスタイル（システム標準区分） ──────────
-
-const SLUG_STYLE: Record<string, { dot: string; badge: string }> = {
-  rehearsal: { dot: "bg-teal-400",   badge: "bg-teal-100 text-teal-700"    },
-  concert:   { dot: "bg-orange-400", badge: "bg-orange-100 text-orange-700" },
-  meeting:   { dot: "bg-blue-400",   badge: "bg-blue-100 text-blue-700"    },
-  other:     { dot: "bg-gray-400",   badge: "bg-gray-100 text-gray-600"    },
-};
-
-export function getCategoryStyle(cat: EventCategory): { dot: string; badge: string } {
-  return (cat.slug && SLUG_STYLE[cat.slug]) ? SLUG_STYLE[cat.slug] : { dot: "bg-purple-400", badge: "bg-purple-100 text-purple-700" };
+export function getCategoryColor(cat: EventCategory): string {
+  return cat.color || "#8B5CF6";
 }
 
 export const ATTENDANCE_STYLE: Record<AttendanceStatus, { symbol: string; text: string }> = {
@@ -138,7 +129,7 @@ export function Calendar({ year, month, today, events, org, onPrevMonth, onNextM
                           title={ev.title}
                           className="flex items-center gap-0.5"
                         >
-                          <span className={`block w-2 h-2 rounded-full shrink-0 ${getCategoryStyle(ev.category).dot}`} />
+                          <span className="block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: getCategoryColor(ev.category) }} />
                           <span className={`text-[9px] font-bold leading-none ${ss.text}`}>{ss.symbol}</span>
                         </Link>
                       );
@@ -153,7 +144,8 @@ export function Calendar({ year, month, today, events, org, onPrevMonth, onNextM
                         <Link
                           key={ev.id}
                           href={ev.concertId ? `/${org}/concerts/${ev.concertId}?tab=attendance` : `/${org}/schedule/${ev.id}`}
-                          className={`flex items-center gap-0.5 text-[10px] font-medium px-1 py-0.5 rounded ${getCategoryStyle(ev.category).badge} hover:opacity-80 transition-opacity`}
+                          className="flex items-center gap-0.5 text-[10px] font-medium px-1 py-0.5 rounded hover:opacity-80 transition-opacity"
+                          style={{ backgroundColor: `${getCategoryColor(ev.category)}20`, color: getCategoryColor(ev.category) }}
                         >
                           <span className="truncate flex-1">{ev.title}</span>
                           <span className={`shrink-0 font-bold ${ss.text}`}>{ss.symbol}</span>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Clock, MapPin } from "lucide-react";
 import { type EventSummary, type AttendanceStatus } from "@/lib/events-api";
-import { getCategoryStyle, ATTENDANCE_STYLE } from "./Calendar";
+import { getCategoryColor, ATTENDANCE_STYLE } from "./Calendar";
 
 function formatTime(iso: string) {
   const d = new Date(iso);
@@ -31,7 +31,7 @@ export function ScheduleSidebar({ events, upcomingEvents, org }: ScheduleSidebar
           <div className="space-y-1.5">
             {categories.map((cat) => (
               <div key={cat.id} className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${getCategoryStyle(cat).dot}`} />
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getCategoryColor(cat) }} />
                 <span className="text-xs text-gray-600">{cat.name}</span>
               </div>
             ))}
@@ -61,7 +61,6 @@ export function ScheduleSidebar({ events, upcomingEvents, org }: ScheduleSidebar
         ) : (
           <div className="divide-y divide-gray-100">
             {upcomingEvents.map((ev) => {
-              const s  = getCategoryStyle(ev.category);
               const ss = ATTENDANCE_STYLE[ev.myAttendance];
               return (
                 <Link
@@ -69,7 +68,7 @@ export function ScheduleSidebar({ events, upcomingEvents, org }: ScheduleSidebar
                   href={ev.concertId ? `/${org}/concerts/${ev.concertId}?tab=attendance` : `/${org}/schedule/${ev.id}`}
                   className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
                 >
-                  <span className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${s.dot}`} />
+                  <span className="mt-0.5 w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: getCategoryColor(ev.category) }} />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-medium text-gray-800 truncate">{ev.title}</p>
                     <div className="flex items-center gap-1 mt-0.5 text-[10px] text-gray-400">

@@ -4,9 +4,8 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Calendar, MapPin, FileText, AlertCircle, Loader2 } from "lucide-react";
-import { eventsApi } from "@/lib/events-api";
+import { concertsApi } from "@/lib/concerts-api";
 import { membersApi, type PartSummary } from "@/lib/members-api";
-import { settingsApi } from "@/lib/settings-api";
 import { ApiClientError } from "@/lib/api-client";
 import { NotFoundPage } from "@/components/NotFoundPage";
 import { LocationSearch } from "@/components/LocationSearch";
@@ -35,10 +34,9 @@ export default function NewConcertPage() {
   const { org } = useParams<{ org: string }>();
   const router  = useRouter();
 
-  const [canCreate,         setCanCreate]         = useState<boolean | null>(null);
-  const [parts,             setParts]             = useState<PartSummary[]>([]);
-  const [concertCategoryId, setConcertCategoryId] = useState<string | null>(null);
-  const [initError,         setInitError]         = useState<string | null>(null);
+  const [canCreate,  setCanCreate]  = useState<boolean | null>(null);
+  const [parts,      setParts]      = useState<PartSummary[]>([]);
+  const [initError,  setInitError]  = useState<string | null>(null);
 
   const [title,         setTitle]         = useState("");
   const [startDate,     setStartDate]     = useState(getTodayStr);
@@ -57,12 +55,10 @@ export default function NewConcertPage() {
   const [saving,        setSaving]        = useState(false);
 
   useEffect(() => {
-    Promise.all([membersApi.me(org), membersApi.parts(org), settingsApi.listEventCategories(org)])
-      .then(([me, partList, catList]) => {
+    Promise.all([membersApi.me(org), membersApi.parts(org)])
+      .then(([me, partList]) => {
         setCanCreate(me.roles.includes("admin") || me.roles.includes("tech"));
         setParts(partList);
-        const concertCat = catList.find((c) => c.slug === "concert");
-        if (concertCat) setConcertCategoryId(concertCat.id);
       })
       .catch((err: unknown) => {
         if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
@@ -119,20 +115,18 @@ export default function NewConcertPage() {
     setError("");
 
     try {
-      if (!concertCategoryId) { setError("本番区分が見つかりません"); setSaving(false); return; }
-      const created = await eventsApi.create(org, {
+      const created = await concertsApi.create(org, {
         title:         title.trim(),
-        categoryId:    concertCategoryId,
-        startsAt:      toJstIso(startDate, startTime),
+        heldOn:        toJstIso(startDate, startTime),
         endsAt:        toJstIso(endDate,   endTime),
-        location:      location    || null,
+        venue:         location    || null,
         locationUrl:   locationUrl || null,
         targetRoles:   targetRoles.length   > 0 ? targetRoles   : null,
         targetPartIds: targetPartIds.length > 0 ? targetPartIds : null,
         deadline:      hasDeadline && deadlineDate ? toJstIso(deadlineDate, deadlineTime) : null,
         pageMemo:      pageMemo    || null,
       });
-      router.push(created.concertId ? `/${org}/concerts/${created.concertId}` : `/${org}/concerts`);
+      router.push(`/${org}/concerts/${created.id}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "作成に失敗しました。");
       setSaving(false);

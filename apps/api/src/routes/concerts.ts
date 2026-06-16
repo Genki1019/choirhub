@@ -7,13 +7,20 @@ import type { TenantEnv } from "../middleware/tenant.js";
 
 export const concertsRouter = new Hono<TenantEnv>()
 
-  // ── POST /concerts ── 演奏会を新規作成（admin のみ）
+  // ── POST /concerts ── 演奏会を新規作成（tech 以上）
+  // スケジュールと連携するため、"concert" スラグのイベント区分を自動で探して Event も作成する
   .post(
     "/concerts",
     zValidator("json", z.object({
-      title:       z.string().min(1),
-      heldOn: z.string().date(),
-      venue:       z.string().optional().nullable(),
+      title:         z.string().min(1),
+      heldOn:        z.string().datetime({ offset: true }),
+      endsAt:        z.string().datetime({ offset: true }).optional(),
+      venue:         z.string().optional().nullable(),
+      locationUrl:   z.string().optional().nullable(),
+      targetRoles:   z.array(z.string()).optional().nullable(),
+      targetPartIds: z.array(z.string()).optional().nullable(),
+      deadline:      z.string().datetime({ offset: true }).optional().nullable(),
+      pageMemo:      z.string().optional().nullable(),
     }), (r, c) => {
       if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
     }),
@@ -21,36 +28,56 @@ export const concertsRouter = new Hono<TenantEnv>()
       const actingMember = c.get("member");
       const org = c.get("org");
 
-      if (!isAdmin(actingMember)) {
-        return c.json({ error: { code: "FORBIDDEN", message: "管理者のみ演奏会を作成できます" } }, 403);
+      if (!hasRole(actingMember, "tech")) {
+        return c.json({ error: { code: "FORBIDDEN", message: "技術系以上の権限が必要です" } }, 403);
       }
 
-      const { title, heldOn, venue } = c.req.valid("json");
+      const { title, heldOn, endsAt, venue, locationUrl, targetRoles, targetPartIds, deadline, pageMemo } = c.req.valid("json");
 
       const concert = await prisma.concert.create({
+        data: { orgId: org.id, title, heldOn: new Date(heldOn), venue: venue ?? null },
+      });
+
+      // "concert" スラグのイベント区分を探す。なければ自動作成する
+      let concertCategory = await prisma.eventCategory.findFirst({
+        where: { orgId: org.id, slug: "concert" },
+      });
+      if (!concertCategory) {
+        concertCategory = await prisma.eventCategory.create({
+          data: { orgId: org.id, name: "本番", slug: "concert", color: "#EF4444", sortOrder: 2 },
+        });
+      }
+
+      // スケジュールに表示するためのイベントを作成して Concert とリンク
+      const linkedEvent = await prisma.event.create({
         data: {
-          orgId: org.id,
+          orgId:         org.id,
           title,
-          heldOn: new Date(heldOn),
-          venue: venue ?? null,
-        },
-        include: {
-          stages: { include: { programs: { select: { id: true } } } },
-          concertSurveys: { select: { id: true, isOpen: true } },
+          categoryId:    concertCategory.id,
+          startsAt:      new Date(heldOn),
+          endsAt:        endsAt ? new Date(endsAt) : new Date(heldOn),
+          location:      venue ?? null,
+          locationUrl:   locationUrl ?? null,
+          targetRoles:   targetRoles ?? [],
+          targetPartIds: targetPartIds ?? [],
+          deadline:      deadline ? new Date(deadline) : null,
+          pageMemo:      pageMemo ?? null,
+          concertId:     concert.id,
         },
       });
 
       return c.json({
         data: {
-          id: concert.id,
-          title: concert.title,
-          heldOn: concert.heldOn.toISOString(),
-          venue: concert.venue,
-          status: concert.status,
-          stageCount: 0,
-          programCount: 0,
-          hasSurvey: false,
-          surveyOpen: false,
+          id:             concert.id,
+          title:          concert.title,
+          heldOn:         concert.heldOn.toISOString(),
+          venue:          concert.venue,
+          status:         concert.status,
+          stageCount:     0,
+          programCount:   0,
+          hasSurvey:      false,
+          surveyOpen:     false,
+          linkedEventId:  linkedEvent.id,
         },
       }, 201);
     }

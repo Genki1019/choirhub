@@ -101,9 +101,15 @@ export interface UpdateConcertInput {
 }
 
 export interface CreateConcertInput {
-  title: string;
-  heldOn: string;
-  venue?: string | null;
+  title:         string;
+  heldOn:        string;
+  endsAt?:       string;
+  venue?:        string | null;
+  locationUrl?:  string | null;
+  targetRoles?:  string[] | null;
+  targetPartIds?: string[] | null;
+  deadline?:     string | null;
+  pageMemo?:     string | null;
 }
 
 export interface AddStageInput {

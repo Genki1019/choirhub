@@ -26,13 +26,14 @@ const expenseBodySchema = z.object({
 // ────────────────────────────
 
 const collectionBodySchema = z.object({
-  title:     z.string().min(1).max(100),
-  amount:    z.number().int().positive(),
-  dueDate:   z.string().date().optional().nullable(),
-  eventId:   z.string().optional().nullable(),
-  yearMonth: z.string().regex(/^\d{4}-\d{2}$/).optional().nullable(),
-  note:      z.string().optional().nullable(),
-  memberIds: z.array(z.string()).min(1).optional(),
+  title:               z.string().min(1).max(100),
+  amount:              z.number().int().positive(),
+  dueDate:             z.string().date().optional().nullable(),
+  eventId:             z.string().optional().nullable(),
+  yearMonth:           z.string().regex(/^\d{4}-\d{2}$/).optional().nullable(),
+  note:                z.string().optional().nullable(),
+  memberIds:           z.array(z.string()).min(1).optional(),
+  applyMemberTypeFee:  z.boolean().default(true),
 });
 
 // ────────────────────────────
@@ -380,14 +381,19 @@ export const accountingRouter = new Hono<TenantEnv>()
         : await prisma.member.findMany({ where: { orgId: org.id, status: "active", NOT: { roles: { hasSome: ["visitor"] } } }, include: { memberType: true } });
 
       for (const m of targets) {
+        const individualAmount =
+          body.applyMemberTypeFee &&
+          m.memberType?.defaultFeeAmount != null &&
+          m.memberType.defaultFeeAmount !== body.amount
+            ? m.memberType.defaultFeeAmount
+            : null;
+
         await prisma.collectionPayment.create({
           data: {
             collectionId: col.id,
             memberId:     m.id,
             status:       "pending",
-            amount: (m.memberType?.defaultFeeAmount != null && m.memberType.defaultFeeAmount !== body.amount)
-              ? m.memberType.defaultFeeAmount
-              : null,
+            amount:       individualAmount,
           },
         });
       }

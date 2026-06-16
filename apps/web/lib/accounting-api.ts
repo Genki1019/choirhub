@@ -101,6 +101,7 @@ export interface CollectionInput {
   yearMonth?: string | null;
   note?: string | null;
   memberIds?: string[];
+  applyMemberTypeFee?: boolean;
 }
 
 export interface ExpenseCategory {

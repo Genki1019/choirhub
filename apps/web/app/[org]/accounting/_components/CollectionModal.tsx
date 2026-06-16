@@ -13,16 +13,17 @@ interface CollectionModalProps {
 }
 
 export function CollectionModal({ org, memberTypes, onClose, onSaved }: CollectionModalProps) {
-  const [title,     setTitle]     = useState("");
-  const [amount,    setAmount]    = useState("");
-  const [yearMonth, setYearMonth] = useState("");
-  const [note,      setNote]      = useState("");
-  const [saving,    setSaving]    = useState(false);
-  const [error,     setError]     = useState<string | null>(null);
+  const [title,              setTitle]              = useState("");
+  const [amount,             setAmount]             = useState("");
+  const [yearMonth,          setYearMonth]          = useState("");
+  const [note,               setNote]               = useState("");
+  const [applyMemberTypeFee, setApplyMemberTypeFee] = useState(true);
+  const [saving,             setSaving]             = useState(false);
+  const [error,              setError]              = useState<string | null>(null);
 
   const parsedAmount = parseInt(amount, 10);
 
-  const typePreviews = isNaN(parsedAmount)
+  const typePreviews = isNaN(parsedAmount) || !applyMemberTypeFee
     ? []
     : memberTypes
         .filter((t) => t.defaultFeeAmount != null && t.defaultFeeAmount !== parsedAmount)
@@ -38,10 +39,11 @@ export function CollectionModal({ org, memberTypes, onClose, onSaved }: Collecti
     setError(null);
     try {
       await accountingApi.createCollection(org, {
-        title:     title.trim(),
-        amount:    parsedAmount,
-        yearMonth: yearMonth || null,
-        note:      note.trim() || null,
+        title:              title.trim(),
+        amount:             parsedAmount,
+        yearMonth:          yearMonth || null,
+        note:               note.trim() || null,
+        applyMemberTypeFee,
       });
       onSaved();
     } catch {
@@ -89,6 +91,17 @@ export function CollectionModal({ org, memberTypes, onClose, onSaved }: Collecti
               placeholder="3000"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
             />
+            {memberTypes.some((t) => t.defaultFeeAmount != null) && (
+              <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={applyMemberTypeFee}
+                  onChange={(e) => setApplyMemberTypeFee(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer"
+                />
+                <span className="text-xs text-gray-600">区分ごとの会費を自動適用する</span>
+              </label>
+            )}
             {typePreviews.length > 0 && (
               <div className="mt-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 space-y-1">
                 <p className="text-xs font-medium text-blue-700">区分会費が自動適用されます</p>
@@ -124,7 +137,7 @@ export function CollectionModal({ org, memberTypes, onClose, onSaved }: Collecti
           </div>
 
           <p className="text-xs text-gray-400">
-            作成後、アクティブな全団員（体験除く）に支払い待ちレコードが自動生成されます。メンバー区分の会費が基本金額と異なる場合は個別金額が適用されます。
+            作成後、アクティブな全団員（体験除く）に支払い待ちレコードが自動生成されます。「区分ごとの会費を自動適用する」をオフにすると全員に基本金額が一律適用されます。
           </p>
 
           {error && (

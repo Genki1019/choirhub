@@ -16,7 +16,7 @@ export const homeRouter = new Hono<TenantEnv>()
 
     const isVisitorMember = isVisitor(member);
 
-    const [upcomingRaw, recentMailsRaw] = await Promise.all([
+    const [upcomingRaw, recentMailsRaw, nextUpcomingConcert] = await Promise.all([
       prisma.event.findMany({
         where: { orgId, startsAt: { gte: today } },
         orderBy: { startsAt: "asc" },
@@ -39,6 +39,10 @@ export const homeRouter = new Hono<TenantEnv>()
               sentBy: { select: { userRef: { select: { nameJa: true, avatarUrl: true } } } },
             },
           }),
+      prisma.concert.findFirst({
+        where: { orgId, heldOn: { gte: today }, status: { not: "past" } },
+        orderBy: { heldOn: "asc" },
+      }),
     ]);
 
     const visibleEvents = isAdmin(member)
@@ -67,13 +71,26 @@ export const homeRouter = new Hono<TenantEnv>()
     const nextRehearsalRaw = visibleEvents.find((e) => e.category.slug === "rehearsal" || e.category.name === "練習");
     const nextConcertRaw   = visibleEvents.find((e) => e.category.slug === "concert"   || e.category.name === "本番");
 
+    // イベントに本番カテゴリがなければ Concert レコードを直接参照
+    const nextConcertFallback = !nextConcertRaw && nextUpcomingConcert
+      ? {
+          id: nextUpcomingConcert.id,
+          title: nextUpcomingConcert.title,
+          category: { id: "", name: "本番", slug: "concert" as const, color: "#EF4444" },
+          startsAt: nextUpcomingConcert.heldOn.toISOString(),
+          location: nextUpcomingConcert.venue ?? null,
+          concertId: nextUpcomingConcert.id,
+          myAttendance: "undecided" as const,
+        }
+      : null;
+
     const canViewTickets = isTicketManager(member);
 
     return c.json({
       data: {
         upcomingEvents,
         nextRehearsal: nextRehearsalRaw ? mapEvent(nextRehearsalRaw) : null,
-        nextConcert:   nextConcertRaw   ? mapEvent(nextConcertRaw)   : null,
+        nextConcert:   nextConcertRaw   ? mapEvent(nextConcertRaw)   : nextConcertFallback,
         unansweredEventCount,
         recentMails: recentMailsRaw.map((m) => ({
           id: m.id,

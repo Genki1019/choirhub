@@ -275,16 +275,19 @@ export const authRouter = new Hono()
   // ── GET /auth/password-reset/:token ── トークン検証（ページ初期表示用）
   .get("/auth/password-reset/:token", async (c) => {
     const { token } = c.req.param();
-    const resetToken = await prisma.passwordResetToken.findUnique({
-      where:   { token },
-      include: { user: { select: { email: true } } },
-    });
+    const resetToken = await prisma.passwordResetToken.findUnique({ where: { token } });
 
     if (!resetToken || resetToken.usedAt || resetToken.expiresAt < new Date()) {
       return c.json({ error: { code: "INVALID_TOKEN", message: "リンクが無効または期限切れです" } }, 404);
     }
 
-    return c.json({ data: { email: resetToken.user.email } });
+    const user = await prisma.user.findUnique({
+      where:  { id: resetToken.userId },
+      select: { email: true },
+    });
+    if (!user) return c.json({ error: { code: "INVALID_TOKEN", message: "リンクが無効または期限切れです" } }, 404);
+
+    return c.json({ data: { email: user.email } });
   })
 
   // ── POST /auth/password-reset/:token ── パスワード更新
@@ -305,12 +308,15 @@ export const authRouter = new Hono()
 
       const passwordHash = await hashPassword(password);
 
-      // 1 SQL でトークンを消費（並行リクエストは count === 0 で弾かれる）
-      const claimed = await prisma.passwordResetToken.updateMany({
-        where: { token, usedAt: null, expiresAt: { gt: new Date() } },
-        data:  { usedAt: new Date() },
-      });
-      if (claimed.count === 0) {
+      // 1 SQL でトークンを消費（並行リクエストは 0 行更新で弾かれる）
+      // NeonHTTP は updateMany が内部トランザクションを要求するため $executeRaw を使用
+      // expires_at は TIMESTAMP (UTC値) のため、NOW() を UTC に変換して比較する
+      const updatedCount = await prisma.$executeRaw`
+        UPDATE password_reset_tokens
+        SET used_at = (NOW() AT TIME ZONE 'UTC')
+        WHERE token = ${token} AND used_at IS NULL AND expires_at > (NOW() AT TIME ZONE 'UTC')
+      `;
+      if (updatedCount === 0) {
         return c.json({ error: { code: "INVALID_TOKEN", message: "リンクが無効または期限切れです" } }, 404);
       }
 

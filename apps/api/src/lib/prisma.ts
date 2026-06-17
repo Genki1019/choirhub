@@ -3,6 +3,10 @@ import { PrismaNeonHTTP } from "@prisma/adapter-neon";
 
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_DIRECT_URL ?? process.env.DATABASE_URL!;
+  const isLocal = connectionString.includes("localhost") || connectionString.includes("127.0.0.1");
+  if (isLocal) {
+    return new PrismaClient({ datasourceUrl: connectionString });
+  }
   const adapter = new PrismaNeonHTTP(connectionString, {});
   return new PrismaClient({ adapter });
 }

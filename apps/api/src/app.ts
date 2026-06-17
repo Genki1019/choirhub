@@ -14,6 +14,7 @@ import { homeRouter } from "./routes/home.js";
 import { accountingRouter } from "./routes/accounting.js";
 import { outreachRouter } from "./routes/outreach.js";
 import { storage } from "./services/storage.js";
+import { logger } from "./lib/logger.js";
 
 const app = new Hono();
 
@@ -70,5 +71,10 @@ app.get("/api/v1/files/avatar", async (c) => {
 app.route("/api/v1", v1);
 
 app.get("/health", (c) => c.json({ ok: true }));
+
+app.onError((err, c) => {
+  logger.error("[Hono] Unhandled error:", err instanceof Error ? err.message : String(err), err instanceof Error ? err.stack : "");
+  return c.json({ error: { code: "INTERNAL_ERROR", message: "サーバーエラーが発生しました" } }, 500);
+});
 
 export { app };

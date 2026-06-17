@@ -4,9 +4,23 @@
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
+![Hono](https://img.shields.io/badge/Hono-4-orange?logo=hono)
 ![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?logo=prisma)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue?logo=postgresql)
 ![Cloudflare R2](https://img.shields.io/badge/Cloudflare-R2-F38020?logo=cloudflare)
+
+---
+
+## デモ
+
+**[https://choirhub-web.vercel.app/harmonia](https://choirhub-web.vercel.app/harmonia)**
+
+| 項目 | 値 |
+|------|-----|
+| メールアドレス | `demo@choirhub.app` |
+| パスワード | `Demo1234!` |
+
+> デモアカウントは管理者（`admin` + `conductor`）権限です。他の団員アカウント（例: `sakura@harmonia.example`）でも同パスワードでログインし、一般団員視点の画面を確認できます。
 
 ---
 
@@ -15,6 +29,56 @@
 合唱団の運営は「スケジュールは伝助、楽譜はメール添付、連絡はメーリングリスト、チケット集計は Excel…」と複数ツールが乱立しがちです。**ChoirHub** はこれらをひとつのプラットフォームに統合し、運営担当者の管理コストを削減します。
 
 1 人のユーザーが複数の合唱団に所属できる **マルチテナント設計** を採用しており、ロール名・パート構成をカスタマイズすることで男声・混声・女声・学生合唱など幅広い団体形態に対応できます。
+
+---
+
+## スクリーンショット
+
+### ホーム
+
+直近イベントの残り日数・未回答出欠数・最新メールをひと目で把握できるダッシュボード。
+
+![ホーム画面](docs/images/home.png)
+
+---
+
+### スケジュール・出欠
+
+| 月次カレンダー | 出欠表（伝助ビュー） |
+|---|---|
+| ![スケジュール](docs/images/schedule.png) | ![出欠表](docs/images/schedule_detail.png) |
+
+---
+
+### 楽譜管理
+
+演奏会別に楽譜を整理。アクセスレベル制御・購入記録・「徴収を作成」ボタンをワンストップで提供。
+
+![楽譜管理](docs/images/score.png)
+
+---
+
+### チケット・メーリス
+
+| チケット管理 | メーリス |
+|---|---|
+| ![チケット管理](docs/images/ticket.png) | ![メーリス](docs/images/mailing.png) |
+
+---
+
+### 会計
+
+| 徴収管理 | 支出管理 |
+|---|---|
+| ![徴収管理](docs/images/accounting_collections.png) | ![支出管理](docs/images/accounting_expenses.png) |
+
+---
+
+### その他
+
+| プロフィール | 設定（パート管理） |
+|---|---|
+| ![プロフィール](docs/images/profile.png) | ![設定](docs/images/setting_part.png) |
 
 ---
 
@@ -53,8 +117,9 @@
 
 | 技術 | バージョン | 用途 |
 | ------ | ----------- | ------ |
-| Next.js (App Router) | 16 | フロントエンド + API（Route Handlers）|
-| TypeScript | 5 | 型安全性 |
+| Next.js (App Router) | 16 | フロントエンド UI |
+| Hono | 4 | バックエンド API サーバー |
+| TypeScript | 5 | フロント・バック両方 |
 | React | 19 | UI ライブラリ |
 
 ### UI
@@ -64,7 +129,7 @@
 | Tailwind CSS | v4 | スタイリング |
 | lucide-react | - | アイコン |
 | React Hook Form | v7 | フォーム管理 |
-| Zod | v3 | バリデーション |
+| Zod | v3 | スキーマバリデーション |
 
 ### バックエンド・インフラ
 
@@ -74,15 +139,15 @@
 | PostgreSQL | 16 | データベース |
 | Argon2id | - | パスワードハッシュ |
 | AWS SDK v3（S3 互換） | - | Cloudflare R2 操作 |
-| Resend | - | メール送信 |
+| Resend | - | トランザクションメール |
 | Upstash Redis | - | セッション・レートリミット |
 
 ### インフラ・サービス
 
 | サービス | 用途 |
 | --------- | ------ |
-| Vercel | Next.js ホスティング（フロント + API 一体） |
-| Neon | サーバーレス PostgreSQL |
+| Vercel | フロントエンド・API それぞれを独立デプロイ |
+| Neon | サーバーレス PostgreSQL（HTTP アダプタ経由） |
 | Cloudflare R2 | ファイルストレージ（楽譜 PDF・MIDI・アバター画像） |
 | pnpm workspaces | モノレポ管理 |
 
@@ -92,20 +157,35 @@
 
 ### アプリケーション構成
 
-Next.js の App Router に UI とバックエンドを統合しています。API エンドポイントは Route Handlers として `app/api/` 配下に実装し、フロントエンドの Server Components・Client Components と同一デプロイ単位で動作します。
+フロントエンド（Next.js）とバックエンド API（Hono）を **pnpm workspaces のモノレポ**で管理し、Vercel に **2 つの独立したプロジェクト**としてデプロイします。
 
 ```text
 choirhub/
 ├── apps/
-│   └── web/
-│       ├── app/
-│       │   ├── (auth)/        # 認証系（login / invite）
-│       │   ├── [org]/         # テナント別ルート（UI）
-│       │   └── api/           # Route Handlers（バックエンド API）
-│       │       └── [...route]/
-│       ├── prisma/            # スキーマ・マイグレーション
-│       └── lib/               # DB・ストレージ・メール・認証
+│   ├── web/                  # フロントエンド（Next.js 16）
+│   │   ├── app/
+│   │   │   ├── (auth)/       # 認証系（login / invite）
+│   │   │   └── [org]/        # テナント別ルート
+│   │   └── lib/              # API クライアント・型定義
+│   └── api/                  # バックエンド API（Hono）
+│       ├── src/
+│       │   ├── routes/       # エンドポイント定義
+│       │   ├── middleware/   # 認証・テナント解決
+│       │   └── services/     # ストレージ・メール・権限
+│       └── prisma/           # スキーマ・マイグレーション・シード
 └── pnpm-workspace.yaml
+```
+
+### 通信フロー
+
+```text
+ブラウザ
+  │
+  ├─→ Next.js (Vercel) ──── ページレンダリング
+  │
+  └─→ /api/v1/*  ──────────→ Hono API (Vercel)
+                                  ├── Prisma ──→ Neon (PostgreSQL)
+                                  └── Storage → Cloudflare R2
 ```
 
 ### マルチテナント設計
@@ -114,16 +194,6 @@ choirhub/
 - 全 DB クエリに `orgId` を必ず付与（テナント間データ漏えい防止）
 - `middleware.ts` が `orgSlug → orgId` を解決し、リクエストコンテキストにセット
 - 1 ユーザーが複数団体に所属可能（`User` と `Member` を別エンティティで管理）
-
-### 通信フロー
-
-```text
-ブラウザ
-  ↓ fetch("/api/...")
-Next.js (Vercel)
-  ├── Route Handlers ─── Prisma ──→ Neon (PostgreSQL)
-  └── Server Components             Cloudflare R2（ファイル）
-```
 
 ### ファイルストレージ
 
@@ -155,7 +225,6 @@ Next.js (Vercel)
 
 | 画面 | URL |
 | ------ | ----- |
-| トップ（LP） | `/` |
 | ログイン | `/login` |
 | 招待受諾 | `/invite/[token]` |
 | 団体選択 | `/select-org` |
@@ -173,7 +242,6 @@ Next.js (Vercel)
 | 本番一覧 | `/[org]/concerts` |
 | 本番詳細 | `/[org]/concerts/[id]` |
 | メール一覧・作成 | `/[org]/mailing` |
-| メール詳細 | `/[org]/mailing/[id]` |
 | チケット管理 | `/[org]/tickets` |
 | チケット集計（管理者） | `/[org]/tickets/[concertId]` |
 | チケット自己入力（団員） | `/[org]/tickets/[concertId]/my` |
@@ -193,6 +261,7 @@ Next.js (Vercel)
 Organization（団体）
   ├── Member（団員）  ← User（ユーザーアカウント）
   ├── Part（パート）
+  ├── MemberType（団員区分・会費）
   ├── Event（イベント）
   │     └── Attendance（出欠）
   ├── Score（楽譜）
@@ -200,7 +269,7 @@ Organization（団体）
   │     └── ScorePurchase（購入記録）
   ├── Concert（演奏会）
   │     ├── Stage（ステージ）→ Program（演目）→ Score
-  │     ├── ConcertSurvey（オンステ調査）
+  │     ├── ConcertSurvey（オンステ調査）→ SurveyResponse
   │     └── TicketBatch（席種）→ TicketAllocation（配布）
   ├── Collection（徴収）→ CollectionPayment（支払い）
   ├── Expense（支出）
@@ -259,20 +328,24 @@ cd choirhub
 pnpm install
 
 # 3. 環境変数の設定
-cp apps/web/.env.example apps/web/.env.local
-# .env.local を編集（DATABASE_URL / RESEND_API_KEY 等を設定）
+cp apps/web/.env.example apps/web/.env.local   # フロントエンド
+cp apps/api/.env.example apps/api/.env         # バックエンド API
+# 各ファイルを編集（DATABASE_URL / RESEND_API_KEY 等を設定）
 
-# 4. DB のセットアップ
-cd apps/web
-pnpm db:migrate   # マイグレーション実行
+# 4. DB のセットアップ（apps/api で実行）
+cd apps/api
+pnpm db:migrate    # prisma migrate dev
 
-# 5. 開発サーバーの起動
-pnpm dev          # http://localhost:3000
+# 5. 開発サーバーの起動（それぞれ別ターミナルで）
+pnpm --filter api dev    # http://localhost:3001
+pnpm --filter web dev    # http://localhost:3000
 ```
 
 ---
 
-## 環境変数（`apps/web/.env.local`）
+## 環境変数
+
+### `apps/api/.env`（バックエンド）
 
 | 変数名 | 必須 | 説明 |
 | -------- | :----: | ------ |
@@ -287,22 +360,38 @@ pnpm dev          # http://localhost:3000
 | `R2_PUBLIC_URL` | - | アバター公開用 CDN URL |
 | `UPSTASH_REDIS_REST_URL` | - | Upstash Redis URL |
 | `UPSTASH_REDIS_REST_TOKEN` | - | Upstash Redis トークン |
+
+### `apps/web/.env.local`（フロントエンド）
+
+| 変数名 | 必須 | 説明 |
+| -------- | :----: | ------ |
+| `NEXT_PUBLIC_API_URL` | ✅ | バックエンド API の URL |
 | `GOOGLE_MAPS_API_KEY` | - | 会場住所の Places Autocomplete |
 
-詳細は `.env.example` を参照してください。
+詳細は各 `.env.example` を参照してください。
 
 ---
 
 ## デプロイ
 
-### Vercel
+Vercel に **2 プロジェクト**を作成してデプロイします。
+
+### API（`apps/api`）
 
 1. Vercel ダッシュボードでリポジトリを連携
+2. **Root Directory** を `apps/api` に設定
+3. **Build Command**: `prisma generate && tsc`
+4. **Output Directory**: `dist`
+5. 環境変数を設定してデプロイ
+
+### Web（`apps/web`）
+
+1. 別プロジェクトとして同リポジトリを連携
 2. **Root Directory** を `apps/web` に設定
-3. 環境変数を設定
+3. `NEXT_PUBLIC_API_URL` に API の Vercel URL を設定
 4. デプロイ実行
 
-> データベースマイグレーション（`prisma migrate deploy`）は build コマンドに含まれています。
+> データベースマイグレーション（`prisma migrate deploy`）は API の build コマンドに含まれています。
 
 ---
 

@@ -11,6 +11,7 @@
 ## テクノロジースタック
 
 ### フロントエンド（`apps/web`）
+
 - **Next.js 16 (App Router)** + TypeScript 5
 - **Tailwind CSS v4** + shadcn/ui（Radixベース）
 - TanStack Query v5（サーバーステート）/ Zustand（クライアントステート）
@@ -18,6 +19,7 @@
 - TanStack Table v8（出欠表・メンバー一覧）
 
 ### バックエンド（`apps/api`）
+
 - **Hono**（軽量APIフレームワーク）+ TypeScript
 - **Prisma** ORM + PostgreSQL 16
 - Lucia v3（認証・セッション管理）
@@ -33,11 +35,13 @@
 ## アーキテクチャ
 
 ### マルチテナント設計
+
 - URLパターン: `/:orgSlug/...`（テナント識別子をパスに含める）
 - 全DBクエリに `orgId` を必ず付与（テナント間データ漏えい防止）
 - 認証ミドルウェアが `orgSlug → orgId` を解決し `req.member` にセット
 
 ### 権限ロール
+
 | ロール | 英名 | 主な権限 |
 |--------|------|---------|
 | 最高管理者 | `admin` | 全権限 |
@@ -53,7 +57,8 @@
 - 会計担当: `roles` 配列に `"finance"` を含める
 
 ### データ階層
-```
+
+```text
 Organization → Member / Part / Event / Score / Concert / MailLog
 Concert → Stage → Program → Score
 Concert → TicketBatch → TicketAllocation → Member
@@ -61,7 +66,7 @@ Concert → TicketBatch → TicketAllocation → Member
 
 ## ディレクトリ構成
 
-```
+```text
 choirhub/
 ├── apps/
 │   ├── web/app/

@@ -1,7 +1,7 @@
 ---
-name: 機能要望
-about: 新機能・改善提案
-labels: enhancement
+name: 新機能
+about: 既存機能にない新しい機能の追加提案
+labels: ["enhancement", "type: feat"]
 ---
 
 ## 概要
@@ -18,5 +18,5 @@ labels: enhancement
 
 ## 完了条件
 
-- [ ] 
-- [ ] 
+- [ ]
+- [ ]

@@ -447,7 +447,7 @@ erDiagram
 
 **UNIQUE**: `(userId, orgId)`
 
-**roles に入る値（複数付与可）**
+#### roles に入る値（複数付与可）
 
 | 値 | 説明 |
 |----|------|
@@ -588,8 +588,9 @@ erDiagram
 | outreachExpensePerTrip | INT | | 情宣1回あたりの交通費（円）。NULL = 個別入力 |
 | createdAt | TIMESTAMP | NOT NULL, DEFAULT now() | |
 
-**status 遷移**
-```
+#### status 遷移
+
+```text
 draft → survey_open → confirmed → past
 ```
 
@@ -829,6 +830,7 @@ draft → survey_open → confirmed → past
 | createdAt | TIMESTAMP | NOT NULL, DEFAULT now() | |
 
 **自動生成ルール**:
+
 - `per_rehearsal` モード: 練習イベント（`eventType = rehearsal`）作成時に自動生成
 - `monthly` モード: 会計係が「今月の会費を発行」を実行したときに生成
 - いずれの場合も、生成直後に全アクティブ団員（`status = active` かつ `visitor` ロール除く）の `CollectionPayment`（`status = pending`）が自動作成される
@@ -854,7 +856,7 @@ draft → survey_open → confirmed → past
 
 **UNIQUE**: `(collectionId, memberId)`
 
-**status の意味**
+#### status の意味
 
 | 値 | 意味 |
 |----|------|
@@ -983,7 +985,6 @@ Prisma クライアント側とDB側で命名規則を分離する。
 - `@@unique([orgId, slug])` — 同一団体内での slug 重複を禁止（slug が null の行は複数許容）
 - slug が null でない区分（標準4種）は削除不可、名前・色の変更のみ可
 - Concert自動生成・per_rehearsal会費自動生成は `slug === "concert" / "rehearsal"` で判定
-
 
 ### MailTemplate（メールテンプレート）
 

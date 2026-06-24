@@ -16,10 +16,11 @@ interface StagesTabProps {
   onMoveProgram: (stageId: string, programId: string, dir: -1 | 1) => void;
   onEditStageName: (stageId: string, name: string) => Promise<void>;
   onMoveCopyClick: (stageId: string, program: ProgramDetail) => void;
+  onEditProgramClick: (stageId: string, program: ProgramDetail) => void;
 }
 
 export function StagesTab({
-  concert, isAdmin, onAddClick, onAddStage, onMoveStage, onMoveProgram, onEditStageName, onMoveCopyClick,
+  concert, isAdmin, onAddClick, onAddStage, onMoveStage, onMoveProgram, onEditStageName, onMoveCopyClick, onEditProgramClick,
 }: StagesTabProps) {
   const [editingStageId, setEditingStageId] = useState<string | null>(null);
   const [editStageName, setEditStageName] = useState("");
@@ -134,6 +135,13 @@ export function StagesTab({
                 </div>
                 {isAdmin && (
                   <div className="flex items-center gap-0.5 shrink-0">
+                    <button
+                      onClick={() => onEditProgramClick(stage.id, program)}
+                      className="p-1 text-gray-300 hover:text-blue-500 transition-colors rounded"
+                      title="編集"
+                    >
+                      <Pencil size={13} />
+                    </button>
                     <button
                       onClick={() => onMoveCopyClick(stage.id, program)}
                       className="p-1 text-gray-300 hover:text-blue-500 transition-colors rounded"

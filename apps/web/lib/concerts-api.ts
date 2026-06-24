@@ -124,6 +124,12 @@ export interface AddProgramInput {
   accessLevel?: "secret" | "restricted" | "public";
 }
 
+export interface UpdateProgramInput {
+  title?: string;
+  composer?: string | null;
+  arranger?: string | null;
+}
+
 export interface ConcertStructure {
   id: string;
   title: string;
@@ -160,6 +166,9 @@ export const concertsApi = {
 
   deleteProgram: (orgSlug: string, concertId: string, programId: string) =>
     apiClient.delete(`/${orgSlug}/concerts/${concertId}/programs/${programId}`),
+
+  updateProgram: (orgSlug: string, concertId: string, programId: string, data: UpdateProgramInput) =>
+    apiClient.patch<ProgramDetail>(`/${orgSlug}/concerts/${concertId}/programs/${programId}`, data),
 
   update: (orgSlug: string, concertId: string, data: UpdateConcertInput) =>
     apiClient.patch<{ id: string; title: string; heldOn: string; venue: string | null; status: ConcertStatus }>(

@@ -383,6 +383,71 @@ export const concertsRouter = new Hono<TenantEnv>()
     }
   )
 
+  // ── PATCH /concerts/:concertId/programs/:programId ── 曲目を編集（admin のみ）
+  .patch(
+    "/concerts/:concertId/programs/:programId",
+    zValidator("json", z.object({
+      title:    z.string().min(1).optional(),
+      composer: z.string().nullable().optional(),
+      arranger: z.string().nullable().optional(),
+    }), (r, c) => {
+      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+    }),
+    async (c) => {
+      const actingMember = c.get("member");
+      const org = c.get("org");
+  
+      if (!isAdmin(actingMember)) {
+        return c.json({ error: { code: "FORBIDDEN", message: "管理者のみ操作できます" } }, 403);
+      }
+
+      const { concertId, programId } = c.req.param();
+
+      const concert = await prisma.concert.findUnique({ where: { id: concertId } });
+      if (!concert || concert.orgId !== org.id) {
+        return c.json({ error: { code: "NOT_FOUND", message: "演奏会が見つかりません" } }, 404);
+      }
+
+      const program = await prisma.program.findUnique({
+        where: { id: programId },
+        include: {
+          stage: { select: { concertId: true } },
+          score: { select: { id: true, composer: true, arranger: true } },
+        },
+      });
+      if (!program || program.stage.concertId !== concertId) {
+        return c.json({ error: { code: "NOT_FOUND", message: "曲目が見つかりません" } }, 404);
+      }
+
+      const { title, composer, arranger } = c.req.valid("json");
+
+      if (title !== undefined) {
+        await prisma.program.update({ where: { id: programId }, data: { title } });
+      }
+
+      let scoreData = program.score;
+      if (program.scoreId && (composer !== undefined || arranger !== undefined)) {
+        scoreData = await prisma.score.update({
+          where: { id: program.scoreId },
+          data: {
+            ...(composer !== undefined ? { composer } : {}),
+            ...(arranger !== undefined ? { arranger } : {}),
+          },
+          select: { id: true, composer: true, arranger: true },
+        });
+      }
+
+      return c.json({
+        data: {
+          id:        programId,
+          title:     title ?? program.title,
+          sortOrder: program.sortOrder,
+          score:     scoreData,
+        },
+      });
+    }
+  )
+
   // ── GET /concerts/structure ── 演奏会+ステージの軽量一覧（移動/コピー先選択用）
   .get("/concerts/structure", async (c) => {
     const org = c.get("org");

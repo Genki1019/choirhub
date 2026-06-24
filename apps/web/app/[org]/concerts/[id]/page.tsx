@@ -25,6 +25,7 @@ import { MoveCopyModal, type MoveCopyTarget } from "./_components/MoveCopyModal"
 import { SurveyTab } from "./_components/SurveyTab";
 import { OnstageTab } from "./_components/OnstageTab";
 import { EditConcertModal } from "./_components/EditConcertModal";
+import { EditProgramModal } from "./_components/EditProgramModal";
 
 const STATUS_CONFIG: Record<ConcertStatus, { label: string; badge: string }> = {
   draft:       { label: "準備中",   badge: "bg-gray-100 text-gray-500" },
@@ -50,6 +51,7 @@ export default function ConcertDetailPage() {
   const [addProgramStageId, setAddProgramStageId] = useState<string | null>(null);
   const [showAddStageModal, setShowAddStageModal] = useState(false);
   const [moveCopySource, setMoveCopySource] = useState<{ stageId: string; program: ProgramDetail } | null>(null);
+  const [editProgramTarget, setEditProgramTarget] = useState<{ stageId: string; program: ProgramDetail } | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -190,6 +192,21 @@ export default function ConcertDetailPage() {
     setAddProgramStageId(null);
   };
 
+  const handleProgramEdited = (stageId: string, updated: ProgramDetail) => {
+    setConcert((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        stages: prev.stages.map((s) =>
+          s.id === stageId
+            ? { ...s, programs: s.programs.map((p) => (p.id === updated.id ? updated : p)) }
+            : s
+        ),
+      };
+    });
+    setEditProgramTarget(null);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full gap-2 text-gray-400">
@@ -313,6 +330,7 @@ export default function ConcertDetailPage() {
             onMoveProgram={handleMoveProgram}
             onEditStageName={handleEditStageName}
             onMoveCopyClick={(stageId, program) => setMoveCopySource({ stageId, program })}
+            onEditProgramClick={(stageId, program) => setEditProgramTarget({ stageId, program })}
           />
         )}
         {activeTab === "survey" && (
@@ -345,6 +363,16 @@ export default function ConcertDetailPage() {
           stageId={addProgramStageId}
           onClose={() => setAddProgramStageId(null)}
           onCreated={(program) => handleProgramAdded(addProgramStageId, program)}
+        />
+      )}
+
+      {editProgramTarget && (
+        <EditProgramModal
+          orgSlug={org}
+          concertId={id}
+          program={editProgramTarget.program}
+          onClose={() => setEditProgramTarget(null)}
+          onSaved={(updated) => handleProgramEdited(editProgramTarget.stageId, updated)}
         />
       )}
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Trash2, Check, X } from "lucide-react";
+import { ChevronUp, ChevronDown, Pencil, Trash2, Check, X } from "lucide-react";
 import { settingsApi, type EventCategory } from "@/lib/settings-api";
 import { ApiClientError } from "@/lib/api-client";
 
@@ -10,14 +10,15 @@ interface CategoryListProps {
   org: string;
   onUpdated: (updated: EventCategory) => void;
   onDeleted: (id: string) => void;
+  onReordered: (reordered: EventCategory[]) => void;
   onError: (msg: string) => void;
 }
 
-export function CategoryList({ categories, org, onUpdated, onDeleted, onError }: CategoryListProps) {
+export function CategoryList({ categories, org, onUpdated, onDeleted, onReordered, onError }: CategoryListProps) {
   const [editId,    setEditId]    = useState<string | null>(null);
   const [editName,  setEditName]  = useState("");
   const [editColor, setEditColor] = useState("#6B7280");
-  const [saving,    setSaving]    = useState(false);
+  const [busy,      setBusy]      = useState(false);
 
   const startEdit = (cat: EventCategory) => {
     setEditId(cat.id);
@@ -29,7 +30,7 @@ export function CategoryList({ categories, org, onUpdated, onDeleted, onError }:
 
   const saveEdit = async () => {
     if (!editId) return;
-    setSaving(true);
+    setBusy(true);
     try {
       const updated = await settingsApi.updateEventCategory(org, editId, { name: editName, color: editColor });
       onUpdated(updated);
@@ -37,25 +38,51 @@ export function CategoryList({ categories, org, onUpdated, onDeleted, onError }:
     } catch {
       onError("更新に失敗しました");
     } finally {
-      setSaving(false);
+      setBusy(false);
     }
   };
 
   const handleDelete = async (id: string) => {
+    setBusy(true);
     try {
       await settingsApi.deleteEventCategory(org, id);
       onDeleted(id);
     } catch (err) {
       onError(err instanceof ApiClientError ? err.message : "削除に失敗しました");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const swap = async (idx: number, dir: -1 | 1) => {
+    const other = idx + dir;
+    if (other < 0 || other >= categories.length) return;
+    const snapshot = [...categories];
+    const next = [...categories];
+    [next[idx], next[other]] = [next[other], next[idx]];
+    const reindexed = next.map((c, i) => ({ ...c, sortOrder: i + 1 }));
+    onReordered(reindexed);
+    setBusy(true);
+    try {
+      await Promise.all([
+        settingsApi.updateEventCategory(org, reindexed[idx].id,   { sortOrder: reindexed[idx].sortOrder }),
+        settingsApi.updateEventCategory(org, reindexed[other].id, { sortOrder: reindexed[other].sortOrder }),
+      ]);
+    } catch {
+      onReordered(snapshot);
+      onError("並び替えに失敗しました");
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-      {categories.map((cat) => (
+      {categories.map((cat, idx) => (
         <div key={cat.id} className="flex items-center gap-3 px-4 py-3">
           {editId === cat.id ? (
             <>
+              <div className="w-5 shrink-0" />
               <input
                 type="color"
                 value={editColor}
@@ -68,7 +95,7 @@ export function CategoryList({ categories, org, onUpdated, onDeleted, onError }:
                 className="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
                 autoFocus
               />
-              <button onClick={saveEdit} disabled={saving} aria-label="保存" className="text-blue-600 hover:text-blue-800 disabled:opacity-50">
+              <button onClick={saveEdit} disabled={busy} aria-label="保存" className="text-blue-600 hover:text-blue-800 disabled:opacity-50">
                 <Check size={15} />
               </button>
               <button onClick={cancelEdit} aria-label="キャンセル" className="text-gray-400 hover:text-gray-600">
@@ -77,16 +104,34 @@ export function CategoryList({ categories, org, onUpdated, onDeleted, onError }:
             </>
           ) : (
             <>
+              <div className="flex flex-col shrink-0">
+                <button
+                  onClick={() => swap(idx, -1)}
+                  disabled={idx === 0 || busy}
+                  aria-label="上に移動"
+                  className="p-0.5 text-gray-300 hover:text-gray-500 disabled:opacity-20 transition-colors"
+                >
+                  <ChevronUp size={14} />
+                </button>
+                <button
+                  onClick={() => swap(idx, 1)}
+                  disabled={idx === categories.length - 1 || busy}
+                  aria-label="下に移動"
+                  className="p-0.5 text-gray-300 hover:text-gray-500 disabled:opacity-20 transition-colors"
+                >
+                  <ChevronDown size={14} />
+                </button>
+              </div>
               <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
               <span className="flex-1 text-sm text-gray-800">{cat.name}</span>
               {cat.slug && (
                 <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">標準</span>
               )}
-              <button onClick={() => startEdit(cat)} aria-label="編集" className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => startEdit(cat)} disabled={busy} aria-label="編集" className="text-gray-400 hover:text-gray-600 disabled:opacity-40">
                 <Pencil size={14} />
               </button>
               {!cat.slug && (
-                <button onClick={() => handleDelete(cat.id)} aria-label="削除" className="text-gray-400 hover:text-red-500">
+                <button onClick={() => handleDelete(cat.id)} disabled={busy} aria-label="削除" className="text-gray-400 hover:text-red-500 disabled:opacity-40">
                   <Trash2 size={14} />
                 </button>
               )}

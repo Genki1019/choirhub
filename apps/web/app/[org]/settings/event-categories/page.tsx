@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Loader2, AlertCircle } from "lucide-react";
 import { settingsApi, type EventCategory } from "@/lib/settings-api";
 import { CategoryList } from "./_components/CategoryList";
 import { AddCategoryForm } from "./_components/AddCategoryForm";
 
 export default function EventCategoriesPage() {
-  const { org } = useParams<{ org: string }>();
+  const { org }  = useParams<{ org: string }>();
+  const router   = useRouter();
 
   const [categories, setCategories] = useState<EventCategory[]>([]);
   const [loading,    setLoading]    = useState(true);
@@ -20,6 +21,23 @@ export default function EventCategoriesPage() {
       .catch(() => setError("読み込みに失敗しました"))
       .finally(() => setLoading(false));
   }, [org]);
+
+  const handleUpdated = (updated: EventCategory) => {
+    setCategories((prev) => prev.map((c) => c.id === updated.id ? updated : c));
+    router.refresh();
+  };
+  const handleDeleted = (id: string) => {
+    setCategories((prev) => prev.filter((c) => c.id !== id));
+    router.refresh();
+  };
+  const handleCreated = (cat: EventCategory) => {
+    setCategories((prev) => [...prev, cat]);
+    router.refresh();
+  };
+  const handleReordered = (reordered: EventCategory[]) => {
+    setCategories(reordered);
+    router.refresh();
+  };
 
   if (loading) {
     return (
@@ -47,15 +65,18 @@ export default function EventCategoriesPage() {
       <CategoryList
         categories={categories}
         org={org}
-        onUpdated={(updated) => setCategories((prev) => prev.map((c) => c.id === updated.id ? updated : c))}
-        onDeleted={(id) => setCategories((prev) => prev.filter((c) => c.id !== id))}
+        onUpdated={handleUpdated}
+        onDeleted={handleDeleted}
+        onReordered={handleReordered}
         onError={setError}
       />
 
       <AddCategoryForm
         org={org}
-        onCreated={(cat) => setCategories((prev) => [...prev, cat])}
+        onCreated={handleCreated}
       />
+
+      <p className="text-xs text-gray-400">↑↓ で表示順を変更できます。</p>
     </div>
   );
 }

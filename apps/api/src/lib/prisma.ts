@@ -1,5 +1,5 @@
 import { PrismaClient } from "../generated/prisma/index.js";
-import { PrismaNeonHTTP } from "@prisma/adapter-neon";
+import { PrismaNeon } from "@prisma/adapter-neon";
 
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_DIRECT_URL ?? process.env.DATABASE_URL!;
@@ -7,7 +7,7 @@ function createPrismaClient() {
   if (isLocal) {
     return new PrismaClient({ datasourceUrl: connectionString });
   }
-  const adapter = new PrismaNeonHTTP(connectionString, {});
+  const adapter = new PrismaNeon({ connectionString });
   return new PrismaClient({ adapter });
 }
 

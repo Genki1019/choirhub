@@ -721,19 +721,16 @@ export const concertsRouter = new Hono<TenantEnv>()
 
       const survey = await prisma.concertSurvey.create({
         data: { concertId, title, openAt: new Date(), closeAt: closeAt ? new Date(closeAt) : null, isOpen: true },
-        select: { id: true, title: true, isOpen: true, openAt: true, closeAt: true, _count: { select: { surveyResponses: true } } },
       });
 
       await prisma.concert.update({ where: { id: concertId }, data: { status: "survey_open" } });
 
       if (stages.length > 0 && members.length > 0) {
-        for (const m of members) {
-          for (const st of stages) {
-            await prisma.surveyResponse.create({
-              data: { surveyId: survey.id, memberId: m.id, stageId: st.id, status: "undecided" },
-            });
-          }
-        }
+        await prisma.surveyResponse.createMany({
+          data: members.flatMap((m) =>
+            stages.map((st) => ({ surveyId: survey.id, memberId: m.id, stageId: st.id, status: "undecided" as const }))
+          ),
+        });
       }
 
       return c.json({
@@ -743,7 +740,7 @@ export const concertsRouter = new Hono<TenantEnv>()
           isOpen:        survey.isOpen,
           openAt:        survey.openAt.toISOString(),
           closeAt:       survey.closeAt?.toISOString() ?? null,
-          responseCount: survey._count.surveyResponses,
+          responseCount: 0,
         },
       }, 201);
     }
@@ -958,10 +955,9 @@ export const concertsRouter = new Hono<TenantEnv>()
 
       await Promise.all(
         responses.map((r) =>
-          prisma.surveyResponse.upsert({
-            where: { surveyId_memberId_stageId: { surveyId: survey.id, memberId, stageId: r.stageId } },
-            create: { surveyId: survey.id, memberId, stageId: r.stageId, status: r.status, memo: memo ?? null },
-            update: { status: r.status, ...(memo !== undefined && { memo: memo ?? null }) },
+          prisma.surveyResponse.updateMany({
+            where: { surveyId: survey.id, memberId, stageId: r.stageId },
+            data:  { status: r.status, ...(memo !== undefined && { memo: memo ?? null }) },
           })
         )
       );

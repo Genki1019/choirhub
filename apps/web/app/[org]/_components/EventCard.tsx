@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { MapPin, Circle } from "lucide-react";
-import type { HomeUpcomingEvent } from "@/lib/home-api";
-import type { AttendanceStatus } from "@/lib/events-api";
+import type { AttendanceStatus, EventCardItem } from "@/lib/events-api";
 
 const ATTENDANCE_LABEL: Record<AttendanceStatus, { label: string; className: string }> = {
   attending: { label: "参加",   className: "text-teal-600" },
@@ -16,7 +15,7 @@ function formatEventDate(isoString: string): string {
   return `${d.getMonth() + 1}/${d.getDate()}（${weekdays[d.getDay()]}）${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}〜`;
 }
 
-export function EventCard({ event, org }: { event: HomeUpcomingEvent; org: string }) {
+export function EventCard({ event, org }: { event: EventCardItem; org: string }) {
   const status = ATTENDANCE_LABEL[event.myAttendance];
 
   return (

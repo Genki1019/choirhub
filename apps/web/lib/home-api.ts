@@ -1,15 +1,7 @@
 import { apiClient } from "./api-client";
-import type { AttendanceStatus, EventCategory } from "./events-api";
+import type { EventCardItem } from "./events-api";
 
-export interface HomeUpcomingEvent {
-  id: string;
-  title: string;
-  category: EventCategory;
-  startsAt: string;
-  location: string | null;
-  concertId: string | null;
-  myAttendance: AttendanceStatus;
-}
+export type HomeUpcomingEvent = EventCardItem;
 
 export interface HomeRecentMail {
   id: string;

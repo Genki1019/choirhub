@@ -4,11 +4,11 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { EventSummary, EventCategory, AttendanceStatus } from "@/lib/events-api";
 
-export function getCategoryColor(cat: EventCategory): string {
+function getCategoryColor(cat: EventCategory): string {
   return cat.color || "#8B5CF6";
 }
 
-export const ATTENDANCE_STYLE: Record<AttendanceStatus, { symbol: string; text: string }> = {
+const ATTENDANCE_STYLE: Record<AttendanceStatus, { symbol: string; text: string }> = {
   attending: { symbol: "○", text: "text-teal-600" },
   maybe:     { symbol: "△", text: "text-orange-500" },
   absent:    { symbol: "✕", text: "text-red-500" },
@@ -97,7 +97,7 @@ export function Calendar({ year, month, today, events, org, onPrevMonth, onNextM
             <div
               key={idx}
               className={[
-                "min-h-[48px] sm:min-h-[72px] p-1 sm:p-1.5 border-b border-r border-gray-100 last:border-r-0",
+                "min-h-[64px] sm:min-h-[72px] p-1 sm:p-1.5 border-b border-r border-gray-100 last:border-r-0",
                 !day      ? "bg-gray-50"      : "bg-white",
                 dow === 0 && day ? "bg-red-50/30"  : "",
                 dow === 6 && day ? "bg-blue-50/20" : "",
@@ -121,16 +121,14 @@ export function Calendar({ year, month, today, events, org, onPrevMonth, onNextM
                   {/* モバイル: ドット（カテゴリ色）＋出欠記号を横並び */}
                   <div className="flex flex-col gap-0.5 mt-0.5 sm:hidden">
                     {dayEvents.map((ev) => {
-                      const ss = ATTENDANCE_STYLE[ev.myAttendance];
                       return (
                         <Link
                           key={ev.id}
                           href={ev.concertId ? `/${org}/concerts/${ev.concertId}?tab=attendance` : `/${org}/schedule/${ev.id}`}
-                          title={ev.title}
-                          className="flex items-center gap-0.5"
+                          className="flex items-center gap-0.5 text-[8px] font-medium px-1 py-0.5 rounded hover:opacity-80 transition-opacity"
+                          style={{ backgroundColor: `${getCategoryColor(ev.category)}20`, color: getCategoryColor(ev.category) }}
                         >
-                          <span className="block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: getCategoryColor(ev.category) }} />
-                          <span className={`text-[9px] font-bold leading-none ${ss.text}`}>{ss.symbol}</span>
+                          <span className="truncate flex-1">{ev.title}</span>
                         </Link>
                       );
                     })}

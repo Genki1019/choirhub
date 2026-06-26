@@ -8,7 +8,7 @@ import { eventsApi, type EventSummary } from "@/lib/events-api";
 import { membersApi } from "@/lib/members-api";
 import { ApiClientError } from "@/lib/api-client";
 import { Calendar } from "./_components/Calendar";
-import { ScheduleSidebar } from "./_components/ScheduleSidebar";
+import { EventList } from "./_components/EventList";
 
 export default function SchedulePage() {
   const { org } = useParams<{ org: string }>();
@@ -46,11 +46,6 @@ export default function SchedulePage() {
     else setMonth(m => m + 1);
   };
 
-  const upcomingEvents = events
-    .filter((e) => new Date(e.startsAt) >= today)
-    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
-    .slice(0, 6);
-
   return (
     <div className="flex flex-col h-full overflow-auto">
       <header className="flex items-center justify-between px-4 sm:px-8 py-4 bg-white border-b border-gray-200 shrink-0">
@@ -80,7 +75,7 @@ export default function SchedulePage() {
       )}
 
       {!loading && !error && (
-        <main className="flex-1 px-4 sm:px-8 py-6 grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 items-start">
+        <main className="flex-1 px-4 sm:px-8 py-6 flex flex-col gap-6">
           <Calendar
             year={year}
             month={month}
@@ -90,11 +85,7 @@ export default function SchedulePage() {
             onPrevMonth={prevMonth}
             onNextMonth={nextMonth}
           />
-          <ScheduleSidebar
-            events={events}
-            upcomingEvents={upcomingEvents}
-            org={org}
-          />
+          <EventList events={events} year={year} month={month} org={org} />
         </main>
       )}
     </div>

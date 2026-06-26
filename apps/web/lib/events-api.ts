@@ -74,6 +74,16 @@ export interface CreateEventInput {
   targetPartIds?: string[] | null;
 }
 
+export interface EventCardItem {
+  id: string;
+  title: string;
+  category: EventCategory;
+  startsAt: string;
+  location: string | null;
+  concertId: string | null;
+  myAttendance: AttendanceStatus;
+}
+
 export const eventsApi = {
   list: (orgSlug: string, params?: { from?: string; to?: string; type?: string }) => {
     const q = new URLSearchParams();

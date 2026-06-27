@@ -7,10 +7,8 @@ import { authApi, ApiClientError } from "@/lib/auth-api";
 import { ROLE_LABELS } from "@/lib/roles";
 
 const STATUS_LABELS: Record<string, { label: string; dot: string }> = {
-  active:    { label: "在団",   dot: "bg-teal-400" },
-  offstage:  { label: "休団",   dot: "bg-yellow-400" },
-  alumni:    { label: "OB",     dot: "bg-blue-400" },
-  suspended: { label: "停止",   dot: "bg-red-400" },
+  active:   { label: "在団", dot: "bg-teal-400" },
+  offstage: { label: "休団", dot: "bg-yellow-400" },
 };
 
 type OrgEntry = {
@@ -122,9 +120,11 @@ export default function SelectOrgPage() {
           </div>
 
           {orgs.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-10">
-              所属している団体がありません
-            </p>
+            <div className="flex flex-col items-center py-10 px-6 text-center gap-2">
+              <Users size={32} className="text-gray-200 mb-1" />
+              <p className="text-sm font-medium text-gray-600">所属している団体がありません</p>
+              <p className="text-xs text-gray-400">退団処理された可能性があります。団体の管理者にお問い合わせください。</p>
+            </div>
           ) : (
             <ul className="divide-y divide-gray-100">
               {orgs.map((org) => {

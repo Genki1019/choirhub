@@ -1,4 +1,4 @@
-export type MemberStatus = "active" | "offstage" | "alumni" | "suspended";
+export type MemberStatus = "active" | "offstage";
 
 export interface Part {
   id: string;
@@ -172,7 +172,7 @@ export const MEMBERS: Member[] = [
   {
     id: "15",
     nameJa: "木村 純", nameEn: "Jun Kimura",
-    partId: "bs", status: "alumni", joinedAt: "2010-04-01",
+    partId: "bs", status: "active", joinedAt: "2010-04-01",
     birthDate: "1978-04-15",
     roles: ["member"],
     bio: "OBとして時々顔を出しています。",

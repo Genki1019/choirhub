@@ -1,33 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { ShieldCheck, Check, Loader2 } from "lucide-react";
+import { ShieldCheck, Check, Loader2, UserMinus } from "lucide-react";
 import type { MemberProfile, PartSummary } from "@/lib/members-api";
 import type { MemberType } from "@/lib/settings-api";
+import { MEMBER_STATUS_OPTIONS } from "@/lib/api-types";
 import type { MemberStatus } from "@/lib/api-types";
 import { MANAGEABLE_ROLES } from "@/lib/roles";
-
-const STATUS_OPTIONS = [
-  { value: "active",    label: "在団" },
-  { value: "offstage",  label: "休団" },
-  { value: "alumni",    label: "OB" },
-  { value: "suspended", label: "停止" },
-];
 
 interface AdminPanelProps {
   member: MemberProfile;
   parts: PartSummary[];
   memberTypes: MemberType[];
   onUpdate: (data: Record<string, unknown>) => Promise<void>;
+  onDelete: () => Promise<void>;
 }
 
-export function AdminPanel({ member, parts, memberTypes, onUpdate }: AdminPanelProps) {
+export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: AdminPanelProps) {
   const [localRoles,        setLocalRoles]        = useState(member.roles.filter((r) => r !== "member"));
   const [localPartId,       setLocalPartId]       = useState(member.part?.id ?? "");
   const [localMemberTypeId, setLocalMemberTypeId] = useState(member.memberType?.id ?? "");
   const [localStatus,       setLocalStatus]       = useState<MemberStatus>(member.status);
   const [localMemo,         setLocalMemo]         = useState(member.adminMemo ?? "");
   const [saving,            setSaving]            = useState(false);
+  const [deleting,          setDeleting]          = useState(false);
 
   const toggleRole = (role: string) =>
     setLocalRoles((prev) => prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]);
@@ -45,6 +41,15 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate }: AdminPanelP
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await onDelete();
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -84,7 +89,7 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate }: AdminPanelP
           <label className="block text-xs font-medium text-gray-600 mb-1">ステータス</label>
           <select value={localStatus} onChange={(e) => setLocalStatus(e.target.value as MemberStatus)}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
-            {STATUS_OPTIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+            {MEMBER_STATUS_OPTIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
           </select>
         </div>
       </div>
@@ -109,11 +114,18 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate }: AdminPanelP
           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none bg-white focus:outline-none focus:ring-2 focus:ring-blue-400" />
       </div>
 
-      <button onClick={handleSave} disabled={saving}
-        className="flex items-center gap-1.5 bg-amber-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-amber-700 disabled:opacity-60 transition-colors">
-        {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-        変更を保存
-      </button>
+      <div className="flex items-center justify-between pt-1">
+        <button onClick={handleSave} disabled={saving || deleting}
+          className="flex items-center gap-1.5 bg-amber-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-amber-700 disabled:opacity-60 transition-colors">
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+          変更を保存
+        </button>
+        <button onClick={handleDelete} disabled={saving || deleting}
+          className="flex items-center gap-1.5 text-red-600 border border-red-200 text-sm font-medium px-4 py-2 rounded-lg hover:bg-red-50 disabled:opacity-60 transition-colors">
+          {deleting ? <Loader2 size={14} className="animate-spin" /> : <UserMinus size={14} />}
+          退団処理
+        </button>
+      </div>
     </div>
   );
 }

@@ -73,7 +73,7 @@ export const membersRouter = new Hono<TenantEnv>()
     if (role) where.roles = { has: role };
 
     const members = await prisma.member.findMany({
-      where,
+      where: { ...where, deletedAt: null },
       include: memberInclude,
       orderBy: { createdAt: "asc" },
     });
@@ -290,7 +290,7 @@ export const membersRouter = new Hono<TenantEnv>()
       roles:        z.array(z.enum(["admin", "tech", "conductor", "score", "ticket", "finance", "member", "guest", "visitor"])).optional(),
       partId:       z.string().cuid().optional().nullable(),
       memberTypeId: z.string().cuid().optional().nullable(),
-      status:       z.enum(["active", "offstage", "alumni", "suspended"]).optional(),
+      status:       z.enum(["active", "offstage"]).optional(),
       phone:        z.string().optional().nullable(),
       adminMemo:    z.string().optional().nullable(),
     }), (result, c) => {
@@ -325,4 +325,26 @@ export const membersRouter = new Hono<TenantEnv>()
 
       return c.json({ data: formatMember(updated, true, isAdmin(actingMember)) });
     }
-  );
+  )
+
+  // ── DELETE /members/:id （ソフトデリート）──
+  .delete("/members/:id", async (c) => {
+    const actingMember = c.get("member");
+    const org = c.get("org");
+    const { id } = c.req.param();
+
+    if (!isAdmin(actingMember)) {
+      return c.json({ error: { code: "FORBIDDEN", message: "管理者権限が必要です" } }, 403);
+    }
+
+    const target = await prisma.member.findUnique({ where: { id } });
+    if (!target || target.orgId !== org.id) {
+      return c.json({ error: { code: "NOT_FOUND", message: "メンバーが見つかりません" } }, 404);
+    }
+    if (target.id === actingMember.id) {
+      return c.json({ error: { code: "FORBIDDEN", message: "自分自身を退団処理できません" } }, 403);
+    }
+
+    await prisma.member.update({ where: { id }, data: { deletedAt: new Date() } });
+    return c.json({ data: { success: true } });
+  });

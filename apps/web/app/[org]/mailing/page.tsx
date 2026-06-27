@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { PenSquare, Loader2, AlertCircle, Mail } from "lucide-react";
 import { mailingApi, type MailSummary, type MailListMeta } from "@/lib/mailing-api";
@@ -21,28 +21,34 @@ export default function MailingPage() {
   const [parts, setParts]             = useState<PartSummary[]>([]);
   const [showCompose, setShowCompose] = useState(false);
 
-  const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
-
   const fetchMails = useCallback((page: number) => {
     mailingApi.list(org, { page, perPage: 20 })
       .then((res) => {
-        if (!mountedRef.current) return;
         setMails(res.data);
         setMeta(res.meta);
       })
       .catch((err: unknown) => {
-        if (!mountedRef.current) return;
         if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
         setError(err instanceof Error ? err.message : "データの取得に失敗しました");
       })
-      .finally(() => { if (mountedRef.current) setLoading(false); });
+      .finally(() => setLoading(false));
   }, [org, router]);
 
   useEffect(() => {
-    membersApi.parts(org).then(setParts).catch(() => {});
-    fetchMails(1);
-  }, [fetchMails, org]);
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    membersApi.parts(org).then((p) => { if (!cancelled) setParts(p); }).catch(() => {});
+    mailingApi.list(org, { page: 1, perPage: 20 })
+      .then((res) => { if (!cancelled) { setMails(res.data); setMeta(res.meta); } })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
+        setError(err instanceof Error ? err.message : "データの取得に失敗しました");
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [org, router]);
 
   const handlePageChange = (page: number) => {
     setLoading(true);

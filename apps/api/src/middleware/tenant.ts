@@ -26,8 +26,8 @@ export const tenantMiddleware = createMiddleware<TenantEnv>(async (c, next) => {
     return c.json({ error: { code: "FORBIDDEN", message: "この団体へのアクセス権限がありません" } }, 403);
   }
 
-  if (member.status === "suspended") {
-    return c.json({ error: { code: "FORBIDDEN", message: "アカウントが停止されています" } }, 403);
+  if (member.deletedAt) {
+    return c.json({ error: { code: "FORBIDDEN", message: "アカウントが無効化されています" } }, 403);
   }
 
   c.set("org", org);

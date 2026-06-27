@@ -4,10 +4,8 @@ import { ROLE_BADGE_STYLES } from "@/lib/roles";
 import { avatarColor } from "../../_components/MemberCard";
 
 const STATUS_OPTIONS = [
-  { value: "active",    label: "在団",  dot: "bg-teal-400" },
-  { value: "offstage",  label: "休団",  dot: "bg-yellow-400" },
-  { value: "alumni",    label: "OB",    dot: "bg-blue-400" },
-  { value: "suspended", label: "停止",  dot: "bg-red-400" },
+  { value: "active",   label: "在団", dot: "bg-teal-400" },
+  { value: "offstage", label: "休団", dot: "bg-yellow-400" },
 ];
 
 function membershipYears(joinedAt: string | null): number {

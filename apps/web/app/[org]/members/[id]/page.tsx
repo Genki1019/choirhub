@@ -62,6 +62,12 @@ export default function MemberDetailPage() {
     router.push(`/${org}/members?status=${savedStatus}`);
   };
 
+  const handleAdminDelete = async () => {
+    if (!confirm(`${member?.nameJa} を退団処理しますか？この操作は取り消せません。`)) return;
+    await membersApi.delete(org, id);
+    router.push(`/${org}/members`);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full gap-2 text-gray-400">
@@ -120,7 +126,7 @@ export default function MemberDetailPage() {
         )}
 
         {isAdmin && (
-          <AdminPanel member={member} parts={parts} memberTypes={memberTypes} onUpdate={handleAdminSave} />
+          <AdminPanel member={member} parts={parts} memberTypes={memberTypes} onUpdate={handleAdminSave} onDelete={handleAdminDelete} />
         )}
       </main>
     </div>

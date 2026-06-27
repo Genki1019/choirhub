@@ -36,4 +36,7 @@ export const membersApi = {
 
   invite: (orgSlug: string, data: { email: string; nameJa?: string; roles: string[]; partId?: string }) =>
     apiClient.post<InviteResult>(`/${orgSlug}/members/invite`, data),
+
+  delete: (orgSlug: string, memberId: string) =>
+    apiClient.delete(`/${orgSlug}/members/${memberId}`),
 };

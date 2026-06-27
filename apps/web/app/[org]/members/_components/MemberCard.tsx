@@ -5,10 +5,8 @@ import Image from "next/image";
 import type { MemberProfile, MemberStatus } from "@/lib/api-types";
 
 const STATUS_LABEL: Record<MemberStatus, { label: string; dot: string }> = {
-  active:    { label: "在団",   dot: "bg-teal-400" },
-  offstage:  { label: "休団",   dot: "bg-yellow-400" },
-  alumni:    { label: "OB",     dot: "bg-blue-400" },
-  suspended: { label: "停止",   dot: "bg-red-400" },
+  active:   { label: "在団", dot: "bg-teal-400" },
+  offstage: { label: "休団", dot: "bg-yellow-400" },
 };
 
 const ROLE_BADGE: Record<string, { label: string; className: string }> = {

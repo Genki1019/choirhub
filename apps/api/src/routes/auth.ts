@@ -103,7 +103,7 @@ export const authRouter = new Hono()
       });
 
       const memberships = await prisma.member.findMany({
-        where: { userId: user.id, status: { not: "suspended" } },
+        where: { userId: user.id, deletedAt: null },
         include: { org: true, part: true },
       });
 
@@ -220,7 +220,7 @@ export const authRouter = new Hono()
     if (!session || !user) return c.json({ error: { code: "UNAUTHORIZED", message: "認証が必要です" } }, 401);
 
     const memberships = await prisma.member.findMany({
-      where: { userId: user.id, status: { not: "suspended" } },
+      where: { userId: user.id, deletedAt: null },
       include: { org: true, part: true },
     });
 

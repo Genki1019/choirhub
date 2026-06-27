@@ -4,7 +4,9 @@ import { useState, useMemo, useEffect, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { LayoutGrid, List, UserPlus, Loader2, AlertCircle, Users } from "lucide-react";
 import { membersApi, type MemberProfile, type PartSummary } from "@/lib/members-api";
+import { settingsApi, type MemberType } from "@/lib/settings-api";
 import { ApiClientError } from "@/lib/api-client";
+import { MEMBER_STATUS_OPTIONS } from "@/lib/api-types";
 import type { MemberStatus } from "@/lib/api-types";
 import { comparePartOrder } from "@/lib/voice-order";
 import { InviteModal, InviteSuccessModal } from "./_components/InviteModal";
@@ -35,10 +37,8 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 ];
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
-  { value: "all",      label: "全員" },
-  { value: "active",   label: "在団" },
-  { value: "offstage", label: "休団" },
-  { value: "alumni",   label: "OB" },
+  { value: "all", label: "全員" },
+  ...MEMBER_STATUS_OPTIONS,
 ];
 
 // ── メインページ ──
@@ -53,8 +53,10 @@ function MembersContent() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
     (searchParams.get("status") as StatusFilter) ?? "active"
   );
+  const [memberTypeFilter, setMemberTypeFilter] = useState<string>("all");
   const [members, setMembers] = useState<MemberProfile[]>([]);
   const [parts, setParts] = useState<PartSummary[]>([]);
+  const [memberTypes, setMemberTypes] = useState<MemberType[]>([]);
   const [myRoles, setMyRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,12 +75,13 @@ function MembersContent() {
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([membersApi.list(org), membersApi.me(org), membersApi.parts(org)])
-      .then(([memberData, meData, partsData]) => {
+    Promise.all([membersApi.list(org), membersApi.me(org), membersApi.parts(org), settingsApi.listMemberTypes(org)])
+      .then(([memberData, meData, partsData, memberTypeData]) => {
         if (!cancelled) {
           setMembers(memberData);
           setMyRoles(meData.roles);
           setParts(partsData);
+          setMemberTypes(memberTypeData);
         }
       })
       .catch((err: unknown) => {
@@ -106,39 +109,43 @@ function MembersContent() {
   const effectiveViewMode: ViewMode = isMobile ? "card" : viewMode;
 
   const grouped = useMemo(() => {
-    const filtered = members.filter(
-      (m) => statusFilter === "all" || m.status === statusFilter
-    );
+    const isFiltering = statusFilter !== "all" || memberTypeFilter !== "all";
 
-    // パートを voiceType / sortOrder 順に並べるためにマップで収集
-    const partMap = new Map<string, { id: string; name: string; voiceType: string; sortOrder: number }>();
-    filtered.forEach((m) => {
-      if (m.part && !partMap.has(m.part.id)) {
-        partMap.set(m.part.id, m.part);
-      }
+    const filtered = members.filter((m) => {
+      if (statusFilter !== "all" && m.status !== statusFilter) return false;
+      if (memberTypeFilter === "__none__" && m.memberType !== null) return false;
+      if (memberTypeFilter !== "all" && memberTypeFilter !== "__none__" && m.memberType?.id !== memberTypeFilter) return false;
+      return true;
     });
 
-    const groups = Array.from(partMap.values())
-      .sort(comparePartOrder)
-      .map((part) => ({
-        partId: part.id,
-        partName: part.name,
-        members: filtered
-          .filter((m) => m.part?.id === part.id)
-          .sort((a, b) => sortMembers(a, b, sortKey)),
-      }))
-      .filter((g) => g.members.length > 0);
+    // フィルタ中は全パートを表示、非フィルタ中は filtered に存在するパートのみ
+    const baseParts = isFiltering
+      ? [...parts].sort(comparePartOrder)
+      : (() => {
+          const partMap = new Map<string, { id: string; name: string; voiceType: string; sortOrder: number }>();
+          filtered.forEach((m) => {
+            if (m.part && !partMap.has(m.part.id)) partMap.set(m.part.id, m.part);
+          });
+          return Array.from(partMap.values()).sort(comparePartOrder);
+        })();
 
-    // パート未設定のメンバーを末尾に追加
-    const unassigned = filtered
-      .filter((m) => !m.part)
-      .sort((a, b) => sortMembers(a, b, sortKey));
-    if (unassigned.length > 0) {
+    const groups = baseParts.map((part) => ({
+      partId: part.id,
+      partName: part.name,
+      members: filtered
+        .filter((m) => m.part?.id === part.id)
+        .sort((a, b) => sortMembers(a, b, sortKey)),
+    }));
+
+    // パート未設定: フィルタ中は全体に未設定がいれば表示、非フィルタ中は filtered に存在する場合のみ
+    const unassigned = filtered.filter((m) => !m.part).sort((a, b) => sortMembers(a, b, sortKey));
+    const showUnassigned = isFiltering ? members.some((m) => !m.part) : unassigned.length > 0;
+    if (showUnassigned) {
       groups.push({ partId: "__unassigned__", partName: "パート未設定", members: unassigned });
     }
 
     return groups;
-  }, [members, sortKey, statusFilter]);
+  }, [members, parts, sortKey, statusFilter, memberTypeFilter]);
 
   const totalCount = grouped.reduce((s, g) => s + g.members.length, 0);
 
@@ -158,10 +165,7 @@ function MembersContent() {
     <div className="flex flex-col h-full overflow-auto">
       {/* ヘッダー */}
       <header className="flex items-center justify-between px-4 sm:px-8 py-4 bg-white border-b border-gray-200 shrink-0">
-        <div className="flex items-center gap-2">
-          <h1 className="text-lg font-semibold text-gray-800">メンバー</h1>
-          {!loading && <span className="text-sm text-gray-400">{totalCount}名</span>}
-        </div>
+        <h1 className="text-lg font-semibold text-gray-800">メンバー</h1>
         {isAdmin && (
           <button
             onClick={() => setShowInvite(true)}
@@ -175,21 +179,30 @@ function MembersContent() {
 
       {/* コントロールバー */}
       <div className="flex flex-wrap items-center gap-y-2 justify-between px-4 sm:px-8 py-3 bg-white border-b border-gray-100 shrink-0">
-        <div className="flex gap-1">
-          {STATUS_FILTERS.map(({ value, label }) => (
-            <button
-              key={value}
-              onClick={() => setStatusFilter(value)}
-              className={[
-                "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
-                statusFilter === value
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-500 hover:bg-gray-100",
-              ].join(" ")}
+        <div className="flex items-center gap-2">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            className="text-xs text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+          >
+            {STATUS_FILTERS.map(({ value, label }) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+          {memberTypes.length > 0 && (
+            <select
+              value={memberTypeFilter}
+              onChange={(e) => setMemberTypeFilter(e.target.value)}
+              className="text-xs text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
             >
-              {label}
-            </button>
-          ))}
+              <option value="all">全区分</option>
+              {memberTypes.map(({ id, name }) => (
+                <option key={id} value={id}>{name}</option>
+              ))}
+              <option value="__none__">未設定</option>
+            </select>
+          )}
+          {!loading && <span className="text-xs text-gray-400">{totalCount}名</span>}
         </div>
 
         <div className="flex items-center gap-3">

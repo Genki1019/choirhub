@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import NavShell from "@/components/NavShell";
+import AppShell from "@/components/AppShell";
 
 const API = process.env.API_INTERNAL_URL ?? "http://localhost:3001";
 
@@ -64,7 +64,7 @@ export default async function OrgLayout({
   }
 
   return (
-    <NavShell
+    <AppShell
       org={org}
       orgName={orgName}
       isAdmin={isAdmin}
@@ -74,6 +74,6 @@ export default async function OrgLayout({
       memberId={memberId}
     >
       {children}
-    </NavShell>
+    </AppShell>
   );
 }

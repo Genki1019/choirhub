@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Menu } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import UserMenu from "@/components/UserMenu";
+
+const DESKTOP_MQ = "(min-width: 1024px)";
 
 interface Props {
   org: string;
@@ -16,8 +18,17 @@ interface Props {
   children: React.ReactNode;
 }
 
-export default function NavShell({ org, orgName, isAdmin, roles, nameJa, avatarUrl, memberId, children }: Props) {
+export default function AppShell({ org, orgName, isAdmin, roles, nameJa, avatarUrl, memberId, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const handleClose = useCallback(() => setSidebarOpen(false), []);
+
+  useEffect(() => {
+    const mql = window.matchMedia(DESKTOP_MQ);
+    const sync = () => setSidebarOpen(mql.matches);
+    sync();
+    mql.addEventListener("change", sync);
+    return () => mql.removeEventListener("change", sync);
+  }, []);
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -27,14 +38,14 @@ export default function NavShell({ org, orgName, isAdmin, roles, nameJa, avatarU
         isAdmin={isAdmin}
         roles={roles}
         isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
+        onClose={handleClose}
       />
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <div className="shrink-0 flex items-center px-4 h-11 bg-white border-b border-gray-100">
           <button
-            className="md:hidden p-1 -ml-1 mr-2 rounded-md text-gray-500 hover:bg-gray-100 transition-colors"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="メニューを開く"
+            className="p-1 -ml-1 mr-2 rounded-md text-gray-500 hover:bg-gray-100 transition-colors"
+            onClick={() => setSidebarOpen((v) => !v)}
+            aria-label="メニューを開閉する"
           >
             <Menu size={20} />
           </button>

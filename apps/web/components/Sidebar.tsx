@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -34,6 +35,8 @@ const ADMIN_NAV_ITEMS = [
   { suffix: "/settings",    label: "設定",         icon: Settings },
 ];
 
+const DESKTOP_MQ = "(min-width: 1024px)";
+
 const VISITOR_HIDDEN_SUFFIXES = new Set(["/mailing", "/tickets"]);
 
 function isFinancePlus(roles: string[]): boolean {
@@ -49,6 +52,12 @@ export default function Sidebar({
   const pathname = usePathname();
   const isVisitor = roles.includes("visitor") && !roles.some((r) => ["admin", "tech", "score", "member", "ticket", "finance", "conductor"].includes(r));
 
+  useEffect(() => {
+    if (!window.matchMedia(DESKTOP_MQ).matches) {
+      onClose();
+    }
+  }, [pathname, onClose]);
+
   const navItems = [
     ...BASE_NAV_ITEMS.filter((item) => !(isVisitor && VISITOR_HIDDEN_SUFFIXES.has(item.suffix))),
     ...(isFinancePlus(roles) ? FINANCE_NAV_ITEMS : []),
@@ -57,10 +66,9 @@ export default function Sidebar({
 
   return (
     <>
-      {/* モバイル用バックドロップ */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/30 z-40 md:hidden"
+          className="fixed inset-0 bg-black/30 z-40 lg:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
@@ -68,20 +76,21 @@ export default function Sidebar({
 
       <aside className={[
         "bg-white border-r border-gray-200 flex flex-col",
-        "fixed inset-y-0 left-0 z-50 w-64 transition-transform duration-200 ease-in-out",
-        "md:relative md:w-52 md:z-auto md:shrink-0",
-        isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+        "fixed inset-y-0 left-0 z-50 w-64",
+        "lg:relative lg:z-auto lg:shrink-0",
+        "transition-all duration-200 ease-in-out",
+        isOpen
+          ? "translate-x-0 lg:w-52"
+          : "-translate-x-full lg:w-0 lg:overflow-hidden",
       ].join(" ")}>
-        {/* モバイル用閉じるボタン */}
         <button
-          className="absolute top-3 right-3 p-1 rounded-md text-gray-400 hover:bg-gray-100 md:hidden"
+          className="absolute top-3 right-3 p-1 rounded-md text-gray-400 hover:bg-gray-100 lg:hidden"
           onClick={onClose}
           aria-label="メニューを閉じる"
         >
           <X size={18} />
         </button>
 
-        {/* 団体名 */}
         <div className="px-5 pt-5 pb-3 border-b border-gray-100">
           <p className="text-blue-600 font-bold text-lg leading-tight">ChoirHub</p>
           <Link
@@ -94,7 +103,6 @@ export default function Sidebar({
           </Link>
         </div>
 
-        {/* ナビゲーション */}
         <nav className="flex-1 py-3">
           {navItems.map(({ suffix, label, icon: Icon }) => {
             const href     = `/${org}${suffix}`;
@@ -103,7 +111,6 @@ export default function Sidebar({
               <Link
                 key={suffix}
                 href={href}
-                onClick={onClose}
                 className={[
                   "flex items-center gap-3 px-5 py-2.5 text-sm transition-colors border-l-2",
                   isActive

@@ -40,7 +40,7 @@ export function EventList({ events, year, month, org }: EventListProps) {
       ) : (
         <div className="space-y-3">
           {monthEvents.map((ev) => (
-            <EventCard key={ev.id} event={ev} org={org} />
+            <EventCard key={ev.id} event={ev} org={org} from="schedule" />
           ))}
         </div>
       )}

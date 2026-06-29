@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MapPin, Circle } from "lucide-react";
 import type { AttendanceStatus, EventCardItem } from "@/lib/events-api";
+import { getConcertHref, type ConcertLinkSource } from "@/lib/routes";
 
 const ATTENDANCE_LABEL: Record<AttendanceStatus, { label: string; className: string }> = {
   attending: { label: "参加",   className: "text-teal-600" },
@@ -15,12 +16,13 @@ function formatEventDate(isoString: string): string {
   return `${d.getMonth() + 1}/${d.getDate()}（${weekdays[d.getDay()]}）${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}〜`;
 }
 
-export function EventCard({ event, org }: { event: EventCardItem; org: string }) {
+export function EventCard({ event, org, from = "home" }: { event: EventCardItem; org: string; from?: ConcertLinkSource }) {
   const status = ATTENDANCE_LABEL[event.myAttendance];
+  const href = event.concertId ? getConcertHref(org, event.concertId, from) : `/${org}/schedule/${event.id}`;
 
   return (
     <Link
-      href={event.concertId ? `/${org}/concerts/${event.concertId}` : `/${org}/schedule/${event.id}`}
+      href={href}
       className="flex bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-sm transition-shadow"
     >
       <div className="w-1 shrink-0" style={{ backgroundColor: event.category.color }} />

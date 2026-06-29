@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { EventSummary, EventCategory, AttendanceStatus } from "@/lib/events-api";
+import { getConcertHref } from "@/lib/routes";
 
 function getCategoryColor(cat: EventCategory): string {
   return cat.color || "#8B5CF6";
@@ -118,35 +119,19 @@ export function Calendar({ year, month, today, events, org, onPrevMonth, onNextM
                       {day}
                     </span>
                   </div>
-                  {/* モバイル: ドット（カテゴリ色）＋出欠記号を横並び */}
-                  <div className="flex flex-col gap-0.5 mt-0.5 sm:hidden">
-                    {dayEvents.map((ev) => {
-                      return (
-                        <Link
-                          key={ev.id}
-                          href={ev.concertId ? `/${org}/concerts/${ev.concertId}?tab=attendance` : `/${org}/schedule/${ev.id}`}
-                          className="flex items-center gap-0.5 text-[8px] font-medium px-1 py-0.5 rounded hover:opacity-80 transition-opacity"
-                          style={{ backgroundColor: `${getCategoryColor(ev.category)}20`, color: getCategoryColor(ev.category) }}
-                        >
-                          <span className="truncate flex-1">{ev.title}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-
-                  {/* sm以上: タイトルバッジ */}
-                  <div className="hidden sm:block space-y-0.5">
+                  <div className="flex flex-col gap-0.5 mt-0.5">
                     {dayEvents.map((ev) => {
                       const ss = ATTENDANCE_STYLE[ev.myAttendance];
+                      const href = ev.concertId ? getConcertHref(org, ev.concertId, "schedule") : `/${org}/schedule/${ev.id}`;
                       return (
                         <Link
                           key={ev.id}
-                          href={ev.concertId ? `/${org}/concerts/${ev.concertId}?tab=attendance` : `/${org}/schedule/${ev.id}`}
-                          className="flex items-center gap-0.5 text-[10px] font-medium px-1 py-0.5 rounded hover:opacity-80 transition-opacity"
+                          href={href}
+                          className="flex items-center gap-0.5 font-medium px-1 py-0.5 rounded hover:opacity-80 transition-opacity"
                           style={{ backgroundColor: `${getCategoryColor(ev.category)}20`, color: getCategoryColor(ev.category) }}
                         >
-                          <span className="truncate flex-1">{ev.title}</span>
-                          <span className={`shrink-0 font-bold ${ss.text}`}>{ss.symbol}</span>
+                          <span className="truncate flex-1 text-[8px] sm:text-[10px]">{ev.title}</span>
+                          <span className={`hidden sm:inline shrink-0 font-bold ${ss.text}`}>{ss.symbol}</span>
                         </Link>
                       );
                     })}

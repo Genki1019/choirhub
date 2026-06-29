@@ -36,12 +36,17 @@ const STATUS_CONFIG: Record<ConcertStatus, { label: string; badge: string }> = {
 
 type Tab = "stages" | "survey" | "onstage";
 
+const VALID_TABS: Tab[] = ["stages", "survey", "onstage"];
+
 export default function ConcertDetailPage() {
   const { org, id } = useParams<{ org: string; id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const initialTab = (searchParams.get("tab") as Tab | null) ?? "stages";
+  const tabParam = searchParams.get("tab") as Tab | null;
+  const initialTab: Tab = tabParam && VALID_TABS.includes(tabParam) ? tabParam : "stages";
+  const fromParam = searchParams.get("from");
+  const backHref = fromParam === "schedule" ? `/${org}/schedule` : `/${org}/concerts`;
   const [concert, setConcert] = useState<ConcertDetail | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [loading, setLoading] = useState(true);
@@ -244,7 +249,7 @@ export default function ConcertDetailPage() {
     <div className="flex flex-col h-full overflow-auto">
       <header className="bg-white border-b border-gray-200 shrink-0">
         <div className="flex items-center gap-3 px-4 sm:px-8 py-4">
-          <Link href={`/${org}/concerts`} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <Link href={backHref} className="text-gray-400 hover:text-gray-600 transition-colors">
             <ArrowLeft size={18} />
           </Link>
           <div className="flex-1 min-w-0">

@@ -19,6 +19,7 @@ import { CollectionModal } from "./_components/CollectionModal";
 import { CollectionsTab } from "./_components/CollectionsTab";
 import { ExpensesTab } from "./_components/ExpensesTab";
 import { PageMain } from "@/components/PageMain";
+import { PageBleedRow } from "@/components/PageBleedRow";
 
 function yen(n: number) {
   return `¥${n.toLocaleString()}`;
@@ -121,17 +122,19 @@ export default function AccountingPage() {
 
   return (
     <div className="flex flex-col h-full overflow-auto">
-      <header className="shrink-0 flex items-center justify-between px-4 sm:px-8 py-4 bg-white border-b border-gray-200">
-        <h1 className="text-lg font-semibold text-gray-800">会計</h1>
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setYear((y) => y - 1)} aria-label="前の年度" className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
-            <ChevronLeft size={16} />
-          </button>
-          <span className="text-sm font-medium text-gray-700 w-16 text-center">{year}年度</span>
-          <button type="button" onClick={() => setYear((y) => y + 1)} aria-label="次の年度" className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
-            <ChevronRight size={16} />
-          </button>
-        </div>
+      <header className="shrink-0 bg-white border-b border-gray-200">
+        <PageBleedRow className="flex items-center justify-between py-4">
+          <h1 className="text-lg font-semibold text-gray-800">会計</h1>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setYear((y) => y - 1)} aria-label="前の年度" className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-sm font-medium text-gray-700 w-16 text-center">{year}年度</span>
+            <button type="button" onClick={() => setYear((y) => y + 1)} aria-label="次の年度" className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </PageBleedRow>
       </header>
 
       <PageMain className="space-y-5">

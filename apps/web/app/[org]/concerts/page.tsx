@@ -9,6 +9,7 @@ import { ApiClientError } from "@/lib/api-client";
 import { membersApi } from "@/lib/members-api";
 import { ConcertCard } from "./_components/ConcertCard";
 import { PageMain } from "@/components/PageMain";
+import { PageBleedRow } from "@/components/PageBleedRow";
 
 type Filter = "all" | ConcertStatus;
 
@@ -56,36 +57,40 @@ export default function ConcertsPage() {
 
   return (
     <div className="flex flex-col h-full overflow-auto">
-      <header className="flex items-center justify-between px-4 sm:px-8 py-4 bg-white border-b border-gray-200 shrink-0">
-        <div className="flex items-center gap-2">
-          <h1 className="text-lg font-semibold text-gray-800">本番</h1>
-          {!loading && <span className="text-sm text-gray-400">{sorted.length}件</span>}
-        </div>
-        {isAdmin && (
-          <Link
-            href={`/${org}/concerts/new`}
-            className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus size={14} />
-            演奏会を登録
-          </Link>
-        )}
+      <header className="bg-white border-b border-gray-200 shrink-0">
+        <PageBleedRow className="flex items-center justify-between py-4">
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-semibold text-gray-800">本番</h1>
+            {!loading && <span className="text-sm text-gray-400">{sorted.length}件</span>}
+          </div>
+          {isAdmin && (
+            <Link
+              href={`/${org}/concerts/new`}
+              className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus size={14} />
+              演奏会を登録
+            </Link>
+          )}
+        </PageBleedRow>
       </header>
 
       {/* フィルタ */}
-      <div className="px-8 py-3 bg-white border-b border-gray-100 flex gap-1 shrink-0">
-        {FILTERS.map(({ value, label }) => (
-          <button
-            key={value}
-            onClick={() => setFilter(value)}
-            className={[
-              "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
-              filter === value ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-100",
-            ].join(" ")}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="bg-white border-b border-gray-100 shrink-0">
+        <PageBleedRow className="flex gap-1 py-3">
+          {FILTERS.map(({ value, label }) => (
+            <button
+              key={value}
+              onClick={() => setFilter(value)}
+              className={[
+                "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                filter === value ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-100",
+              ].join(" ")}
+            >
+              {label}
+            </button>
+          ))}
+        </PageBleedRow>
       </div>
 
       <PageMain className="space-y-3">

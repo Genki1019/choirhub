@@ -19,6 +19,7 @@ import { EditBatchModal } from "./_components/EditBatchModal";
 import { BatchTab } from "./_components/BatchTab";
 import { OutreachExpenseTab } from "./_components/OutreachExpenseTab";
 import { PageMain } from "@/components/PageMain";
+import { PageBleedRow } from "@/components/PageBleedRow";
 
 export default function TicketDetailPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -131,7 +132,7 @@ export default function TicketDetailPage() {
     <div className="flex flex-col h-full overflow-auto">
       <header className="bg-white border-b border-gray-200 shrink-0">
         {/* タイトル行 */}
-        <div className="flex items-center gap-2 px-4 sm:px-8 py-3">
+        <PageBleedRow className="flex items-center gap-2 py-3">
           <Link href={`/${org}/tickets`} className="text-gray-400 hover:text-gray-600 transition-colors shrink-0">
             <ArrowLeft size={18} />
           </Link>
@@ -197,19 +198,21 @@ export default function TicketDetailPage() {
               <ChevronRight size={13} />
             </Link>
           </div>
-        </div>
+        </PageBleedRow>
 
         {/* 締め切りバナー（タイトル行の外に分離） */}
         {detail.concert.ticketInputClosedAt && (
-          <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border-t border-red-100 px-4 sm:px-8 py-2">
-            <Lock size={12} className="shrink-0" />
-            {new Date(detail.concert.ticketInputClosedAt).toLocaleDateString("ja-JP")} 以降、団員の入力は締め切り済み
+          <div className="border-t border-red-100 bg-red-50">
+            <PageBleedRow className="flex items-center gap-2 text-xs text-red-600 py-2">
+              <Lock size={12} className="shrink-0" />
+              {new Date(detail.concert.ticketInputClosedAt).toLocaleDateString("ja-JP")} 以降、団員の入力は締め切り済み
+            </PageBleedRow>
           </div>
         )}
 
         {/* 席種タブ */}
         {detail.batches.length > 0 && (
-          <div className="flex px-4 sm:px-8 pt-1 items-end border-t border-gray-100 overflow-x-auto">
+          <PageBleedRow className="flex pt-1 items-end border-t border-gray-100 overflow-x-auto">
             {detail.batches.map((batch, idx) => (
               <div key={batch.id} className="relative group shrink-0">
                 <button
@@ -249,7 +252,7 @@ export default function TicketDetailPage() {
             >
               <Bus size={12} />情宣交通費
             </button>
-          </div>
+          </PageBleedRow>
         )}
       </header>
 

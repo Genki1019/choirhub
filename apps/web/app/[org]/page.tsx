@@ -11,6 +11,7 @@ import { StatCard } from "./_components/StatCard";
 import { EventCard } from "./_components/EventCard";
 import { MonthlyOrganizerCard } from "./_components/MonthlyOrganizerCard";
 import { PageMain } from "@/components/PageMain";
+import { PageBleedRow } from "@/components/PageBleedRow";
 
 function daysUntil(isoString: string): number {
   const now = new Date();
@@ -47,17 +48,19 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col h-full overflow-auto">
-      <header className="flex items-center justify-between px-4 sm:px-8 py-4 bg-white border-b border-gray-200 shrink-0">
-        <h1 className="text-lg font-semibold text-gray-800">ホーム</h1>
-        {data && data.unansweredEventCount > 0 && (
-          <Link
-            href={`/${org}/schedule`}
-            className="flex items-center gap-1.5 bg-orange-50 text-orange-600 text-xs font-medium px-3 py-1.5 rounded-full border border-orange-200 hover:bg-orange-100 transition-colors"
-          >
-            <AlertCircle size={13} />
-            出欠未回答 {data.unansweredEventCount}件
-          </Link>
-        )}
+      <header className="bg-white border-b border-gray-200 shrink-0">
+        <PageBleedRow  className="flex items-center justify-between py-4">
+          <h1 className="text-lg font-semibold text-gray-800">ホーム</h1>
+          {data && data.unansweredEventCount > 0 && (
+            <Link
+              href={`/${org}/schedule`}
+              className="flex items-center gap-1.5 bg-orange-50 text-orange-600 text-xs font-medium px-3 py-1.5 rounded-full border border-orange-200 hover:bg-orange-100 transition-colors"
+            >
+              <AlertCircle size={13} />
+              出欠未回答 {data.unansweredEventCount}件
+            </Link>
+          )}
+        </PageBleedRow>
       </header>
 
       <PageMain className="space-y-6">

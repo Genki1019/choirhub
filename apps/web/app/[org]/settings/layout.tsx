@@ -6,6 +6,7 @@ import { usePathname, useParams, useRouter } from "next/navigation";
 import { membersApi } from "@/lib/members-api";
 import { ApiClientError } from "@/lib/api-client";
 import { PageMain } from "@/components/PageMain";
+import { PageBleedRow } from "@/components/PageBleedRow";
 
 const ADMIN_TABS = [
   { label: "団体情報",           suffix: "" },
@@ -54,12 +55,14 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <header className="shrink-0 px-4 sm:px-8 py-4 bg-white border-b border-gray-200">
-        <h1 className="text-lg font-semibold text-gray-800">設定</h1>
+      <header className="shrink-0 bg-white border-b border-gray-200">
+        <PageBleedRow className="py-4">
+          <h1 className="text-lg font-semibold text-gray-800">設定</h1>
+        </PageBleedRow>
       </header>
 
       <div className="shrink-0 bg-white border-b border-gray-200">
-        <div className="flex flex-wrap px-4 sm:px-8">
+        <PageBleedRow className="flex flex-wrap">
           {allowed &&
             tabs.map(({ label, suffix }) => {
               const href     = `/${org}/settings${suffix}`;
@@ -79,7 +82,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                 </Link>
               );
             })}
-        </div>
+        </PageBleedRow>
       </div>
 
       <PageMain className="overflow-auto">

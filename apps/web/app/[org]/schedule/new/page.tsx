@@ -13,6 +13,7 @@ import { LocationSearch } from "@/components/LocationSearch";
 import { TargetAudienceSection } from "../../_components/TargetAudienceSection";
 import { DeadlineSection } from "../../_components/DeadlineSection";
 import { PageMain } from "@/components/PageMain";
+import { PageBleedRow } from "@/components/PageBleedRow";
 
 function SectionLabel({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
@@ -105,11 +106,13 @@ export default function NewSchedulePage() {
   if (initError) {
     return (
       <div className="flex flex-col h-full">
-        <header className="flex items-center gap-3 px-4 sm:px-8 py-4 bg-white border-b border-gray-200">
-          <Link href={`/${org}/schedule`} className="text-gray-400 hover:text-gray-600">
-            <ArrowLeft size={18} />
-          </Link>
-          <h1 className="text-lg font-semibold text-gray-800">イベントを追加</h1>
+        <header className="bg-white border-b border-gray-200">
+          <PageBleedRow className="flex items-center gap-3 py-4">
+            <Link href={`/${org}/schedule`} className="text-gray-400 hover:text-gray-600">
+              <ArrowLeft size={18} />
+            </Link>
+            <h1 className="text-lg font-semibold text-gray-800">イベントを追加</h1>
+          </PageBleedRow>
         </header>
         <div className="m-8 flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
           <AlertCircle size={16} />
@@ -164,11 +167,13 @@ export default function NewSchedulePage() {
 
   return (
     <div className="flex flex-col h-full overflow-auto bg-gray-50">
-      <header className="flex items-center gap-3 px-4 sm:px-8 py-4 bg-white border-b border-gray-200 shrink-0">
-        <Link href={`/${org}/schedule`} className="text-gray-400 hover:text-gray-600 transition-colors">
-          <ArrowLeft size={18} />
-        </Link>
-        <h1 className="text-lg font-semibold text-gray-800">イベントを追加</h1>
+      <header className="bg-white border-b border-gray-200 shrink-0">
+        <PageBleedRow className="flex items-center gap-3 py-4">
+          <Link href={`/${org}/schedule`} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <ArrowLeft size={18} />
+          </Link>
+          <h1 className="text-lg font-semibold text-gray-800">イベントを追加</h1>
+        </PageBleedRow>
       </header>
 
       <PageMain>

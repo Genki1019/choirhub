@@ -12,6 +12,7 @@ import { comparePartOrder } from "@/lib/voice-order";
 import { InviteModal, InviteSuccessModal } from "./_components/InviteModal";
 import { MemberPartSection } from "./_components/MemberPartSection";
 import { PageMain } from "@/components/PageMain";
+import { PageBleedRow } from "@/components/PageBleedRow";
 
 type SortKey = "nameJa" | "joinedAt_asc" | "joinedAt_desc";
 type ViewMode = "card" | "list";
@@ -165,73 +166,77 @@ function MembersContent() {
     )}
     <div className="flex flex-col h-full overflow-auto">
       {/* ヘッダー */}
-      <header className="flex items-center justify-between px-4 sm:px-8 py-4 bg-white border-b border-gray-200 shrink-0">
-        <h1 className="text-lg font-semibold text-gray-800">メンバー</h1>
-        {isAdmin && (
-          <button
-            onClick={() => setShowInvite(true)}
-            className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <UserPlus size={14} />
-            メンバーを招待
-          </button>
-        )}
+      <header className="bg-white border-b border-gray-200 shrink-0">
+        <PageBleedRow className="flex items-center justify-between py-4">
+          <h1 className="text-lg font-semibold text-gray-800">メンバー</h1>
+          {isAdmin && (
+            <button
+              onClick={() => setShowInvite(true)}
+              className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <UserPlus size={14} />
+              メンバーを招待
+            </button>
+          )}
+        </PageBleedRow>
       </header>
 
       {/* コントロールバー */}
-      <div className="flex flex-wrap items-center gap-y-2 justify-between px-4 sm:px-8 py-3 bg-white border-b border-gray-100 shrink-0">
-        <div className="flex items-center gap-2">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            className="text-xs text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-          >
-            {STATUS_FILTERS.map(({ value, label }) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
-          {memberTypes.length > 0 && (
+      <div className="bg-white border-b border-gray-100 shrink-0">
+        <PageBleedRow className="flex flex-wrap items-center gap-y-2 justify-between py-3">
+          <div className="flex items-center gap-2">
             <select
-              value={memberTypeFilter}
-              onChange={(e) => setMemberTypeFilter(e.target.value)}
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
               className="text-xs text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
             >
-              <option value="all">全区分</option>
-              {memberTypes.map(({ id, name }) => (
-                <option key={id} value={id}>{name}</option>
+              {STATUS_FILTERS.map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
               ))}
-              <option value="__none__">未設定</option>
             </select>
-          )}
-          {!loading && <span className="text-xs text-gray-400">{totalCount}名</span>}
-        </div>
-
-        <div className="flex items-center gap-3">
-          <select
-            value={sortKey}
-            onChange={(e) => setSortKey(e.target.value as SortKey)}
-            className="text-xs text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-          >
-            {SORT_OPTIONS.map(({ value, label }) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
-
-          <div className="hidden sm:flex border border-gray-200 rounded-lg overflow-hidden">
-            <button
-              onClick={() => setViewMode("card")}
-              className={`p-1.5 transition-colors ${viewMode === "card" ? "bg-blue-600 text-white" : "text-gray-400 hover:bg-gray-50"}`}
-            >
-              <LayoutGrid size={15} />
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`p-1.5 transition-colors ${viewMode === "list" ? "bg-blue-600 text-white" : "text-gray-400 hover:bg-gray-50"}`}
-            >
-              <List size={15} />
-            </button>
+            {memberTypes.length > 0 && (
+              <select
+                value={memberTypeFilter}
+                onChange={(e) => setMemberTypeFilter(e.target.value)}
+                className="text-xs text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+              >
+                <option value="all">全区分</option>
+                {memberTypes.map(({ id, name }) => (
+                  <option key={id} value={id}>{name}</option>
+                ))}
+                <option value="__none__">未設定</option>
+              </select>
+            )}
+            {!loading && <span className="text-xs text-gray-400">{totalCount}名</span>}
           </div>
-        </div>
+
+          <div className="flex items-center gap-3">
+            <select
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              className="text-xs text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+            >
+              {SORT_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+
+            <div className="hidden sm:flex border border-gray-200 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setViewMode("card")}
+                className={`p-1.5 transition-colors ${viewMode === "card" ? "bg-blue-600 text-white" : "text-gray-400 hover:bg-gray-50"}`}
+              >
+                <LayoutGrid size={15} />
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-1.5 transition-colors ${viewMode === "list" ? "bg-blue-600 text-white" : "text-gray-400 hover:bg-gray-50"}`}
+              >
+                <List size={15} />
+              </button>
+            </div>
+          </div>
+        </PageBleedRow>
       </div>
 
       {/* メインコンテンツ */}

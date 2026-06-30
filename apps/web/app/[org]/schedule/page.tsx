@@ -10,6 +10,7 @@ import { ApiClientError } from "@/lib/api-client";
 import { Calendar } from "./_components/Calendar";
 import { EventList } from "./_components/EventList";
 import { PageMain } from "@/components/PageMain";
+import { PageBleedRow } from "@/components/PageBleedRow";
 
 export default function SchedulePage() {
   const { org } = useParams<{ org: string }>();
@@ -49,16 +50,18 @@ export default function SchedulePage() {
 
   return (
     <div className="flex flex-col h-full overflow-auto">
-      <header className="flex items-center justify-between px-4 sm:px-8 py-4 bg-white border-b border-gray-200 shrink-0">
-        <h1 className="text-lg font-semibold text-gray-800">スケジュール</h1>
-        {canCreateEvent && (
-          <Link
-            href={`/${org}/schedule/new`}
-            className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus size={14} /> イベントを追加
-          </Link>
-        )}
+      <header className="bg-white border-b border-gray-200 shrink-0">
+        <PageBleedRow className="flex items-center justify-between py-4">
+          <h1 className="text-lg font-semibold text-gray-800">スケジュール</h1>
+          {canCreateEvent && (
+            <Link
+              href={`/${org}/schedule/new`}
+              className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus size={14} /> イベントを追加
+            </Link>
+          )}
+        </PageBleedRow>
       </header>
 
       {loading && (

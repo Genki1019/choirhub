@@ -12,6 +12,7 @@ import { ProfileCard } from "./_components/ProfileCard";
 import { ProfileInfoSection } from "./_components/ProfileInfoSection";
 import { EditForm } from "./_components/EditForm";
 import { AdminPanel } from "./_components/AdminPanel";
+import { PageBleedRow } from "@/components/PageBleedRow";
 
 export default function MemberDetailPage() {
   const { org, id } = useParams<{ org: string; id: string }>();
@@ -90,19 +91,21 @@ export default function MemberDetailPage() {
 
   return (
     <div className="flex flex-col h-full overflow-auto">
-      <header className="flex items-center justify-between px-4 sm:px-8 py-4 bg-white border-b border-gray-200 shrink-0">
-        <div className="flex items-center gap-3">
-          <Link href={`/${org}/members`} className="text-gray-400 hover:text-gray-600 transition-colors">
-            <ArrowLeft size={18} />
-          </Link>
-          <h1 className="text-lg font-semibold text-gray-800">メンバー詳細</h1>
-        </div>
-        {isSelf && !isEditing && (
-          <button onClick={() => setIsEditing(true)}
-            className="flex items-center gap-1.5 text-sm text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
-            <Pencil size={14} /> 編集
-          </button>
-        )}
+      <header className="bg-white border-b border-gray-200 shrink-0">
+        <PageBleedRow className="flex items-center justify-between py-4">
+          <div className="flex items-center gap-4">
+            <Link href={`/${org}/members`} className="text-gray-400 hover:text-gray-600 transition-colors">
+              <ArrowLeft size={18} />
+            </Link>
+            <h1 className="text-lg font-semibold text-gray-800">メンバー詳細</h1>
+          </div>
+          {isSelf && !isEditing && (
+            <button onClick={() => setIsEditing(true)}
+              className="flex items-center gap-1.5 text-sm text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+              <Pencil size={14} /> 編集
+            </button>
+          )}
+        </PageBleedRow>
       </header>
 
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 sm:px-8 py-6 space-y-6">

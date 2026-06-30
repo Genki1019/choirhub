@@ -11,6 +11,8 @@ import type {
 import { ApiClientError } from "@/lib/api-client";
 import { RecordModal } from "./_components/RecordModal";
 import { PaymentsList } from "./_components/PaymentsList";
+import { PageMain } from "@/components/PageMain";
+import { PageBleedRow } from "@/components/PageBleedRow";
 
 export default function CollectionDetailPage() {
   const { org, collectionId } = useParams<{ org: string; collectionId: string }>();
@@ -139,17 +141,19 @@ export default function CollectionDetailPage() {
 
   return (
     <div className="flex flex-col h-full overflow-auto">
-      <header className="shrink-0 flex items-center gap-3 px-4 sm:px-8 py-4 bg-white border-b border-gray-200">
-        <Link href={`/${org}/accounting`} className="text-gray-400 hover:text-gray-600 transition-colors">
-          <ArrowLeft size={18} />
-        </Link>
-        <div>
-          <h1 className="text-base font-semibold text-gray-800">{col.title}</h1>
-          <p className="text-xs text-gray-400">¥{col.amount.toLocaleString()}/人</p>
-        </div>
+      <header className="shrink-0 bg-white border-b border-gray-200">
+        <PageBleedRow className="flex items-center gap-4 py-4">
+          <Link href={`/${org}/accounting`} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <ArrowLeft size={18} />
+          </Link>
+          <div>
+            <h1 className="text-base font-semibold text-gray-800">{col.title}</h1>
+            <p className="text-xs text-gray-400">¥{col.amount.toLocaleString()}/人</p>
+          </div>
+        </PageBleedRow>
       </header>
 
-      <main className="flex-1 px-4 sm:px-8 py-6 space-y-4">
+      <PageMain className="space-y-4">
         <div className="grid grid-cols-4 gap-3">
           {([
             { label: "対象人数", value: col.payments.length,              color: "text-gray-800" },
@@ -173,7 +177,7 @@ export default function CollectionDetailPage() {
           onQuickPaid={handleQuickPaid}
           onEdit={setSelected}
         />
-      </main>
+      </PageMain>
 
       {checkedIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-gray-900 text-white px-5 py-3 rounded-2xl shadow-xl z-40">

@@ -11,6 +11,7 @@ import type { MemberProfile } from "@/lib/api-types";
 import { ApiClientError } from "@/lib/api-client";
 import { CreateModal } from "./_components/CreateModal";
 import { ActivityCard } from "./_components/ActivityCard";
+import { PageBleedRow } from "@/components/PageBleedRow";
 
 export default function OutreachPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -69,23 +70,25 @@ export default function OutreachPage() {
 
   return (
     <div className="flex flex-col h-full overflow-auto">
-      <header className="flex items-center justify-between px-4 sm:px-8 py-4 bg-white border-b border-gray-200 shrink-0">
-        <div className="flex items-center gap-3">
-          <Link href={`/${org}/tickets/${concertId}/my`} className="text-gray-400 hover:text-gray-600 transition-colors">
-            <ArrowLeft size={18} />
-          </Link>
-          <div>
-            <h1 className="text-lg font-semibold text-gray-800">情宣活動の申請</h1>
-            <p className="text-sm text-gray-400">{concertTitle}</p>
+      <header className="bg-white border-b border-gray-200 shrink-0">
+        <PageBleedRow className="flex items-center justify-between py-4">
+          <div className="flex items-center gap-4">
+            <Link href={`/${org}/tickets/${concertId}/my`} className="text-gray-400 hover:text-gray-600 transition-colors">
+              <ArrowLeft size={18} />
+            </Link>
+            <div>
+              <h1 className="text-lg font-semibold text-gray-800">情宣活動の申請</h1>
+              <p className="text-sm text-gray-400">{concertTitle}</p>
+            </div>
           </div>
-        </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors"
-        >
-          <Plus size={15} />
-          新規申請
-        </button>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors"
+          >
+            <Plus size={15} />
+            新規申請
+          </button>
+        </PageBleedRow>
       </header>
 
       <main className="flex-1 px-6 py-6 space-y-3 max-w-lg mx-auto w-full">

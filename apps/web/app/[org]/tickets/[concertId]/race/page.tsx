@@ -9,6 +9,7 @@ import { ApiClientError } from "@/lib/api-client";
 import { PartCard } from "./_components/PartCard";
 import { IndividualTable } from "./_components/IndividualTable";
 import { ScoringRules } from "./_components/ScoringRules";
+import { PageBleedRow } from "@/components/PageBleedRow";
 
 export default function RacePage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -57,11 +58,13 @@ export default function RacePage() {
   if (data.individuals.length === 0) {
     return (
       <div className="flex flex-col h-full">
-        <header className="flex items-center gap-3 px-4 sm:px-8 py-4 bg-white border-b border-gray-200 shrink-0">
-          <Link href={backHref} className="text-gray-400 hover:text-gray-600 transition-colors">
-            <ArrowLeft size={18} />
-          </Link>
-          <h1 className="text-lg font-semibold text-gray-800">チケットレース</h1>
+        <header className="bg-white border-b border-gray-200 shrink-0">
+          <PageBleedRow className="flex items-center gap-4 py-4">
+            <Link href={backHref} className="text-gray-400 hover:text-gray-600 transition-colors">
+              <ArrowLeft size={18} />
+            </Link>
+            <h1 className="text-lg font-semibold text-gray-800">チケットレース</h1>
+          </PageBleedRow>
         </header>
         <div className="flex items-center justify-center flex-1">
           <p className="text-sm text-gray-400">まだ配布・販売データがありません</p>
@@ -73,7 +76,7 @@ export default function RacePage() {
   return (
     <div className="flex flex-col h-full overflow-auto">
       <header className="bg-white border-b border-gray-200 shrink-0">
-        <div className="flex items-center gap-3 px-4 sm:px-8 py-4">
+        <PageBleedRow className="flex items-center gap-4 py-4">
           <Link href={backHref} className="text-gray-400 hover:text-gray-600 transition-colors">
             <ArrowLeft size={18} />
           </Link>
@@ -115,16 +118,18 @@ export default function RacePage() {
               </button>
             )
           )}
-        </div>
+        </PageBleedRow>
 
         {data.racePublishedAt && (
-          <div className="mx-4 sm:mx-8 mb-2 flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            <Globe size={12} />
-            {new Date(data.racePublishedAt).toLocaleDateString("ja-JP")} に全団員へ公開済み
-          </div>
+          <PageBleedRow className="pb-2">
+            <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <Globe size={12} />
+              {new Date(data.racePublishedAt).toLocaleDateString("ja-JP")} に全団員へ公開済み
+            </div>
+          </PageBleedRow>
         )}
 
-        <div className="flex px-4 sm:px-8 pt-1">
+        <PageBleedRow className="flex pt-1">
           {[
             { key: "parts"       as const, label: "パート順位", icon: Users },
             { key: "individuals" as const, label: "個人順位",   icon: User },
@@ -143,10 +148,10 @@ export default function RacePage() {
               {label}
             </button>
           ))}
-        </div>
+        </PageBleedRow>
       </header>
 
-      <main className="flex-1 px-4 sm:px-8 py-6 max-w-2xl space-y-4">
+      <main className="flex-1 px-4 sm:px-8 py-6 max-w-2xl mx-auto w-full space-y-4">
         <ScoringRules scoring={data.scoring} />
 
         {tab === "parts" ? (

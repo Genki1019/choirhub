@@ -7,6 +7,8 @@ import { ticketsApi, type TicketConcertSummary, type MyAllocationConcert } from 
 import { ApiClientError } from "@/lib/api-client";
 import { ManagerConcertCard } from "./_components/ManagerConcertCard";
 import { MyConcertCard } from "./_components/MyConcertCard";
+import { PageMain } from "@/components/PageMain";
+import { PageBleedRow } from "@/components/PageBleedRow";
 
 type ViewMode = "loading" | "manager" | "member" | "empty" | "error";
 
@@ -46,11 +48,13 @@ export default function TicketsPage() {
 
   return (
     <div className="flex flex-col h-full overflow-auto">
-      <header className="flex items-center justify-between px-4 sm:px-8 py-4 bg-white border-b border-gray-200 shrink-0">
-        <h1 className="text-lg font-semibold text-gray-800">チケット</h1>
+      <header className="bg-white border-b border-gray-200 shrink-0">
+        <PageBleedRow className="flex items-center justify-between py-4">
+          <h1 className="text-lg font-semibold text-gray-800">チケット</h1>
+        </PageBleedRow>
       </header>
 
-      <main className="flex-1 px-4 sm:px-8 py-6 space-y-3">
+      <PageMain className="space-y-3">
         {mode === "loading" && (
           <div className="flex items-center justify-center py-16 gap-2 text-gray-400">
             <Loader2 size={18} className="animate-spin" />
@@ -86,7 +90,7 @@ export default function TicketsPage() {
         {mode === "member" && memberData.map((item) => (
           <MyConcertCard key={item.concertId} item={item} org={org} />
         ))}
-      </main>
+      </PageMain>
     </div>
   );
 }

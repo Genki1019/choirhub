@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Users, Loader2, AlertCircle, Reply, Send, X } from "lucide-react";
 import { mailingApi, LAST_EVENT_LABEL, type MailDetail } from "@/lib/mailing-api";
 import { ApiClientError } from "@/lib/api-client";
+import { PageBleedRow } from "@/components/PageBleedRow";
 
 function formatFullDate(iso: string): string {
   const d = new Date(iso);
@@ -192,17 +193,19 @@ export default function MailDetailPage() {
   return (
     <>
     <div className="flex flex-col h-full overflow-auto">
-      <header className="flex items-center gap-3 px-4 sm:px-8 py-4 bg-white border-b border-gray-200 shrink-0">
-        <Link href={`/${org}/mailing`} className="text-gray-400 hover:text-gray-600 transition-colors">
-          <ArrowLeft size={18} />
-        </Link>
-        <h1 className="text-lg font-semibold text-gray-800 truncate flex-1">{subject}</h1>
-        <button
-          onClick={() => setShowReply(true)}
-          className="flex items-center gap-1.5 text-sm text-gray-600 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors shrink-0"
-        >
-          <Reply size={14} />返信
-        </button>
+      <header className="bg-white border-b border-gray-200 shrink-0">
+        <PageBleedRow className="flex items-center gap-4 py-4">
+          <Link href={`/${org}/mailing`} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <ArrowLeft size={18} />
+          </Link>
+          <h1 className="text-lg font-semibold text-gray-800 truncate flex-1">{subject}</h1>
+          <button
+            onClick={() => setShowReply(true)}
+            className="flex items-center gap-1.5 text-sm text-gray-600 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors shrink-0"
+          >
+            <Reply size={14} />返信
+          </button>
+        </PageBleedRow>
       </header>
 
       <main className="flex-1 max-w-3xl mx-auto w-full px-4 sm:px-8 py-6 space-y-5">

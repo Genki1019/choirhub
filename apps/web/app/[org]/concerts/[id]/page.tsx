@@ -26,6 +26,8 @@ import { SurveyTab } from "./_components/SurveyTab";
 import { OnstageTab } from "./_components/OnstageTab";
 import { EditConcertModal } from "./_components/EditConcertModal";
 import { EditProgramModal } from "./_components/EditProgramModal";
+import { PageMain } from "@/components/PageMain";
+import { PageBleedRow } from "@/components/PageBleedRow";
 
 const STATUS_CONFIG: Record<ConcertStatus, { label: string; badge: string }> = {
   draft:       { label: "準備中",   badge: "bg-gray-100 text-gray-500" },
@@ -248,7 +250,7 @@ export default function ConcertDetailPage() {
   return (
     <div className="flex flex-col h-full overflow-auto">
       <header className="bg-white border-b border-gray-200 shrink-0">
-        <div className="flex items-center gap-3 px-4 sm:px-8 py-4">
+        <PageBleedRow className="flex items-center gap-4 py-4">
           <Link href={backHref} className="text-gray-400 hover:text-gray-600 transition-colors">
             <ArrowLeft size={18} />
           </Link>
@@ -295,17 +297,19 @@ export default function ConcertDetailPage() {
               </button>
             </div>
           )}
+        </PageBleedRow>
+
+        <div className="border-t border-gray-100 bg-gray-50">
+          <PageBleedRow className="flex items-center gap-6 py-2">
+            <span className="text-xs text-gray-500">{concert.stages.length} ステージ</span>
+            <span className="text-xs text-gray-500">{totalPrograms} 曲</span>
+            {onCount > 0 && (
+              <span className="text-xs text-green-600 font-medium">出演確定 {onCount}名</span>
+            )}
+          </PageBleedRow>
         </div>
 
-        <div className="flex items-center gap-6 px-8 py-2 border-t border-gray-100 bg-gray-50">
-          <span className="text-xs text-gray-500">{concert.stages.length} ステージ</span>
-          <span className="text-xs text-gray-500">{totalPrograms} 曲</span>
-          {onCount > 0 && (
-            <span className="text-xs text-green-600 font-medium">出演確定 {onCount}名</span>
-          )}
-        </div>
-
-        <div className="flex px-8 pt-1">
+        <PageBleedRow className="flex pt-1">
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -321,10 +325,10 @@ export default function ConcertDetailPage() {
               {tab.label}
             </button>
           ))}
-        </div>
+        </PageBleedRow>
       </header>
 
-      <main className="flex-1 px-4 sm:px-8 py-6">
+      <PageMain>
         {activeTab === "stages"  && (
           <StagesTab
             concert={concert}
@@ -349,7 +353,7 @@ export default function ConcertDetailPage() {
           />
         )}
         {activeTab === "onstage" && <OnstageTab concert={concert} />}
-      </main>
+      </PageMain>
 
       {showAddStageModal && (
         <AddStageModal

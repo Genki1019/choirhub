@@ -151,7 +151,7 @@ export default function ScheduleDetailPage() {
     return (
       <div className="flex flex-col h-full">
         <header className="bg-white border-b border-gray-200">
-          <PageBleedRow className="flex items-center gap-3 py-4">
+          <PageBleedRow className="flex items-center gap-4 py-4">
             <Link href={`/${org}/schedule`} className="text-gray-400 hover:text-gray-600 transition-colors">
               <ArrowLeft size={18} />
             </Link>
@@ -172,7 +172,7 @@ export default function ScheduleDetailPage() {
     <div className="flex flex-col h-full overflow-auto">
       <header className="bg-white border-b border-gray-200 shrink-0">
         <PageBleedRow className="flex items-center justify-between py-4">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="flex items-center gap-4 flex-1 min-w-0">
             <Link href={`/${org}/schedule`} className="text-gray-400 hover:text-gray-600 transition-colors shrink-0">
               <ArrowLeft size={18} />
             </Link>

@@ -132,7 +132,7 @@ export default function TicketDetailPage() {
     <div className="flex flex-col h-full overflow-auto">
       <header className="bg-white border-b border-gray-200 shrink-0">
         {/* タイトル行 */}
-        <PageBleedRow className="flex items-center gap-2 py-3">
+        <PageBleedRow className="flex items-center gap-4 py-3">
           <Link href={`/${org}/tickets`} className="text-gray-400 hover:text-gray-600 transition-colors shrink-0">
             <ArrowLeft size={18} />
           </Link>
@@ -212,47 +212,49 @@ export default function TicketDetailPage() {
 
         {/* 席種タブ */}
         {detail.batches.length > 0 && (
-          <PageBleedRow className="flex pt-1 items-end border-t border-gray-100 overflow-x-auto">
-            {detail.batches.map((batch, idx) => (
-              <div key={batch.id} className="relative group shrink-0">
-                <button
-                  onClick={() => setActiveBatchIdx(idx)}
-                  className={[
-                    "px-4 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors whitespace-nowrap",
-                    activeBatchIdx === idx
-                      ? "border-blue-500 text-blue-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700",
-                  ].join(" ")}
-                >
-                  {batch.name}
-                  <span className="ml-1.5 text-gray-400 font-normal">
-                    ¥{batch.price.toLocaleString()}
-                    {batch.priceStudent != null && ` / 学生¥${batch.priceStudent.toLocaleString()}`}
-                  </span>
-                </button>
-                {detail.isAdmin && (
+          <div className="border-t border-gray-100">
+            <PageBleedRow className="flex pt-1 items-end overflow-x-auto">
+              {detail.batches.map((batch, idx) => (
+                <div key={batch.id} className="relative group shrink-0">
                   <button
-                    onClick={() => setEditingBatch(batch)}
-                    className="absolute right-0 top-1 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-blue-500 transition-opacity"
-                    title="席種を編集"
+                    onClick={() => setActiveBatchIdx(idx)}
+                    className={[
+                      "px-4 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors whitespace-nowrap",
+                      activeBatchIdx === idx
+                        ? "border-blue-500 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700",
+                    ].join(" ")}
                   >
-                    <Pencil size={10} />
+                    {batch.name}
+                    <span className="ml-1.5 text-gray-400 font-normal">
+                      ¥{batch.price.toLocaleString()}
+                      {batch.priceStudent != null && ` / 学生¥${batch.priceStudent.toLocaleString()}`}
+                    </span>
                   </button>
-                )}
-              </div>
-            ))}
-            <button
-              onClick={() => setActiveBatchIdx("outreach")}
-              className={[
-                "flex items-center gap-1 px-4 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors ml-2 shrink-0 whitespace-nowrap",
-                activeBatchIdx === "outreach"
-                  ? "border-green-500 text-green-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700",
-              ].join(" ")}
-            >
-              <Bus size={12} />情宣交通費
-            </button>
-          </PageBleedRow>
+                  {detail.isAdmin && (
+                    <button
+                      onClick={() => setEditingBatch(batch)}
+                      className="absolute right-0 top-1 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-blue-500 transition-opacity"
+                      title="席種を編集"
+                    >
+                      <Pencil size={10} />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                onClick={() => setActiveBatchIdx("outreach")}
+                className={[
+                  "flex items-center gap-1 px-4 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors ml-2 shrink-0 whitespace-nowrap",
+                  activeBatchIdx === "outreach"
+                    ? "border-green-500 text-green-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700",
+                ].join(" ")}
+              >
+                <Bus size={12} />情宣交通費
+              </button>
+            </PageBleedRow>
+          </div>
         )}
       </header>
 

@@ -81,7 +81,7 @@ export default function NewConcertPage() {
     return (
       <div className="flex flex-col h-full">
         <header className="bg-white border-b border-gray-200">
-          <PageBleedRow className="flex items-center gap-3 py-4">
+          <PageBleedRow className="flex items-center gap-4 py-4">
             <Link href={`/${org}/concerts`} className="text-gray-400 hover:text-gray-600">
               <ArrowLeft size={18} />
             </Link>
@@ -140,7 +140,7 @@ export default function NewConcertPage() {
   return (
     <div className="flex flex-col h-full overflow-auto bg-gray-50">
       <header className="bg-white border-b border-gray-200 shrink-0">
-        <PageBleedRow className="flex items-center gap-3 py-4">
+        <PageBleedRow className="flex items-center gap-4 py-4">
           <Link href={`/${org}/concerts`} className="text-gray-400 hover:text-gray-600 transition-colors">
             <ArrowLeft size={18} />
           </Link>

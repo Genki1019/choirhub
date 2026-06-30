@@ -10,6 +10,7 @@ import { comparePartOrder } from "@/lib/voice-order";
 import { ApiClientError } from "@/lib/api-client";
 import { AttendanceTable, type LocalAttendance } from "./_components/AttendanceTable";
 import { DeleteConfirmModal } from "./_components/DeleteConfirmModal";
+import { PageMain } from "@/components/PageMain";
 
 const STATUS_CYCLE = ["attending", "absent", "maybe", "undecided"] as const;
 
@@ -240,7 +241,7 @@ export default function ScheduleDetailPage() {
         />
       )}
 
-      <main className="flex-1 px-4 sm:px-8 py-5 space-y-4">
+      <PageMain className="space-y-4">
         {event.pageMemo && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3">
             <p className="text-xs font-semibold text-amber-700 mb-1">全体備考</p>
@@ -266,7 +267,7 @@ export default function ScheduleDetailPage() {
             自分の行（青色）をクリックして出欠を回答してください。○ → ✕ → △ → — の順に切り替わります。
           </p>
         )}
-      </main>
+      </PageMain>
     </div>
   );
 }

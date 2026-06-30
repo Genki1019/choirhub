@@ -18,6 +18,7 @@ import { CreateBatchModal } from "./_components/CreateBatchModal";
 import { EditBatchModal } from "./_components/EditBatchModal";
 import { BatchTab } from "./_components/BatchTab";
 import { OutreachExpenseTab } from "./_components/OutreachExpenseTab";
+import { PageMain } from "@/components/PageMain";
 
 export default function TicketDetailPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -252,7 +253,7 @@ export default function TicketDetailPage() {
         )}
       </header>
 
-      <main className="flex-1 px-4 sm:px-8 py-6">
+      <PageMain>
         {detail.batches.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-sm text-gray-400 mb-4">席種が登録されていません</p>
@@ -279,7 +280,7 @@ export default function TicketDetailPage() {
             onMemberAdded={handleMemberAdded}
           />
         ) : null}
-      </main>
+      </PageMain>
 
       {showCreateBatch && (
         <CreateBatchModal

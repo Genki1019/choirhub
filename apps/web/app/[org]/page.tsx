@@ -10,6 +10,7 @@ import { ApiClientError } from "@/lib/api-client";
 import { StatCard } from "./_components/StatCard";
 import { EventCard } from "./_components/EventCard";
 import { MonthlyOrganizerCard } from "./_components/MonthlyOrganizerCard";
+import { PageMain } from "@/components/PageMain";
 
 function daysUntil(isoString: string): number {
   const now = new Date();
@@ -59,7 +60,7 @@ export default function HomePage() {
         )}
       </header>
 
-      <main className="flex-1 px-4 sm:px-8 py-6 space-y-6">
+      <PageMain className="space-y-6">
         {loading ? (
           <div className="flex items-center justify-center py-16 gap-2 text-gray-400">
             <Loader2 size={18} className="animate-spin" />
@@ -164,7 +165,7 @@ export default function HomePage() {
             )}
           </>
         )}
-      </main>
+      </PageMain>
     </div>
   );
 }

@@ -11,6 +11,7 @@ import type { MemberStatus } from "@/lib/api-types";
 import { comparePartOrder } from "@/lib/voice-order";
 import { InviteModal, InviteSuccessModal } from "./_components/InviteModal";
 import { MemberPartSection } from "./_components/MemberPartSection";
+import { PageMain } from "@/components/PageMain";
 
 type SortKey = "nameJa" | "joinedAt_asc" | "joinedAt_desc";
 type ViewMode = "card" | "list";
@@ -234,7 +235,7 @@ function MembersContent() {
       </div>
 
       {/* メインコンテンツ */}
-      <main className="flex-1 px-4 sm:px-8 py-6 space-y-8">
+      <PageMain className="space-y-8">
         {loading && (
           <div className="flex items-center justify-center py-16 gap-2 text-gray-400">
             <Loader2 size={18} className="animate-spin" />
@@ -266,7 +267,7 @@ function MembersContent() {
             org={org}
           />
         ))}
-      </main>
+      </PageMain>
     </div>
     </>
   );

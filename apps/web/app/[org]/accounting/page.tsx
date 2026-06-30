@@ -18,6 +18,7 @@ import { ExpenseModal } from "./_components/ExpenseModal";
 import { CollectionModal } from "./_components/CollectionModal";
 import { CollectionsTab } from "./_components/CollectionsTab";
 import { ExpensesTab } from "./_components/ExpensesTab";
+import { PageMain } from "@/components/PageMain";
 
 function yen(n: number) {
   return `¥${n.toLocaleString()}`;
@@ -133,7 +134,7 @@ export default function AccountingPage() {
         </div>
       </header>
 
-      <main className="flex-1 px-4 sm:px-8 py-6 space-y-5">
+      <PageMain className="space-y-5">
         {loading && (
           <div className="flex items-center justify-center py-16 gap-2 text-gray-400">
             <Loader2 size={18} className="animate-spin" />
@@ -204,7 +205,7 @@ export default function AccountingPage() {
             )}
           </>
         )}
-      </main>
+      </PageMain>
 
       {expenseModal.open && (
         <ExpenseModal

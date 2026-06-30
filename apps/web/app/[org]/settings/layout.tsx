@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useParams, useRouter } from "next/navigation";
 import { membersApi } from "@/lib/members-api";
 import { ApiClientError } from "@/lib/api-client";
+import { PageMain } from "@/components/PageMain";
 
 const ADMIN_TABS = [
   { label: "団体情報",           suffix: "" },
@@ -81,7 +82,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         </div>
       </div>
 
-      <main className="flex-1 overflow-auto px-4 sm:px-8 py-6">
+      <PageMain className="overflow-auto">
         {!checked ? (
           <div className="flex items-center justify-center py-16">
             <div className="animate-spin h-5 w-5 border-2 border-gray-300 border-t-blue-500 rounded-full" />
@@ -89,7 +90,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         ) : allowed ? (
           children
         ) : null}
-      </main>
+      </PageMain>
     </div>
   );
 }

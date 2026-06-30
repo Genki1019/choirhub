@@ -9,6 +9,7 @@ import { membersApi } from "@/lib/members-api";
 import { ApiClientError } from "@/lib/api-client";
 import { Calendar } from "./_components/Calendar";
 import { EventList } from "./_components/EventList";
+import { PageMain } from "@/components/PageMain";
 
 export default function SchedulePage() {
   const { org } = useParams<{ org: string }>();
@@ -75,7 +76,7 @@ export default function SchedulePage() {
       )}
 
       {!loading && !error && (
-        <main className="flex-1 px-4 sm:px-8 py-6 flex flex-col gap-6">
+        <PageMain className="flex flex-col gap-6">
           <Calendar
             year={year}
             month={month}
@@ -86,7 +87,7 @@ export default function SchedulePage() {
             onNextMonth={nextMonth}
           />
           <EventList events={events} year={year} month={month} org={org} />
-        </main>
+        </PageMain>
       )}
     </div>
   );

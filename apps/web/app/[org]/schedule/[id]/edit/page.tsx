@@ -12,6 +12,7 @@ import { NotFoundPage } from "@/components/NotFoundPage";
 import { LocationSearch } from "@/components/LocationSearch";
 import { TargetAudienceSection } from "../../../_components/TargetAudienceSection";
 import { DeadlineSection } from "../../../_components/DeadlineSection";
+import { PageMain } from "@/components/PageMain";
 
 function SectionLabel({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
@@ -176,7 +177,7 @@ export default function EditSchedulePage() {
         <h1 className="text-lg font-semibold text-gray-800">イベントを編集</h1>
       </header>
 
-      <main className="flex-1 px-4 sm:px-8 py-6">
+      <PageMain>
         <form onSubmit={handleSubmit} className="max-w-xl mx-auto space-y-4">
 
           {error && (
@@ -296,7 +297,7 @@ export default function EditSchedulePage() {
             </button>
           </div>
         </form>
-      </main>
+      </PageMain>
     </div>
   );
 }

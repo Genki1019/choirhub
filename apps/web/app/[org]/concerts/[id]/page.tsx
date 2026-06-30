@@ -26,6 +26,7 @@ import { SurveyTab } from "./_components/SurveyTab";
 import { OnstageTab } from "./_components/OnstageTab";
 import { EditConcertModal } from "./_components/EditConcertModal";
 import { EditProgramModal } from "./_components/EditProgramModal";
+import { PageMain } from "@/components/PageMain";
 
 const STATUS_CONFIG: Record<ConcertStatus, { label: string; badge: string }> = {
   draft:       { label: "準備中",   badge: "bg-gray-100 text-gray-500" },
@@ -324,7 +325,7 @@ export default function ConcertDetailPage() {
         </div>
       </header>
 
-      <main className="flex-1 px-4 sm:px-8 py-6">
+      <PageMain>
         {activeTab === "stages"  && (
           <StagesTab
             concert={concert}
@@ -349,7 +350,7 @@ export default function ConcertDetailPage() {
           />
         )}
         {activeTab === "onstage" && <OnstageTab concert={concert} />}
-      </main>
+      </PageMain>
 
       {showAddStageModal && (
         <AddStageModal

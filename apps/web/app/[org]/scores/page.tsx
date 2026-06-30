@@ -20,6 +20,7 @@ import { AddScoreModal } from "./_components/AddScoreModal";
 import { ConcertSection } from "./_components/ConcertSection";
 import { UnassignedSection } from "./_components/UnassignedSection";
 import { CollectionModal } from "../accounting/_components/CollectionModal";
+import { PageMain } from "@/components/PageMain";
 
 export default function ScoresPage() {
   const { org } = useParams<{ org: string }>();
@@ -154,7 +155,7 @@ export default function ScoresPage() {
         )}
       </header>
 
-      <main className="flex-1 px-4 sm:px-8 py-6 space-y-4">
+      <PageMain className="space-y-4">
         {loading && (
           <div className="flex items-center justify-center py-16 gap-2 text-gray-400">
             <Loader2 size={18} className="animate-spin" />
@@ -210,7 +211,7 @@ export default function ScoresPage() {
             />
           </>
         )}
-      </main>
+      </PageMain>
 
       {midiTarget && (
         <MidiModal score={midiTarget} onClose={() => setMidiTarget(null)} />

@@ -8,6 +8,7 @@ import { concertsApi, type ConcertSummary, type ConcertStatus } from "@/lib/conc
 import { ApiClientError } from "@/lib/api-client";
 import { membersApi } from "@/lib/members-api";
 import { ConcertCard } from "./_components/ConcertCard";
+import { PageMain } from "@/components/PageMain";
 
 type Filter = "all" | ConcertStatus;
 
@@ -87,7 +88,7 @@ export default function ConcertsPage() {
         ))}
       </div>
 
-      <main className="flex-1 px-4 sm:px-8 py-6 space-y-3">
+      <PageMain className="space-y-3">
         {loading && (
           <div className="flex items-center justify-center py-16 gap-2 text-gray-400">
             <Loader2 size={18} className="animate-spin" />
@@ -112,7 +113,7 @@ export default function ConcertsPage() {
         {!loading && !error && sorted.map((concert) => (
           <ConcertCard key={concert.id} concert={concert} org={org} />
         ))}
-      </main>
+      </PageMain>
 
     </div>
   );

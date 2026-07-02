@@ -164,7 +164,7 @@ function MembersContent() {
     {showInviteSuccess && (
       <InviteSuccessModal onClose={() => setShowInviteSuccess(false)} />
     )}
-    <div className="flex flex-col h-full overflow-auto">
+    <div className="flex flex-col">
       {/* ヘッダー */}
       <header className="bg-white border-b border-gray-200 shrink-0">
         <PageBleedRow className="flex items-center justify-between py-4">
@@ -172,7 +172,7 @@ function MembersContent() {
           {isAdmin && (
             <button
               onClick={() => setShowInvite(true)}
-              className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-brand-700 transition-colors"
             >
               <UserPlus size={14} />
               メンバーを招待
@@ -188,7 +188,7 @@ function MembersContent() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="text-xs text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="text-xs text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-brand-400"
             >
               {STATUS_FILTERS.map(({ value, label }) => (
                 <option key={value} value={value}>{label}</option>
@@ -198,7 +198,7 @@ function MembersContent() {
               <select
                 value={memberTypeFilter}
                 onChange={(e) => setMemberTypeFilter(e.target.value)}
-                className="text-xs text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="text-xs text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-brand-400"
               >
                 <option value="all">全区分</option>
                 {memberTypes.map(({ id, name }) => (
@@ -214,7 +214,7 @@ function MembersContent() {
             <select
               value={sortKey}
               onChange={(e) => setSortKey(e.target.value as SortKey)}
-              className="text-xs text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="text-xs text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-brand-400"
             >
               {SORT_OPTIONS.map(({ value, label }) => (
                 <option key={value} value={value}>{label}</option>
@@ -224,13 +224,13 @@ function MembersContent() {
             <div className="hidden sm:flex border border-gray-200 rounded-lg overflow-hidden">
               <button
                 onClick={() => setViewMode("card")}
-                className={`p-1.5 transition-colors ${viewMode === "card" ? "bg-blue-600 text-white" : "text-gray-400 hover:bg-gray-50"}`}
+                className={`p-1.5 transition-colors ${viewMode === "card" ? "bg-brand-600 text-white" : "text-gray-400 hover:bg-gray-50"}`}
               >
                 <LayoutGrid size={15} />
               </button>
               <button
                 onClick={() => setViewMode("list")}
-                className={`p-1.5 transition-colors ${viewMode === "list" ? "bg-blue-600 text-white" : "text-gray-400 hover:bg-gray-50"}`}
+                className={`p-1.5 transition-colors ${viewMode === "list" ? "bg-brand-600 text-white" : "text-gray-400 hover:bg-gray-50"}`}
               >
                 <List size={15} />
               </button>

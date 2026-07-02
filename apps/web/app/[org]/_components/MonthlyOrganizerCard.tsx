@@ -75,7 +75,7 @@ export function MonthlyOrganizerCard({
         </div>
       ) : (
         <>
-          <p className={`text-2xl font-bold mt-1 ${organizer ? "text-blue-500" : "text-gray-300"}`}>
+          <p className={`text-2xl font-bold mt-1 ${organizer ? "text-brand-500" : "text-gray-300"}`}>
             {organizer ?? "未設定"}
           </p>
           <p className="text-xs text-gray-400 mt-1">飲み会幹事パート</p>

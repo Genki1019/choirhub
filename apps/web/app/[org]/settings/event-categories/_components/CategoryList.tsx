@@ -92,10 +92,10 @@ export function CategoryList({ categories, org, onUpdated, onDeleted, onReordere
               <input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                className="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-400"
                 autoFocus
               />
-              <button onClick={saveEdit} disabled={busy} aria-label="保存" className="text-blue-600 hover:text-blue-800 disabled:opacity-50">
+              <button onClick={saveEdit} disabled={busy} aria-label="保存" className="text-brand-600 hover:text-brand-800 disabled:opacity-50">
                 <Check size={15} />
               </button>
               <button onClick={cancelEdit} aria-label="キャンセル" className="text-gray-400 hover:text-gray-600">

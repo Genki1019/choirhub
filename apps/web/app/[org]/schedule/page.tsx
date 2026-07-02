@@ -49,14 +49,14 @@ export default function SchedulePage() {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-auto">
+    <div className="flex flex-col">
       <header className="bg-white border-b border-gray-200 shrink-0">
         <PageBleedRow className="flex items-center justify-between py-4">
           <h1 className="text-lg font-semibold text-gray-800">スケジュール</h1>
           {canCreateEvent && (
             <Link
               href={`/${org}/schedule/new`}
-              className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-brand-700 transition-colors"
             >
               <Plus size={14} /> イベントを追加
             </Link>

@@ -177,7 +177,7 @@ export function SurveyTab({
           {isAdmin && (
             <button
               onClick={() => setShowCreateModal(true)}
-              className="mt-4 flex items-center gap-1.5 mx-auto bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              className="mt-4 flex items-center gap-1.5 mx-auto bg-brand-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-brand-700 transition-colors"
             >
               <Plus size={14} />
               調査を開設する
@@ -209,15 +209,15 @@ export function SurveyTab({
             className={[
               "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors",
               selectedSurveyId === s.id
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600",
+                ? "bg-brand-600 text-white border-brand-600"
+                : "bg-white text-gray-600 border-gray-200 hover:border-brand-300 hover:text-brand-600",
             ].join(" ")}
           >
             {s.title}
             <span className={[
               "px-1.5 py-0.5 rounded-full text-[10px]",
               selectedSurveyId === s.id
-                ? s.isOpen ? "bg-green-400 text-white" : "bg-blue-400 text-white"
+                ? s.isOpen ? "bg-green-400 text-white" : "bg-brand-400 text-white"
                 : s.isOpen ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500",
             ].join(" ")}>
               {s.isOpen ? "受付中" : "締切"}
@@ -227,7 +227,7 @@ export function SurveyTab({
         {isAdmin && (
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 border border-dashed border-gray-200 hover:border-blue-300 hover:text-blue-500 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 border border-dashed border-gray-200 hover:border-brand-300 hover:text-brand-500 transition-colors"
           >
             <Plus size={12} />
             新しい調査
@@ -320,14 +320,14 @@ export function SurveyTab({
                       className={[
                         "grid items-center px-4 py-2.5",
                         idx < activeSurveyDetail.rows.length - 1 ? "border-b border-gray-100" : "",
-                        isMyRow ? "bg-blue-50/40" : "",
+                        isMyRow ? "bg-brand-50/40" : "",
                       ].join(" ")}
                       style={{ gridTemplateColumns: `1fr${stages.map(() => " 80px").join("")} 1fr` }}
                     >
                       <div className="min-w-0 pr-2">
-                        <p className={`text-sm truncate ${isMyRow ? "font-semibold text-blue-700" : "text-gray-800"}`}>
+                        <p className={`text-sm truncate ${isMyRow ? "font-semibold text-brand-700" : "text-gray-800"}`}>
                           {row.nameJa}
-                          {isMyRow && <span className="ml-1 text-[10px] font-normal text-blue-400">（自分）</span>}
+                          {isMyRow && <span className="ml-1 text-[10px] font-normal text-brand-400">（自分）</span>}
                         </p>
                         {row.partName && <p className="text-[11px] text-gray-400 truncate">{row.partName}</p>}
                       </div>
@@ -374,7 +374,7 @@ export function SurveyTab({
                             onBlur={(e) => handleMemoBlur(row.memberId, e.target.value)}
                             placeholder="メモ"
                             className={[
-                              "w-full text-xs border border-transparent rounded px-2 py-1 focus:outline-none focus:border-blue-300 bg-transparent focus:bg-white transition-colors placeholder-gray-300",
+                              "w-full text-xs border border-transparent rounded px-2 py-1 focus:outline-none focus:border-brand-300 bg-transparent focus:bg-white transition-colors placeholder-gray-300",
                               savingMemo === row.memberId ? "opacity-60" : "",
                             ].join(" ")}
                           />

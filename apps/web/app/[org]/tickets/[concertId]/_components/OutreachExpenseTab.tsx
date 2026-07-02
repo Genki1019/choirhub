@@ -123,7 +123,7 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
                       <span key={p.id} className="text-xs text-gray-600">
                         [{p.partName ?? "未"}] {p.memberName}
                         {p.ticketsSold > 0 && <span className="text-gray-400"> {p.ticketsSold}枚</span>}
-                        {p.expense != null && <span className="text-blue-500"> ¥{p.expense.toLocaleString()}</span>}
+                        {p.expense != null && <span className="text-brand-500"> ¥{p.expense.toLocaleString()}</span>}
                       </span>
                     ))}
                   </div>

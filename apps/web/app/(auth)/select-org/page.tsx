@@ -101,7 +101,7 @@ export default function SelectOrgPage() {
       <div className="w-full max-w-sm">
         {/* ロゴ */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-4">
+          <div className="w-12 h-12 bg-brand-600 rounded-xl flex items-center justify-center mb-4">
             <Music size={24} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">ChoirHub</h1>
@@ -137,9 +137,9 @@ export default function SelectOrgPage() {
                   <li key={org.orgSlug}>
                     <button
                       onClick={() => router.push(`/${org.orgSlug}`)}
-                      className="w-full flex items-center gap-4 px-5 py-4 hover:bg-blue-50 transition-colors text-left group"
+                      className="w-full flex items-center gap-4 px-5 py-4 hover:bg-brand-50 transition-colors text-left group"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shrink-0 text-white font-bold text-base">
+                      <div className="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center shrink-0 text-white font-bold text-base">
                         {org.orgName.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -153,7 +153,7 @@ export default function SelectOrgPage() {
                             {status.label}
                           </span>
                           {displayRoles.length > 0 && (
-                            <span className="text-xs text-blue-600 font-medium">
+                            <span className="text-xs text-brand-600 font-medium">
                               {displayRoles.join(" / ")}
                             </span>
                           )}
@@ -161,7 +161,7 @@ export default function SelectOrgPage() {
                       </div>
                       <ChevronRight
                         size={16}
-                        className="text-gray-300 group-hover:text-blue-400 transition-colors shrink-0"
+                        className="text-gray-300 group-hover:text-brand-400 transition-colors shrink-0"
                       />
                     </button>
                   </li>
@@ -198,14 +198,14 @@ export default function SelectOrgPage() {
                   placeholder="○○合唱団"
                   required
                   maxLength={100}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   スラグ <span className="text-gray-400 font-normal">（URL に使用）</span>
                 </label>
-                <div className="flex items-center gap-1 text-sm border border-gray-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+                <div className="flex items-center gap-1 text-sm border border-gray-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-brand-500">
                   <span className="px-2 text-gray-400 select-none">choirhub.app/</span>
                   <input
                     type="text"
@@ -229,7 +229,7 @@ export default function SelectOrgPage() {
             <button
               type="submit"
               disabled={submitting || !orgName.trim() || !orgSlug.trim()}
-              className="w-full py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full py-2 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {submitting ? <Loader2 size={16} className="animate-spin mx-auto" /> : "作成する"}
             </button>
@@ -237,7 +237,7 @@ export default function SelectOrgPage() {
         ) : (
           <button
             onClick={() => setShowForm(true)}
-            className="mt-4 w-full flex items-center justify-center gap-2 py-3 text-sm text-gray-500 hover:text-blue-600 hover:bg-white border border-dashed border-gray-300 hover:border-blue-300 rounded-2xl transition-colors"
+            className="mt-4 w-full flex items-center justify-center gap-2 py-3 text-sm text-gray-500 hover:text-brand-600 hover:bg-white border border-dashed border-gray-300 hover:border-brand-300 rounded-2xl transition-colors"
           >
             <Plus size={16} />
             新しい団体を作成
@@ -251,7 +251,7 @@ export default function SelectOrgPage() {
               await fetch("/api/v1/auth/logout", { method: "POST", credentials: "include" });
               router.push("/login");
             }}
-            className="text-blue-500 hover:underline ml-1"
+            className="text-brand-500 hover:underline ml-1"
           >
             ログアウト
           </button>

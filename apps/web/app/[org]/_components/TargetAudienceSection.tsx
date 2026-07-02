@@ -24,7 +24,7 @@ function ToggleChip({ label, active, onClick }: { label: string; active: boolean
       className={[
         "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
         active
-          ? "bg-blue-600 text-white border-blue-600"
+          ? "bg-brand-600 text-white border-brand-600"
           : "bg-white text-gray-600 border-gray-200 hover:border-gray-400",
       ].join(" ")}
     >

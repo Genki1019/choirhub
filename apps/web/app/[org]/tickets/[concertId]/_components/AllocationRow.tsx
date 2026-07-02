@@ -61,7 +61,7 @@ export function AllocationRowComponent({
   };
 
   return (
-    <div className={`px-4 py-3 flex items-center gap-3 text-sm ${editing ? "bg-blue-50" : "hover:bg-gray-50"} transition-colors`}>
+    <div className={`px-4 py-3 flex items-center gap-3 text-sm ${editing ? "bg-brand-50" : "hover:bg-gray-50"} transition-colors`}>
       <div className="w-28 shrink-0">
         <p className="font-medium text-gray-800 text-xs">{row.nameJa}</p>
         <p className="text-xs text-gray-400">{row.partName ?? "—"}</p>
@@ -75,11 +75,11 @@ export function AllocationRowComponent({
               min={0}
               value={allocCount}
               onChange={(e) => setAllocCount(Number(e.target.value))}
-              className="w-10 text-center text-sm border border-blue-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="w-10 text-center text-sm border border-brand-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-brand-400"
               autoFocus
             />
             <button onClick={handleSaveAlloc} disabled={savingAlloc}
-              className="p-0.5 text-blue-600 hover:text-blue-700 disabled:opacity-60">
+              className="p-0.5 text-brand-600 hover:text-brand-700 disabled:opacity-60">
               {savingAlloc ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
             </button>
             <button onClick={() => { setAllocCount(row.allocatedCount); setEditingAlloc(false); }}
@@ -98,7 +98,7 @@ export function AllocationRowComponent({
             {canEditAllocation && (
               <button
                 onClick={() => { setAllocCount(row.allocatedCount); setEditingAlloc(true); }}
-                className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-400 hover:text-blue-500 transition-opacity"
+                className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-400 hover:text-brand-500 transition-opacity"
               >
                 <Pencil size={10} />
               </button>
@@ -111,16 +111,16 @@ export function AllocationRowComponent({
         <>
           <input type="number" min={0} value={form.soldAdult}
             onChange={(e) => setForm({ ...form, soldAdult: Number(e.target.value) })}
-            className="w-12 text-center text-sm border border-blue-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+            className="w-12 text-center text-sm border border-brand-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-brand-400" />
           <input type="number" min={0} value={form.soldStudent}
             onChange={(e) => setForm({ ...form, soldStudent: Number(e.target.value) })}
-            className="w-12 text-center text-sm border border-blue-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+            className="w-12 text-center text-sm border border-brand-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-brand-400" />
           <input type="number" min={0} value={form.soldOther}
             onChange={(e) => setForm({ ...form, soldOther: Number(e.target.value) })}
-            className="w-12 text-center text-sm border border-blue-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+            className="w-12 text-center text-sm border border-brand-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-brand-400" />
           <input type="number" min={0} value={form.returnedCount}
             onChange={(e) => setForm({ ...form, returnedCount: Number(e.target.value) })}
-            className="w-12 text-center text-sm border border-blue-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+            className="w-12 text-center text-sm border border-brand-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-brand-400" />
         </>
       ) : (
         <>
@@ -139,7 +139,7 @@ export function AllocationRowComponent({
         {editing && isAdmin ? (
           <input type="checkbox" checked={form.isCollected}
             onChange={(e) => setForm({ ...form, isCollected: e.target.checked })}
-            className="w-4 h-4 accent-blue-600" />
+            className="w-4 h-4 accent-brand-600" />
         ) : (
           row.isCollected
             ? <Check size={14} className="text-green-500 mx-auto" />
@@ -150,14 +150,14 @@ export function AllocationRowComponent({
       <div className="ml-auto flex items-center gap-1 shrink-0">
         {!editing && canEdit && (
           <button onClick={() => setEditing(true)}
-            className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors">
+            className="p-1.5 text-gray-400 hover:text-brand-500 hover:bg-brand-50 rounded-lg transition-colors">
             <Pencil size={13} />
           </button>
         )}
         {editing && (
           <>
             <button onClick={handleSave} disabled={saving}
-              className="flex items-center gap-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 px-2.5 py-1.5 rounded-lg disabled:opacity-60 transition-colors">
+              className="flex items-center gap-1 text-xs font-medium text-white bg-brand-600 hover:bg-brand-700 px-2.5 py-1.5 rounded-lg disabled:opacity-60 transition-colors">
               {saving ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
               保存
             </button>

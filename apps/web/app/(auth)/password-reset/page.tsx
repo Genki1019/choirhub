@@ -8,7 +8,7 @@ import { Music, Loader2, CheckCircle } from "lucide-react";
 import { authApi } from "@/lib/auth-api";
 import { passwordResetRequestSchema, type PasswordResetRequestInput } from "@/lib/schemas";
 
-const INPUT_CLS = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition";
+const INPUT_CLS = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition";
 const ERROR_CLS = "text-xs text-red-500 mt-1";
 
 export default function PasswordResetRequestPage() {
@@ -34,7 +34,7 @@ export default function PasswordResetRequestPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-4">
+          <div className="w-12 h-12 bg-brand-600 rounded-xl flex items-center justify-center mb-4">
             <Music size={24} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">ChoirHub</h1>
@@ -52,7 +52,7 @@ export default function PasswordResetRequestPage() {
             </p>
             <Link
               href="/login"
-              className="block w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm text-center"
+              className="block w-full bg-brand-600 text-white font-medium py-2.5 rounded-lg hover:bg-brand-700 transition text-sm text-center"
             >
               ログインページへ
             </Link>
@@ -88,14 +88,14 @@ export default function PasswordResetRequestPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition flex items-center justify-center gap-2"
+              className="w-full bg-brand-600 text-white font-medium py-2.5 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition flex items-center justify-center gap-2"
             >
               {isSubmitting && <Loader2 size={16} className="animate-spin" />}
               リセットメールを送信
             </button>
 
             <p className="text-center text-xs text-gray-400">
-              <Link href="/login" className="text-blue-500 hover:underline">
+              <Link href="/login" className="text-brand-500 hover:underline">
                 ログインページへ戻る
               </Link>
             </p>

@@ -69,7 +69,7 @@ export function AddMemberPanel({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 px-4 py-3 border-t border-gray-100 w-full hover:bg-blue-50 transition-colors"
+        className="flex items-center gap-1.5 text-xs text-brand-600 hover:text-brand-700 px-4 py-3 border-t border-gray-100 w-full hover:bg-brand-50 transition-colors"
       >
         <UserPlus size={13} />
         団員を追加（{unallocated.length}名未配布）
@@ -78,13 +78,13 @@ export function AddMemberPanel({
   }
 
   return (
-    <div className="border-t border-gray-100 px-4 py-3 bg-blue-50">
-      <p className="text-xs font-medium text-blue-700 mb-2">配布リストに追加</p>
+    <div className="border-t border-gray-100 px-4 py-3 bg-brand-50">
+      <p className="text-xs font-medium text-brand-700 mb-2">配布リストに追加</p>
       <div className="flex items-center gap-2">
         <select
           value={selectedId}
           onChange={(e) => setSelectedId(e.target.value)}
-          className="flex-1 text-xs border border-blue-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+          className="flex-1 text-xs border border-brand-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-brand-400"
         >
           <option value="">団員を選択</option>
           {unallocated.map((m) => (
@@ -98,14 +98,14 @@ export function AddMemberPanel({
           min={0}
           value={count}
           onChange={(e) => setCount(e.target.value)}
-          className="w-14 text-xs text-center border border-blue-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+          className="w-14 text-xs text-center border border-brand-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-brand-400"
           placeholder="枚数"
         />
-        <span className="text-xs text-blue-600">枚</span>
+        <span className="text-xs text-brand-600">枚</span>
         <button
           onClick={handleAdd}
           disabled={!selectedId || saving}
-          className="text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg disabled:opacity-60 transition-colors flex items-center gap-1"
+          className="text-xs font-medium text-white bg-brand-600 hover:bg-brand-700 px-3 py-1.5 rounded-lg disabled:opacity-60 transition-colors flex items-center gap-1"
         >
           {saving ? <Loader2 size={11} className="animate-spin" /> : null}
           追加

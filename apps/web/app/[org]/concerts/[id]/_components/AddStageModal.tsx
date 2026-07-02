@@ -57,7 +57,7 @@ export function AddStageModal({ orgSlug, concertId, stageCount, onClose, onCreat
               value={form.name}
               onChange={(e) => setForm({ name: e.target.value })}
               placeholder="例: 第1ステージ（委嘱作品）"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
               autoFocus
               onFocus={(e) => e.target.select()}
             />
@@ -70,7 +70,7 @@ export function AddStageModal({ orgSlug, concertId, stageCount, onClose, onCreat
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+            className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
             追加する

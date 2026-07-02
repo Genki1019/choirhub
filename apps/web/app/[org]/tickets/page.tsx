@@ -47,7 +47,7 @@ export default function TicketsPage() {
   }, [org, router]);
 
   return (
-    <div className="flex flex-col h-full overflow-auto">
+    <div className="flex flex-col">
       <header className="bg-white border-b border-gray-200 shrink-0">
         <PageBleedRow className="flex items-center justify-between py-4">
           <h1 className="text-lg font-semibold text-gray-800">チケット</h1>

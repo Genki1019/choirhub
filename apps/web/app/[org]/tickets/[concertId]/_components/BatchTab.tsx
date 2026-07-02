@@ -8,7 +8,7 @@ import { AddMemberPanel } from "./AddMemberPanel";
 
 function RateBar({ sold, allocated }: { sold: number; allocated: number }) {
   const pct   = allocated > 0 ? Math.round((sold / allocated) * 100) : 0;
-  const color = pct >= 80 ? "bg-green-500" : pct >= 50 ? "bg-blue-400" : "bg-gray-300";
+  const color = pct >= 80 ? "bg-green-500" : pct >= 50 ? "bg-brand-400" : "bg-gray-300";
   return (
     <div className="flex items-center gap-2">
       <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -56,7 +56,7 @@ export function BatchTab({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "配布枚数", value: `${totalAllocated}枚`, color: "text-gray-800" },
-          { label: "販売済み", value: `${totalSold}枚`,      color: "text-blue-600" },
+          { label: "販売済み", value: `${totalSold}枚`,      color: "text-brand-600" },
           { label: "返却済み", value: `${totalReturned}枚`,  color: "text-gray-500" },
           { label: "集金完了", value: `${collectedCount}名`, color: "text-green-600" },
         ].map(({ label, value, color }) => (

@@ -22,7 +22,7 @@ export default function InviteAcceptPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-4">
+          <div className="w-12 h-12 bg-brand-600 rounded-xl flex items-center justify-center mb-4">
             <Music size={24} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">ChoirHub</h1>

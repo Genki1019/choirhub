@@ -27,8 +27,8 @@ export function AmountSummary({
       </div>
       <div className="bg-gray-50 rounded-xl py-3 px-2">
         <p className="text-xs text-gray-400">販売済み</p>
-        <p className="text-lg font-bold mt-0.5 text-blue-600">{soldTotal}枚</p>
-        <p className="text-xs mt-0.5 text-blue-600">{yen(soldAmount)}</p>
+        <p className="text-lg font-bold mt-0.5 text-brand-600">{soldTotal}枚</p>
+        <p className="text-xs mt-0.5 text-brand-600">{yen(soldAmount)}</p>
       </div>
       <div className="bg-gray-50 rounded-xl py-3 px-2">
         <p className="text-xs text-gray-400">手元残</p>

@@ -1,8 +1,8 @@
-import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import Link from "next/link";
+import Image from "next/image";
+import { ScrollTopLink } from "@/components/ScrollTopLink";
 import {
-  Music,
   Calendar,
   FileMusic,
   Star,
@@ -15,22 +15,22 @@ import {
 
 const API = process.env.API_INTERNAL_URL ?? "http://localhost:3001";
 
-async function getAuthenticatedOrg(): Promise<string | null> {
+async function getAuthenticatedOrgs(): Promise<{ orgSlug: string }[]> {
   try {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get("session");
-    if (!sessionCookie?.value) return null;
+    if (!sessionCookie?.value) return [];
 
     const res = await fetch(`${API}/api/v1/auth/me`, {
       headers: { Cookie: `session=${sessionCookie.value}` },
       cache: "no-store",
     });
-    if (!res.ok) return null;
+    if (!res.ok) return [];
 
     const data = (await res.json()) as { data: { orgs: { orgSlug: string }[] } };
-    return data.data?.orgs?.[0]?.orgSlug ?? null;
+    return data.data?.orgs ?? [];
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -68,23 +68,24 @@ const FEATURES = [
 ];
 
 export default async function RootPage() {
-  const orgSlug = await getAuthenticatedOrg();
-  if (orgSlug) redirect(`/${orgSlug}`);
+  const orgs = await getAuthenticatedOrgs();
+  const loginHref =
+    orgs.length === 0 ? "/login" :
+    orgs.length === 1 ? `/${orgs[0].orgSlug}` :
+    "/select-org";
 
   return (
     <div className="min-h-screen flex flex-col bg-white text-gray-900">
       {/* ナビゲーションバー */}
       <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur-sm">
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <Music size={16} className="text-white" />
-            </div>
-            <span className="font-bold text-lg tracking-tight">ChoirHub</span>
-          </div>
+          <ScrollTopLink href="/" className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity">
+            <Image src="/icons/app-icon.svg" alt="ChoirHub" width={32} height={32} unoptimized className="size-8 cursor-pointer" />
+            <span className="cursor-pointer font-bold text-lg tracking-tight">ChoirHub</span>
+          </ScrollTopLink>
           <Link
-            href="/login"
-            className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+            href={loginHref}
+            className="text-sm font-medium text-brand-600 hover:text-brand-700 transition-colors"
           >
             ログイン
           </Link>
@@ -94,13 +95,13 @@ export default async function RootPage() {
       <main className="flex-1">
         {/* ヒーローセクション */}
         <section className="max-w-5xl mx-auto px-6 pt-24 pb-20 text-center">
-          <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-8 border border-blue-100">
+          <div className="inline-flex items-center gap-2 bg-brand-50 text-brand-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-8 border border-brand-100">
             <Users size={12} />
             合唱団向け運営支援 SaaS
           </div>
           <h1 className="text-4xl sm:text-5xl font-extrabold leading-tight tracking-tight mb-6">
             合唱団の運営を、<br />
-            <span className="text-blue-600">ひとつのツール</span>で完結。
+            <span className="text-brand-600">ひとつのツール</span>で完結。
           </h1>
           <p className="text-gray-500 text-lg max-w-xl mx-auto mb-10 leading-relaxed">
             スケジュール管理から楽譜配布、本番準備、チケット、メーリス、会計まで。
@@ -108,8 +109,8 @@ export default async function RootPage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
-              href="/login"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+              href={loginHref}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-brand-600 text-white font-semibold px-6 py-3 rounded-xl hover:bg-brand-700 transition-colors shadow-sm"
             >
               ログインしてはじめる
               <ChevronRight size={16} />
@@ -130,8 +131,8 @@ export default async function RootPage() {
                   key={title}
                   className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
                 >
-                  <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center mb-4">
-                    <Icon size={20} className="text-blue-600" />
+                  <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center mb-4">
+                    <Icon size={20} className="text-brand-600" />
                   </div>
                   <h3 className="font-semibold text-gray-900 mb-2">{title}</h3>
                   <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
@@ -148,8 +149,8 @@ export default async function RootPage() {
             招待を受け取ったメンバーはこちらからログインできます
           </p>
           <Link
-            href="/login"
-            className="inline-flex items-center gap-2 bg-blue-600 text-white font-semibold px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+            href={loginHref}
+            className="inline-flex items-center gap-2 bg-brand-600 text-white font-semibold px-8 py-3 rounded-xl hover:bg-brand-700 transition-colors shadow-sm"
           >
             ログイン
             <ChevronRight size={16} />
@@ -158,15 +159,22 @@ export default async function RootPage() {
       </main>
 
       {/* フッター */}
-      <footer className="border-t border-gray-100 py-8">
-        <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-gray-400">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 bg-blue-600 rounded-md flex items-center justify-center">
-              <Music size={10} className="text-white" />
+      <footer className="border-t border-gray-100 py-10">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-8">
+            <ScrollTopLink href="/" className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+              <Image src="/icons/app-icon.svg" alt="ChoirHub" width={24} height={24} unoptimized className="size-6 cursor-pointer" />
+              <span className="cursor-pointer font-bold text-gray-800">ChoirHub</span>
+            </ScrollTopLink>
+            <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-500">
+              <Link href="#" className="hover:text-gray-700 transition-colors">プライバシーポリシー</Link>
+              <Link href="#" className="hover:text-gray-700 transition-colors">利用規約</Link>
+              <Link href="#" className="hover:text-gray-700 transition-colors">お問い合わせ</Link>
             </div>
-            <span className="font-medium text-gray-600">ChoirHub</span>
           </div>
-          <p>© 2026 ChoirHub. All rights reserved.</p>
+          <div className="pt-6 border-t border-gray-100 text-center text-xs text-gray-400">
+            <p>&copy; 2026 ChoirHub. All rights reserved.</p>
+          </div>
         </div>
       </footer>
     </div>

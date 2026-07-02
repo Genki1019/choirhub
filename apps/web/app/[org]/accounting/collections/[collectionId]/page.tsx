@@ -140,7 +140,7 @@ export default function CollectionDetailPage() {
   const paidAmount = col.payments.filter((p) => p.status === "paid").reduce((s, p) => s + (p.amount ?? col.amount), 0);
 
   return (
-    <div className="flex flex-col h-full overflow-auto">
+    <div className="flex flex-col">
       <header className="shrink-0 bg-white border-b border-gray-200">
         <PageBleedRow className="flex items-center gap-4 py-4">
           <Link href={`/${org}/accounting`} className="text-gray-400 hover:text-gray-600 transition-colors">

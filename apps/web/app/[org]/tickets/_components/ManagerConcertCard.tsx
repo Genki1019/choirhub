@@ -6,13 +6,13 @@ import type { TicketConcertSummary } from "@/lib/tickets-api";
 
 function SoldBar({ rate }: { rate: number }) {
   const pct = Math.min(100, Math.round(rate * 100));
-  const color = pct >= 80 ? "bg-green-500" : pct >= 50 ? "bg-blue-500" : "bg-gray-300";
+  const color = pct >= 80 ? "bg-green-500" : pct >= 50 ? "bg-brand-500" : "bg-gray-300";
   return (
     <div className="flex items-center gap-2">
       <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className={`text-xs font-medium ${pct >= 80 ? "text-green-600" : pct >= 50 ? "text-blue-600" : "text-gray-400"}`}>
+      <span className={`text-xs font-medium ${pct >= 80 ? "text-green-600" : pct >= 50 ? "text-brand-600" : "text-gray-400"}`}>
         {pct}%
       </span>
     </div>
@@ -27,7 +27,7 @@ export function ManagerConcertCard({ item, org }: { item: TicketConcertSummary; 
   return (
     <Link
       href={`/${org}/tickets/${item.concertId}`}
-      className="block bg-white rounded-xl border border-gray-200 px-6 py-5 hover:border-blue-300 hover:shadow-sm transition-all"
+      className="block bg-white rounded-xl border border-gray-200 px-6 py-5 hover:border-brand-300 hover:shadow-sm transition-all"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">

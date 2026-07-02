@@ -15,7 +15,7 @@ function MyTotalBadge({ batches }: { batches: MyAllocationConcert["batches"] }) 
   return (
     <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">
       <span>配布 {totalAllocated}枚</span>
-      <span className="text-blue-600 font-medium">販売済み {totalSold}枚</span>
+      <span className="text-brand-600 font-medium">販売済み {totalSold}枚</span>
       {remaining > 0 && <span className="text-amber-600">手元残 {remaining}枚</span>}
     </div>
   );
@@ -28,7 +28,7 @@ export function MyConcertCard({ item, org }: { item: MyAllocationConcert; org: s
   return (
     <Link
       href={`/${org}/tickets/${item.concertId}/my`}
-      className="block bg-white rounded-xl border border-gray-200 px-6 py-5 hover:border-blue-300 hover:shadow-sm transition-all"
+      className="block bg-white rounded-xl border border-gray-200 px-6 py-5 hover:border-brand-300 hover:shadow-sm transition-all"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">

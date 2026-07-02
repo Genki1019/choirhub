@@ -23,7 +23,7 @@ export function ConcertCard({ concert, org }: ConcertCardProps) {
   return (
     <Link
       href={`/${org}/concerts/${concert.id}`}
-      className={`block bg-white rounded-xl border border-gray-200 px-6 py-5 hover:border-blue-300 hover:shadow-sm transition-all ${isPast ? "opacity-60" : ""}`}
+      className={`block bg-white rounded-xl border border-gray-200 px-6 py-5 hover:border-brand-300 hover:shadow-sm transition-all ${isPast ? "opacity-60" : ""}`}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">

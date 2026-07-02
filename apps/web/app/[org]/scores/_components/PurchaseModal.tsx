@@ -82,7 +82,7 @@ export function PurchaseModal({ orgSlug, score, onClose }: PurchaseModalProps) {
         <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100">
           <div className="flex-1 min-w-0 pr-4">
             <div className="flex items-center gap-2">
-              <Users size={15} className="text-blue-500 shrink-0" />
+              <Users size={15} className="text-brand-500 shrink-0" />
               <h2 className="font-semibold text-gray-800 text-sm truncate">購入者を記録</h2>
             </div>
             <p className="text-xs text-gray-500 mt-0.5 truncate">{score.title}</p>
@@ -113,7 +113,7 @@ export function PurchaseModal({ orgSlug, score, onClose }: PurchaseModalProps) {
                     type="checkbox"
                     checked={checkedIds.has(m.id)}
                     onChange={() => toggle(m.id)}
-                    className="w-4 h-4 rounded text-blue-600 accent-blue-600"
+                    className="w-4 h-4 rounded text-brand-600 accent-brand-600"
                   />
                   <span className="text-sm text-gray-700">{m.nameJa}</span>
                 </label>
@@ -130,7 +130,7 @@ export function PurchaseModal({ orgSlug, score, onClose }: PurchaseModalProps) {
             <button
               onClick={handleSave}
               disabled={saving || loading}
-              className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+              className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors"
             >
               {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
               保存

@@ -6,7 +6,7 @@ import { Camera, X, Check, Loader2 } from "lucide-react";
 import type { MemberProfile } from "@/lib/members-api";
 import { avatarColor } from "../../_components/MemberCard";
 
-const INPUT_CLS = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400";
+const INPUT_CLS = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400";
 
 function FormField({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -110,7 +110,7 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-blue-200 p-6 space-y-5">
+    <div className="bg-white rounded-xl border border-brand-200 p-6 space-y-5">
       <h3 className="text-sm font-semibold text-gray-700">プロフィール編集</h3>
 
       <div className="flex flex-col items-center gap-2">
@@ -183,7 +183,7 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
 
       <div className="flex gap-2 pt-1">
         <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors">
+          className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors">
           {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
           保存する
         </button>

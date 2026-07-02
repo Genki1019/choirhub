@@ -62,7 +62,7 @@ export function StagesTab({
                   if (e.key === "Enter") saveEdit(stage.id);
                   if (e.key === "Escape") cancelEdit();
                 }}
-                className="text-sm font-semibold text-gray-700 border-b border-blue-400 focus:outline-none bg-transparent flex-1 min-w-0 py-0.5"
+                className="text-sm font-semibold text-gray-700 border-b border-brand-400 focus:outline-none bg-transparent flex-1 min-w-0 py-0.5"
                 autoFocus
               />
             ) : (
@@ -72,7 +72,7 @@ export function StagesTab({
             {isAdmin && editingStageId === stage.id && (
               <div className="flex items-center gap-1 shrink-0">
                 {savingStageId === stage.id
-                  ? <Loader2 size={13} className="animate-spin text-blue-400" />
+                  ? <Loader2 size={13} className="animate-spin text-brand-400" />
                   : (
                     <>
                       <button onClick={() => saveEdit(stage.id)} aria-label="保存" className="p-1 text-green-600 hover:text-green-700 transition-colors rounded">
@@ -90,7 +90,7 @@ export function StagesTab({
               <div className="flex items-center gap-0.5 shrink-0">
                 <button
                   onClick={() => startEdit(stage)}
-                  className="p-1 text-gray-400 hover:text-blue-500 transition-colors rounded"
+                  className="p-1 text-gray-400 hover:text-brand-500 transition-colors rounded"
                   title="名前を編集"
                 >
                   <Pencil size={12} />
@@ -137,14 +137,14 @@ export function StagesTab({
                   <div className="flex items-center gap-0.5 shrink-0">
                     <button
                       onClick={() => onEditProgramClick(stage.id, program)}
-                      className="p-1 text-gray-300 hover:text-blue-500 transition-colors rounded"
+                      className="p-1 text-gray-300 hover:text-brand-500 transition-colors rounded"
                       title="編集"
                     >
                       <Pencil size={13} />
                     </button>
                     <button
                       onClick={() => onMoveCopyClick(stage.id, program)}
-                      className="p-1 text-gray-300 hover:text-blue-500 transition-colors rounded"
+                      className="p-1 text-gray-300 hover:text-brand-500 transition-colors rounded"
                       title="移動 / コピー"
                     >
                       <ArrowRightLeft size={13} />
@@ -174,7 +174,7 @@ export function StagesTab({
             {isAdmin && (
               <button
                 onClick={() => onAddClick(stage.id)}
-                className="w-full flex items-center gap-2 px-5 py-3 text-xs text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+                className="w-full flex items-center gap-2 px-5 py-3 text-xs text-gray-400 hover:text-brand-500 hover:bg-brand-50 transition-colors"
               >
                 <Plus size={12} />
                 曲目を追加
@@ -191,7 +191,7 @@ export function StagesTab({
       {isAdmin && (
         <button
           onClick={onAddStage}
-          className="w-full flex items-center justify-center gap-2 py-3 text-xs text-gray-400 hover:text-blue-500 border border-dashed border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors"
+          className="w-full flex items-center justify-center gap-2 py-3 text-xs text-gray-400 hover:text-brand-500 border border-dashed border-gray-200 rounded-xl hover:border-brand-300 hover:bg-brand-50 transition-colors"
         >
           <Plus size={12} />
           ステージを追加

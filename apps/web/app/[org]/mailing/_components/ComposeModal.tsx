@@ -60,14 +60,14 @@ function SaveTemplateModal({ orgSlug, subject, body, onClose, onSaved }: SaveTem
           <input
             value={name} onChange={(e) => setName(e.target.value)}
             placeholder="例: 練習案内テンプレート"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
             autoFocus
           />
         </div>
         {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="text-sm text-gray-500 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50">キャンセル</button>
-          <button onClick={handleSave} disabled={saving} className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-60">
+          <button onClick={handleSave} disabled={saving} className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-brand-700 disabled:opacity-60">
             {saving ? <Loader2 size={13} className="animate-spin" /> : null}保存
           </button>
         </div>
@@ -257,7 +257,7 @@ export function ComposeModal({ orgSlug, parts, onClose, onSent }: ComposeModalPr
               <input
                 value={subject} onChange={(e) => setSubject(e.target.value)}
                 placeholder="例: 6月練習のご案内"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
                 autoFocus
               />
             </div>
@@ -268,7 +268,7 @@ export function ComposeModal({ orgSlug, parts, onClose, onSent }: ComposeModalPr
                 value={body} onChange={(e) => setBody(e.target.value)}
                 placeholder="メール本文を入力..."
                 rows={10}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none leading-relaxed"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none leading-relaxed"
               />
             </div>
 
@@ -280,7 +280,7 @@ export function ComposeModal({ orgSlug, parts, onClose, onSent }: ComposeModalPr
                     key={key}
                     onClick={() => handleRecipientTypeChange(key)}
                     className={`flex-1 py-2 text-xs font-medium transition-colors border-r border-gray-200 last:border-0 ${
-                      recipientType === key ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+                      recipientType === key ? "bg-brand-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
                     }`}
                   >
                     {label}
@@ -293,7 +293,7 @@ export function ComposeModal({ orgSlug, parts, onClose, onSent }: ComposeModalPr
               <div className="space-y-1.5">
                 {parts.map((p) => (
                   <label key={p.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer">
-                    <input type="checkbox" checked={selectedPartIds.has(p.id)} onChange={() => setSelectedPartIds((s) => toggle(s, p.id))} className="w-4 h-4 rounded accent-blue-600" />
+                    <input type="checkbox" checked={selectedPartIds.has(p.id)} onChange={() => setSelectedPartIds((s) => toggle(s, p.id))} className="w-4 h-4 rounded accent-brand-600" />
                     <span className="text-sm text-gray-700">{p.name}</span>
                   </label>
                 ))}
@@ -304,7 +304,7 @@ export function ComposeModal({ orgSlug, parts, onClose, onSent }: ComposeModalPr
               <div className="space-y-1.5">
                 {ROLES.filter((r) => r.key !== "visitor").map((r) => (
                   <label key={r.key} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer">
-                    <input type="checkbox" checked={selectedRoles.has(r.key)} onChange={() => setSelectedRoles((s) => toggle(s, r.key))} className="w-4 h-4 rounded accent-blue-600" />
+                    <input type="checkbox" checked={selectedRoles.has(r.key)} onChange={() => setSelectedRoles((s) => toggle(s, r.key))} className="w-4 h-4 rounded accent-brand-600" />
                     <span className="text-sm text-gray-700">{r.defaultName}</span>
                     <span className="text-xs text-gray-400">{r.description}</span>
                   </label>
@@ -322,7 +322,7 @@ export function ComposeModal({ orgSlug, parts, onClose, onSent }: ComposeModalPr
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {members.map((m) => (
                     <label key={m.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer">
-                      <input type="checkbox" checked={selectedMemberIds.has(m.id)} onChange={() => setSelectedMemberIds((s) => toggle(s, m.id))} className="w-4 h-4 rounded accent-blue-600" />
+                      <input type="checkbox" checked={selectedMemberIds.has(m.id)} onChange={() => setSelectedMemberIds((s) => toggle(s, m.id))} className="w-4 h-4 rounded accent-brand-600" />
                       <span className="text-sm text-gray-700">{m.nameJa}</span>
                       {m.part && <span className="text-xs text-gray-400">{m.part.name}</span>}
                     </label>
@@ -348,7 +348,7 @@ export function ComposeModal({ orgSlug, parts, onClose, onSent }: ComposeModalPr
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowTemplatePanel((v) => !v)}
-                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${showTemplatePanel ? "border-blue-300 text-blue-600 bg-blue-50" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${showTemplatePanel ? "border-brand-300 text-brand-600 bg-brand-50" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}
               >
                 <BookMarked size={13} />テンプレート
               </button>
@@ -361,7 +361,7 @@ export function ComposeModal({ orgSlug, parts, onClose, onSent }: ComposeModalPr
             </div>
             <div className="flex items-center gap-2">
               <button onClick={onClose} className="text-sm text-gray-500 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">キャンセル</button>
-              <button onClick={handleSend} disabled={sending} className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors">
+              <button onClick={handleSend} disabled={sending} className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors">
                 {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                 送信する
               </button>

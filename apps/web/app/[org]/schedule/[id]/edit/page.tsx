@@ -172,7 +172,7 @@ export default function EditSchedulePage() {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-auto bg-gray-50">
+    <div className="flex flex-col bg-gray-50">
       <header className="bg-white border-b border-gray-200 shrink-0">
         <PageBleedRow className="flex items-center gap-4 py-4">
           <Link href={`/${org}/schedule/${id}`} className="text-gray-400 hover:text-gray-600 transition-colors">
@@ -199,7 +199,7 @@ export default function EditSchedulePage() {
               value={title}
               onChange={e => { setTitle(e.target.value); setError(""); }}
               placeholder="タイトルを追加 *"
-              className="w-full text-base font-medium text-gray-800 placeholder-gray-300 border-b border-gray-200 pb-2 focus:outline-none focus:border-blue-400 transition-colors"
+              className="w-full text-base font-medium text-gray-800 placeholder-gray-300 border-b border-gray-200 pb-2 focus:outline-none focus:border-brand-400 transition-colors"
             />
             <div className="flex items-center gap-2 flex-wrap">
               {categories.map(cat => (
@@ -210,7 +210,7 @@ export default function EditSchedulePage() {
                   className={[
                     "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
                     categoryId === cat.id
-                      ? "bg-blue-600 text-white border-blue-600"
+                      ? "bg-brand-600 text-white border-brand-600"
                       : "bg-white text-gray-600 border-gray-200 hover:border-gray-400",
                   ].join(" ")}
                 >
@@ -227,16 +227,16 @@ export default function EditSchedulePage() {
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-400 w-8 shrink-0">開始</span>
                 <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400" />
                 <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)}
-                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400" />
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-400 w-8 shrink-0">終了</span>
                 <input type="date" value={endDate} min={startDate} onChange={e => setEndDate(e.target.value)}
-                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400" />
                 <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)}
-                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400" />
               </div>
             </div>
           </div>
@@ -280,7 +280,7 @@ export default function EditSchedulePage() {
               onChange={e => setPageMemo(e.target.value)}
               placeholder="メンバーへの連絡事項など"
               rows={3}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 placeholder-gray-300 resize-none"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400 placeholder-gray-300 resize-none"
             />
           </div>
 
@@ -295,7 +295,7 @@ export default function EditSchedulePage() {
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-1.5 px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+              className="flex items-center gap-1.5 px-5 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors"
             >
               {saving && <Loader2 size={14} className="animate-spin" />}
               保存する

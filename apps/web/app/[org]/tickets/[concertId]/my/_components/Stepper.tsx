@@ -26,7 +26,7 @@ export function Stepper({ label, value, disabled, onChange }: StepperProps) {
           value={value}
           onChange={(e) => onChange(Math.max(0, Number(e.target.value)))}
           disabled={disabled}
-          className="w-14 text-center text-sm font-medium border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="w-14 text-center text-sm font-medium border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-400 disabled:opacity-40 disabled:cursor-not-allowed"
         />
         <button
           type="button"

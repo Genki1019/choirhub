@@ -75,7 +75,7 @@ export function Calendar({ year, month, today, events, org, onPrevMonth, onNextM
             key={d}
             className={[
               "py-2 text-center text-xs font-medium",
-              i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-gray-400",
+              i === 0 ? "text-red-500" : i === 6 ? "text-brand-500" : "text-gray-400",
             ].join(" ")}
           >
             {d}
@@ -101,7 +101,7 @@ export function Calendar({ year, month, today, events, org, onPrevMonth, onNextM
                 "min-h-[64px] sm:min-h-[72px] p-1 sm:p-1.5 border-b border-r border-gray-100 last:border-r-0",
                 !day      ? "bg-gray-50"      : "bg-white",
                 dow === 0 && day ? "bg-red-50/30"  : "",
-                dow === 6 && day ? "bg-blue-50/20" : "",
+                dow === 6 && day ? "bg-brand-50/20" : "",
               ].join(" ")}
             >
               {day !== null && (
@@ -110,9 +110,9 @@ export function Calendar({ year, month, today, events, org, onPrevMonth, onNextM
                     <span
                       className={[
                         "text-xs w-6 h-6 flex items-center justify-center rounded-full font-medium",
-                        isToday   ? "bg-blue-600 text-white"
+                        isToday   ? "bg-brand-600 text-white"
                           : dow === 0 ? "text-red-500"
-                          : dow === 6 ? "text-blue-500"
+                          : dow === 6 ? "text-brand-500"
                           : "text-gray-700",
                       ].join(" ")}
                     >

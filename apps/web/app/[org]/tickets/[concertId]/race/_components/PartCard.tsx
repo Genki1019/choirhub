@@ -11,7 +11,7 @@ function BreakdownChip({ label, points, max }: { label: string; points: number; 
   return (
     <span className="inline-flex items-center gap-0.5 text-xs">
       <span className="text-gray-500">{label}</span>
-      <span className="font-semibold text-blue-600">{points}</span>
+      <span className="font-semibold text-brand-600">{points}</span>
       <span className="text-gray-300">/{max}</span>
     </span>
   );

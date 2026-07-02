@@ -99,7 +99,7 @@ export function MemberTypeCard({
         <button
           onClick={() => { setShowAdd(true); setEditId(null); }}
           disabled={busy}
-          className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors disabled:opacity-40"
+          className="flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700 transition-colors disabled:opacity-40"
         >
           <Plus size={13} />
           追加
@@ -126,7 +126,7 @@ export function MemberTypeCard({
                     if (e.key === "Escape") setEditId(null);
                   }}
                   placeholder="区分名"
-                  className="flex-1 border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  className="flex-1 border border-brand-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
                 />
                 <input
                   type="number"
@@ -134,7 +134,7 @@ export function MemberTypeCard({
                   onChange={(e) => setEditAmount(e.target.value)}
                   placeholder="会費（円）"
                   min={0}
-                  className="w-28 border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  className="w-28 border border-brand-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
                 />
                 <button onClick={confirmEdit} disabled={busy} aria-label="保存" className="text-teal-600 hover:text-teal-700 disabled:opacity-40">
                   <Check size={15} />
@@ -151,7 +151,7 @@ export function MemberTypeCard({
                   <button
                     onClick={() => startEdit(t)}
                     disabled={busy}
-                    className="p-1.5 text-gray-300 hover:text-blue-500 transition-colors disabled:opacity-40"
+                    className="p-1.5 text-gray-300 hover:text-brand-500 transition-colors disabled:opacity-40"
                   >
                     <Pencil size={13} />
                   </button>
@@ -174,7 +174,7 @@ export function MemberTypeCard({
       </div>
 
       {showAdd && (
-        <div className="flex items-center gap-2 px-5 py-3 border-t border-blue-100 bg-blue-50/40">
+        <div className="flex items-center gap-2 px-5 py-3 border-t border-brand-100 bg-brand-50/40">
           <input
             autoFocus
             value={newName}
@@ -184,7 +184,7 @@ export function MemberTypeCard({
               if (e.key === "Escape") { setShowAdd(false); setNewName(""); setNewAmount(""); }
             }}
             placeholder="区分名（例: 社会人）"
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white placeholder-gray-300"
+            className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400 bg-white placeholder-gray-300"
           />
           <input
             type="number"
@@ -192,12 +192,12 @@ export function MemberTypeCard({
             onChange={(e) => setNewAmount(e.target.value)}
             placeholder="会費（円）"
             min={0}
-            className="w-28 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white placeholder-gray-300"
+            className="w-28 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400 bg-white placeholder-gray-300"
           />
           <button
             onClick={addType}
             disabled={busy}
-            className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+            className="px-3 py-1.5 text-xs font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors"
           >
             {busy ? <Loader2 size={12} className="animate-spin" /> : "追加"}
           </button>

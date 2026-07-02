@@ -42,7 +42,7 @@ export function OrgSettingsForm({ orgSlug, initialName, initialSlug }: OrgSettin
           value={orgName}
           onChange={(e) => setOrgName(e.target.value)}
           required
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
         />
       </div>
 
@@ -74,7 +74,7 @@ export function OrgSettingsForm({ orgSlug, initialName, initialSlug }: OrgSettin
         <button
           type="submit"
           disabled={saving}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors"
         >
           {saving && <Loader2 size={13} className="animate-spin" />}
           保存する

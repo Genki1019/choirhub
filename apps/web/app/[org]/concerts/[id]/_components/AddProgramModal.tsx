@@ -85,7 +85,7 @@ export function AddProgramModal({ orgSlug, concertId, stageId, onClose, onCreate
               onClick={() => handleModeChange(m)}
               className={[
                 "flex-1 py-2.5 text-xs font-medium transition-colors",
-                mode === m ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700",
+                mode === m ? "border-b-2 border-brand-500 text-brand-600" : "text-gray-500 hover:text-gray-700",
               ].join(" ")}
             >
               {label}
@@ -104,7 +104,7 @@ export function AddProgramModal({ orgSlug, concertId, stageId, onClose, onCreate
                   value={form.title ?? ""}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
                   placeholder="例: 男声合唱のための「風と光」"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
                   autoFocus
                 />
               </div>
@@ -115,7 +115,7 @@ export function AddProgramModal({ orgSlug, concertId, stageId, onClose, onCreate
                     value={form.composer ?? ""}
                     onChange={(e) => setForm({ ...form, composer: e.target.value })}
                     placeholder="例: 山田 花子"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
                   />
                 </div>
                 <div>
@@ -124,7 +124,7 @@ export function AddProgramModal({ orgSlug, concertId, stageId, onClose, onCreate
                     value={form.arranger ?? ""}
                     onChange={(e) => setForm({ ...form, arranger: e.target.value })}
                     placeholder="例: 田中 二郎"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
                   />
                 </div>
               </div>
@@ -135,7 +135,7 @@ export function AddProgramModal({ orgSlug, concertId, stageId, onClose, onCreate
                 value={scoreSearch}
                 onChange={(e) => setScoreSearch(e.target.value)}
                 placeholder="曲名・作曲者で検索..."
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
                 autoFocus
               />
               <div className="border border-gray-200 rounded-lg overflow-hidden max-h-52 overflow-y-auto">
@@ -153,7 +153,7 @@ export function AddProgramModal({ orgSlug, concertId, stageId, onClose, onCreate
                       onClick={() => setSelectedScoreId(score.id)}
                       className={[
                         "w-full text-left px-4 py-3 border-b border-gray-100 last:border-0 transition-colors",
-                        selectedScoreId === score.id ? "bg-blue-50" : "hover:bg-gray-50",
+                        selectedScoreId === score.id ? "bg-brand-50" : "hover:bg-gray-50",
                       ].join(" ")}
                     >
                       <p className="text-sm font-medium text-gray-800">{score.title}</p>
@@ -177,7 +177,7 @@ export function AddProgramModal({ orgSlug, concertId, stageId, onClose, onCreate
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+            className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
             追加する

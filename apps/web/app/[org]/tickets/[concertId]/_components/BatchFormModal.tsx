@@ -52,7 +52,7 @@ export function BatchFormModal({
               placeholder="例: 一般"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -65,7 +65,7 @@ export function BatchFormModal({
                 placeholder="3000"
                 value={form.price}
                 onChange={(e) => setForm({ ...form, price: e.target.value })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
               />
             </div>
             <div>
@@ -76,7 +76,7 @@ export function BatchFormModal({
                 placeholder="1000"
                 value={form.priceStudent}
                 onChange={(e) => setForm({ ...form, priceStudent: e.target.value })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
               />
             </div>
           </div>
@@ -89,7 +89,7 @@ export function BatchFormModal({
               placeholder="200"
               value={form.totalCount}
               onChange={(e) => setForm({ ...form, totalCount: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
             />
           </div>
           {error && <p className="text-xs text-red-500">{error}</p>}
@@ -105,7 +105,7 @@ export function BatchFormModal({
             <button
               type="submit"
               disabled={saving || !form.name || !form.price || !form.totalCount}
-              className="flex-1 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
+              className="flex-1 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
             >
               {saving && <Loader2 size={13} className="animate-spin" />}
               {submitLabel}

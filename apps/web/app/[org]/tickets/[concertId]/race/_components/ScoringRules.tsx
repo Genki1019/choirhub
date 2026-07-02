@@ -9,16 +9,16 @@ export function ScoringRules({ scoring }: { scoring: RaceScoringConfig }) {
     { label: scoring.outreach.label,  pts: scoring.outreach.points },
   ];
   return (
-    <details className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-700">
+    <details className="bg-brand-50 border border-brand-100 rounded-xl px-4 py-3 text-xs text-brand-700">
       <summary className="font-semibold cursor-pointer select-none">ポイントルール</summary>
       <div className="mt-2 space-y-1">
         {rules.map((r) => (
           <div key={r.label} className="flex items-center gap-2">
             <span className="w-36 shrink-0">{r.label}</span>
-            <span className="text-blue-500 font-mono">{r.pts.join(", ")}pt</span>
+            <span className="text-brand-500 font-mono">{r.pts.join(", ")}pt</span>
           </div>
         ))}
-        <p className="mt-2 text-blue-400">
+        <p className="mt-2 text-brand-400">
           速さは「N枚売った人が3名達成」の日時が早いパート順。同率タイは平均ポイント。
         </p>
       </div>

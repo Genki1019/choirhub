@@ -200,9 +200,9 @@ export default function ScheduleDetailPage() {
                     href={event.locationUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-blue-600 hover:underline"
+                    className="flex items-center gap-1.5 text-brand-600 hover:underline"
                   >
-                    <MapPin size={13} className="text-blue-400 shrink-0" />
+                    <MapPin size={13} className="text-brand-400 shrink-0" />
                     {event.location}
                   </a>
                 )}

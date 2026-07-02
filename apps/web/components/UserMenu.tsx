@@ -44,7 +44,7 @@ export default function UserMenu({ nameJa, avatarUrl, org, memberId }: Props) {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-blue-100 text-blue-700 font-semibold text-sm hover:ring-2 hover:ring-blue-300 transition-all"
+        className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-brand-100 text-brand-700 font-semibold text-sm hover:ring-2 hover:ring-brand-300 transition-all"
         title={nameJa}
       >
         {avatarUrl ? (

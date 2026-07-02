@@ -28,7 +28,7 @@ export function ExpensesTab({ expenses, deletingId, onAddClick, onEditClick, onD
       <div className="flex justify-end">
         <button
           onClick={onAddClick}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition-colors"
         >
           <Plus size={14} />
           支出を追加
@@ -61,7 +61,7 @@ export function ExpensesTab({ expenses, deletingId, onAddClick, onEditClick, onD
                 <div className="flex items-center gap-0.5 shrink-0">
                   <button
                     onClick={() => onEditClick(exp)}
-                    className="p-1.5 text-gray-300 hover:text-blue-500 transition-colors"
+                    className="p-1.5 text-gray-300 hover:text-brand-500 transition-colors"
                   >
                     <Pencil size={13} />
                   </button>

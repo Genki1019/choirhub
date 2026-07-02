@@ -114,7 +114,7 @@ export default function HomePage() {
                   <CalendarDays size={14} className="text-gray-400" />
                   直近の予定
                 </h2>
-                <Link href={`/${org}/schedule`} className="text-xs text-blue-600 hover:underline">
+                <Link href={`/${org}/schedule`} className="text-xs text-brand-600 hover:underline">
                   すべて見る
                 </Link>
               </div>
@@ -138,7 +138,7 @@ export default function HomePage() {
                     <Mail size={14} className="text-gray-400" />
                     最近のメール
                   </h2>
-                  <Link href={`/${org}/mailing`} className="text-xs text-blue-600 hover:underline">
+                  <Link href={`/${org}/mailing`} className="text-xs text-brand-600 hover:underline">
                     すべて見る
                   </Link>
                 </div>
@@ -149,7 +149,7 @@ export default function HomePage() {
                       href={`/${org}/mailing/${mail.id}`}
                       className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors"
                     >
-                      <div className="w-8 h-8 rounded-full overflow-hidden bg-blue-100 text-blue-600 font-semibold text-xs flex items-center justify-center shrink-0">
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-100 text-brand-600 font-semibold text-xs flex items-center justify-center shrink-0">
                         {mail.senderAvatarUrl ? (
                           <Image src={mail.senderAvatarUrl} alt={mail.senderName} width={32} height={32} className="w-full h-full object-cover" unoptimized />
                         ) : (

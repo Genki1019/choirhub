@@ -48,7 +48,7 @@ export function ActivityCard({
         className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors"
         onClick={() => setExpanded((v) => !v)}
       >
-        <MapPin size={15} className="text-blue-500 shrink-0" />
+        <MapPin size={15} className="text-brand-500 shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-medium text-sm text-gray-800 truncate">{activity.destination}</span>

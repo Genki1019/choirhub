@@ -88,7 +88,7 @@ export function CollectionModal({ org, memberTypes, initialTitle, initialAmount,
               onChange={(e) => setTitle(e.target.value)}
               required
               placeholder="例: 7月合宿費"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
             />
           </div>
 
@@ -103,7 +103,7 @@ export function CollectionModal({ org, memberTypes, initialTitle, initialAmount,
                     value={m}
                     checked={mode === m}
                     onChange={() => setMode(m)}
-                    className="w-3.5 h-3.5 text-blue-600 cursor-pointer"
+                    className="w-3.5 h-3.5 text-brand-600 cursor-pointer"
                   />
                   <span className="text-sm text-gray-700">{label}</span>
                 </label>
@@ -119,7 +119,7 @@ export function CollectionModal({ org, memberTypes, initialTitle, initialAmount,
                   required
                   min={1}
                   placeholder="3000"
-                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
                 />
                 <span className="text-xs text-gray-400 shrink-0">円</span>
               </div>
@@ -135,7 +135,7 @@ export function CollectionModal({ org, memberTypes, initialTitle, initialAmount,
                       required
                       min={1}
                       placeholder="3000"
-                      className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-brand-400"
                     />
                     <span className="text-xs text-gray-400 shrink-0">円</span>
                   </div>
@@ -149,7 +149,7 @@ export function CollectionModal({ org, memberTypes, initialTitle, initialAmount,
                     required
                     min={1}
                     placeholder="3000"
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-brand-400"
                   />
                   <span className="text-xs text-gray-400 shrink-0">円</span>
                 </div>
@@ -163,7 +163,7 @@ export function CollectionModal({ org, memberTypes, initialTitle, initialAmount,
               type="month"
               value={yearMonth}
               onChange={(e) => setYearMonth(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
             />
           </div>
 
@@ -174,7 +174,7 @@ export function CollectionModal({ org, memberTypes, initialTitle, initialAmount,
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="任意"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
             />
           </div>
 
@@ -193,7 +193,7 @@ export function CollectionModal({ org, memberTypes, initialTitle, initialAmount,
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors"
             >
               {saving && <Loader2 size={13} className="animate-spin" />}
               作成する

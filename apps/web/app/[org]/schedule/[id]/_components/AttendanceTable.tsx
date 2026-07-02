@@ -142,10 +142,10 @@ export function AttendanceTable({
                   <div className="grid grid-cols-[1fr_80px] sm:grid-cols-[1fr_80px_1fr] items-center px-4 py-2.5">
                     <div className="flex flex-col min-w-0">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className={`text-sm font-medium truncate ${isSelf ? "text-blue-600" : "text-gray-800"}`}>
+                        <span className={`text-sm font-medium truncate ${isSelf ? "text-brand-600" : "text-gray-800"}`}>
                           {member.nameJa}
                         </span>
-                        {isSelf && <span className="text-[10px] text-blue-400 shrink-0">（自分）</span>}
+                        {isSelf && <span className="text-[10px] text-brand-400 shrink-0">（自分）</span>}
                       </div>
                       <div className="sm:hidden mt-0.5">
                         {att.status === "maybe" && isSelf && !isLocked ? (

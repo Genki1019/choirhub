@@ -10,7 +10,7 @@ import { ROLE_OPTIONS } from "@/lib/roles";
 import { inviteMemberSchema, type InviteMemberInput } from "@/lib/schemas";
 
 const INVITE_INPUT_CLS =
-  "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400";
+  "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400";
 const ERROR_CLS = "text-xs text-red-500 mt-1";
 
 interface InviteModalProps {
@@ -99,7 +99,7 @@ export function InviteModal({ org, parts, onClose, onSuccess }: InviteModalProps
             <label htmlFor="invite-part" className="block text-xs font-medium text-gray-500 mb-1">パート</label>
             <select
               id="invite-part"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-400"
               {...register("partId")}
             >
               <option value="">未設定</option>
@@ -130,8 +130,8 @@ export function InviteModal({ org, parts, onClose, onSuccess }: InviteModalProps
                       className={[
                         "text-xs px-3 py-1.5 rounded-full border font-medium transition-colors",
                         field.value.includes(value)
-                          ? "bg-blue-600 text-white border-blue-600"
-                          : "bg-white text-gray-500 border-gray-200 hover:border-blue-300",
+                          ? "bg-brand-600 text-white border-brand-600"
+                          : "bg-white text-gray-500 border-gray-200 hover:border-brand-300",
                       ].join(" ")}
                     >
                       {label}
@@ -153,7 +153,7 @@ export function InviteModal({ org, parts, onClose, onSuccess }: InviteModalProps
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+              className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors"
             >
               {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
               招待メールを送信
@@ -184,7 +184,7 @@ export function InviteSuccessModal({ onClose }: { onClose: () => void }) {
         </p>
         <button
           onClick={onClose}
-          className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm"
+          className="w-full bg-brand-600 text-white font-medium py-2.5 rounded-lg hover:bg-brand-700 transition text-sm"
         >
           閉じる
         </button>

@@ -183,7 +183,7 @@ export default function TicketDetailPage() {
             {detail.isAdmin && (
               <button
                 onClick={() => setShowCreateBatch(true)}
-                className="flex items-center gap-1.5 text-sm text-white bg-blue-600 hover:bg-blue-700 px-2.5 py-1.5 rounded-lg transition-colors font-medium"
+                className="flex items-center gap-1.5 text-sm text-white bg-brand-600 hover:bg-brand-700 px-2.5 py-1.5 rounded-lg transition-colors font-medium"
               >
                 <Plus size={14} />
                 <span className="hidden sm:inline">席種を追加</span>
@@ -221,7 +221,7 @@ export default function TicketDetailPage() {
                     className={[
                       "px-4 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors whitespace-nowrap",
                       activeBatchIdx === idx
-                        ? "border-blue-500 text-blue-600"
+                        ? "border-brand-500 text-brand-600"
                         : "border-transparent text-gray-500 hover:text-gray-700",
                     ].join(" ")}
                   >
@@ -234,7 +234,7 @@ export default function TicketDetailPage() {
                   {detail.isAdmin && (
                     <button
                       onClick={() => setEditingBatch(batch)}
-                      className="absolute right-0 top-1 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-blue-500 transition-opacity"
+                      className="absolute right-0 top-1 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-brand-500 transition-opacity"
                       title="席種を編集"
                     >
                       <Pencil size={10} />
@@ -265,7 +265,7 @@ export default function TicketDetailPage() {
             {detail.isAdmin && (
               <button
                 onClick={() => setShowCreateBatch(true)}
-                className="flex items-center gap-1.5 text-sm text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors font-medium mx-auto"
+                className="flex items-center gap-1.5 text-sm text-white bg-brand-600 hover:bg-brand-700 px-4 py-2 rounded-lg transition-colors font-medium mx-auto"
               >
                 <Plus size={14} />
                 最初の席種を追加

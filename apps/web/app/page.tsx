@@ -85,7 +85,7 @@ export default async function RootPage() {
           </ScrollTopLink>
           <Link
             href={loginHref}
-            className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+            className="text-sm font-medium text-brand-600 hover:text-brand-700 transition-colors"
           >
             ログイン
           </Link>
@@ -95,13 +95,13 @@ export default async function RootPage() {
       <main className="flex-1">
         {/* ヒーローセクション */}
         <section className="max-w-5xl mx-auto px-6 pt-24 pb-20 text-center">
-          <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-8 border border-blue-100">
+          <div className="inline-flex items-center gap-2 bg-brand-50 text-brand-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-8 border border-brand-100">
             <Users size={12} />
             合唱団向け運営支援 SaaS
           </div>
           <h1 className="text-4xl sm:text-5xl font-extrabold leading-tight tracking-tight mb-6">
             合唱団の運営を、<br />
-            <span className="text-blue-600">ひとつのツール</span>で完結。
+            <span className="text-brand-600">ひとつのツール</span>で完結。
           </h1>
           <p className="text-gray-500 text-lg max-w-xl mx-auto mb-10 leading-relaxed">
             スケジュール管理から楽譜配布、本番準備、チケット、メーリス、会計まで。
@@ -110,7 +110,7 @@ export default async function RootPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href={loginHref}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-brand-600 text-white font-semibold px-6 py-3 rounded-xl hover:bg-brand-700 transition-colors shadow-sm"
             >
               ログインしてはじめる
               <ChevronRight size={16} />
@@ -131,8 +131,8 @@ export default async function RootPage() {
                   key={title}
                   className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
                 >
-                  <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center mb-4">
-                    <Icon size={20} className="text-blue-600" />
+                  <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center mb-4">
+                    <Icon size={20} className="text-brand-600" />
                   </div>
                   <h3 className="font-semibold text-gray-900 mb-2">{title}</h3>
                   <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
@@ -150,7 +150,7 @@ export default async function RootPage() {
           </p>
           <Link
             href={loginHref}
-            className="inline-flex items-center gap-2 bg-blue-600 text-white font-semibold px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+            className="inline-flex items-center gap-2 bg-brand-600 text-white font-semibold px-8 py-3 rounded-xl hover:bg-brand-700 transition-colors shadow-sm"
           >
             ログイン
             <ChevronRight size={16} />

@@ -9,7 +9,7 @@ import { authApi, type InviteInfo, ApiClientError } from "@/lib/auth-api";
 import { inviteAcceptSchema, type InviteAcceptInput } from "@/lib/schemas";
 
 const INPUT_CLS =
-  "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition";
+  "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition";
 const ERROR_CLS = "text-xs text-red-500 mt-1";
 
 interface InviteFormProps {
@@ -55,7 +55,7 @@ export function InviteForm({ token, invite }: InviteFormProps) {
         </p>
         <button
           onClick={() => router.push("/login")}
-          className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm"
+          className="w-full bg-brand-600 text-white font-medium py-2.5 rounded-lg hover:bg-brand-700 transition text-sm"
         >
           ログインページへ
         </button>
@@ -127,7 +127,7 @@ export function InviteForm({ token, invite }: InviteFormProps) {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition flex items-center justify-center gap-2"
+        className="w-full bg-brand-600 text-white font-medium py-2.5 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition flex items-center justify-center gap-2"
       >
         {isSubmitting && <Loader2 size={16} className="animate-spin" />}
         登録する

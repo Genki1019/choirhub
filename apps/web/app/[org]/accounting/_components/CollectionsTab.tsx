@@ -24,7 +24,7 @@ export function CollectionsTab({ collections, org, onAddClick }: CollectionsTabP
       <div className="flex justify-end">
         <button
           onClick={onAddClick}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition-colors"
         >
           <Plus size={14} />
           徴収を作成

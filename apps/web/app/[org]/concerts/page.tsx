@@ -66,7 +66,7 @@ export default function ConcertsPage() {
           {isAdmin && (
             <Link
               href={`/${org}/concerts/new`}
-              className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-brand-700 transition-colors"
             >
               <Plus size={14} />
               演奏会を登録
@@ -84,7 +84,7 @@ export default function ConcertsPage() {
               onClick={() => setFilter(value)}
               className={[
                 "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
-                filter === value ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-100",
+                filter === value ? "bg-brand-600 text-white" : "text-gray-500 hover:bg-gray-100",
               ].join(" ")}
             >
               {label}

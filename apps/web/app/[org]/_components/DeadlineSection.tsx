@@ -33,7 +33,7 @@ export function DeadlineSection({
           onClick={onToggle}
           className={[
             "relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200",
-            hasDeadline ? "bg-blue-600" : "bg-gray-200",
+            hasDeadline ? "bg-brand-600" : "bg-gray-200",
           ].join(" ")}
         >
           <span className={[
@@ -49,13 +49,13 @@ export function DeadlineSection({
             value={deadlineDate}
             max={startDate}
             onChange={e => onDateChange(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
           />
           <input
             type="time"
             value={deadlineTime}
             onChange={e => onTimeChange(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
           />
         </div>
       ) : (

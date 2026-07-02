@@ -271,9 +271,9 @@ export default function ConcertDetailPage() {
                   href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(concert.venue)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline"
+                  className="flex items-center gap-1.5 text-sm text-brand-600 hover:underline"
                 >
-                  <MapPin size={13} className="text-blue-400 shrink-0" />
+                  <MapPin size={13} className="text-brand-400 shrink-0" />
                   {concert.venue}
                 </a>
               )}
@@ -317,7 +317,7 @@ export default function ConcertDetailPage() {
               className={[
                 "flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors",
                 activeTab === tab.id
-                  ? "border-blue-500 text-blue-600"
+                  ? "border-brand-500 text-brand-600"
                   : "border-transparent text-gray-500 hover:text-gray-700",
               ].join(" ")}
             >

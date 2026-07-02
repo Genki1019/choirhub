@@ -79,7 +79,7 @@ function ReplyModal({ orgSlug, senderMemberId, senderName, allMemberIds, origina
               <button
                 onClick={() => setReplyTarget("sender")}
                 className={`flex-1 py-2 text-xs font-medium transition-colors border-r border-gray-200 ${
-                  replyTarget === "sender" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+                  replyTarget === "sender" ? "bg-brand-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
                 }`}
               >
                 送信者のみ（{senderName}）
@@ -87,7 +87,7 @@ function ReplyModal({ orgSlug, senderMemberId, senderName, allMemberIds, origina
               <button
                 onClick={() => setReplyTarget("all")}
                 className={`flex-1 py-2 text-xs font-medium transition-colors ${
-                  replyTarget === "all" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+                  replyTarget === "all" ? "bg-brand-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
                 }`}
               >
                 全員に返信（{allMemberIds.length}名）
@@ -104,7 +104,7 @@ function ReplyModal({ orgSlug, senderMemberId, senderName, allMemberIds, origina
             <label className="block text-xs font-medium text-gray-600 mb-1.5">件名</label>
             <input
               value={subject} onChange={(e) => setSubject(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
               autoFocus
             />
           </div>
@@ -115,7 +115,7 @@ function ReplyModal({ orgSlug, senderMemberId, senderName, allMemberIds, origina
               value={body} onChange={(e) => setBody(e.target.value)}
               placeholder="返信内容を入力..."
               rows={10}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none leading-relaxed"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none leading-relaxed"
             />
           </div>
 
@@ -126,7 +126,7 @@ function ReplyModal({ orgSlug, senderMemberId, senderName, allMemberIds, origina
 
         <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 shrink-0">
           <button onClick={onClose} className="text-sm text-gray-500 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">キャンセル</button>
-          <button onClick={handleSend} disabled={sending} className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors">
+          <button onClick={handleSend} disabled={sending} className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors">
             {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
             {recipientCount}名に送信
           </button>
@@ -223,7 +223,7 @@ export default function MailDetailPage() {
           <dl className="divide-y divide-gray-100">
             <MetaRow label="送信者">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold shrink-0">
+                <div className="w-7 h-7 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-bold shrink-0">
                   {mail.sentBy.nameJa.charAt(0)}
                 </div>
                 <span className="text-sm text-gray-800">{mail.sentBy.nameJa}</span>

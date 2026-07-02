@@ -16,8 +16,8 @@ export const metadata: Metadata = {
   title: "ChoirHub",
   description: "合唱団運営支援サービス",
   icons: {
-    icon: "/icon.svg",
-    apple: "/apple-icon.svg",
+    icon: "/icons/app-icon.svg",
+    apple: "/icons/apple-icon.svg",
   },
 };
 

@@ -92,7 +92,7 @@ export default function Sidebar({
         </button>
 
         <div className="px-5 pt-5 pb-3 border-b border-gray-100">
-          <p className="text-blue-600 font-bold text-lg leading-tight">ChoirHub</p>
+          <p className="text-brand-600 font-bold text-lg leading-tight">ChoirHub</p>
           <Link
             href="/select-org"
             className="flex items-center justify-between w-full mt-1.5 px-2 py-1 rounded-md text-xs text-gray-500 hover:bg-gray-100 transition-colors"
@@ -114,11 +114,11 @@ export default function Sidebar({
                 className={[
                   "flex items-center gap-3 px-5 py-2.5 text-sm transition-colors border-l-2",
                   isActive
-                    ? "border-blue-500 bg-blue-50 text-blue-600 font-medium"
+                    ? "border-brand-500 bg-brand-50 text-brand-600 font-medium"
                     : "border-transparent text-gray-600 hover:bg-gray-50",
                 ].join(" ")}
               >
-                <Icon size={15} className={isActive ? "text-blue-500" : "text-gray-400"} />
+                <Icon size={15} className={isActive ? "text-brand-500" : "text-gray-400"} />
                 {label}
               </Link>
             );

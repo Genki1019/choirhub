@@ -65,7 +65,7 @@ export function AddScoreModal({ orgSlug, onClose, onCreated }: AddScoreModalProp
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               placeholder="例: 男声合唱のための「風と光」"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
               autoFocus
             />
           </div>
@@ -77,7 +77,7 @@ export function AddScoreModal({ orgSlug, onClose, onCreated }: AddScoreModalProp
                 value={form.composer ?? ""}
                 onChange={(e) => setForm({ ...form, composer: e.target.value })}
                 placeholder="例: 山田 花子"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
               />
             </div>
             <div>
@@ -86,7 +86,7 @@ export function AddScoreModal({ orgSlug, onClose, onCreated }: AddScoreModalProp
                 value={form.arranger ?? ""}
                 onChange={(e) => setForm({ ...form, arranger: e.target.value })}
                 placeholder="例: 田中 二郎"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
               />
             </div>
           </div>
@@ -102,7 +102,7 @@ export function AddScoreModal({ orgSlug, onClose, onCreated }: AddScoreModalProp
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+            className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
             追加する

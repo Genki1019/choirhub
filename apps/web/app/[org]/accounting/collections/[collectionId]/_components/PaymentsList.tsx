@@ -65,7 +65,7 @@ export function PaymentsList({
           {pending > 0 && (
             <button
               onClick={onSelectAllPending}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 transition-colors"
+              className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 transition-colors"
             >
               <CheckSquare size={13} />
               未払いを全選択
@@ -93,7 +93,7 @@ export function PaymentsList({
                     type="checkbox"
                     checked={checkedIds.has(payment.member.id)}
                     onChange={() => onToggleCheck(payment.member.id)}
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-400 cursor-pointer shrink-0"
+                    className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-400 cursor-pointer shrink-0"
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800">{payment.member.nameJa}</p>
@@ -129,7 +129,7 @@ export function PaymentsList({
                     )}
                     <button
                       onClick={() => onEdit(payment)}
-                      className="p-1.5 text-gray-300 hover:text-blue-500 transition-colors"
+                      className="p-1.5 text-gray-300 hover:text-brand-500 transition-colors"
                       title="詳細編集"
                     >
                       <span className="text-xs">編集</span>

@@ -65,7 +65,7 @@ export function LocationSearch({ value, mapUrl, placeholder, onChangeName, onSel
           onFocus={() => suggestions.length > 0 && setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           placeholder={placeholder ?? "場所を追加（例：○○文化センター 練習室3）"}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 placeholder-gray-300"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400 placeholder-gray-300"
         />
         {searching && (
           <Loader2 size={12} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-gray-400" />
@@ -79,9 +79,9 @@ export function LocationSearch({ value, mapUrl, placeholder, onChangeName, onSel
                 key={place.id}
                 type="button"
                 onMouseDown={() => handleSelect(place)}
-                className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-blue-50 border-b border-gray-100 last:border-0 transition-colors"
+                className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-brand-50 border-b border-gray-100 last:border-0 transition-colors"
               >
-                <MapPin size={14} className="text-blue-400 shrink-0 mt-0.5" />
+                <MapPin size={14} className="text-brand-400 shrink-0 mt-0.5" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-800 truncate">{place.name}</p>
                   {place.address && (
@@ -100,7 +100,7 @@ export function LocationSearch({ value, mapUrl, placeholder, onChangeName, onSel
           href={mapUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs text-brand-600 bg-brand-50 border border-brand-200 px-3 py-1.5 rounded-lg hover:bg-brand-100 transition-colors"
         >
           <ExternalLink size={11} />
           Google マップで開く

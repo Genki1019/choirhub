@@ -30,7 +30,7 @@ function MidiFileRow({ file, splitLabel }: { file: ScoreFile; splitLabel?: strin
           href={src}
           download={file.fileName}
           title="ダウンロード"
-          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-500 transition-all"
+          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-brand-500 transition-all"
         >
           <Download size={14} />
         </a>

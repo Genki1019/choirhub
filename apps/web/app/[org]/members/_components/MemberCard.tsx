@@ -11,13 +11,17 @@ const STATUS_LABEL: Record<MemberStatus, { label: string; dot: string }> = {
 
 const ROLE_BADGE: Record<string, { label: string; className: string }> = {
   admin: { label: "管理者", className: "bg-gray-800 text-white" },
-  tech:  { label: "技術系", className: "bg-blue-100 text-blue-700" },
+  tech:  { label: "技術系", className: "bg-brand-100 text-brand-700" },
   score: { label: "楽譜",   className: "bg-teal-100 text-teal-700" },
 };
 
 const AVATAR_COLORS = [
-  "bg-blue-500", "bg-purple-500", "bg-teal-500",
-  "bg-orange-500", "bg-pink-500", "bg-indigo-500",
+  "bg-brand-500",
+  "bg-teal-500",
+  "bg-amber-500",
+  "bg-rose-500",
+  "bg-emerald-500",
+  "bg-sky-500",
 ];
 
 export function avatarColor(id: string): string {
@@ -45,7 +49,7 @@ export function MemberCard({ member, org }: { member: MemberProfile; org: string
   return (
     <Link
       href={`/${org}/members/${member.id}`}
-      className="flex sm:flex-col items-center sm:items-center gap-4 sm:gap-0 bg-white rounded-xl border border-gray-200 px-4 py-3 sm:py-5 hover:border-blue-300 hover:shadow-sm transition-all"
+      className="flex sm:flex-col items-center sm:items-center gap-4 sm:gap-0 bg-white rounded-xl border border-gray-200 px-4 py-3 sm:py-5 hover:border-brand-300 hover:shadow-sm transition-all"
     >
       {/* アバター: モバイルは小さめ、sm以上は大きく */}
       <div className="shrink-0">

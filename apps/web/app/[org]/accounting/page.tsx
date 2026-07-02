@@ -121,7 +121,7 @@ export default function AccountingPage() {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-auto">
+    <div className="flex flex-col">
       <header className="shrink-0 bg-white border-b border-gray-200">
         <PageBleedRow className="flex items-center justify-between py-4">
           <h1 className="text-lg font-semibold text-gray-800">会計</h1>
@@ -157,7 +157,7 @@ export default function AccountingPage() {
               <SummaryCard label="支出合計" value={summary.totalExpense}   color="text-red-600" />
               <SummaryCard label="徴収済み" value={summary.totalCollected} color="text-teal-600" />
               <SummaryCard label="未回収"   value={summary.totalPending}   color="text-amber-600" />
-              <SummaryCard label="残高"     value={summary.balance}        color={summary.balance >= 0 ? "text-blue-600" : "text-red-600"} />
+              <SummaryCard label="残高"     value={summary.balance}        color={summary.balance >= 0 ? "text-brand-600" : "text-red-600"} />
             </div>
 
             {summary.expenseByCategory.length > 0 && (
@@ -181,7 +181,7 @@ export default function AccountingPage() {
                   onClick={() => setTab(key)}
                   className={[
                     "px-5 py-2.5 text-sm font-medium border-b-2 transition-colors",
-                    tab === key ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700",
+                    tab === key ? "border-brand-500 text-brand-600" : "border-transparent text-gray-500 hover:text-gray-700",
                   ].join(" ")}
                 >
                   {label}

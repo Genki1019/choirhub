@@ -64,7 +64,7 @@ export default function MyTicketPage() {
   const isClosed = !!concert.ticketInputClosedAt;
 
   return (
-    <div className="flex flex-col h-full overflow-auto">
+    <div className="flex flex-col">
       <header className="bg-white border-b border-gray-200 shrink-0">
         <PageBleedRow className="flex items-center gap-4 py-4">
           <Link href={`/${org}/tickets`} className="text-gray-400 hover:text-gray-600 transition-colors">
@@ -118,14 +118,14 @@ export default function MyTicketPage() {
 
             <Link
               href={`/${org}/tickets/${concertId}/outreach`}
-              className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-2xl px-5 py-3.5 hover:bg-blue-100 transition-colors"
+              className="flex items-center gap-3 bg-brand-50 border border-brand-200 rounded-2xl px-5 py-3.5 hover:bg-brand-100 transition-colors"
             >
-              <MapPin size={16} className="text-blue-600 shrink-0" />
+              <MapPin size={16} className="text-brand-600 shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-blue-800">情宣活動の申請・確認</p>
-                <p className="text-xs text-blue-600">行き先・参加者・交通費・販売枚数を記録</p>
+                <p className="text-sm font-semibold text-brand-800">情宣活動の申請・確認</p>
+                <p className="text-xs text-brand-600">行き先・参加者・交通費・販売枚数を記録</p>
               </div>
-              <ArrowLeft size={14} className="text-blue-400 rotate-180" />
+              <ArrowLeft size={14} className="text-brand-400 rotate-180" />
             </Link>
 
             {concert.batches[0] && (

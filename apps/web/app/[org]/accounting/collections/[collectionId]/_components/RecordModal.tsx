@@ -109,7 +109,7 @@ export function RecordModal({ payment, defaultAmount, org, collectionId, onClose
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   min={1}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
                 />
               </div>
 
@@ -120,7 +120,7 @@ export function RecordModal({ payment, defaultAmount, org, collectionId, onClose
                     type="date"
                     value={paidAt}
                     onChange={(e) => setPaidAt(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
                   />
                 </div>
                 <div>
@@ -128,7 +128,7 @@ export function RecordModal({ payment, defaultAmount, org, collectionId, onClose
                   <select
                     value={method}
                     onChange={(e) => setMethod(e.target.value as PaymentMethod | "")}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
                   >
                     <option value="">—</option>
                     {(["cash", "paypay", "bank_transfer", "other"] as PaymentMethod[]).map((m) => (
@@ -147,7 +147,7 @@ export function RecordModal({ payment, defaultAmount, org, collectionId, onClose
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="任意"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
             />
           </div>
 
@@ -162,7 +162,7 @@ export function RecordModal({ payment, defaultAmount, org, collectionId, onClose
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors"
             >
               {saving && <Loader2 size={13} className="animate-spin" />}
               保存する

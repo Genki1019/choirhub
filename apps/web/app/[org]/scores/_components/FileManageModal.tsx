@@ -18,7 +18,7 @@ function FileRow({ file, canDelete, deleting, onDeleteClick }: FileRowProps) {
   const isDeleting = deleting === file.id;
   const icon = file.fileType === "midi"
     ? <Music2 size={13} className="text-purple-500 shrink-0" />
-    : <FileText size={13} className="text-blue-500 shrink-0" />;
+    : <FileText size={13} className="text-brand-500 shrink-0" />;
   return (
     <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg group">
       {icon}
@@ -206,7 +206,7 @@ export function FileManageModal({ orgSlug, score, parts, canManagePdf, canManage
         <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100">
           <div className="flex-1 min-w-0 pr-4">
             <div className="flex items-center gap-2">
-              <FolderOpen size={15} className="text-blue-500 shrink-0" />
+              <FolderOpen size={15} className="text-brand-500 shrink-0" />
               <h2 className="font-semibold text-gray-800 text-sm">ファイル管理</h2>
             </div>
             <p className="text-xs text-gray-500 mt-0.5 truncate">{score.title}</p>
@@ -241,7 +241,7 @@ export function FileManageModal({ orgSlug, score, parts, canManagePdf, canManage
                   setUploadPartId("");
                   if (fileInputRef.current) fileInputRef.current.value = "";
                 }}
-                className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+                className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400 bg-white"
               >
                 {canManagePdf && fullScores.length === 0 && <option value="full_score">楽譜 (PDF)</option>}
                 {canManageMidi && <option value="midi">MIDI</option>}
@@ -252,7 +252,7 @@ export function FileManageModal({ orgSlug, score, parts, canManagePdf, canManage
                 <select
                   value={uploadPartId}
                   onChange={(e) => setUploadPartId(e.target.value)}
-                  className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+                  className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400 bg-white"
                 >
                   <option value="">全体</option>
                   {parts.map((p) => (
@@ -267,12 +267,12 @@ export function FileManageModal({ orgSlug, score, parts, canManagePdf, canManage
                 ref={fileInputRef}
                 type="file"
                 accept={accept}
-                className="flex-1 text-xs text-gray-600 file:mr-3 file:py-1 file:px-2.5 file:border-0 file:text-xs file:font-medium file:bg-white file:text-blue-600 file:border file:border-blue-200 file:rounded-md hover:file:bg-blue-50 cursor-pointer"
+                className="flex-1 text-xs text-gray-600 file:mr-3 file:py-1 file:px-2.5 file:border-0 file:text-xs file:font-medium file:bg-white file:text-brand-600 file:border file:border-brand-200 file:rounded-md hover:file:bg-brand-50 cursor-pointer"
               />
               <button
                 onClick={handleUpload}
                 disabled={uploading}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors shrink-0"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors shrink-0"
               >
                 {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
                 追加

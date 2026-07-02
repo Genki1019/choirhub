@@ -59,12 +59,12 @@ export function AddCategoryForm({ org, onCreated }: AddCategoryFormProps) {
           value={newName}
           onChange={(e) => { setNewName(e.target.value); setAddError(""); }}
           placeholder="区分名"
-          className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
+          className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-400"
         />
         <button
           onClick={handleAdd}
           disabled={adding}
-          className="flex items-center gap-1 text-sm font-medium text-white bg-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+          className="flex items-center gap-1 text-sm font-medium text-white bg-brand-600 px-3 py-1.5 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors"
         >
           {adding ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
           追加

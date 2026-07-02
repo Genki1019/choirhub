@@ -24,7 +24,7 @@ function ParticipantRow({
       <select
         value={entry.memberId}
         onChange={(e) => onChange({ ...entry, memberId: e.target.value })}
-        className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+        className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-400"
       >
         <option value="">-- 選択 --</option>
         {members.map((m) => (
@@ -36,12 +36,12 @@ function ParticipantRow({
       <input
         type="number" min={0} placeholder="枚数" value={entry.ticketsSold}
         onChange={(e) => onChange({ ...entry, ticketsSold: Math.max(0, Number(e.target.value)) })}
-        className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-blue-400"
+        className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-brand-400"
       />
       <input
         type="number" min={0} placeholder="交通費" value={entry.expense}
         onChange={(e) => onChange({ ...entry, expense: e.target.value === "" ? "" : Math.max(0, Number(e.target.value)) })}
-        className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-blue-400"
+        className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-brand-400"
       />
       <button type="button" onClick={onRemove} aria-label="参加者を削除" className="text-gray-300 hover:text-red-400 transition-colors">
         <Trash2 size={14} />
@@ -117,18 +117,18 @@ export function CreateModal({ orgSlug, concertId, members, onClose, onCreated }:
             <label className="text-xs font-medium text-gray-500 block mb-1">行き先 <span className="text-red-500">*</span></label>
             <input type="text" value={destination} onChange={(e) => setDestination(e.target.value)}
               placeholder="例: 渋谷駅前、新宿西口"
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-400" />
           </div>
           <div>
             <label className="text-xs font-medium text-gray-500 block mb-1">活動日 <span className="text-red-500">*</span></label>
             <input type="date" value={activityDate} onChange={(e) => setActivityDate(e.target.value)}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-400" />
           </div>
           <div>
             <label className="text-xs font-medium text-gray-500 block mb-1">メモ（任意）</label>
             <input type="text" value={note} onChange={(e) => setNote(e.target.value)}
               placeholder="備考・コメント"
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-400" />
           </div>
           <div>
             <label className="text-xs font-medium text-gray-500 block mb-1">参加者 <span className="text-red-500">*</span></label>
@@ -148,7 +148,7 @@ export function CreateModal({ orgSlug, concertId, members, onClose, onCreated }:
               </div>
             </div>
             <button type="button" onClick={addRow}
-              className="mt-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800">
+              className="mt-2 flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800">
               <Plus size={12} /> 参加者を追加
             </button>
           </div>
@@ -163,7 +163,7 @@ export function CreateModal({ orgSlug, concertId, members, onClose, onCreated }:
 
         <div className="px-5 py-4 border-t border-gray-100 shrink-0">
           <button onClick={handleSubmit} disabled={saving}
-            className="w-full py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5">
+            className="w-full py-2.5 text-sm font-medium text-white bg-brand-600 rounded-xl hover:bg-brand-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5">
             {saving && <Loader2 size={13} className="animate-spin" />}
             申請する
           </button>

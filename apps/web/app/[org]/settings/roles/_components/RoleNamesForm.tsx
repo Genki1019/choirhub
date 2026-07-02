@@ -61,7 +61,7 @@ export function RoleNamesForm({ orgSlug, initialNames }: RoleNamesFormProps) {
                 value={names[key]}
                 onChange={(e) => setNames((prev) => ({ ...prev, [key]: e.target.value }))}
                 placeholder={defaultName}
-                className="w-full sm:w-auto border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full sm:w-auto border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
               />
             </div>
           </div>
@@ -82,7 +82,7 @@ export function RoleNamesForm({ orgSlug, initialNames }: RoleNamesFormProps) {
         <button
           type="submit"
           disabled={saving}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors"
         >
           {saving && <Loader2 size={13} className="animate-spin" />}
           保存する

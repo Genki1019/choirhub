@@ -9,7 +9,7 @@ import { Music, Loader2, CheckCircle, Eye, EyeOff } from "lucide-react";
 import { authApi, ApiClientError } from "@/lib/auth-api";
 import { passwordResetConfirmSchema, type PasswordResetConfirmInput } from "@/lib/schemas";
 
-const INPUT_CLS = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition";
+const INPUT_CLS = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition";
 const ERROR_CLS = "text-xs text-red-500 mt-1";
 
 export default function PasswordResetConfirmPage() {
@@ -50,7 +50,7 @@ export default function PasswordResetConfirmPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-4">
+          <div className="w-12 h-12 bg-brand-600 rounded-xl flex items-center justify-center mb-4">
             <Music size={24} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">ChoirHub</h1>
@@ -62,7 +62,7 @@ export default function PasswordResetConfirmPage() {
             <p className="text-sm text-red-600">{loadError}</p>
             <Link
               href="/password-reset"
-              className="block w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm text-center"
+              className="block w-full bg-brand-600 text-white font-medium py-2.5 rounded-lg hover:bg-brand-700 transition text-sm text-center"
             >
               再申請する
             </Link>
@@ -82,7 +82,7 @@ export default function PasswordResetConfirmPage() {
             <p className="text-sm text-gray-500">新しいパスワードでログインしてください。</p>
             <button
               onClick={() => router.push("/login")}
-              className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 transition text-sm"
+              className="w-full bg-brand-600 text-white font-medium py-2.5 rounded-lg hover:bg-brand-700 transition text-sm"
             >
               ログインページへ
             </button>
@@ -143,7 +143,7 @@ export default function PasswordResetConfirmPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition flex items-center justify-center gap-2"
+              className="w-full bg-brand-600 text-white font-medium py-2.5 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition flex items-center justify-center gap-2"
             >
               {isSubmitting && <Loader2 size={16} className="animate-spin" />}
               パスワードを変更する

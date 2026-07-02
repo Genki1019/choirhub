@@ -50,7 +50,7 @@ export function FeeSettingsForm({ orgSlug, initialFeeType, initialAmount }: FeeS
             key={type}
             className={[
               "flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-colors",
-              feeType === type ? "border-blue-400 bg-blue-50" : "border-gray-200 hover:bg-gray-50",
+              feeType === type ? "border-brand-400 bg-brand-50" : "border-gray-200 hover:bg-gray-50",
             ].join(" ")}
           >
             <input
@@ -59,7 +59,7 @@ export function FeeSettingsForm({ orgSlug, initialFeeType, initialAmount }: FeeS
               value={type}
               checked={feeType === type}
               onChange={() => setFeeType(type)}
-              className="accent-blue-600"
+              className="accent-brand-600"
             />
             <div>
               <p className="text-sm font-medium text-gray-800">
@@ -86,7 +86,7 @@ export function FeeSettingsForm({ orgSlug, initialFeeType, initialAmount }: FeeS
             onChange={(e) => setAmount(e.target.value)}
             min={0}
             placeholder="例: 300"
-            className="w-40 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+            className="w-40 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
           />
           <span className="text-sm text-gray-400">円</span>
         </div>
@@ -107,7 +107,7 @@ export function FeeSettingsForm({ orgSlug, initialFeeType, initialAmount }: FeeS
         <button
           type="submit"
           disabled={saving}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors"
         >
           {saving && <Loader2 size={13} className="animate-spin" />}
           保存する

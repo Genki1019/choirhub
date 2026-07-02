@@ -120,7 +120,7 @@ export function BatchCard({ batch, orgSlug, concertId, isClosed, onChange }: Bat
                 <input
                   type="number" min={0} value={reqCount} disabled={isClosed}
                   onChange={(e) => setReqCount(Math.max(0, Number(e.target.value)))}
-                  className="w-14 text-center text-sm font-medium border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-14 text-center text-sm font-medium border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-400 bg-white disabled:opacity-40 disabled:cursor-not-allowed"
                 />
                 <button type="button" onClick={() => setReqCount(reqCount + 1)} disabled={isClosed}
                   className="w-8 h-8 rounded-full border border-gray-200 text-gray-500 hover:bg-white text-xl leading-none flex items-center justify-center transition-colors select-none disabled:opacity-40">
@@ -131,7 +131,7 @@ export function BatchCard({ batch, orgSlug, concertId, isClosed, onChange }: Bat
             <button
               onClick={handleRequestSubmit}
               disabled={isClosed || savingReq || !reqChanged}
-              className="mt-3 w-full py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+              className="mt-3 w-full py-2 text-sm font-medium text-white bg-brand-600 rounded-xl hover:bg-brand-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
             >
               {savingReq && <Loader2 size={13} className="animate-spin" />}
               変更を申請する
@@ -146,9 +146,9 @@ export function BatchCard({ batch, orgSlug, concertId, isClosed, onChange }: Bat
             <Stepper label="学生" value={sales.soldStudent}   disabled={isClosed} onChange={(v) => setSales({ ...sales, soldStudent: v })} />
             <Stepper label="返却" value={sales.returnedCount} disabled={isClosed} onChange={(v) => setSales({ ...sales, returnedCount: v })} />
             {soldTotal > 0 && (
-              <div className="flex items-center justify-between px-4 py-2.5 bg-blue-50">
-                <span className="text-xs text-blue-600">販売金額 合計</span>
-                <span className="text-sm font-semibold text-blue-700">
+              <div className="flex items-center justify-between px-4 py-2.5 bg-brand-50">
+                <span className="text-xs text-brand-600">販売金額 合計</span>
+                <span className="text-sm font-semibold text-brand-700">
                   {yen(sales.soldAdult * batch.price + sales.soldStudent * (batch.priceStudent ?? batch.price))}
                 </span>
               </div>

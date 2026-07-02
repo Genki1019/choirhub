@@ -26,7 +26,7 @@ export default function NotFound() {
           </button>
           <Link
             href="/"
-            className="text-sm text-blue-600 hover:text-blue-800 border border-blue-200 rounded-lg px-4 py-2 hover:bg-blue-50 transition-colors"
+            className="text-sm text-brand-600 hover:text-brand-800 border border-brand-200 rounded-lg px-4 py-2 hover:bg-brand-50 transition-colors"
           >
             トップへ
           </Link>

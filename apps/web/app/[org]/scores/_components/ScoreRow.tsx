@@ -83,7 +83,7 @@ export function ScoreRow({
                       if (e.key === "Escape") setEditingPrice(false);
                     }}
                     onBlur={savePrice}
-                    className="w-24 border border-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="w-24 border border-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
                     autoFocus
                     placeholder="例: 300"
                   />
@@ -98,7 +98,7 @@ export function ScoreRow({
                   {canSetPrice && (
                     <button
                       onClick={startEditPrice}
-                      className="p-0.5 text-gray-400 hover:text-blue-500 transition-colors rounded"
+                      className="p-0.5 text-gray-400 hover:text-brand-500 transition-colors rounded"
                       title="価格を変更"
                     >
                       <Pencil size={10} />
@@ -107,7 +107,7 @@ export function ScoreRow({
                   {score.purchaseCount !== undefined && onPurchaseClick && (
                     <button
                       onClick={() => onPurchaseClick(score)}
-                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                      className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 hover:underline transition-colors"
                     >
                       <Users size={10} />
                       購入済 {score.purchaseCount}名
@@ -116,7 +116,7 @@ export function ScoreRow({
                   {onCreateCollection && (
                     <button
                       onClick={() => onCreateCollection(score)}
-                      className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 border border-gray-200 hover:border-blue-300 rounded px-1.5 py-0.5 transition-colors"
+                      className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-brand-600 border border-gray-200 hover:border-brand-300 rounded px-1.5 py-0.5 transition-colors"
                     >
                       + 徴収を作成
                     </button>
@@ -125,7 +125,7 @@ export function ScoreRow({
               ) : canSetPrice ? (
                 <button
                   onClick={startEditPrice}
-                  className="text-xs text-gray-400 hover:text-blue-500 transition-colors"
+                  className="text-xs text-gray-400 hover:text-brand-500 transition-colors"
                 >
                   + 価格を設定
                 </button>
@@ -146,7 +146,7 @@ export function ScoreRow({
                   target="_blank"
                   rel="noopener noreferrer"
                   title={scoreFile.fileName}
-                  className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors font-medium"
+                  className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-brand-50 text-brand-700 border border-brand-200 hover:bg-brand-100 transition-colors font-medium"
                 >
                   <FileText size={11} />
                   楽譜

@@ -7,7 +7,7 @@ import { ScoreRow } from "./ScoreRow";
 
 export const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   draft:       { label: "準備中", color: "text-gray-400" },
-  survey_open: { label: "調査中", color: "text-blue-500" },
+  survey_open: { label: "調査中", color: "text-brand-500" },
   confirmed:   { label: "確定",   color: "text-green-600" },
   past:        { label: "終演",   color: "text-gray-400" },
 };
@@ -46,7 +46,7 @@ export const ConcertSection = memo(function ConcertSection({
         <span className="text-gray-400">
           {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
         </span>
-        <CalendarDays size={15} className="text-blue-500 shrink-0" />
+        <CalendarDays size={15} className="text-brand-500 shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-gray-800 text-sm">{concert.title}</span>

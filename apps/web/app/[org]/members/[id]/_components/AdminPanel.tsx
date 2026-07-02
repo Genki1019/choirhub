@@ -67,8 +67,8 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
             <button key={value} onClick={() => toggleRole(value)}
               className={["text-xs px-3 py-1.5 rounded-full border font-medium transition-colors",
                 localRoles.includes(value)
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-gray-500 border-gray-200 hover:border-blue-300",
+                  ? "bg-brand-600 text-white border-brand-600"
+                  : "bg-white text-gray-500 border-gray-200 hover:border-brand-300",
               ].join(" ")}>
               {label}
             </button>
@@ -80,7 +80,7 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">パート</label>
           <select value={localPartId} onChange={(e) => setLocalPartId(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-400">
             <option value="">未設定</option>
             {parts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
@@ -88,7 +88,7 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">ステータス</label>
           <select value={localStatus} onChange={(e) => setLocalStatus(e.target.value as MemberStatus)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-400">
             {MEMBER_STATUS_OPTIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
           </select>
         </div>
@@ -97,7 +97,7 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
       <div>
         <label className="block text-xs font-medium text-gray-600 mb-1">メンバー区分</label>
         <select value={localMemberTypeId} onChange={(e) => setLocalMemberTypeId(e.target.value)}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-400">
           <option value="">未設定</option>
           {memberTypes.map((t) => (
             <option key={t.id} value={t.id}>
@@ -111,7 +111,7 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
         <label className="block text-xs font-medium text-gray-600 mb-1">管理者メモ</label>
         <textarea value={localMemo} onChange={(e) => setLocalMemo(e.target.value)} rows={2}
           placeholder="管理者のみ閲覧できるメモ"
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none bg-white focus:outline-none focus:ring-2 focus:ring-blue-400" />
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none bg-white focus:outline-none focus:ring-2 focus:ring-brand-400" />
       </div>
 
       <div className="flex items-center justify-between pt-1">

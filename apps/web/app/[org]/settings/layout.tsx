@@ -54,7 +54,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   const allowed = isAdmin || isFinance;
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col">
       <header className="shrink-0 bg-white border-b border-gray-200">
         <PageBleedRow className="py-4">
           <h1 className="text-lg font-semibold text-gray-800">設定</h1>
@@ -74,7 +74,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                   className={[
                     "px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
                     isActive
-                      ? "border-blue-500 text-blue-600"
+                      ? "border-brand-500 text-brand-600"
                       : "border-transparent text-gray-500 hover:text-gray-700",
                   ].join(" ")}
                 >
@@ -85,10 +85,10 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         </PageBleedRow>
       </div>
 
-      <PageMain className="overflow-auto">
+      <PageMain>
         {!checked ? (
           <div className="flex items-center justify-center py-16">
-            <div className="animate-spin h-5 w-5 border-2 border-gray-300 border-t-blue-500 rounded-full" />
+            <div className="animate-spin h-5 w-5 border-2 border-gray-300 border-t-brand-500 rounded-full" />
           </div>
         ) : allowed ? (
           children

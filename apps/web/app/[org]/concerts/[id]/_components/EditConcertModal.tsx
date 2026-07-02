@@ -74,7 +74,7 @@ export function EditConcertModal({ concert, orgSlug, onClose, onSaved }: EditCon
             <input
               value={form.title ?? ""}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
               autoFocus
             />
           </div>
@@ -86,7 +86,7 @@ export function EditConcertModal({ concert, orgSlug, onClose, onSaved }: EditCon
               type="date"
               value={form.heldOn ?? ""}
               onChange={(e) => setForm({ ...form, heldOn: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
             />
           </div>
           <div className="relative z-10">
@@ -103,7 +103,7 @@ export function EditConcertModal({ concert, orgSlug, onClose, onSaved }: EditCon
             <select
               value={form.status}
               onChange={(e) => setForm({ ...form, status: e.target.value as ConcertStatus })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 bg-white"
             >
               {STATUS_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -119,7 +119,7 @@ export function EditConcertModal({ concert, orgSlug, onClose, onSaved }: EditCon
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+            className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
             保存する

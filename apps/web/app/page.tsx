@@ -1,7 +1,7 @@
-import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import Image from "next/image";
+import { ScrollTopLink } from "@/components/ScrollTopLink";
 import {
   Calendar,
   FileMusic,
@@ -15,22 +15,22 @@ import {
 
 const API = process.env.API_INTERNAL_URL ?? "http://localhost:3001";
 
-async function getAuthenticatedOrg(): Promise<string | null> {
+async function getAuthenticatedOrgs(): Promise<{ orgSlug: string }[]> {
   try {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get("session");
-    if (!sessionCookie?.value) return null;
+    if (!sessionCookie?.value) return [];
 
     const res = await fetch(`${API}/api/v1/auth/me`, {
       headers: { Cookie: `session=${sessionCookie.value}` },
       cache: "no-store",
     });
-    if (!res.ok) return null;
+    if (!res.ok) return [];
 
     const data = (await res.json()) as { data: { orgs: { orgSlug: string }[] } };
-    return data.data?.orgs?.[0]?.orgSlug ?? null;
+    return data.data?.orgs ?? [];
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -68,20 +68,23 @@ const FEATURES = [
 ];
 
 export default async function RootPage() {
-  const orgSlug = await getAuthenticatedOrg();
-  if (orgSlug) redirect(`/${orgSlug}`);
+  const orgs = await getAuthenticatedOrgs();
+  const loginHref =
+    orgs.length === 0 ? "/login" :
+    orgs.length === 1 ? `/${orgs[0].orgSlug}` :
+    "/select-org";
 
   return (
     <div className="min-h-screen flex flex-col bg-white text-gray-900">
       {/* ナビゲーションバー */}
       <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur-sm">
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <Image src="/icons/app-icon.svg" alt="ChoirHub" width={32} height={32} unoptimized className="size-8" />
-            <span className="font-bold text-lg tracking-tight">ChoirHub</span>
-          </div>
+          <ScrollTopLink href="/" className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity">
+            <Image src="/icons/app-icon.svg" alt="ChoirHub" width={32} height={32} unoptimized className="size-8 cursor-pointer" />
+            <span className="cursor-pointer font-bold text-lg tracking-tight">ChoirHub</span>
+          </ScrollTopLink>
           <Link
-            href="/login"
+            href={loginHref}
             className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
           >
             ログイン
@@ -106,7 +109,7 @@ export default async function RootPage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
-              href="/login"
+              href={loginHref}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
             >
               ログインしてはじめる
@@ -146,7 +149,7 @@ export default async function RootPage() {
             招待を受け取ったメンバーはこちらからログインできます
           </p>
           <Link
-            href="/login"
+            href={loginHref}
             className="inline-flex items-center gap-2 bg-blue-600 text-white font-semibold px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
           >
             ログイン
@@ -159,10 +162,10 @@ export default async function RootPage() {
       <footer className="border-t border-gray-100 py-10">
         <div className="max-w-5xl mx-auto px-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-8">
-            <div className="flex items-center gap-2">
-              <Image src="/icons/app-icon.svg" alt="ChoirHub" width={24} height={24} unoptimized className="size-6" />
-              <span className="font-bold text-gray-800">ChoirHub</span>
-            </div>
+            <ScrollTopLink href="/" className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+              <Image src="/icons/app-icon.svg" alt="ChoirHub" width={24} height={24} unoptimized className="size-6 cursor-pointer" />
+              <span className="cursor-pointer font-bold text-gray-800">ChoirHub</span>
+            </ScrollTopLink>
             <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-500">
               <Link href="#" className="hover:text-gray-700 transition-colors">プライバシーポリシー</Link>
               <Link href="#" className="hover:text-gray-700 transition-colors">利用規約</Link>

@@ -164,7 +164,7 @@ function MembersContent() {
     {showInviteSuccess && (
       <InviteSuccessModal onClose={() => setShowInviteSuccess(false)} />
     )}
-    <div className="flex flex-col h-full overflow-auto">
+    <div className="flex flex-col">
       {/* ヘッダー */}
       <header className="bg-white border-b border-gray-200 shrink-0">
         <PageBleedRow className="flex items-center justify-between py-4">

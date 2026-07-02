@@ -169,7 +169,7 @@ export default function ScheduleDetailPage() {
   const selfAnswered = attendances[selfId ?? ""]?.status !== "undecided";
 
   return (
-    <div className="flex flex-col h-full overflow-auto">
+    <div className="flex flex-col">
       <header className="bg-white border-b border-gray-200 shrink-0">
         <PageBleedRow className="flex items-center justify-between py-4">
           <div className="flex items-center gap-4 flex-1 min-w-0">

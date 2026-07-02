@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import Link from "next/link";
+import Image from "next/image";
 import {
-  Music,
   Calendar,
   FileMusic,
   Star,
@@ -77,9 +77,7 @@ export default async function RootPage() {
       <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur-sm">
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <Music size={16} className="text-white" />
-            </div>
+            <Image src="/icons/app-icon.svg" alt="ChoirHub" width={32} height={32} unoptimized className="size-8" />
             <span className="font-bold text-lg tracking-tight">ChoirHub</span>
           </div>
           <Link
@@ -158,15 +156,22 @@ export default async function RootPage() {
       </main>
 
       {/* フッター */}
-      <footer className="border-t border-gray-100 py-8">
-        <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-gray-400">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 bg-blue-600 rounded-md flex items-center justify-center">
-              <Music size={10} className="text-white" />
+      <footer className="border-t border-gray-100 py-10">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-8">
+            <div className="flex items-center gap-2">
+              <Image src="/icons/app-icon.svg" alt="ChoirHub" width={24} height={24} unoptimized className="size-6" />
+              <span className="font-bold text-gray-800">ChoirHub</span>
             </div>
-            <span className="font-medium text-gray-600">ChoirHub</span>
+            <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-500">
+              <Link href="#" className="hover:text-gray-700 transition-colors">プライバシーポリシー</Link>
+              <Link href="#" className="hover:text-gray-700 transition-colors">利用規約</Link>
+              <Link href="#" className="hover:text-gray-700 transition-colors">お問い合わせ</Link>
+            </div>
           </div>
-          <p>© 2026 ChoirHub. All rights reserved.</p>
+          <div className="pt-6 border-t border-gray-100 text-center text-xs text-gray-400">
+            <p>&copy; 2026 ChoirHub. All rights reserved.</p>
+          </div>
         </div>
       </footer>
     </div>

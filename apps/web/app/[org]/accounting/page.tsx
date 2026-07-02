@@ -121,7 +121,7 @@ export default function AccountingPage() {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-auto">
+    <div className="flex flex-col">
       <header className="shrink-0 bg-white border-b border-gray-200">
         <PageBleedRow className="flex items-center justify-between py-4">
           <h1 className="text-lg font-semibold text-gray-800">会計</h1>

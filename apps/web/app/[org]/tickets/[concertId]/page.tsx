@@ -129,7 +129,7 @@ export default function TicketDetailPage() {
   const dateStr = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
 
   return (
-    <div className="flex flex-col h-full overflow-auto">
+    <div className="flex flex-col">
       <header className="bg-white border-b border-gray-200 shrink-0">
         {/* タイトル行 */}
         <PageBleedRow className="flex items-center gap-4 py-3">

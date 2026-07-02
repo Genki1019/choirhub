@@ -59,7 +59,7 @@ export default function MailingPage() {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col">
       <header className="bg-white border-b border-gray-200 shrink-0">
         <PageBleedRow className="flex items-center justify-between py-4">
           <div className="flex items-center gap-2">
@@ -75,7 +75,7 @@ export default function MailingPage() {
         </PageBleedRow>
       </header>
 
-      <PageMain className="overflow-auto space-y-4">
+      <PageMain className="space-y-4">
         {loading && (
           <div className="flex items-center justify-center py-16 gap-2 text-gray-400">
             <Loader2 size={18} className="animate-spin" />

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Menu } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import UserMenu from "@/components/UserMenu";
+import { AppFooter } from "@/components/AppFooter";
 
 const DESKTOP_MQ = "(min-width: 1024px)";
 
@@ -52,8 +53,9 @@ export default function AppShell({ org, orgName, isAdmin, roles, nameJa, avatarU
           <div className="flex-1" />
           <UserMenu nameJa={nameJa || "？"} avatarUrl={avatarUrl} org={org} memberId={memberId} />
         </div>
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {children}
+        <div className="flex-1 overflow-y-auto flex flex-col">
+          <div className="flex-1">{children}</div>
+          <AppFooter />
         </div>
       </div>
     </div>

@@ -248,7 +248,7 @@ export default function ConcertDetailPage() {
   ];
 
   return (
-    <div className="flex flex-col h-full overflow-auto">
+    <div className="flex flex-col">
       <header className="bg-white border-b border-gray-200 shrink-0">
         <PageBleedRow className="flex items-center gap-4 py-4">
           <Link href={backHref} className="text-gray-400 hover:text-gray-600 transition-colors">

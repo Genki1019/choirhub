@@ -69,10 +69,7 @@ const FEATURES = [
 
 export default async function RootPage() {
   const orgs = await getAuthenticatedOrgs();
-  const loginHref =
-    orgs.length === 0 ? "/login" :
-    orgs.length === 1 ? `/${orgs[0].orgSlug}` :
-    "/select-org";
+  const loginHref = orgs.length === 0 ? "/login" : "/select-org";
 
   return (
     <div className="min-h-screen flex flex-col bg-white text-gray-900">

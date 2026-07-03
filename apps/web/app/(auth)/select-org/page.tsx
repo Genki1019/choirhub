@@ -44,10 +44,6 @@ export default function SelectOrgPage() {
     authApi.me()
       .then((result) => {
         setUserName(result.user.nameJa);
-        if (result.orgs.length === 1) {
-          router.replace(`/${result.orgs[0].orgSlug}`);
-          return;
-        }
         setOrgs(result.orgs);
         setLoading(false);
       })

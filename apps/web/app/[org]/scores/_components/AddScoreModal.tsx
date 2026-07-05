@@ -1,16 +1,29 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Loader2, Check } from "lucide-react";
+import { X, Loader2, Check, AlertTriangle } from "lucide-react";
 import { scoresApi, type ScoreSummary, type CreateScoreInput } from "@/lib/scores-api";
+
+type ExistingScore = { title: string; composer: string | null };
 
 interface AddScoreModalProps {
   orgSlug: string;
+  existingScores: ExistingScore[];
   onClose: () => void;
   onCreated: (score: ScoreSummary) => void;
 }
 
-export function AddScoreModal({ orgSlug, onClose, onCreated }: AddScoreModalProps) {
+const INPUT_CLS = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400";
+
+function hasDuplicate(existing: ExistingScore[], title: string, composer: string): boolean {
+  const t = title.trim().toLowerCase();
+  const c = composer.trim().toLowerCase() || null;
+  return existing.some((s) => {
+    return s.title.trim().toLowerCase() === t && (s.composer?.trim().toLowerCase() ?? null) === c;
+  });
+}
+
+export function AddScoreModal({ orgSlug, existingScores, onClose, onCreated }: AddScoreModalProps) {
   const [form, setForm] = useState<CreateScoreInput>({
     title: "",
     composer: "",
@@ -19,6 +32,7 @@ export function AddScoreModal({ orgSlug, onClose, onCreated }: AddScoreModalProp
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState(false);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -26,8 +40,17 @@ export function AddScoreModal({ orgSlug, onClose, onCreated }: AddScoreModalProp
     return () => document.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
-  const handleSubmit = async () => {
+  const updateForm = (patch: Partial<CreateScoreInput>) => {
+    setForm((prev) => ({ ...prev, ...patch }));
+    setDuplicateWarning(false);
+  };
+
+  const handleSubmit = async (force = false) => {
     if (!form.title.trim()) { setError("曲名を入力してください"); return; }
+    if (!force && hasDuplicate(existingScores, form.title, form.composer ?? "")) {
+      setDuplicateWarning(true);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -51,7 +74,6 @@ export function AddScoreModal({ orgSlug, onClose, onCreated }: AddScoreModalProp
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="font-semibold text-gray-800 text-sm">曲目を追加</h2>
           <button aria-label="閉じる" onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
-            
             <X size={18} />
           </button>
         </div>
@@ -63,9 +85,9 @@ export function AddScoreModal({ orgSlug, onClose, onCreated }: AddScoreModalProp
             </label>
             <input
               value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              onChange={(e) => updateForm({ title: e.target.value })}
               placeholder="例: 男声合唱のための「風と光」"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+              className={INPUT_CLS}
               autoFocus
             />
           </div>
@@ -75,21 +97,38 @@ export function AddScoreModal({ orgSlug, onClose, onCreated }: AddScoreModalProp
               <label className="block text-xs font-medium text-gray-600 mb-1.5">作曲者</label>
               <input
                 value={form.composer ?? ""}
-                onChange={(e) => setForm({ ...form, composer: e.target.value })}
+                onChange={(e) => updateForm({ composer: e.target.value })}
                 placeholder="例: 山田 花子"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                className={INPUT_CLS}
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5">編曲者</label>
               <input
                 value={form.arranger ?? ""}
-                onChange={(e) => setForm({ ...form, arranger: e.target.value })}
+                onChange={(e) => setForm((prev) => ({ ...prev, arranger: e.target.value }))}
                 placeholder="例: 田中 二郎"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                className={INPUT_CLS}
               />
             </div>
           </div>
+
+          {duplicateWarning && (
+            <div className="flex flex-col gap-2 text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2.5">
+              <div className="flex items-center gap-1.5 font-medium">
+                <AlertTriangle size={13} />
+                同じ曲名・作曲者の楽譜が既に登録されています
+              </div>
+              <button
+                type="button"
+                onClick={() => handleSubmit(true)}
+                disabled={saving}
+                className="self-start text-amber-700 underline hover:text-amber-900"
+              >
+                それでも追加する
+              </button>
+            </div>
+          )}
 
           {error && (
             <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
@@ -100,8 +139,8 @@ export function AddScoreModal({ orgSlug, onClose, onCreated }: AddScoreModalProp
 
         <div className="flex gap-2 px-6 pb-5">
           <button
-            onClick={handleSubmit}
-            disabled={saving}
+            onClick={() => handleSubmit()}
+            disabled={saving || duplicateWarning}
             className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}

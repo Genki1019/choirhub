@@ -167,16 +167,16 @@
 
 | API名 | Method | Path | 権限 |
 |-------|--------|------|------|
-| [収支サマリー取得](#accounting-summary) | GET | `/:orgSlug/accounting/summary` | finance+ |
-| [徴収一覧取得](#collections-list) | GET | `/:orgSlug/accounting/collections` | finance+ |
-| [徴収作成](#collections-create) | POST | `/:orgSlug/accounting/collections` | finance+ |
-| [徴収詳細取得](#collections-id-get) | GET | `/:orgSlug/accounting/collections/:id` | finance+ |
-| [徴収削除](#collections-id-delete) | DELETE | `/:orgSlug/accounting/collections/:id` | admin |
-| [支払い記録更新](#collection-payment-patch) | PATCH | `/:orgSlug/accounting/collections/:id/payments/:memberId` | finance+ |
-| [支出一覧取得](#expenses-list) | GET | `/:orgSlug/accounting/expenses` | finance+ |
-| [支出登録](#expenses-create) | POST | `/:orgSlug/accounting/expenses` | finance+ |
-| [支出更新](#expenses-patch) | PATCH | `/:orgSlug/accounting/expenses/:id` | finance+ |
-| [支出削除](#expenses-delete) | DELETE | `/:orgSlug/accounting/expenses/:id` | finance+ |
+| [収支サマリー取得](#accounting-summary) | GET | `/:orgSlug/finance/summary` | finance+ |
+| [徴収一覧取得](#collections-list) | GET | `/:orgSlug/finance/collections` | finance+ |
+| [徴収作成](#collections-create) | POST | `/:orgSlug/finance/collections` | finance+ |
+| [徴収詳細取得](#collections-id-get) | GET | `/:orgSlug/finance/collections/:id` | finance+ |
+| [徴収削除](#collections-id-delete) | DELETE | `/:orgSlug/finance/collections/:id` | admin |
+| [支払い記録更新](#collection-payment-patch) | PATCH | `/:orgSlug/finance/collections/:id/payments/:memberId` | finance+ |
+| [支出一覧取得](#expenses-list) | GET | `/:orgSlug/finance/expenses` | finance+ |
+| [支出登録](#expenses-create) | POST | `/:orgSlug/finance/expenses` | finance+ |
+| [支出更新](#expenses-patch) | PATCH | `/:orgSlug/finance/expenses/:id` | finance+ |
+| [支出削除](#expenses-delete) | DELETE | `/:orgSlug/finance/expenses/:id` | finance+ |
 
 ---
 
@@ -2557,7 +2557,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 <a id="accounting-summary"></a>
 
-### GET `/api/v1/:orgSlug/accounting/summary`
+### GET `/api/v1/:orgSlug/finance/summary`
 
 指定年の収支サマリーを取得する。
 
@@ -2593,7 +2593,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 <a id="collections-list"></a>
 
-### GET `/api/v1/:orgSlug/accounting/collections`
+### GET `/api/v1/:orgSlug/finance/collections`
 
 徴収一覧を取得する。
 
@@ -2631,7 +2631,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 <a id="collections-create"></a>
 
-### POST `/api/v1/:orgSlug/accounting/collections`
+### POST `/api/v1/:orgSlug/finance/collections`
 
 徴収を手動作成する。作成と同時に全アクティブ団員の CollectionPayment（`pending`）が自動生成される。
 
@@ -2656,7 +2656,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 <a id="collections-id-get"></a>
 
-### GET `/api/v1/:orgSlug/accounting/collections/:id`
+### GET `/api/v1/:orgSlug/finance/collections/:id`
 
 徴収詳細と全団員の支払い状況を取得する。
 
@@ -2701,7 +2701,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 <a id="collections-id-delete"></a>
 
-### DELETE `/api/v1/:orgSlug/accounting/collections/:id`
+### DELETE `/api/v1/:orgSlug/finance/collections/:id`
 
 徴収と紐付く CollectionPayment を全件削除する。
 
@@ -2713,7 +2713,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 <a id="collection-payment-patch"></a>
 
-### PATCH `/api/v1/:orgSlug/accounting/collections/:id/payments/:memberId`
+### PATCH `/api/v1/:orgSlug/finance/collections/:id/payments/:memberId`
 
 団員の支払い状況を更新する。
 
@@ -2747,7 +2747,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 <a id="expenses-list"></a>
 
-### GET `/api/v1/:orgSlug/accounting/expenses`
+### GET `/api/v1/:orgSlug/finance/expenses`
 
 支出一覧を取得する。
 
@@ -2785,7 +2785,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 <a id="expenses-create"></a>
 
-### POST `/api/v1/:orgSlug/accounting/expenses`
+### POST `/api/v1/:orgSlug/finance/expenses`
 
 支出を登録する。
 
@@ -2811,7 +2811,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 <a id="expenses-patch"></a>
 
-### PATCH `/api/v1/:orgSlug/accounting/expenses/:id`
+### PATCH `/api/v1/:orgSlug/finance/expenses/:id`
 
 支出を更新する。全フィールド省略可。
 
@@ -2823,7 +2823,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 <a id="expenses-delete"></a>
 
-### DELETE `/api/v1/:orgSlug/accounting/expenses/:id`
+### DELETE `/api/v1/:orgSlug/finance/expenses/:id`
 
 支出を削除する。
 

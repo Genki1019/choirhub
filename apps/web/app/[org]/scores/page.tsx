@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Plus, Loader2, AlertCircle, BookOpen } from "lucide-react";
 import {
@@ -41,6 +41,11 @@ export default function ScoresPage() {
   const [showAddModal, setShowAddModal] = useState(false);
 
   const loading = loadedFor !== org;
+
+  const existingScores = useMemo(() => [
+    ...(data?.unassigned ?? []),
+    ...(data?.concerts.flatMap((c) => c.stages.flatMap((s) => s.programs.flatMap((p) => p.score ? [p.score] : []))) ?? []),
+  ], [data]);
 
   const isAdmin        = myRoles.includes("admin");
   const isPrivileged   = isAdmin || myRoles.includes("score");
@@ -231,6 +236,7 @@ export default function ScoresPage() {
       {showAddModal && (
         <AddScoreModal
           orgSlug={org}
+          existingScores={existingScores}
           onClose={() => setShowAddModal(false)}
           onCreated={handleScoreCreated}
         />

@@ -114,7 +114,15 @@
 | Star | 本番 | `/[org]/concerts` | visitor+ |
 | Mail | メール | `/[org]/mailing` | member+（**visitor は非表示**）|
 | Ticket | チケット | `/[org]/tickets` | ticket_manager, admin（**visitor は非表示**）|
-| Settings | 設定 | `/[org]/settings` | admin |
+| Wallet | 会計 | `/[org]/accounting` | admin, finance |
+| Settings | 設定 ▼（アコーディオン） | — | admin, finance |
+| — | └ 団体情報 | `/[org]/settings` | admin |
+| — | └ パート管理 | `/[org]/settings/parts` | admin |
+| — | └ ロール管理 | `/[org]/settings/roles` | admin |
+| — | └ 会費設定 | `/[org]/settings/fee` | admin, finance |
+| — | └ 支出カテゴリ | `/[org]/settings/expense-categories` | admin, finance |
+| — | └ メンバー区分 | `/[org]/settings/member-types` | admin |
+| — | └ イベント区分 | `/[org]/settings/event-categories` | admin |
 
 > `visitor` ロールのみの場合（`member` 以上のロールを持たない）、メール・チケットのタブはサイドバーに表示されない。
 
@@ -1077,11 +1085,9 @@
 | 団体名 | テキスト |
 | 団体ロゴ | 画像アップロード |
 
-#### サブナビゲーション
+#### ナビゲーション
 
-- 団体情報（現在）
-- パート管理 → `/[org]/settings/parts`
-- ロール管理 → `/[org]/settings/roles`
+各設定ページへの移動はサイドバーのアコーディオン（設定 ▼）から行う。ページ内タブは廃止。
 
 ---
 
@@ -1315,10 +1321,10 @@ flowchart TD
         AC -. モーダル .-> ACNEW[徴収作成モーダル]
         AC -. モーダル .-> EXNEW[支出記録モーダル]
 
-        D --> SET[設定 団体情報]
-        SET --> SETPARTS[パート管理]
-        SET --> SETROLES[ロール管理]
-        SET --> SETFEE[会費設定]
-        SET --> SETEXCAT[支出カテゴリ管理]
+        NAV[サイドバー 設定アコーディオン] --> SET[設定 団体情報]
+        NAV --> SETPARTS[パート管理]
+        NAV --> SETROLES[ロール管理]
+        NAV --> SETFEE[会費設定]
+        NAV --> SETEXCAT[支出カテゴリ管理]
     end
 ```

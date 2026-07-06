@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -13,6 +13,7 @@ import {
   Ticket,
   Settings,
   ChevronsUpDown,
+  ChevronDown,
   Wallet,
   X,
 } from "lucide-react";
@@ -31,9 +32,20 @@ const FINANCE_NAV_ITEMS = [
   { suffix: "/accounting",  label: "会計",         icon: Wallet },
 ];
 
-const ADMIN_NAV_ITEMS = [
-  { suffix: "/settings",    label: "設定",         icon: Settings },
+const SETTINGS_ADMIN_ITEMS = [
+  { label: "団体情報",       suffix: "" },
+  { label: "パート管理",     suffix: "/parts" },
+  { label: "ロール管理",     suffix: "/roles" },
+  { label: "会費設定",       suffix: "/fee" },
+  { label: "支出カテゴリ",   suffix: "/expense-categories" },
+  { label: "メンバー区分",   suffix: "/member-types" },
+  { label: "イベント区分",   suffix: "/event-categories" },
 ];
+
+const SETTINGS_FINANCE_SUFFIXES = new Set(["/fee", "/expense-categories"]);
+const SETTINGS_FINANCE_ITEMS = SETTINGS_ADMIN_ITEMS.filter((item) =>
+  SETTINGS_FINANCE_SUFFIXES.has(item.suffix)
+);
 
 const DESKTOP_MQ = "(min-width: 1024px)";
 
@@ -51,6 +63,10 @@ export default function Sidebar({
 }) {
   const pathname = usePathname();
   const isVisitor = roles.includes("visitor") && !roles.some((r) => ["admin", "tech", "score", "member", "ticket", "finance", "conductor"].includes(r));
+  const financePlus = isFinancePlus(roles);
+  const showSettings = isAdmin || financePlus;
+  const isSettingsActive = pathname.startsWith(`/${org}/settings`);
+  const [settingsOpen, setSettingsOpen] = useState(isSettingsActive);
 
   useEffect(() => {
     if (!window.matchMedia(DESKTOP_MQ).matches) {
@@ -58,10 +74,15 @@ export default function Sidebar({
     }
   }, [pathname, onClose]);
 
+  useEffect(() => {
+    if (isSettingsActive) {
+      setSettingsOpen(true);
+    }
+  }, [isSettingsActive]);
+
   const navItems = [
     ...BASE_NAV_ITEMS.filter((item) => !(isVisitor && VISITOR_HIDDEN_SUFFIXES.has(item.suffix))),
-    ...(isFinancePlus(roles) ? FINANCE_NAV_ITEMS : []),
-    ...(isAdmin ? ADMIN_NAV_ITEMS : []),
+    ...(financePlus ? FINANCE_NAV_ITEMS : []),
   ];
 
   return (
@@ -123,6 +144,57 @@ export default function Sidebar({
               </Link>
             );
           })}
+
+          {showSettings && (
+            <>
+              <button
+                aria-expanded={settingsOpen}
+                onClick={() => setSettingsOpen((v) => !v)}
+                className={[
+                  "w-full flex items-center gap-3 px-5 py-2.5 text-sm transition-colors border-l-2",
+                  isSettingsActive
+                    ? "border-brand-500 bg-brand-50 text-brand-600 font-medium"
+                    : "border-transparent text-gray-600 hover:bg-gray-50",
+                ].join(" ")}
+              >
+                <Settings
+                  size={15}
+                  className={isSettingsActive ? "text-brand-500" : "text-gray-400"}
+                />
+                <span className="flex-1 text-left">設定</span>
+                <ChevronDown
+                  size={13}
+                  className={[
+                    "text-gray-400 transition-transform duration-200",
+                    settingsOpen ? "rotate-180" : "",
+                  ].join(" ")}
+                />
+              </button>
+
+              {settingsOpen && (
+                <div className="pb-1">
+                  {(isAdmin ? SETTINGS_ADMIN_ITEMS : SETTINGS_FINANCE_ITEMS).map(({ label, suffix }) => {
+                    const href     = `/${org}/settings${suffix}`;
+                    const isActive = pathname === href;
+                    return (
+                      <Link
+                        key={suffix}
+                        href={href}
+                        className={[
+                          "flex items-center pl-12 pr-5 py-2 text-sm transition-colors border-l-2",
+                          isActive
+                            ? "border-brand-500 bg-brand-50 text-brand-600 font-medium"
+                            : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-700",
+                        ].join(" ")}
+                      >
+                        {label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
         </nav>
       </aside>
     </>

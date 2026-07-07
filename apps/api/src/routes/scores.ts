@@ -60,6 +60,15 @@ function canManageScoreMidi(roles: string[]): boolean {
   return roles.includes("admin") || roles.includes("tech") || roles.includes("conductor");
 }
 
+function makeFileFormatter(orgSlug: string, partMap: Map<string, string>) {
+  return (f: { id: string; scoreId: string; fileType: string; fileName: string; partId: string | null; version: number }) => ({
+    id: f.id, fileType: f.fileType, fileName: f.fileName,
+    partId: f.partId, partName: f.partId ? (partMap.get(f.partId) ?? null) : null,
+    version: f.version,
+    downloadUrl: `/api/v1/${orgSlug}/scores/${f.scoreId}/files/${f.id}/download`,
+  });
+}
+
 export const scoresRouter = new Hono<TenantEnv>()
 
   // ── GET /scores ── フラット一覧（曲目選択ピッカー用）
@@ -145,14 +154,7 @@ export const scoresRouter = new Hono<TenantEnv>()
 
     const parts = await prisma.part.findMany({ where: { orgId: org.id }, orderBy: { sortOrder: "asc" } });
     const partMap = new Map(parts.map((p) => [p.id, p.name]));
-
-    type RawFile = { id: string; scoreId: string; fileType: string; fileName: string; storageKey: string; partId: string | null; version: number };
-    const formatFile = (f: RawFile) => ({
-      id: f.id, fileType: f.fileType, fileName: f.fileName,
-      partId: f.partId, partName: f.partId ? (partMap.get(f.partId) ?? null) : null,
-      version: f.version,
-      downloadUrl: `/api/v1/${org.slug}/scores/${f.scoreId}/files/${f.id}/download`,
-    });
+    const formatFile = makeFileFormatter(org.slug, partMap);
 
     type RawScore = {
       id: string; title: string; composer: string | null; arranger: string | null;
@@ -228,6 +230,65 @@ export const scoresRouter = new Hono<TenantEnv>()
       }, 201);
     }
   )
+
+  // ── GET /scores/:scoreId ── 楽譜詳細（単一楽譜）
+  .get("/scores/:scoreId", async (c) => {
+    const actingMember = c.get("member");
+    const org = c.get("org");
+    const { scoreId } = c.req.param();
+
+    const score = await prisma.score.findUnique({
+      where: { id: scoreId },
+      include: { files: { orderBy: [{ fileType: "asc" }, { version: "asc" }] } },
+    });
+    if (!score || score.orgId !== org.id) {
+      return c.json({ error: { code: "NOT_FOUND", message: "楽譜が見つかりません" } }, 404);
+    }
+
+    const privileged = isScorePrivileged(actingMember.roles);
+    const visitorAccess = isVisitor(actingMember);
+
+    let canAccess = false;
+    if (visitorAccess || privileged) {
+      canAccess = true;
+    } else if (score.accessLevel !== "secret") {
+      const purchase = await prisma.scorePurchase.findFirst({ where: { scoreId, memberId: actingMember.id } });
+      canAccess = !!purchase;
+    }
+
+    const [parts, purchaseCount] = await Promise.all([
+      canAccess
+        ? prisma.part.findMany({ where: { orgId: org.id }, orderBy: { sortOrder: "asc" } })
+        : Promise.resolve([]),
+      privileged
+        ? prisma.scorePurchase.count({ where: { scoreId } })
+        : Promise.resolve(undefined),
+    ]);
+    const partMap = new Map(parts.map((p) => [p.id, p.name]));
+    const formatFile = makeFileFormatter(org.slug, partMap);
+
+    return c.json({
+      data: {
+        id: score.id, title: score.title,
+        composer: score.composer, arranger: score.arranger,
+        isCommissioned: score.isCommissioned,
+        accessLevel: score.accessLevel,
+        purchaseDate: score.purchaseDate ? toDateString(score.purchaseDate) : null,
+        distributionStart: score.distributionStart ? toDateString(score.distributionStart) : null,
+        purchasePrice: canManagePurchases(actingMember.roles) ? score.purchasePrice : undefined,
+        distributionPrice: score.distributionPrice,
+        notes: score.notes,
+        canAccessFiles: canAccess,
+        canDownload: canAccess && !visitorAccess,
+        purchaseCount: purchaseCount ?? undefined,
+        files: canAccess
+          ? score.files
+              .filter((f) => !visitorAccess || f.fileType === "full_score")
+              .map(formatFile)
+          : [],
+      },
+    });
+  })
 
   // ── GET /scores/:scoreId/purchases ── 購入者一覧（楽譜がかり/admin）
   .get("/scores/:scoreId/purchases", async (c) => {

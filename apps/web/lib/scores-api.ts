@@ -70,6 +70,14 @@ export interface ScorePurchaseRecord {
   createdAt: string;
 }
 
+export interface ScoreDetail extends ScoreSummary {
+  isCommissioned: boolean;
+  purchaseDate: string | null;
+  distributionStart: string | null;
+  purchasePrice: number | null | undefined;
+  notes: string | null;
+}
+
 export interface ScoreListItem {
   id: string;
   title: string;
@@ -80,6 +88,9 @@ export interface ScoreListItem {
 export const scoresApi = {
   grouped: (orgSlug: string) =>
     apiClient.get<GroupedScores>(`/${orgSlug}/scores/grouped`),
+
+  getDetail: (orgSlug: string, scoreId: string) =>
+    apiClient.get<ScoreDetail>(`/${orgSlug}/scores/${scoreId}`),
 
   list: (orgSlug: string) =>
     apiClient.get<ScoreListItem[]>(`/${orgSlug}/scores`),

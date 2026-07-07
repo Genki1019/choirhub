@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Plus, Loader2, AlertCircle, BookOpen } from "lucide-react";
 import { scoresApi, type ConcertWithScores, type ScoreSummary } from "@/lib/scores-api";
 import { ApiClientError } from "@/lib/api-client";
-import { membersApi } from "@/lib/members-api";
+import { useMember } from "@/contexts/MemberContext";
 import { ScoreFormModal } from "./_components/ScoreFormModal";
 import { ConcertSection } from "./_components/ConcertSection";
 import { UnassignedSection } from "./_components/UnassignedSection";
@@ -16,8 +16,8 @@ export default function ScoresPage() {
   const { org } = useParams<{ org: string }>();
   const router = useRouter();
 
+  const { roles } = useMember();
   const [data, setData] = useState<{ concerts: ConcertWithScores[]; unassigned: ScoreSummary[] } | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -32,11 +32,10 @@ export default function ScoresPage() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([scoresApi.grouped(org), membersApi.me(org)])
-      .then(([scoreData, me]) => {
+    scoresApi.grouped(org)
+      .then((scoreData) => {
         if (cancelled) return;
         setData(scoreData);
-        setIsAdmin(me.roles.includes("admin"));
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -71,7 +70,7 @@ export default function ScoresPage() {
               <span className="text-sm text-gray-400">{totalScores}曲</span>
             )}
           </div>
-          {isAdmin && (
+          {roles.includes("admin") && (
             <button
               onClick={() => setShowAddModal(true)}
               className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-brand-700 transition-colors"

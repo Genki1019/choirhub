@@ -7,6 +7,7 @@ import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
 import UserMenu from "@/components/UserMenu";
 import { AppFooter } from "@/components/AppFooter";
+import { MemberProvider } from "@/contexts/MemberContext";
 
 const DESKTOP_MQ = "(min-width: 1024px)";
 
@@ -60,7 +61,11 @@ export default function AppShell({ org, orgName, isAdmin, roles, nameJa, avatarU
           <UserMenu nameJa={nameJa || "？"} avatarUrl={avatarUrl} org={org} memberId={memberId} />
         </div>
         <div className="flex-1 overflow-y-auto flex flex-col">
-          <div className="flex-1">{children}</div>
+          <div className="flex-1">
+            <MemberProvider memberId={memberId} roles={roles}>
+              {children}
+            </MemberProvider>
+          </div>
           <AppFooter />
         </div>
       </div>

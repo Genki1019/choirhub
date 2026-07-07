@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { settingsApi } from "@/lib/settings-api";
-import { membersApi } from "@/lib/members-api";
+import { useMember } from "@/contexts/MemberContext";
 import { ApiClientError } from "@/lib/api-client";
 import { OrgSettingsForm } from "./_components/OrgSettingsForm";
 import { DangerZone } from "./_components/DangerZone";
@@ -13,21 +13,17 @@ export default function SettingsPage() {
   const { org } = useParams<{ org: string }>();
   const router  = useRouter();
 
+  const { roles } = useMember();
   const [initialName, setInitialName] = useState("");
   const [initialSlug, setInitialSlug] = useState("");
-  const [isAdmin, setIsAdmin]         = useState(false);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      settingsApi.get(org),
-      membersApi.me(org),
-    ])
-      .then(([settings, me]) => {
+    settingsApi.get(org)
+      .then((settings) => {
         setInitialName(settings.name);
         setInitialSlug(settings.slug);
-        setIsAdmin(me.roles.includes("admin"));
       })
       .catch((err: unknown) => {
         if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
@@ -55,7 +51,7 @@ export default function SettingsPage() {
   return (
     <div className="max-w-lg space-y-5">
       <OrgSettingsForm orgSlug={org} initialName={initialName} initialSlug={initialSlug} />
-      {isAdmin && <DangerZone />}
+      {roles.includes("admin") && <DangerZone />}
     </div>
   );
 }

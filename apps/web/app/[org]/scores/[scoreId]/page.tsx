@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { scoresApi, type ScoreDetail, type ScoreFile, type ScoreMetaResponse } from "@/lib/scores-api";
 import { membersApi, type PartSummary } from "@/lib/members-api";
+import { useMember } from "@/contexts/MemberContext";
 import { settingsApi, type MemberType } from "@/lib/settings-api";
 import { ApiClientError } from "@/lib/api-client";
 import { MEMBER_LEVEL_ROLES } from "@/lib/roles";
@@ -24,8 +25,8 @@ export default function ScoreDetailPage() {
   const { org, scoreId } = useParams<{ org: string; scoreId: string }>();
   const router = useRouter();
 
+  const { roles: myRoles } = useMember();
   const [score, setScore] = useState<ScoreDetail | null>(null);
-  const [myRoles, setMyRoles] = useState<string[]>([]);
   const [parts, setParts] = useState<PartSummary[]>([]);
   const [memberTypes, setMemberTypes] = useState<MemberType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,13 +52,11 @@ export default function ScoreDetailPage() {
     setLoading(true);
     Promise.all([
       scoresApi.getDetail(org, scoreId),
-      membersApi.me(org),
       membersApi.parts(org),
       settingsApi.listMemberTypes(org),
     ])
-      .then(([scoreData, me, partData, types]) => {
+      .then(([scoreData, partData, types]) => {
         setScore(scoreData);
-        setMyRoles(me.roles);
         setParts(partData);
         setMemberTypes(types);
         setError(null);

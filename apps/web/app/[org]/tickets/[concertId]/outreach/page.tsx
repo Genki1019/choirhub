@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Plus, Loader2, AlertCircle, MapPin } from "lucide-react";
 import { ticketsApi, type OutreachActivityRow } from "@/lib/tickets-api";
 import { membersApi } from "@/lib/members-api";
+import { useMember } from "@/contexts/MemberContext";
 import { concertsApi } from "@/lib/concerts-api";
 import type { MemberProfile } from "@/lib/api-types";
 import { ApiClientError } from "@/lib/api-client";
@@ -17,10 +18,9 @@ export default function OutreachPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
   const router = useRouter();
 
+  const { roles, memberId } = useMember();
   const [activities,    setActivities]    = useState<OutreachActivityRow[]>([]);
   const [members,       setMembers]       = useState<MemberProfile[]>([]);
-  const [myMemberId,    setMyMemberId]    = useState("");
-  const [isAdmin,       setIsAdmin]       = useState(false);
   const [concertTitle,  setConcertTitle]  = useState("");
   const [loading,       setLoading]       = useState(true);
   const [error,         setError]         = useState<string | null>(null);
@@ -30,14 +30,11 @@ export default function OutreachPage() {
     Promise.all([
       ticketsApi.listOutreachActivities(org, concertId),
       membersApi.list(org, { status: "active" }),
-      membersApi.me(org),
       concertsApi.list(org),
     ])
-      .then(([acts, mems, me, concerts]) => {
+      .then(([acts, mems, concerts]) => {
         setActivities(acts);
         setMembers(mems);
-        setMyMemberId(me.id);
-        setIsAdmin(me.roles.includes("admin") || me.roles.includes("ticket"));
         const concert = concerts.find((c) => c.id === concertId);
         setConcertTitle(concert?.title ?? "");
       })
@@ -103,8 +100,8 @@ export default function OutreachPage() {
             <ActivityCard
               key={a.id}
               activity={a}
-              myMemberId={myMemberId}
-              isAdmin={isAdmin}
+              myMemberId={memberId}
+              isAdmin={roles.includes("admin") || roles.includes("ticket")}
               orgSlug={org}
               concertId={concertId}
               onDeleted={(id) => setActivities((prev) => prev.filter((x) => x.id !== id))}

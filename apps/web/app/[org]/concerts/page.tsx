@@ -6,10 +6,10 @@ import Link from "next/link";
 import { CalendarDays, Plus, Loader2, AlertCircle } from "lucide-react";
 import { concertsApi, type ConcertSummary, type ConcertStatus } from "@/lib/concerts-api";
 import { ApiClientError } from "@/lib/api-client";
-import { membersApi } from "@/lib/members-api";
 import { ConcertCard } from "./_components/ConcertCard";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
+import { useMember } from "@/contexts/MemberContext";
 
 type Filter = "all" | ConcertStatus;
 
@@ -25,20 +25,16 @@ export default function ConcertsPage() {
   const { org } = useParams<{ org: string }>();
   const router = useRouter();
 
+  const { roles } = useMember();
   const [concerts, setConcerts] = useState<ConcertSummary[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      concertsApi.list(org),
-      membersApi.me(org),
-    ])
-      .then(([data, me]) => {
+    concertsApi.list(org)
+      .then((data) => {
         setConcerts(data);
-        setIsAdmin(me.roles.includes("admin"));
       })
       .catch((err: unknown) => {
         if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
@@ -63,7 +59,7 @@ export default function ConcertsPage() {
             <h1 className="text-lg font-semibold text-gray-800">本番</h1>
             {!loading && <span className="text-sm text-gray-400">{sorted.length}件</span>}
           </div>
-          {isAdmin && (
+          {roles.includes("admin") && (
             <Link
               href={`/${org}/concerts/new`}
               className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-brand-700 transition-colors"

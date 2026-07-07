@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Calendar, MapPin, AlertCircle, FileText, Loader2 } from "lucide-react";
 import { eventsApi, type EventCategory } from "@/lib/events-api";
 import { membersApi, type PartSummary } from "@/lib/members-api";
+import { useMember } from "@/contexts/MemberContext";
 import { settingsApi } from "@/lib/settings-api";
 import { ApiClientError } from "@/lib/api-client";
 import { NotFoundPage } from "@/components/NotFoundPage";
@@ -54,9 +55,11 @@ export default function NewSchedulePage() {
   const { org } = useParams<{ org: string }>();
   const router  = useRouter();
 
-  const [canCreate,    setCanCreate]    = useState<boolean | null>(null);
+  const { roles } = useMember();
+  const canCreate = roles.includes("admin") || roles.includes("tech");
   const [parts,        setParts]        = useState<PartSummary[]>([]);
   const [categories,   setCategories]   = useState<EventCategory[]>([]);
+  const [loading,      setLoading]      = useState(true);
   const [initError,    setInitError]    = useState<string | null>(null);
 
   const [title,         setTitle]         = useState("");
@@ -77,11 +80,11 @@ export default function NewSchedulePage() {
   const [saving,        setSaving]        = useState(false);
 
   useEffect(() => {
+    if (!canCreate) { setLoading(false); return; }
     let cancelled = false;
-    Promise.all([membersApi.me(org), membersApi.parts(org), settingsApi.listEventCategories(org)])
-      .then(([me, partList, catList]) => {
+    Promise.all([membersApi.parts(org), settingsApi.listEventCategories(org)])
+      .then(([partList, catList]) => {
         if (cancelled) return;
-        setCanCreate(me.roles.includes("admin") || me.roles.includes("tech"));
         setParts(partList);
         setCategories(catList);
         if (catList.length > 0) setCategoryId(catList[0].id);
@@ -89,12 +92,13 @@ export default function NewSchedulePage() {
       .catch((err: unknown) => {
         if (cancelled) return;
         if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        setInitError(err instanceof Error ? err.message : "権限の確認に失敗しました");
-      });
+        setInitError(err instanceof Error ? err.message : "データの取得に失敗しました");
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [org, router]);
+  }, [org, router, canCreate]);
 
-  if (canCreate === null && !initError) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-full gap-2 text-gray-400">
         <Loader2 size={18} className="animate-spin" />

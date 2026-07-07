@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { LayoutGrid, List, UserPlus, Loader2, AlertCircle, Users } from "lucide-react";
 import { membersApi, type MemberProfile, type PartSummary } from "@/lib/members-api";
+import { useMember } from "@/contexts/MemberContext";
 import { settingsApi, type MemberType } from "@/lib/settings-api";
 import { ApiClientError } from "@/lib/api-client";
 import { MEMBER_STATUS_OPTIONS } from "@/lib/api-types";
@@ -56,10 +57,10 @@ function MembersContent() {
     (searchParams.get("status") as StatusFilter) ?? "active"
   );
   const [memberTypeFilter, setMemberTypeFilter] = useState<string>("all");
+  const { roles: myRoles } = useMember();
   const [members, setMembers] = useState<MemberProfile[]>([]);
   const [parts, setParts] = useState<PartSummary[]>([]);
   const [memberTypes, setMemberTypes] = useState<MemberType[]>([]);
-  const [myRoles, setMyRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showInvite, setShowInvite] = useState(false);
@@ -77,11 +78,10 @@ function MembersContent() {
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([membersApi.list(org), membersApi.me(org), membersApi.parts(org), settingsApi.listMemberTypes(org)])
-      .then(([memberData, meData, partsData, memberTypeData]) => {
+    Promise.all([membersApi.list(org), membersApi.parts(org), settingsApi.listMemberTypes(org)])
+      .then(([memberData, partsData, memberTypeData]) => {
         if (!cancelled) {
           setMembers(memberData);
-          setMyRoles(meData.roles);
           setParts(partsData);
           setMemberTypes(memberTypeData);
         }

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Calendar, MapPin, AlertCircle, FileText, Loader2 } from "lucide-react";
 import { eventsApi, type EventCategory } from "@/lib/events-api";
 import { membersApi, type PartSummary } from "@/lib/members-api";
+import { useMember } from "@/contexts/MemberContext";
 import { settingsApi } from "@/lib/settings-api";
 import { ApiClientError } from "@/lib/api-client";
 import { NotFoundPage } from "@/components/NotFoundPage";
@@ -41,9 +42,11 @@ export default function EditSchedulePage() {
   const { org, id } = useParams<{ org: string; id: string }>();
   const router = useRouter();
 
-  const [canEdit,     setCanEdit]     = useState<boolean | null>(null);
+  const { roles } = useMember();
+  const canEdit = roles.includes("admin") || roles.includes("tech");
   const [parts,       setParts]       = useState<PartSummary[]>([]);
   const [categories,  setCategories]  = useState<EventCategory[]>([]);
+  const [loading,     setLoading]     = useState(true);
   const [initError,   setInitError]   = useState<string | null>(null);
 
   const [title,         setTitle]         = useState("");
@@ -64,13 +67,9 @@ export default function EditSchedulePage() {
   const [saving,        setSaving]        = useState(false);
 
   useEffect(() => {
-    Promise.all([eventsApi.get(org, id), membersApi.me(org), membersApi.parts(org), settingsApi.listEventCategories(org)])
-      .then(([ev, me, partList, catList]) => {
-        if (!me.roles.includes("admin") && !me.roles.includes("tech")) {
-          setCanEdit(false);
-          return;
-        }
-        setCanEdit(true);
+    if (!canEdit) { setLoading(false); return; }
+    Promise.all([eventsApi.get(org, id), membersApi.parts(org), settingsApi.listEventCategories(org)])
+      .then(([ev, partList, catList]) => {
         setParts(partList);
         setCategories(catList);
 
@@ -102,10 +101,11 @@ export default function EditSchedulePage() {
       .catch((err: unknown) => {
         if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
         setInitError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      });
-  }, [org, id, router]);
+      })
+      .finally(() => setLoading(false));
+  }, [org, id, router, canEdit]);
 
-  if (canEdit === null && !initError) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-full gap-2 text-gray-400">
         <Loader2 size={18} className="animate-spin" />

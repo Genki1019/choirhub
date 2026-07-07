@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, MapPin, Clock, Lock, Pencil, Trash2, Loader2, AlertCircle } from "lucide-react";
 import { eventsApi, type EventDetail } from "@/lib/events-api";
 import { membersApi, type MemberProfile, type PartSummary } from "@/lib/members-api";
+import { useMember } from "@/contexts/MemberContext";
 import { comparePartOrder } from "@/lib/voice-order";
 import { ApiClientError } from "@/lib/api-client";
 import { AttendanceTable, type LocalAttendance } from "./_components/AttendanceTable";
@@ -28,8 +29,7 @@ export default function ScheduleDetailPage() {
   const [event,   setEvent]   = useState<EventDetail | null>(null);
   const [members, setMembers] = useState<MemberProfile[]>([]);
   const [parts,   setParts]   = useState<PartSummary[]>([]);
-  const [selfId,  setSelfId]  = useState<string | null>(null);
-  const [canEdit, setCanEdit] = useState(false);
+  const { roles, memberId: selfId } = useMember();
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
 
@@ -44,14 +44,11 @@ export default function ScheduleDetailPage() {
   useEffect(() => {
     Promise.all([
       eventsApi.get(org, id),
-      membersApi.me(org),
       membersApi.list(org, { status: "active" }),
       membersApi.parts(org),
     ])
-      .then(([ev, me, memberList, partList]) => {
+      .then(([ev, memberList, partList]) => {
         setEvent(ev);
-        setSelfId(me.id);
-        setCanEdit(me.roles.includes("admin"));
         setMembers(memberList);
         setParts(partList);
 
@@ -100,7 +97,7 @@ export default function ScheduleDetailPage() {
   }, [isLocked, selfId, org, id]);
 
   const saveMemo = useCallback(async (memberId: string, data: Partial<LocalAttendance>) => {
-    if (!selfId || memberId !== selfId) return;
+    if (memberId !== selfId) return;
     setSaving(true);
     const prev = attendances[memberId];
     const next = { ...prev, ...data };
@@ -166,7 +163,7 @@ export default function ScheduleDetailPage() {
     );
   }
 
-  const selfAnswered = attendances[selfId ?? ""]?.status !== "undecided";
+  const selfAnswered = attendances[selfId]?.status !== "undecided";
 
   return (
     <div className="flex flex-col">
@@ -215,7 +212,7 @@ export default function ScheduleDetailPage() {
             </div>
           </div>
 
-          {canEdit && (
+          {roles.includes("admin") && (
             <div className="flex items-center gap-2 shrink-0">
               <Link
                 href={`/${org}/schedule/${id}/edit`}

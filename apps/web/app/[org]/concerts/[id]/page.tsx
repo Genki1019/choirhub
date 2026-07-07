@@ -17,7 +17,7 @@ import {
   type StageDetail,
 } from "@/lib/concerts-api";
 import { ApiClientError } from "@/lib/api-client";
-import { membersApi } from "@/lib/members-api";
+import { useMember } from "@/contexts/MemberContext";
 import { StagesTab } from "./_components/StagesTab";
 import { AddStageModal } from "./_components/AddStageModal";
 import { AddProgramModal } from "./_components/AddProgramModal";
@@ -51,10 +51,9 @@ export default function ConcertDetailPage() {
   const backHref = fromParam === "schedule" ? `/${org}/schedule` : `/${org}/concerts`;
   const [concert, setConcert] = useState<ConcertDetail | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
+  const { roles, memberId } = useMember();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [myMemberId, setMyMemberId] = useState("");
   const [addProgramStageId, setAddProgramStageId] = useState<string | null>(null);
   const [showAddStageModal, setShowAddStageModal] = useState(false);
   const [moveCopySource, setMoveCopySource] = useState<{ stageId: string; program: ProgramDetail } | null>(null);
@@ -64,14 +63,9 @@ export default function ConcertDetailPage() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      concertsApi.get(org, id),
-      membersApi.me(org),
-    ])
-      .then(([data, me]) => {
+    concertsApi.get(org, id)
+      .then((data) => {
         setConcert(data);
-        setIsAdmin(me.roles.includes("admin"));
-        setMyMemberId(me.id);
       })
       .catch((err: unknown) => {
         if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
@@ -279,7 +273,7 @@ export default function ConcertDetailPage() {
               )}
             </div>
           </div>
-          {isAdmin && (
+          {roles.includes("admin") && (
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => setShowEditModal(true)}
@@ -332,7 +326,7 @@ export default function ConcertDetailPage() {
         {activeTab === "stages"  && (
           <StagesTab
             concert={concert}
-            isAdmin={isAdmin}
+            isAdmin={roles.includes("admin")}
             onAddClick={setAddProgramStageId}
             onAddStage={() => setShowAddStageModal(true)}
             onMoveStage={handleMoveStage}
@@ -346,8 +340,8 @@ export default function ConcertDetailPage() {
           <SurveyTab
             concert={concert}
             org={org}
-            isAdmin={isAdmin}
-            myMemberId={myMemberId}
+            isAdmin={roles.includes("admin")}
+            myMemberId={memberId}
             onSurveysChanged={handleSurveysChanged}
             onConcertStatusChanged={handleConcertStatusChanged}
           />

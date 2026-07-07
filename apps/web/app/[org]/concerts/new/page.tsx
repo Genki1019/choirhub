@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Calendar, MapPin, FileText, AlertCircle, Loader2 } from "lucide-react";
 import { concertsApi } from "@/lib/concerts-api";
 import { membersApi, type PartSummary } from "@/lib/members-api";
+import { useMember } from "@/contexts/MemberContext";
 import { ApiClientError } from "@/lib/api-client";
 import { NotFoundPage } from "@/components/NotFoundPage";
 import { LocationSearch } from "@/components/LocationSearch";
@@ -36,8 +37,10 @@ export default function NewConcertPage() {
   const { org } = useParams<{ org: string }>();
   const router  = useRouter();
 
-  const [canCreate,  setCanCreate]  = useState<boolean | null>(null);
+  const { roles } = useMember();
+  const canCreate = roles.includes("admin") || roles.includes("tech");
   const [parts,      setParts]      = useState<PartSummary[]>([]);
+  const [loading,    setLoading]    = useState(true);
   const [initError,  setInitError]  = useState<string | null>(null);
 
   const [title,         setTitle]         = useState("");
@@ -57,18 +60,17 @@ export default function NewConcertPage() {
   const [saving,        setSaving]        = useState(false);
 
   useEffect(() => {
-    Promise.all([membersApi.me(org), membersApi.parts(org)])
-      .then(([me, partList]) => {
-        setCanCreate(me.roles.includes("admin") || me.roles.includes("tech"));
-        setParts(partList);
-      })
+    if (!canCreate) { setLoading(false); return; }
+    membersApi.parts(org)
+      .then((partList) => { setParts(partList); })
       .catch((err: unknown) => {
         if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        setInitError(err instanceof Error ? err.message : "権限の確認に失敗しました");
-      });
-  }, [org, router]);
+        setInitError(err instanceof Error ? err.message : "データの取得に失敗しました");
+      })
+      .finally(() => setLoading(false));
+  }, [org, router, canCreate]);
 
-  if (canCreate === null && !initError) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-full gap-2 text-gray-400">
         <Loader2 size={18} className="animate-spin" />

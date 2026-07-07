@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Pencil, Loader2, AlertCircle } from "lucide-react";
 import { membersApi, type MemberProfile, type PartSummary } from "@/lib/members-api";
+import { useMember } from "@/contexts/MemberContext";
 import { settingsApi, type MemberType } from "@/lib/settings-api";
 import { ApiClientError } from "@/lib/api-client";
 import { MEMBER_LEVEL_ROLES } from "@/lib/roles";
@@ -18,9 +19,8 @@ export default function MemberDetailPage() {
   const { org, id } = useParams<{ org: string; id: string }>();
   const router = useRouter();
 
+  const { roles: myRoles, memberId: myMemberId } = useMember();
   const [member,      setMember]      = useState<MemberProfile | null>(null);
-  const [myMemberId,  setMyMemberId]  = useState<string | null>(null);
-  const [myRoles,     setMyRoles]     = useState<string[]>([]);
   const [parts,       setParts]       = useState<PartSummary[]>([]);
   const [memberTypes, setMemberTypes] = useState<MemberType[]>([]);
   const [loading,     setLoading]     = useState(true);
@@ -29,12 +29,10 @@ export default function MemberDetailPage() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([membersApi.get(org, id), membersApi.me(org), membersApi.parts(org), settingsApi.listMemberTypes(org)])
-      .then(([memberData, meData, partsData, typesData]) => {
+    Promise.all([membersApi.get(org, id), membersApi.parts(org), settingsApi.listMemberTypes(org)])
+      .then(([memberData, partsData, typesData]) => {
         if (cancelled) return;
         setMember(memberData);
-        setMyMemberId(meData.id);
-        setMyRoles(meData.roles);
         setParts(partsData);
         setMemberTypes(typesData);
       })

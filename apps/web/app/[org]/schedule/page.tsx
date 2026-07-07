@@ -5,30 +5,29 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Plus, Loader2, AlertCircle } from "lucide-react";
 import { eventsApi, type EventSummary } from "@/lib/events-api";
-import { membersApi } from "@/lib/members-api";
 import { ApiClientError } from "@/lib/api-client";
 import { Calendar } from "./_components/Calendar";
 import { EventList } from "./_components/EventList";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
+import { useMember } from "@/contexts/MemberContext";
 
 export default function SchedulePage() {
   const { org } = useParams<{ org: string }>();
   const router  = useRouter();
   const today   = new Date();
 
+  const { roles } = useMember();
   const [events,  setEvents]  = useState<EventSummary[]>([]);
-  const [myRoles, setMyRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
   const [year,    setYear]    = useState(today.getFullYear());
   const [month,   setMonth]   = useState(today.getMonth() + 1);
 
   useEffect(() => {
-    Promise.all([eventsApi.list(org), membersApi.me(org)])
-      .then(([evList, me]) => {
+    eventsApi.list(org)
+      .then((evList) => {
         setEvents(evList);
-        setMyRoles(me.roles);
       })
       .catch((err: unknown) => {
         if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
@@ -37,7 +36,7 @@ export default function SchedulePage() {
       .finally(() => setLoading(false));
   }, [org, router]);
 
-  const canCreateEvent = myRoles.some((r) => ["admin", "tech", "conductor"].includes(r));
+  const canCreateEvent = roles.some((r) => ["admin", "tech", "conductor"].includes(r));
 
   const prevMonth = () => {
     if (month === 1) { setYear(y => y - 1); setMonth(12); }

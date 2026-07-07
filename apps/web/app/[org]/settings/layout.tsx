@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useMember } from "@/contexts/MemberContext";
+import { canAccessSettings } from "@/lib/roles";
 import { PageMain } from "@/components/PageMain";
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
@@ -10,7 +11,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   const router = useRouter();
   const { roles } = useMember();
 
-  const isAllowed = roles.includes("admin") || roles.includes("finance");
+  const isAllowed = canAccessSettings(roles);
 
   useEffect(() => {
     if (!isAllowed) router.replace(`/${org}`);

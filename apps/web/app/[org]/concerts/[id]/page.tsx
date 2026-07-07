@@ -52,6 +52,7 @@ export default function ConcertDetailPage() {
   const [concert, setConcert] = useState<ConcertDetail | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const { roles, memberId } = useMember();
+  const isAdmin = roles.includes("admin");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addProgramStageId, setAddProgramStageId] = useState<string | null>(null);
@@ -273,7 +274,7 @@ export default function ConcertDetailPage() {
               )}
             </div>
           </div>
-          {roles.includes("admin") && (
+          {isAdmin && (
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => setShowEditModal(true)}
@@ -326,7 +327,7 @@ export default function ConcertDetailPage() {
         {activeTab === "stages"  && (
           <StagesTab
             concert={concert}
-            isAdmin={roles.includes("admin")}
+            isAdmin={isAdmin}
             onAddClick={setAddProgramStageId}
             onAddStage={() => setShowAddStageModal(true)}
             onMoveStage={handleMoveStage}
@@ -340,7 +341,7 @@ export default function ConcertDetailPage() {
           <SurveyTab
             concert={concert}
             org={org}
-            isAdmin={roles.includes("admin")}
+            isAdmin={isAdmin}
             myMemberId={memberId}
             onSurveysChanged={handleSurveysChanged}
             onConcertStatusChanged={handleConcertStatusChanged}

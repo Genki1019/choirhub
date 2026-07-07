@@ -7,6 +7,7 @@ import { ArrowLeft, Calendar, MapPin, FileText, AlertCircle, Loader2 } from "luc
 import { concertsApi } from "@/lib/concerts-api";
 import { membersApi, type PartSummary } from "@/lib/members-api";
 import { useMember } from "@/contexts/MemberContext";
+import { canManageSchedule } from "@/lib/roles";
 import { ApiClientError } from "@/lib/api-client";
 import { NotFoundPage } from "@/components/NotFoundPage";
 import { LocationSearch } from "@/components/LocationSearch";
@@ -38,9 +39,9 @@ export default function NewConcertPage() {
   const router  = useRouter();
 
   const { roles } = useMember();
-  const canCreate = roles.includes("admin") || roles.includes("tech");
+  const canCreate = canManageSchedule(roles);
   const [parts,      setParts]      = useState<PartSummary[]>([]);
-  const [loading,    setLoading]    = useState(true);
+  const [loading,    setLoading]    = useState(canCreate);
   const [initError,  setInitError]  = useState<string | null>(null);
 
   const [title,         setTitle]         = useState("");
@@ -60,7 +61,7 @@ export default function NewConcertPage() {
   const [saving,        setSaving]        = useState(false);
 
   useEffect(() => {
-    if (!canCreate) { setLoading(false); return; }
+    if (!canCreate) return;
     membersApi.parts(org)
       .then((partList) => { setParts(partList); })
       .catch((err: unknown) => {
@@ -68,7 +69,7 @@ export default function NewConcertPage() {
         setInitError(err instanceof Error ? err.message : "データの取得に失敗しました");
       })
       .finally(() => setLoading(false));
-  }, [org, router, canCreate]);
+  }, [org, router]);
 
   if (loading) {
     return (

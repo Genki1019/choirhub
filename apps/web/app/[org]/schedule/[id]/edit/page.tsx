@@ -7,6 +7,7 @@ import { ArrowLeft, Calendar, MapPin, AlertCircle, FileText, Loader2 } from "luc
 import { eventsApi, type EventCategory } from "@/lib/events-api";
 import { membersApi, type PartSummary } from "@/lib/members-api";
 import { useMember } from "@/contexts/MemberContext";
+import { canManageSchedule } from "@/lib/roles";
 import { settingsApi } from "@/lib/settings-api";
 import { ApiClientError } from "@/lib/api-client";
 import { NotFoundPage } from "@/components/NotFoundPage";
@@ -43,10 +44,10 @@ export default function EditSchedulePage() {
   const router = useRouter();
 
   const { roles } = useMember();
-  const canEdit = roles.includes("admin") || roles.includes("tech");
+  const canEdit = canManageSchedule(roles);
   const [parts,       setParts]       = useState<PartSummary[]>([]);
   const [categories,  setCategories]  = useState<EventCategory[]>([]);
-  const [loading,     setLoading]     = useState(true);
+  const [loading,     setLoading]     = useState(canEdit);
   const [initError,   setInitError]   = useState<string | null>(null);
 
   const [title,         setTitle]         = useState("");
@@ -67,7 +68,7 @@ export default function EditSchedulePage() {
   const [saving,        setSaving]        = useState(false);
 
   useEffect(() => {
-    if (!canEdit) { setLoading(false); return; }
+    if (!canEdit) return;
     Promise.all([eventsApi.get(org, id), membersApi.parts(org), settingsApi.listEventCategories(org)])
       .then(([ev, partList, catList]) => {
         setParts(partList);
@@ -103,7 +104,7 @@ export default function EditSchedulePage() {
         setInitError(err instanceof Error ? err.message : "データの取得に失敗しました");
       })
       .finally(() => setLoading(false));
-  }, [org, id, router, canEdit]);
+  }, [org, id, router]);
 
   if (loading) {
     return (

@@ -7,6 +7,7 @@ import { ArrowLeft, Calendar, MapPin, AlertCircle, FileText, Loader2 } from "luc
 import { eventsApi, type EventCategory } from "@/lib/events-api";
 import { membersApi, type PartSummary } from "@/lib/members-api";
 import { useMember } from "@/contexts/MemberContext";
+import { canManageSchedule } from "@/lib/roles";
 import { settingsApi } from "@/lib/settings-api";
 import { ApiClientError } from "@/lib/api-client";
 import { NotFoundPage } from "@/components/NotFoundPage";
@@ -56,10 +57,10 @@ export default function NewSchedulePage() {
   const router  = useRouter();
 
   const { roles } = useMember();
-  const canCreate = roles.includes("admin") || roles.includes("tech");
+  const canCreate = canManageSchedule(roles);
   const [parts,        setParts]        = useState<PartSummary[]>([]);
   const [categories,   setCategories]   = useState<EventCategory[]>([]);
-  const [loading,      setLoading]      = useState(true);
+  const [loading,      setLoading]      = useState(canCreate);
   const [initError,    setInitError]    = useState<string | null>(null);
 
   const [title,         setTitle]         = useState("");
@@ -80,7 +81,7 @@ export default function NewSchedulePage() {
   const [saving,        setSaving]        = useState(false);
 
   useEffect(() => {
-    if (!canCreate) { setLoading(false); return; }
+    if (!canCreate) return;
     let cancelled = false;
     Promise.all([membersApi.parts(org), settingsApi.listEventCategories(org)])
       .then(([partList, catList]) => {
@@ -96,7 +97,7 @@ export default function NewSchedulePage() {
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [org, router, canCreate]);
+  }, [org, router]);
 
   if (loading) {
     return (

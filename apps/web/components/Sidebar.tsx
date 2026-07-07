@@ -116,6 +116,7 @@ export default function Sidebar({
           <p className="text-brand-600 font-bold text-lg leading-tight">ChoirHub</p>
           <Link
             href="/select-org"
+            prefetch={false}
             className="flex items-center justify-between w-full mt-1.5 px-2 py-1 rounded-md text-xs text-gray-500 hover:bg-gray-100 transition-colors"
             title="団体を切り替える"
           >
@@ -132,6 +133,7 @@ export default function Sidebar({
               <Link
                 key={suffix}
                 href={href}
+                prefetch={false}
                 className={[
                   "flex items-center gap-3 px-5 py-2.5 text-sm transition-colors border-l-2",
                   isActive
@@ -180,6 +182,7 @@ export default function Sidebar({
                       <Link
                         key={suffix}
                         href={href}
+                        prefetch={false}
                         className={[
                           "flex items-center pl-12 pr-5 py-2 text-sm transition-colors border-l-2",
                           isActive

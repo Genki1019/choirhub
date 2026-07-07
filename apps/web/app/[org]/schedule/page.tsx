@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Plus, Loader2, AlertCircle } from "lucide-react";
 import { eventsApi, type EventSummary } from "@/lib/events-api";
 import { ApiClientError } from "@/lib/api-client";
+import { monthStart } from "@/lib/date";
 import { Calendar } from "./_components/Calendar";
 import { EventList } from "./_components/EventList";
 import { PageMain } from "@/components/PageMain";
@@ -18,23 +19,38 @@ export default function SchedulePage() {
   const today   = new Date();
 
   const { roles } = useMember();
-  const [events,  setEvents]  = useState<EventSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
-  const [year,    setYear]    = useState(today.getFullYear());
-  const [month,   setMonth]   = useState(today.getMonth() + 1);
+  const [events,    setEvents]    = useState<EventSummary[]>([]);
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const [error,     setError]     = useState<string | null>(null);
+  const [year,      setYear]      = useState(today.getFullYear());
+  const [month,     setMonth]     = useState(today.getMonth() + 1);
+
+  const monthKey = monthStart(year, month);
+  const loading = loadedFor !== monthKey;
 
   useEffect(() => {
-    eventsApi.list(org)
+    let cancelled = false;
+
+    const from = monthStart(year, month);
+    const to   = month === 12 ? monthStart(year + 1, 1) : monthStart(year, month + 1);
+
+    eventsApi.list(org, { from, to })
       .then((evList) => {
-        setEvents(evList);
+        if (!cancelled) {
+          setEvents(evList);
+          setError(null);
+          setLoadedFor(monthStart(year, month));
+        }
       })
       .catch((err: unknown) => {
+        if (cancelled) return;
         if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
         setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      })
-      .finally(() => setLoading(false));
-  }, [org, router]);
+        setLoadedFor(monthStart(year, month));
+      });
+
+    return () => { cancelled = true; };
+  }, [org, year, month, router]);
 
   const canCreateEvent = roles.some((r) => ["admin", "tech", "conductor"].includes(r));
 

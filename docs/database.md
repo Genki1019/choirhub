@@ -332,6 +332,7 @@ erDiagram
         int      amount
         date     dueDate
         string   eventId FK
+        string   scoreId FK
         string   yearMonth
         string   note
         string   createdById FK
@@ -356,6 +357,7 @@ erDiagram
     ExpenseCategory ||--o{ Expense               : "categorizes"
     Event                 ||--o{ Expense               : "linked to"
     Event                 ||--o{ Collection            : "linked to"
+    Score                 ||--o{ Collection            : "linked to"
     Member                ||--o{ Expense               : "records"
     Collection            ||--o{ CollectionPayment     : "has"
     Member                ||--o{ CollectionPayment     : "pays"
@@ -824,6 +826,7 @@ draft → survey_open → confirmed → past
 | amount | INT | NOT NULL | 一人あたりの請求額（円）|
 | dueDate | DATE | | 支払期限（任意）|
 | eventId | CUID | FK → Event | 関連イベント（per_rehearsal モード時に設定）|
+| scoreId | CUID | FK → Score | 関連楽譜（楽譜詳細から作成した場合）|
 | yearMonth | VARCHAR | | 対象年月（例: `2026-06`）月会費モード時に設定 |
 | note | TEXT | | 備考 |
 | createdById | CUID | NOT NULL, FK → Member | 作成した会計係 |
@@ -894,6 +897,7 @@ draft → survey_open → confirmed → past
 | TicketAllocation | (batchId, memberId) | INDEX | 団員別チケット集計 |
 | Collection | orgId | INDEX | 団ごとの徴収一覧取得 |
 | Collection | (orgId, yearMonth) | INDEX | 月会費の月次検索 |
+| Collection | scoreId | INDEX | 楽譜別の徴収取得 |
 | CollectionPayment | (collectionId, memberId) | UNIQUE | 重複記録防止 |
 | CollectionPayment | collectionId | INDEX | 徴収別の支払い状況取得 |
 | Expense | (orgId, paidAt) | INDEX | 支出一覧の時系列取得 |

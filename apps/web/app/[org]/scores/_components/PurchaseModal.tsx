@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { Users, X, Loader2, Check } from "lucide-react";
-import { scoresApi, type ScoreSummary } from "@/lib/scores-api";
+import { scoresApi, type ScoreDetail } from "@/lib/scores-api";
 import { membersApi, type MemberProfile } from "@/lib/members-api";
 import { comparePartOrder } from "@/lib/voice-order";
 
 interface PurchaseModalProps {
   orgSlug: string;
-  score: ScoreSummary;
+  score: ScoreDetail;
   onClose: () => void;
 }
 

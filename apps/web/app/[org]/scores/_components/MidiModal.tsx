@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Music2, X, ChevronUp, Play, Download } from "lucide-react";
-import { type ScoreSummary, type ScoreFile } from "@/lib/scores-api";
+import { type ScoreDetail, type ScoreFile } from "@/lib/scores-api";
 import { CreatorLine } from "./CreatorLine";
 
 const DEMO_AUDIO_URL = "/demo/test_midi.mp3";
@@ -45,7 +45,7 @@ function MidiFileRow({ file, splitLabel }: { file: ScoreFile; splitLabel?: strin
 }
 
 interface MidiModalProps {
-  score: ScoreSummary;
+  score: ScoreDetail;
   onClose: () => void;
 }
 

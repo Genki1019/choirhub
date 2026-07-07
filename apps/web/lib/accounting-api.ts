@@ -98,6 +98,7 @@ export interface CollectionInput {
   amount: number;
   dueDate?: string | null;
   eventId?: string | null;
+  scoreId?: string | null;
   yearMonth?: string | null;
   note?: string | null;
   memberIds?: string[];

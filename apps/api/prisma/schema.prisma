@@ -300,6 +300,7 @@ model Score {
   scoreAccessLogs ScoreAccessLog[]
   programs        Program[]
   purchases       ScorePurchase[]
+  collections     Collection[]
 
   @@index([orgId, accessLevel])
   @@map("scores")
@@ -644,6 +645,7 @@ model Collection {
   amount      Int
   dueDate     DateTime? @db.Date @map("due_date")
   eventId     String?   @map("event_id")
+  scoreId     String?   @map("score_id")
   yearMonth   String?   @map("year_month")
   note        String?
   createdById String    @map("created_by_id")
@@ -651,11 +653,13 @@ model Collection {
 
   org      Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
   event    Event?              @relation(fields: [eventId], references: [id])
+  score    Score?              @relation(fields: [scoreId], references: [id])
   creator  Member              @relation(fields: [createdById], references: [id])
   payments CollectionPayment[]
 
   @@index([orgId])
   @@index([orgId, yearMonth])
+  @@index([scoreId])
   @@map("collections")
 }
 

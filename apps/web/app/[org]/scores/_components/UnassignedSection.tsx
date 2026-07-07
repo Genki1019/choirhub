@@ -8,21 +8,9 @@ import { ScoreRow } from "./ScoreRow";
 interface UnassignedSectionProps {
   scores: ScoreSummary[];
   orgSlug: string;
-  onMidiClick: (s: ScoreSummary) => void;
-  onPurchaseClick: (s: ScoreSummary) => void;
-  onFileManage: (s: ScoreSummary) => void;
-  onCreateCollection?: (s: ScoreSummary) => void;
-  isPrivileged: boolean;
-  isFileManager: boolean;
-  canViewPrice: boolean;
-  canSetPrice: boolean;
-  onPriceUpdate: (id: string, price: number | null) => void;
 }
 
-export const UnassignedSection = memo(function UnassignedSection({
-  scores, orgSlug, onMidiClick, onPurchaseClick, onFileManage, onCreateCollection,
-  isPrivileged, isFileManager, canViewPrice, canSetPrice, onPriceUpdate,
-}: UnassignedSectionProps) {
+export const UnassignedSection = memo(function UnassignedSection({ scores, orgSlug }: UnassignedSectionProps) {
   const [open, setOpen] = useState(true);
   if (scores.length === 0) return null;
 
@@ -45,13 +33,7 @@ export const UnassignedSection = memo(function UnassignedSection({
         <div className="border-t border-gray-100">
           {scores.map((score, idx) => (
             <div key={score.id} className={idx < scores.length - 1 ? "border-b border-gray-100" : ""}>
-              <ScoreRow
-                score={score} orgSlug={orgSlug} onMidiClick={onMidiClick}
-                onPurchaseClick={onPurchaseClick} onFileManage={onFileManage}
-                onCreateCollection={onCreateCollection}
-                isPrivileged={isPrivileged} isFileManager={isFileManager}
-                canViewPrice={canViewPrice} canSetPrice={canSetPrice} onPriceUpdate={onPriceUpdate}
-              />
+              <ScoreRow score={score} orgSlug={orgSlug} />
             </div>
           ))}
         </div>

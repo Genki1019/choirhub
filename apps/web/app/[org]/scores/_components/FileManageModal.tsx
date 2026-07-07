@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { FileText, Music2, FolderOpen, Upload, Trash2, Loader2, X } from "lucide-react";
-import { scoresApi, type ScoreSummary, type ScoreFile } from "@/lib/scores-api";
+import { scoresApi, type ScoreDetail, type ScoreFile } from "@/lib/scores-api";
 import { type PartSummary } from "@/lib/members-api";
 
 // ─── FileRow ───────────────────────────────────────────────────────────────
@@ -117,7 +117,7 @@ function FileSection({ label, fileList, canDelete, grouped, partMap, deleting, o
 
 interface FileManageModalProps {
   orgSlug: string;
-  score: ScoreSummary;
+  score: ScoreDetail;
   parts: PartSummary[];
   canManagePdf: boolean;
   canManageMidi: boolean;

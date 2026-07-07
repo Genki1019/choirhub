@@ -8,6 +8,7 @@ import { isAdmin, isVisitor } from "../services/access.js";
 import { storage, CONTENT_TYPES } from "../services/storage.js";
 import { toDateString } from "../lib/date.js";
 import type { TenantEnv } from "../middleware/tenant.js";
+import type { Prisma } from "../generated/prisma/index.js";
 
 const SCORE_FILE_TYPES = ["full_score", "part_score", "midi", "audio", "other"] as const;
 type ScoreFileType = (typeof SCORE_FILE_TYPES)[number];
@@ -84,42 +85,9 @@ export const scoresRouter = new Hono<TenantEnv>()
 
   // ── GET /scores/grouped ── 演奏会別にまとめた楽譜一覧
   .get("/scores/grouped", async (c) => {
-    const actingMember = c.get("member");
     const org = c.get("org");
 
-    const privileged = isScorePrivileged(actingMember.roles);
-
-    // 楽譜ごとの購入者数（権限ありユーザー向け）
-    const purchaseCountMap = privileged
-      ? new Map(
-          (await prisma.scorePurchase.groupBy({
-            by: ["scoreId"],
-            where: { score: { orgId: org.id } },
-            _count: { scoreId: true },
-          })).map((r) => [r.scoreId, r._count.scoreId])
-        )
-      : null;
-
-    // 購入記録のある scoreId セットを取得（権限判定用）
-    const myPurchasedScoreIds = privileged
-      ? null
-      : new Set(
-          (await prisma.scorePurchase.findMany({
-            where: { memberId: actingMember.id },
-            select: { scoreId: true },
-          })).map((p) => p.scoreId)
-        );
-
-    const visitorAccess = isVisitor(actingMember);
-
-    function canAccessFiles(scoreId: string, accessLevel: string): boolean {
-      // visitor は access_level 問わず全楽譜 PDF を閲覧可（requirements.md §楽譜管理 参照。意図的仕様）
-      if (visitorAccess) return true;
-      if (privileged) return true;
-      if (accessLevel === "secret") return false; // 非特権メンバーは secret 不可
-      // public / restricted 問わず購入記録が必要
-      return myPurchasedScoreIds!.has(scoreId);
-    }
+    const scoreSelect = { id: true, title: true, composer: true, arranger: true } as const;
 
     const [concerts, allScores] = await Promise.all([
       prisma.concert.findMany({
@@ -131,13 +99,7 @@ export const scoresRouter = new Hono<TenantEnv>()
             include: {
               programs: {
                 orderBy: { sortOrder: "asc" },
-                include: {
-                  score: {
-                    include: {
-                      files: { orderBy: [{ fileType: "asc" }, { version: "asc" }] },
-                    },
-                  },
-                },
+                include: { score: { select: scoreSelect } },
               },
             },
           },
@@ -145,55 +107,29 @@ export const scoresRouter = new Hono<TenantEnv>()
       }),
       prisma.score.findMany({
         where: { orgId: org.id },
-        include: {
-          files: { orderBy: [{ fileType: "asc" }, { version: "asc" }] },
-          programs: { select: { id: true } },
-        },
+        select: { ...scoreSelect, programs: { select: { id: true } } },
       }),
     ]);
-
-    const parts = await prisma.part.findMany({ where: { orgId: org.id }, orderBy: { sortOrder: "asc" } });
-    const partMap = new Map(parts.map((p) => [p.id, p.name]));
-    const formatFile = makeFileFormatter(org.slug, partMap);
-
-    type RawScore = {
-      id: string; title: string; composer: string | null; arranger: string | null;
-      accessLevel: string; distributionPrice: number | null; files: RawFile[];
-    };
-    const formatScore = (s: RawScore) => {
-      const access = canAccessFiles(s.id, s.accessLevel);
-      return {
-        id: s.id, title: s.title, composer: s.composer, arranger: s.arranger,
-        accessLevel: s.accessLevel, distributionPrice: s.distributionPrice,
-        canAccessFiles: access,
-        canDownload: access && !visitorAccess,
-        purchaseCount: purchaseCountMap !== null ? (purchaseCountMap.get(s.id) ?? 0) : undefined,
-        // visitor には full_score のみ公開（MIDI の download URL を漏らさない）
-        files: access
-          ? s.files
-              .filter((f) => !visitorAccess || f.fileType === "full_score")
-              .map(formatFile)
-          : [],
-      };
-    };
 
     const concertData = concerts.map((concert) => ({
       id: concert.id, title: concert.title,
       heldOn: toDateString(concert.heldOn),
-      venue: concert.venue, status: concert.status,
+      venue: concert.venue,
       stages: concert.stages.map((stage) => ({
         id: stage.id, name: stage.name, sortOrder: stage.sortOrder,
         programs: stage.programs
           .filter((p) => p.score !== null)
           .map((p) => ({
             id: p.id, title: p.title, sortOrder: p.sortOrder,
-            score: p.score ? formatScore(p.score) : null,
+            score: p.score,
           })),
       })),
     }));
 
     const assignedScoreIds = new Set(allScores.flatMap((s) => (s.programs.length > 0 ? [s.id] : [])));
-    const unassigned = allScores.filter((s) => !assignedScoreIds.has(s.id)).map(formatScore);
+    const unassigned = allScores
+      .filter((s) => !assignedScoreIds.has(s.id))
+      .map(({ programs: _, ...s }) => s);
 
     return c.json({ data: { concerts: concertData, unassigned } });
   })
@@ -202,11 +138,14 @@ export const scoresRouter = new Hono<TenantEnv>()
   .post(
     "/scores",
     zValidator("json", z.object({
-      title:       z.string().min(1),
-      composer:    z.string().optional().nullable(),
-      arranger:    z.string().optional().nullable(),
-      accessLevel: z.enum(["secret", "restricted", "public"]).default("restricted"),
-      notes:       z.string().optional().nullable(),
+      title:             z.string().min(1),
+      composer:          z.string().optional().nullable(),
+      arranger:          z.string().optional().nullable(),
+      isCommissioned:    z.boolean().optional(),
+      purchaseDate:      z.string().date().optional().nullable(),
+      distributionStart: z.string().date().optional().nullable(),
+      purchasePrice:     z.number().int().min(0).optional().nullable(),
+      notes:             z.string().optional().nullable(),
     }), (r, c) => {
       if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
     }),
@@ -219,14 +158,22 @@ export const scoresRouter = new Hono<TenantEnv>()
       }
 
       const body = c.req.valid("json");
-      const score = await prisma.score.create({ data: { orgId: org.id, ...body } });
+      const score = await prisma.score.create({
+        data: {
+          orgId:             org.id,
+          title:             body.title,
+          composer:          body.composer          ?? null,
+          arranger:          body.arranger          ?? null,
+          isCommissioned:    body.isCommissioned    ?? false,
+          purchaseDate:      body.purchaseDate      ? new Date(body.purchaseDate)      : null,
+          distributionStart: body.distributionStart ? new Date(body.distributionStart) : null,
+          purchasePrice:     body.purchasePrice     ?? null,
+          notes:             body.notes             ?? null,
+        },
+      });
 
       return c.json({
-        data: {
-          id: score.id, title: score.title, composer: score.composer, arranger: score.arranger,
-          accessLevel: score.accessLevel, distributionPrice: score.distributionPrice,
-          canAccessFiles: true, files: [],
-        },
+        data: { id: score.id, title: score.title, composer: score.composer, arranger: score.arranger },
       }, 201);
     }
   )
@@ -256,13 +203,16 @@ export const scoresRouter = new Hono<TenantEnv>()
       canAccess = !!purchase;
     }
 
-    const [parts, purchaseCount] = await Promise.all([
+    const [parts, purchaseCount, existingCollection] = await Promise.all([
       canAccess
         ? prisma.part.findMany({ where: { orgId: org.id }, orderBy: { sortOrder: "asc" } })
         : Promise.resolve([]),
       privileged
-        ? prisma.scorePurchase.count({ where: { scoreId } })
+        ? prisma.scorePurchase.count({ where: { scoreId, score: { orgId: org.id } } })
         : Promise.resolve(undefined),
+      privileged
+        ? prisma.collection.findFirst({ where: { scoreId, orgId: org.id }, select: { id: true } })
+        : Promise.resolve(null),
     ]);
     const partMap = new Map(parts.map((p) => [p.id, p.name]));
     const formatFile = makeFileFormatter(org.slug, partMap);
@@ -281,6 +231,7 @@ export const scoresRouter = new Hono<TenantEnv>()
         canAccessFiles: canAccess,
         canDownload: canAccess && !visitorAccess,
         purchaseCount: purchaseCount ?? undefined,
+        hasCollection: existingCollection !== null,
         files: canAccess
           ? score.files
               .filter((f) => !visitorAccess || f.fileType === "full_score")
@@ -289,6 +240,76 @@ export const scoresRouter = new Hono<TenantEnv>()
       },
     });
   })
+
+  // ── PATCH /scores/:scoreId ── 楽譜メタデータ更新
+  .patch(
+    "/scores/:scoreId",
+    zValidator("json", z.object({
+      title:             z.string().min(1).optional(),
+      composer:          z.string().nullable().optional(),
+      arranger:          z.string().nullable().optional(),
+      accessLevel:       z.enum(["secret", "restricted", "public"]).optional(),
+      isCommissioned:    z.boolean().optional(),
+      purchaseDate:      z.string().date().nullable().optional(),
+      distributionStart: z.string().date().nullable().optional(),
+      purchasePrice:     z.number().int().min(0).nullable().optional(),
+      notes:             z.string().nullable().optional(),
+    }), (r, c) => {
+      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+    }),
+    async (c) => {
+      const actingMember = c.get("member");
+      const org = c.get("org");
+
+      if (!canManagePurchases(actingMember.roles)) {
+        return c.json({ error: { code: "FORBIDDEN", message: "管理者または楽譜がかりのみ操作できます" } }, 403);
+      }
+
+      const { scoreId } = c.req.param();
+      const score = await prisma.score.findUnique({ where: { id: scoreId } });
+      if (!score || score.orgId !== org.id) {
+        return c.json({ error: { code: "NOT_FOUND", message: "楽譜が見つかりません" } }, 404);
+      }
+
+      const body = c.req.valid("json");
+      const data: Prisma.ScoreUpdateInput = {};
+
+      if (isAdmin(actingMember)) {
+        if (body.title !== undefined)       data.title       = body.title;
+        if (body.composer !== undefined)    data.composer    = body.composer;
+        if (body.arranger !== undefined)    data.arranger    = body.arranger;
+        if (body.accessLevel !== undefined) data.accessLevel = body.accessLevel;
+      }
+      if (body.isCommissioned !== undefined)    data.isCommissioned    = body.isCommissioned;
+      if (body.purchaseDate !== undefined)      data.purchaseDate      = body.purchaseDate ? new Date(body.purchaseDate) : null;
+      if (body.distributionStart !== undefined) data.distributionStart = body.distributionStart ? new Date(body.distributionStart) : null;
+      if (body.purchasePrice !== undefined)     data.purchasePrice     = body.purchasePrice;
+      if (body.notes !== undefined)             data.notes             = body.notes;
+
+      if (Object.keys(data).length === 0) {
+        return c.json({ data: { id: score.id } });
+      }
+
+      const updated = await prisma.score.update({
+        where: { id: scoreId },
+        data,
+        select: {
+          id: true, title: true, composer: true, arranger: true,
+          accessLevel: true, isCommissioned: true,
+          purchaseDate: true, distributionStart: true,
+          purchasePrice: true, notes: true,
+        },
+      });
+
+      return c.json({
+        data: {
+          ...updated,
+          purchaseDate:      updated.purchaseDate      ? toDateString(updated.purchaseDate)      : null,
+          distributionStart: updated.distributionStart ? toDateString(updated.distributionStart) : null,
+        },
+      });
+    }
+  )
 
   // ── GET /scores/:scoreId/purchases ── 購入者一覧（楽譜がかり/admin）
   .get("/scores/:scoreId/purchases", async (c) => {

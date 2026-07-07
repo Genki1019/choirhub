@@ -64,7 +64,7 @@ export default function SchedulePage() {
   };
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col h-full">
       <header className="bg-white border-b border-gray-200 shrink-0">
         <PageBleedRow className="flex items-center justify-between py-4">
           <h1 className="text-lg font-semibold text-gray-800">スケジュール</h1>

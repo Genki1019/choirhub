@@ -71,6 +71,7 @@ export default function SchedulePage() {
           {canCreateEvent && (
             <Link
               href={`/${org}/schedule/new`}
+              prefetch={false}
               className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-brand-700 transition-colors"
             >
               <Plus size={14} /> イベントを追加

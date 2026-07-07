@@ -88,6 +88,7 @@ export default function MyTicketPage() {
         {concert.racePublishedAt && (
           <Link
             href={`/${org}/tickets/${concertId}/race`}
+            prefetch={false}
             className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 hover:bg-amber-100 transition-colors"
           >
             <Trophy size={16} className="text-amber-600 shrink-0" />
@@ -118,6 +119,7 @@ export default function MyTicketPage() {
 
             <Link
               href={`/${org}/tickets/${concertId}/outreach`}
+              prefetch={false}
               className="flex items-center gap-3 bg-brand-50 border border-brand-200 rounded-2xl px-5 py-3.5 hover:bg-brand-100 transition-colors"
             >
               <MapPin size={16} className="text-brand-600 shrink-0" />

@@ -216,6 +216,7 @@ export default function ScheduleDetailPage() {
             <div className="flex items-center gap-2 shrink-0">
               <Link
                 href={`/${org}/schedule/${id}/edit`}
+                prefetch={false}
                 className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors"
               >
                 <Pencil size={13} />

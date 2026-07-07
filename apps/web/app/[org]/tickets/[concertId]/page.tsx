@@ -191,6 +191,7 @@ export default function TicketDetailPage() {
             )}
             <Link
               href={`/${org}/tickets/${concertId}/race`}
+              prefetch={false}
               className="flex items-center gap-1.5 text-sm text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-lg hover:bg-amber-100 transition-colors font-medium"
             >
               <Trophy size={14} />

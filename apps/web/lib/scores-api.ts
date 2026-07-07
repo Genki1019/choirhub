@@ -76,7 +76,7 @@ export interface ScoreDetail extends ScoreSummary {
   isCommissioned: boolean;
   purchaseDate: string | null;
   distributionStart: string | null;
-  purchasePrice: number | null | undefined;
+  purchasePrice?: number | null;
   notes: string | null;
   hasCollection: boolean;
 }
@@ -91,6 +91,19 @@ export interface UpdateScoreMetaInput {
   distributionStart?: string | null;
   purchasePrice?: number | null;
   notes?: string | null;
+}
+
+export interface ScoreMetaResponse {
+  id: string;
+  title: string;
+  composer: string | null;
+  arranger: string | null;
+  accessLevel: "secret" | "restricted" | "public";
+  isCommissioned: boolean;
+  purchaseDate: string | null;
+  distributionStart: string | null;
+  purchasePrice: number | null;
+  notes: string | null;
 }
 
 export interface ScoreListItem {
@@ -108,7 +121,7 @@ export const scoresApi = {
     apiClient.get<ScoreDetail>(`/${orgSlug}/scores/${scoreId}`),
 
   updateMeta: (orgSlug: string, scoreId: string, data: UpdateScoreMetaInput) =>
-    apiClient.patch<UpdateScoreMetaInput & { id: string }>(`/${orgSlug}/scores/${scoreId}`, data),
+    apiClient.patch<ScoreMetaResponse>(`/${orgSlug}/scores/${scoreId}`, data),
 
   list: (orgSlug: string) =>
     apiClient.get<ScoreListItem[]>(`/${orgSlug}/scores`),

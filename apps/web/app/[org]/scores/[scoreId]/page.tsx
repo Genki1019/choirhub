@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, FileText, Music2, EyeOff, Tag, Pencil,
   Loader2, AlertCircle, Users, FolderOpen, BookOpen, CheckCircle2,
 } from "lucide-react";
-import { scoresApi, type ScoreDetail, type ScoreFile } from "@/lib/scores-api";
+import { scoresApi, type ScoreDetail, type ScoreFile, type ScoreMetaResponse } from "@/lib/scores-api";
 import { membersApi, type PartSummary } from "@/lib/members-api";
 import { settingsApi, type MemberType } from "@/lib/settings-api";
 import { ApiClientError } from "@/lib/api-client";
@@ -47,7 +47,7 @@ export default function ScoreDetailPage() {
   const isFileManager = isPrivileged || canManageMidi;
   const canViewPrice  = myRoles.some((r) => MEMBER_LEVEL_ROLES.has(r));
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     Promise.all([
       scoresApi.getDetail(org, scoreId),
@@ -67,9 +67,9 @@ export default function ScoreDetailPage() {
         setError(err instanceof Error ? err.message : "データの取得に失敗しました");
       })
       .finally(() => setLoading(false));
-  };
+  }, [org, scoreId, router]);
 
-  useEffect(() => { load(); }, [org, scoreId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [load]);
 
   const startEditPrice = () => {
     if (!score) return;
@@ -102,7 +102,7 @@ export default function ScoreDetailPage() {
     setShowFileManage(false);
   };
 
-  const handleMetaSaved = (updated: Partial<ScoreDetail>) => {
+  const handleMetaSaved = (updated: ScoreMetaResponse) => {
     setScore((s) => s ? { ...s, ...updated } : s);
     setShowEdit(false);
   };
@@ -132,7 +132,7 @@ export default function ScoreDetailPage() {
 
   const hasMetadata = score.isCommissioned || score.purchaseDate || score.distributionStart
     || canViewPrice || score.notes
-    || (isPrivileged && (score.purchasePrice !== undefined && score.purchasePrice !== null));
+    || (isPrivileged && score.purchasePrice != null);
 
   return (
     <div className="flex flex-col">
@@ -280,7 +280,7 @@ export default function ScoreDetailPage() {
                   </dd>
                 </div>
               )}
-              {isPrivileged && score.purchasePrice !== undefined && score.purchasePrice !== null && (
+              {isPrivileged && score.purchasePrice != null && (
                 <div className="flex gap-3">
                   <dt className="text-xs text-gray-400 w-24 shrink-0 pt-0.5">仕入価格</dt>
                   <dd className="text-sm text-gray-700">¥{score.purchasePrice.toLocaleString()}</dd>

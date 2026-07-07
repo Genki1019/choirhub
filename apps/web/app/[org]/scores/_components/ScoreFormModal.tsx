@@ -6,6 +6,7 @@ import {
   scoresApi,
   type ScoreSummary,
   type ScoreDetail,
+  type ScoreMetaResponse,
   type UpdateScoreMetaInput,
   type ConcertWithScores,
 } from "@/lib/scores-api";
@@ -33,7 +34,7 @@ export type ScoreFormModalProps =
       score: ScoreDetail;
       isAdmin: boolean;
       onClose: () => void;
-      onSaved: (updated: Partial<ScoreDetail>) => void;
+      onSaved: (updated: ScoreMetaResponse) => void;
     };
 
 function hasDuplicate(existing: ExistingScore[], title: string, composer: string): boolean {

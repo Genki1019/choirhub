@@ -79,6 +79,8 @@
 | [楽譜フラット一覧取得](#scores-list) | GET | `/:orgSlug/scores` | 全ロール |
 | [楽譜グループ一覧取得](#scores-grouped) | GET | `/:orgSlug/scores/grouped` | 全ロール |
 | [楽譜新規登録](#scores-create) | POST | `/:orgSlug/scores` | admin |
+| [楽譜詳細取得](#scores-detail) | GET | `/:orgSlug/scores/:scoreId` | 全ロール |
+| [楽譜メタデータ更新](#scores-meta-patch) | PATCH | `/:orgSlug/scores/:scoreId` | score+ |
 | [配布価格設定](#scores-price) | PATCH | `/:orgSlug/scores/:scoreId/price` | score+ |
 | [購入記録取得](#scores-purchases-get) | GET | `/:orgSlug/scores/:scoreId/purchases` | score+ |
 | [購入記録一括保存](#scores-purchases-put) | PUT | `/:orgSlug/scores/:scoreId/purchases` | score+ |
@@ -1045,9 +1047,9 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 ### GET `/api/v1/:orgSlug/scores/grouped`
 
-楽譜を演奏会別・演奏会未定でグループ化して取得する（楽譜タブ画面用）。
+楽譜を演奏会別・演奏会未定でグループ化して取得する（楽譜一覧画面用）。ファイル・権限情報は含まず、一覧表示に必要な最小フィールドのみ返す。
 
-**権限**: 認証済み全ロール（`accessLevel` に応じてファイルアクセス可否が変わる）
+**権限**: 認証済み全ロール
 
 **Response** `200`
 
@@ -1058,9 +1060,8 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
       {
         "id": "cuid",
         "title": "第20回定期演奏会",
-        "heldOn": "2026-11-23T00:00:00.000Z",
+        "heldOn": "2026-11-23",
         "venue": "○○ホール",
-        "status": "confirmed",
         "stages": [
           {
             "id": "cuid",
@@ -1075,22 +1076,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
                   "id": "cuid",
                   "title": "男声合唱のための〇〇",
                   "composer": "△△ △△",
-                  "arranger": null,
-                  "accessLevel": "restricted",
-                  "distributionPrice": 500,
-                  "canAccessFiles": true,
-                  "canDownload": true,
-                  "files": [
-                    {
-                      "id": "cuid",
-                      "fileType": "full_score",
-                      "fileName": "score_full.pdf",
-                      "partId": null,
-                      "partName": null,
-                      "version": 1,
-                      "downloadUrl": "/api/v1/:orgSlug/scores/:scoreId/files/:fileId/download"
-                    }
-                  ]
+                  "arranger": null
                 }
               }
             ]
@@ -1103,20 +1089,14 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
         "id": "cuid",
         "title": "演奏会未定の曲",
         "composer": null,
-        "arranger": null,
-        "accessLevel": "restricted",
-        "distributionPrice": null,
-        "canAccessFiles": true,
-        "canDownload": true,
-        "files": []
+        "arranger": null
       }
     ]
   }
 }
 ```
 
-> `canAccessFiles: false` の場合、`files` は空配列で返される。`restricted` の楽譜はオンステ確定メンバーのみアクセス可（`secret` は `score+` のみ）。  
-> `visitor` は `secret` 以外の楽譜ファイルリストを取得できる（`canAccessFiles: true`）が、`canDownload: false`。ダウンロードエンドポイントでは PDF のみインライン表示を許可し、MIDI・音声ファイルは `403`。
+> ファイル・権限・価格情報は `GET /scores/:scoreId`（詳細）で取得する。
 
 ---
 
@@ -1135,7 +1115,10 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 | title | string | ✓ | 曲名 |
 | composer | string \| null | | 作曲者 |
 | arranger | string \| null | | 編曲者 |
-| accessLevel | string | | `secret` / `restricted` / `public`（default: `restricted`）|
+| isCommissioned | boolean | | 委嘱作品かどうか（default: `false`）|
+| purchaseDate | string \| null | | 購入日（ISO8601 date）|
+| distributionStart | string \| null | | 配布開始日（ISO8601 date）|
+| purchasePrice | number \| null | | 仕入価格（円・整数・0以上）|
 | notes | string \| null | | 備考 |
 
 ```json
@@ -1143,8 +1126,11 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
   "title": "男声合唱のための〇〇",
   "composer": "△△ △△",
   "arranger": null,
-  "accessLevel": "restricted",
-  "notes": ""
+  "isCommissioned": false,
+  "purchaseDate": "2026-10-01",
+  "distributionStart": null,
+  "purchasePrice": 1200,
+  "notes": null
 }
 ```
 
@@ -1156,14 +1142,121 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
     "id": "cuid",
     "title": "男声合唱のための〇〇",
     "composer": "△△ △△",
-    "arranger": null,
-    "accessLevel": "restricted",
-    "distributionPrice": null,
-    "canAccessFiles": true,
-    "files": []
+    "arranger": null
   }
 }
 ```
+
+---
+
+<a id="scores-detail"></a>
+
+### GET `/api/v1/:orgSlug/scores/:scoreId`
+
+楽譜の詳細情報・ファイル一覧・権限情報を取得する。
+
+**権限**: 認証済み全ロール（ファイル取得可否はロール・購入記録で変わる）
+
+**Response** `200`
+
+```json
+{
+  "data": {
+    "id": "cuid",
+    "title": "男声合唱のための〇〇",
+    "composer": "△△ △△",
+    "arranger": null,
+    "isCommissioned": false,
+    "accessLevel": "restricted",
+    "purchaseDate": "2026-10-01",
+    "distributionStart": "2026-10-15",
+    "purchasePrice": 1200,
+    "distributionPrice": 500,
+    "notes": null,
+    "canAccessFiles": true,
+    "canDownload": true,
+    "purchaseCount": 20,
+    "hasCollection": false,
+    "files": [
+      {
+        "id": "cuid",
+        "fileType": "full_score",
+        "fileName": "score_full.pdf",
+        "partId": null,
+        "partName": null,
+        "version": 1,
+        "downloadUrl": "/api/v1/:orgSlug/scores/:scoreId/files/:fileId/download"
+      }
+    ]
+  }
+}
+```
+
+| フィールド | 条件 |
+|-----------|------|
+| `purchasePrice` | `score+`（admin / score）のみ返却。それ以外は `undefined` |
+| `purchaseCount` | `score+, tech+, conductor` のみ返却。それ以外は `undefined` |
+| `hasCollection` | 同上。`true` = この楽譜に紐づく徴収が作成済み |
+| `files` | `canAccessFiles: true` のときのみ内容を返す（`false` は空配列）|
+| `canDownload` | `visitor` は `false`（PDF をインライン表示のみ可）|
+
+> `visitor` は `accessLevel` を問わず全楽譜の PDF を閲覧可（`canDownload: false`）。`canAccessFiles: false` の場合は閲覧不可。
+
+**Errors:** `404` 楽譜が存在しない、または別テナントの楽譜
+
+---
+
+<a id="scores-meta-patch"></a>
+
+### PATCH `/api/v1/:orgSlug/scores/:scoreId`
+
+楽譜のメタデータを更新する。更新可能なフィールドはロールによって異なる。
+
+**権限**: `score+`（admin / score）
+
+**Request Body:**（すべて省略可）
+
+| フィールド | 型 | 更新可能ロール | 説明 |
+|-----------|-----|-------------|------|
+| title | string | admin のみ | 曲名 |
+| composer | string \| null | admin のみ | 作曲者 |
+| arranger | string \| null | admin のみ | 編曲者 |
+| accessLevel | string | admin のみ | `secret` / `restricted` / `public` |
+| isCommissioned | boolean | score+ | 委嘱作品フラグ |
+| purchaseDate | string \| null | score+ | 購入日（ISO8601 date）|
+| distributionStart | string \| null | score+ | 配布開始日（ISO8601 date）|
+| purchasePrice | number \| null | score+ | 仕入価格（円）|
+| notes | string \| null | score+ | 備考 |
+
+```json
+{
+  "isCommissioned": true,
+  "purchaseDate": "2026-10-01",
+  "purchasePrice": 1200,
+  "notes": "初版"
+}
+```
+
+**Response** `200`
+
+```json
+{
+  "data": {
+    "id": "cuid",
+    "title": "男声合唱のための〇〇",
+    "composer": "△△ △△",
+    "arranger": null,
+    "accessLevel": "restricted",
+    "isCommissioned": true,
+    "purchaseDate": "2026-10-01",
+    "distributionStart": null,
+    "purchasePrice": 1200,
+    "notes": "初版"
+  }
+}
+```
+
+**Errors:** `403` score+ 以外 / `404` 楽譜が存在しない
 
 ---
 
@@ -2646,9 +2739,12 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
   "dueDate": "2026-07-01",
   "eventId": null,
   "yearMonth": null,
+  "scoreId": null,
   "note": ""
 }
 ```
+
+> `scoreId` を指定すると楽譜詳細画面から「徴収作成済み」と判定できる。楽譜詳細画面から作成した場合は自動でセットされる。
 
 **Response** `201` → 作成した Collection（payments の件数含む）
 

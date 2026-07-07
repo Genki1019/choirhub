@@ -1,25 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Plus, Loader2, AlertCircle, BookOpen } from "lucide-react";
-import {
-  scoresApi,
-  type ConcertWithScores,
-  type ScoreSummary,
-  type ScoreFile,
-} from "@/lib/scores-api";
+import { scoresApi, type ConcertWithScores, type ScoreSummary } from "@/lib/scores-api";
 import { ApiClientError } from "@/lib/api-client";
-import { membersApi, type PartSummary } from "@/lib/members-api";
-import { settingsApi, type MemberType } from "@/lib/settings-api";
-import { MEMBER_LEVEL_ROLES } from "@/lib/roles";
-import { MidiModal } from "./_components/MidiModal";
-import { PurchaseModal } from "./_components/PurchaseModal";
-import { FileManageModal } from "./_components/FileManageModal";
-import { AddScoreModal } from "./_components/AddScoreModal";
+import { membersApi } from "@/lib/members-api";
+import { ScoreFormModal } from "./_components/ScoreFormModal";
 import { ConcertSection } from "./_components/ConcertSection";
 import { UnassignedSection } from "./_components/UnassignedSection";
-import { CollectionModal } from "../accounting/_components/CollectionModal";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
 
@@ -28,16 +17,10 @@ export default function ScoresPage() {
   const router = useRouter();
 
   const [data, setData] = useState<{ concerts: ConcertWithScores[]; unassigned: ScoreSummary[] } | null>(null);
-  const [myRoles, setMyRoles] = useState<string[]>([]);
-  const [parts, setParts] = useState<PartSummary[]>([]);
-  const [memberTypes, setMemberTypes] = useState<MemberType[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [midiTarget, setMidiTarget] = useState<ScoreSummary | null>(null);
-  const [purchaseTarget, setPurchaseTarget] = useState<ScoreSummary | null>(null);
-  const [fileManageTarget, setFileManageTarget] = useState<ScoreSummary | null>(null);
-  const [collectionTarget, setCollectionTarget] = useState<ScoreSummary | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
 
   const loading = loadedFor !== org;
@@ -47,28 +30,13 @@ export default function ScoresPage() {
     ...(data?.concerts.flatMap((c) => c.stages.flatMap((s) => s.programs.flatMap((p) => p.score ? [p.score] : []))) ?? []),
   ], [data]);
 
-  const isAdmin        = myRoles.includes("admin");
-  const isPrivileged   = isAdmin || myRoles.includes("score");
-  const canManagePdf   = isAdmin || myRoles.includes("score");
-  const canManageMidi  = isAdmin || myRoles.includes("tech");
-  const isFileManager  = canManagePdf || canManageMidi;
-  const canSetPrice    = isPrivileged;
-  const canViewPrice   = myRoles.some((r) => MEMBER_LEVEL_ROLES.has(r));
-
-  const reload = () => {
-    setLoadedFor(null);
-    setReloadTick((t) => t + 1);
-  };
-
   useEffect(() => {
     let cancelled = false;
-    Promise.all([scoresApi.grouped(org), membersApi.me(org), membersApi.parts(org), settingsApi.listMemberTypes(org)])
-      .then(([scoreData, me, partData, types]) => {
+    Promise.all([scoresApi.grouped(org), membersApi.me(org)])
+      .then(([scoreData, me]) => {
         if (cancelled) return;
         setData(scoreData);
-        setMyRoles(me.roles);
-        setParts(partData);
-        setMemberTypes(types);
+        setIsAdmin(me.roles.includes("admin"));
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -79,60 +47,12 @@ export default function ScoresPage() {
     return () => { cancelled = true; };
   }, [org, reloadTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const updateScoreFiles = useCallback((scoreId: string, updatedFiles: ScoreFile[]) => {
-    setData((prev) => {
-      if (!prev) return prev;
-      if (prev.unassigned.some((s) => s.id === scoreId)) {
-        return { ...prev, unassigned: prev.unassigned.map((s) => s.id === scoreId ? { ...s, files: updatedFiles } : s) };
-      }
-      const idx = prev.concerts.findIndex((c) =>
-        c.stages.some((st) => st.programs.some((p) => p.score?.id === scoreId))
-      );
-      if (idx === -1) return prev;
-      const concerts = [...prev.concerts];
-      const c = concerts[idx];
-      concerts[idx] = {
-        ...c,
-        stages: c.stages.map((st) => ({
-          ...st,
-          programs: st.programs.map((p) => ({
-            ...p,
-            score: p.score?.id === scoreId ? { ...p.score, files: updatedFiles } : p.score,
-          })),
-        })),
-      };
-      return { ...prev, concerts };
-    });
-  }, []);
-
-  const updateScorePrice = useCallback((scoreId: string, price: number | null) => {
-    setData((prev) => {
-      if (!prev) return prev;
-      if (prev.unassigned.some((s) => s.id === scoreId)) {
-        return { ...prev, unassigned: prev.unassigned.map((s) => s.id === scoreId ? { ...s, distributionPrice: price } : s) };
-      }
-      const idx = prev.concerts.findIndex((c) =>
-        c.stages.some((st) => st.programs.some((p) => p.score?.id === scoreId))
-      );
-      if (idx === -1) return prev;
-      const concerts = [...prev.concerts];
-      const c = concerts[idx];
-      concerts[idx] = {
-        ...c,
-        stages: c.stages.map((st) => ({
-          ...st,
-          programs: st.programs.map((p) => ({
-            ...p,
-            score: p.score?.id === scoreId ? { ...p.score, distributionPrice: price } : p.score,
-          })),
-        })),
-      };
-      return { ...prev, concerts };
-    });
-  }, []);
-
-  const handleScoreCreated = (score: ScoreSummary) => {
-    setData((prev) => prev ? { ...prev, unassigned: [...prev.unassigned, score] } : prev);
+  const handleScoreCreated = (score: ScoreSummary, stageAssigned: boolean) => {
+    if (stageAssigned) {
+      setReloadTick((t) => t + 1);
+    } else {
+      setData((prev) => prev ? { ...prev, unassigned: [...prev.unassigned, score] } : prev);
+    }
     setShowAddModal(false);
   };
 
@@ -188,82 +108,22 @@ export default function ScoresPage() {
             )}
 
             {data.concerts.map((concert) => (
-              <ConcertSection
-                key={concert.id}
-                concert={concert}
-                orgSlug={org}
-                onMidiClick={setMidiTarget}
-                onPurchaseClick={setPurchaseTarget}
-                onFileManage={setFileManageTarget}
-                onCreateCollection={isPrivileged ? setCollectionTarget : undefined}
-                isPrivileged={isPrivileged}
-                isFileManager={isFileManager}
-                canViewPrice={canViewPrice}
-                canSetPrice={canSetPrice}
-                onPriceUpdate={updateScorePrice}
-              />
+              <ConcertSection key={concert.id} concert={concert} orgSlug={org} />
             ))}
 
-            <UnassignedSection
-              scores={data.unassigned}
-              orgSlug={org}
-              onMidiClick={setMidiTarget}
-              onPurchaseClick={setPurchaseTarget}
-              onFileManage={setFileManageTarget}
-              onCreateCollection={isPrivileged ? setCollectionTarget : undefined}
-              isPrivileged={isPrivileged}
-              isFileManager={isFileManager}
-              canViewPrice={canViewPrice}
-              canSetPrice={canSetPrice}
-              onPriceUpdate={updateScorePrice}
-            />
+            <UnassignedSection scores={data.unassigned} orgSlug={org} />
           </>
         )}
       </PageMain>
 
-      {midiTarget && (
-        <MidiModal score={midiTarget} onClose={() => setMidiTarget(null)} />
-      )}
-
-      {purchaseTarget && (
-        <PurchaseModal
-          orgSlug={org}
-          score={purchaseTarget}
-          onClose={() => { setPurchaseTarget(null); reload(); }}
-        />
-      )}
-
       {showAddModal && (
-        <AddScoreModal
+        <ScoreFormModal
+          mode="add"
           orgSlug={org}
           existingScores={existingScores}
+          concerts={data?.concerts ?? []}
           onClose={() => setShowAddModal(false)}
           onCreated={handleScoreCreated}
-        />
-      )}
-
-      {fileManageTarget && (
-        <FileManageModal
-          orgSlug={org}
-          score={fileManageTarget}
-          parts={parts}
-          canManagePdf={canManagePdf}
-          canManageMidi={canManageMidi}
-          onClose={(updatedFiles) => {
-            updateScoreFiles(fileManageTarget.id, updatedFiles);
-            setFileManageTarget(null);
-          }}
-        />
-      )}
-
-      {collectionTarget && (
-        <CollectionModal
-          org={org}
-          memberTypes={memberTypes}
-          initialTitle={collectionTarget.title}
-          initialAmount={collectionTarget.distributionPrice ?? undefined}
-          onClose={() => setCollectionTarget(null)}
-          onSaved={() => setCollectionTarget(null)}
         />
       )}
     </div>

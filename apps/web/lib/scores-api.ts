@@ -17,12 +17,6 @@ export interface ScoreSummary {
   title: string;
   composer: string | null;
   arranger: string | null;
-  accessLevel: "secret" | "restricted" | "public";
-  distributionPrice: number | null;
-  canAccessFiles: boolean;
-  canDownload: boolean;
-  purchaseCount?: number;
-  files: ScoreFile[];
 }
 
 export interface ProgramWithScore {
@@ -44,7 +38,6 @@ export interface ConcertWithScores {
   title: string;
   heldOn: string;
   venue: string | null;
-  status: string;
   stages: StageSummary[];
 }
 
@@ -57,7 +50,10 @@ export interface CreateScoreInput {
   title: string;
   composer?: string | null;
   arranger?: string | null;
-  accessLevel?: "secret" | "restricted" | "public";
+  isCommissioned?: boolean;
+  purchaseDate?: string | null;
+  distributionStart?: string | null;
+  purchasePrice?: number | null;
   notes?: string | null;
 }
 
@@ -70,6 +66,46 @@ export interface ScorePurchaseRecord {
   createdAt: string;
 }
 
+export interface ScoreDetail extends ScoreSummary {
+  accessLevel: "secret" | "restricted" | "public";
+  distributionPrice: number | null;
+  canAccessFiles: boolean;
+  canDownload: boolean;
+  purchaseCount?: number;
+  files: ScoreFile[];
+  isCommissioned: boolean;
+  purchaseDate: string | null;
+  distributionStart: string | null;
+  purchasePrice?: number | null;
+  notes: string | null;
+  hasCollection: boolean;
+}
+
+export interface UpdateScoreMetaInput {
+  title?: string;
+  composer?: string | null;
+  arranger?: string | null;
+  accessLevel?: "secret" | "restricted" | "public";
+  isCommissioned?: boolean;
+  purchaseDate?: string | null;
+  distributionStart?: string | null;
+  purchasePrice?: number | null;
+  notes?: string | null;
+}
+
+export interface ScoreMetaResponse {
+  id: string;
+  title: string;
+  composer: string | null;
+  arranger: string | null;
+  accessLevel: "secret" | "restricted" | "public";
+  isCommissioned: boolean;
+  purchaseDate: string | null;
+  distributionStart: string | null;
+  purchasePrice: number | null;
+  notes: string | null;
+}
+
 export interface ScoreListItem {
   id: string;
   title: string;
@@ -80,6 +116,12 @@ export interface ScoreListItem {
 export const scoresApi = {
   grouped: (orgSlug: string) =>
     apiClient.get<GroupedScores>(`/${orgSlug}/scores/grouped`),
+
+  getDetail: (orgSlug: string, scoreId: string) =>
+    apiClient.get<ScoreDetail>(`/${orgSlug}/scores/${scoreId}`),
+
+  updateMeta: (orgSlug: string, scoreId: string, data: UpdateScoreMetaInput) =>
+    apiClient.patch<ScoreMetaResponse>(`/${orgSlug}/scores/${scoreId}`, data),
 
   list: (orgSlug: string) =>
     apiClient.get<ScoreListItem[]>(`/${orgSlug}/scores`),

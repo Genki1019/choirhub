@@ -12,11 +12,12 @@ interface CollectionModalProps {
   memberTypes: MemberType[];
   initialTitle?: string;
   initialAmount?: number;
+  scoreId?: string;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export function CollectionModal({ org, memberTypes, initialTitle, initialAmount, onClose, onSaved }: CollectionModalProps) {
+export function CollectionModal({ org, memberTypes, initialTitle, initialAmount, scoreId, onClose, onSaved }: CollectionModalProps) {
   const [title,      setTitle]      = useState(initialTitle ?? "");
   const [yearMonth,  setYearMonth]  = useState("");
   const [note,       setNote]       = useState("");
@@ -59,6 +60,7 @@ export function CollectionModal({ org, memberTypes, initialTitle, initialAmount,
         amount:    parsedBase,
         yearMonth: yearMonth || null,
         note:      note.trim() || null,
+        scoreId:   scoreId ?? null,
         memberTypeAmounts,
       });
       onSaved();

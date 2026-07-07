@@ -2,39 +2,19 @@
 
 import { useState, memo } from "react";
 import { ChevronDown, ChevronRight, CalendarDays } from "lucide-react";
-import { type ConcertWithScores, type ScoreSummary } from "@/lib/scores-api";
+import { type ConcertWithScores } from "@/lib/scores-api";
 import { ScoreRow } from "./ScoreRow";
-
-export const STATUS_LABEL: Record<string, { label: string; color: string }> = {
-  draft:       { label: "準備中", color: "text-gray-400" },
-  survey_open: { label: "調査中", color: "text-brand-500" },
-  confirmed:   { label: "確定",   color: "text-green-600" },
-  past:        { label: "終演",   color: "text-gray-400" },
-};
 
 interface ConcertSectionProps {
   concert: ConcertWithScores;
   orgSlug: string;
-  onMidiClick: (s: ScoreSummary) => void;
-  onPurchaseClick: (s: ScoreSummary) => void;
-  onFileManage: (s: ScoreSummary) => void;
-  onCreateCollection?: (s: ScoreSummary) => void;
-  isPrivileged: boolean;
-  isFileManager: boolean;
-  canViewPrice: boolean;
-  canSetPrice: boolean;
-  onPriceUpdate: (id: string, price: number | null) => void;
 }
 
-export const ConcertSection = memo(function ConcertSection({
-  concert, orgSlug, onMidiClick, onPurchaseClick, onFileManage, onCreateCollection,
-  isPrivileged, isFileManager, canViewPrice, canSetPrice, onPriceUpdate,
-}: ConcertSectionProps) {
+export const ConcertSection = memo(function ConcertSection({ concert, orgSlug }: ConcertSectionProps) {
   const [open, setOpen] = useState(true);
 
   const date = new Date(concert.heldOn);
   const dateStr = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
-  const status = STATUS_LABEL[concert.status] ?? { label: concert.status, color: "text-gray-400" };
   const totalPrograms = concert.stages.reduce((n, s) => n + s.programs.length, 0);
 
   return (
@@ -48,10 +28,7 @@ export const ConcertSection = memo(function ConcertSection({
         </span>
         <CalendarDays size={15} className="text-brand-500 shrink-0" />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-gray-800 text-sm">{concert.title}</span>
-            <span className={`text-xs font-medium ${status.color}`}>{status.label}</span>
-          </div>
+          <span className="font-semibold text-gray-800 text-sm">{concert.title}</span>
           <p className="text-xs text-gray-400 mt-0.5">
             {dateStr}
             {concert.venue && ` ・ ${concert.venue}`}
@@ -78,19 +55,7 @@ export const ConcertSection = memo(function ConcertSection({
                     className={idx < stage.programs.length - 1 ? "border-b border-gray-100" : ""}
                   >
                     {program.score && (
-                      <ScoreRow
-                        score={program.score}
-                        orgSlug={orgSlug}
-                        onMidiClick={onMidiClick}
-                        onPurchaseClick={onPurchaseClick}
-                        onFileManage={onFileManage}
-                        onCreateCollection={onCreateCollection}
-                        isPrivileged={isPrivileged}
-                        isFileManager={isFileManager}
-                        canViewPrice={canViewPrice}
-                        canSetPrice={canSetPrice}
-                        onPriceUpdate={onPriceUpdate}
-                      />
+                      <ScoreRow score={program.score} orgSlug={orgSlug} />
                     )}
                   </div>
                 ))}

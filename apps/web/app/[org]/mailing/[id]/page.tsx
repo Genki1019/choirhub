@@ -4,14 +4,12 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Users, Loader2, AlertCircle, Reply, Send, X } from "lucide-react";
-import { mailingApi, LAST_EVENT_LABEL, type MailDetail } from "@/lib/mailing-api";
+import { useQuery } from "@tanstack/react-query";
+import { mailingApi, LAST_EVENT_LABEL } from "@/lib/mailing-api";
 import { ApiClientError } from "@/lib/api-client";
+import { mailingKeys } from "@/lib/query-keys";
+import { formatJaDateTime } from "@/lib/date";
 import { PageBleedRow } from "@/components/PageBleedRow";
-
-function formatFullDate(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
 
 type ReplyTarget = "sender" | "all";
 
@@ -24,11 +22,11 @@ function ReplyModal({ orgSlug, senderMemberId, senderName, allMemberIds, origina
   onClose: () => void;
   onSent: () => void;
 }) {
-  const [subject, setSubject]       = useState(`Re: ${originalSubject}`);
-  const [body, setBody]             = useState("");
+  const [subject, setSubject]         = useState(`Re: ${originalSubject}`);
+  const [body, setBody]               = useState("");
   const [replyTarget, setReplyTarget] = useState<ReplyTarget>("sender");
-  const [sending, setSending]       = useState(false);
-  const [error, setError]           = useState<string | null>(null);
+  const [sending, setSending]         = useState(false);
+  const [error, setError]             = useState<string | null>(null);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -148,22 +146,18 @@ function MetaRow({ label, children }: { label: string; children: React.ReactNode
 export default function MailDetailPage() {
   const { org, id } = useParams<{ org: string; id: string }>();
   const router = useRouter();
-
-  const [mail, setMail]         = useState<MailDetail | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
   const [showReply, setShowReply] = useState(false);
 
+  const { data: mail, isLoading: loading, error: queryError } = useQuery({
+    queryKey: mailingKeys.detail(org, id),
+    queryFn:  () => mailingApi.get(org, id),
+  });
+
   useEffect(() => {
-    mailingApi.get(org, id)
-      .then(setMail)
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        if (err instanceof ApiClientError && err.status === 404) { router.push(`/${org}/mailing`); return; }
-        setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      })
-      .finally(() => setLoading(false));
-  }, [org, id, router]);
+    if (queryError instanceof ApiClientError && queryError.status === 404) {
+      router.push(`/${org}/mailing`);
+    }
+  }, [queryError, org, router]);
 
   if (loading) {
     return (
@@ -174,19 +168,19 @@ export default function MailDetailPage() {
     );
   }
 
-  if (error || !mail) {
+  if (queryError || !mail) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
           <AlertCircle size={16} />
-          <span className="text-sm">{error ?? "メールが見つかりません"}</span>
+          <span className="text-sm">{queryError?.message ?? "メールが見つかりません"}</span>
         </div>
       </div>
     );
   }
 
-  const subject   = mail.resend?.subject ?? "（件名なし）";
-  const eventCfg  = mail.resend
+  const subject  = mail.resend?.subject ?? "（件名なし）";
+  const eventCfg = mail.resend
     ? (LAST_EVENT_LABEL[mail.resend.lastEvent] ?? { label: mail.resend.lastEvent, color: "text-gray-500 bg-gray-50" })
     : null;
 
@@ -209,7 +203,6 @@ export default function MailDetailPage() {
       </header>
 
       <main className="flex-1 max-w-3xl mx-auto w-full px-4 sm:px-8 py-6 space-y-5">
-        {/* メタ情報 */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="px-6 py-5 border-b border-gray-100">
             <h2 className="text-base font-semibold text-gray-900">{subject}</h2>
@@ -231,7 +224,7 @@ export default function MailDetailPage() {
             </MetaRow>
 
             <MetaRow label="送信日時">
-              <span className="text-sm text-gray-700">{formatFullDate(mail.sentAt)}</span>
+              <span className="text-sm text-gray-700">{formatJaDateTime(mail.sentAt)}</span>
             </MetaRow>
 
             <MetaRow label="受信者数">
@@ -242,7 +235,6 @@ export default function MailDetailPage() {
           </dl>
         </div>
 
-        {/* 本文（Resend から取得）*/}
         {mail.resend ? (
           <div className="bg-white rounded-xl border border-gray-200 px-6 py-5">
             {mail.resend.html ? (
@@ -264,7 +256,6 @@ export default function MailDetailPage() {
           </div>
         )}
 
-        {/* 受信者ごとの配信ステータス */}
         {mail.recipients.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="px-6 py-3 border-b border-gray-100">

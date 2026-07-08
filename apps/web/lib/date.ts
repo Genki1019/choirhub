@@ -30,3 +30,9 @@ export function formatJaDate(isoStr: string): string {
   const d = new Date(isoStr);
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
 }
+
+/** ISO文字列 → "YYYY年M月D日 H:MM" */
+export function formatJaDateTime(isoStr: string): string {
+  const d = new Date(isoStr);
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+}

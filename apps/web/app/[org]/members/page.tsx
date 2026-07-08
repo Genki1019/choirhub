@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { LayoutGrid, List, UserPlus, Loader2, AlertCircle, Users } from "lucide-react";
-import { membersApi, type MemberProfile, type PartSummary } from "@/lib/members-api";
+import { useQuery } from "@tanstack/react-query";
+import { membersApi, type MemberProfile } from "@/lib/members-api";
 import { useMember } from "@/contexts/MemberContext";
-import { settingsApi, type MemberType } from "@/lib/settings-api";
-import { ApiClientError } from "@/lib/api-client";
+import { settingsApi } from "@/lib/settings-api";
+import { memberKeys } from "@/lib/query-keys";
 import { MEMBER_STATUS_OPTIONS } from "@/lib/api-types";
 import type { MemberStatus } from "@/lib/api-types";
 import { comparePartOrder } from "@/lib/voice-order";
@@ -48,7 +49,6 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
 
 function MembersContent() {
   const { org } = useParams<{ org: string }>();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [sortKey, setSortKey] = useState<SortKey>("nameJa");
   const [viewMode, setViewMode] = useState<ViewMode>("card");
@@ -58,48 +58,25 @@ function MembersContent() {
   );
   const [memberTypeFilter, setMemberTypeFilter] = useState<string>("all");
   const { roles: myRoles } = useMember();
-  const [members, setMembers] = useState<MemberProfile[]>([]);
-  const [parts, setParts] = useState<PartSummary[]>([]);
-  const [memberTypes, setMemberTypes] = useState<MemberType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showInvite, setShowInvite] = useState(false);
   const [showInviteSuccess, setShowInviteSuccess] = useState(false);
 
-  const [prevOrg, setPrevOrg] = useState(org);
-  if (prevOrg !== org) {
-    setPrevOrg(org);
-    setLoading(true);
-    setError(null);
-  }
-
   const isAdmin = myRoles.includes("admin");
 
-  useEffect(() => {
-    let cancelled = false;
+  const { data: members = [], isLoading: membersLoading, error: membersError } = useQuery({
+    queryKey: memberKeys.list(org),
+    queryFn: () => membersApi.list(org),
+  });
+  const { data: parts = [], isLoading: partsLoading } = useQuery({
+    queryKey: memberKeys.parts(org),
+    queryFn: () => membersApi.parts(org),
+  });
+  const { data: memberTypes = [], isLoading: typesLoading } = useQuery({
+    queryKey: memberKeys.types(org),
+    queryFn: () => settingsApi.listMemberTypes(org),
+  });
 
-    Promise.all([membersApi.list(org), membersApi.parts(org), settingsApi.listMemberTypes(org)])
-      .then(([memberData, partsData, memberTypeData]) => {
-        if (!cancelled) {
-          setMembers(memberData);
-          setParts(partsData);
-          setMemberTypes(memberTypeData);
-        }
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        if (err instanceof ApiClientError && err.status === 401) {
-          router.push("/login");
-          return;
-        }
-        setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [org, router]);
+  const loading = membersLoading || partsLoading || typesLoading;
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -248,21 +225,21 @@ function MembersContent() {
           </div>
         )}
 
-        {!loading && error && (
+        {!loading && membersError && (
           <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
             <AlertCircle size={16} />
-            <span className="text-sm">{error}</span>
+            <span className="text-sm">{membersError.message}</span>
           </div>
         )}
 
-        {!loading && !error && grouped.length === 0 && (
+        {!loading && !membersError && grouped.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-gray-400">
             <Users size={40} className="mb-3 opacity-40" />
             <p className="text-sm">該当するメンバーがいません</p>
           </div>
         )}
 
-        {!loading && !error && grouped.map(({ partId, partName, members: partMembers }) => (
+        {!loading && !membersError && grouped.map(({ partId, partName, members: partMembers }) => (
           <MemberPartSection
             key={partId}
             partId={partId}

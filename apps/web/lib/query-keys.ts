@@ -16,3 +16,8 @@ export const concertKeys = {
   list:   (org: string)             => ["concerts", org]     as const,
   detail: (org: string, id: string) => ["concert",  org, id] as const,
 };
+
+export const scoresKeys = {
+  grouped: (org: string)             => ["scores", org, "grouped"] as const,
+  detail:  (org: string, id: string) => ["score",  org, id]        as const,
+};

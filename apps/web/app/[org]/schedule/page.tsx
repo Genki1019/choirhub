@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Plus, Loader2, AlertCircle } from "lucide-react";
-import { eventsApi, type EventSummary } from "@/lib/events-api";
-import { ApiClientError } from "@/lib/api-client";
+import { useQuery } from "@tanstack/react-query";
+import { eventsApi } from "@/lib/events-api";
 import { monthStart } from "@/lib/date";
+import { eventKeys } from "@/lib/query-keys";
 import { Calendar } from "./_components/Calendar";
 import { EventList } from "./_components/EventList";
 import { PageMain } from "@/components/PageMain";
@@ -15,42 +16,19 @@ import { useMember } from "@/contexts/MemberContext";
 
 export default function SchedulePage() {
   const { org } = useParams<{ org: string }>();
-  const router  = useRouter();
   const today   = new Date();
 
   const { roles } = useMember();
-  const [events,    setEvents]    = useState<EventSummary[]>([]);
-  const [loadedFor, setLoadedFor] = useState<string | null>(null);
-  const [error,     setError]     = useState<string | null>(null);
-  const [year,      setYear]      = useState(today.getFullYear());
-  const [month,     setMonth]     = useState(today.getMonth() + 1);
+  const [year,  setYear]  = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth() + 1);
 
-  const monthKey = monthStart(year, month);
-  const loading = loadedFor !== monthKey;
+  const from = monthStart(year, month);
+  const to   = month === 12 ? monthStart(year + 1, 1) : monthStart(year, month + 1);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const from = monthStart(year, month);
-    const to   = month === 12 ? monthStart(year + 1, 1) : monthStart(year, month + 1);
-
-    eventsApi.list(org, { from, to })
-      .then((evList) => {
-        if (!cancelled) {
-          setEvents(evList);
-          setError(null);
-          setLoadedFor(monthStart(year, month));
-        }
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-        setLoadedFor(monthStart(year, month));
-      });
-
-    return () => { cancelled = true; };
-  }, [org, year, month, router]);
+  const { data: events = [], isLoading: loading, error: eventsError } = useQuery({
+    queryKey: eventKeys.list(org, year, month),
+    queryFn:  () => eventsApi.list(org, { from, to }),
+  });
 
   const canCreateEvent = roles.some((r) => ["admin", "tech", "conductor"].includes(r));
 
@@ -87,14 +65,14 @@ export default function SchedulePage() {
         </div>
       )}
 
-      {!loading && error && (
+      {!loading && eventsError && (
         <div className="m-8 flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
           <AlertCircle size={16} />
-          <span className="text-sm">{error}</span>
+          <span className="text-sm">{eventsError.message}</span>
         </div>
       )}
 
-      {!loading && !error && (
+      {!loading && !eventsError && (
         <PageMain className="flex flex-col gap-6">
           <Calendar
             year={year}

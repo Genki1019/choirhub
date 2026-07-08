@@ -24,3 +24,9 @@ export function todayStr(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+
+/** ISO文字列 → "YYYY年M月D日" */
+export function formatJaDate(isoStr: string): string {
+  const d = new Date(isoStr);
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+}

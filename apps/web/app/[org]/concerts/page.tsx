@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { CalendarDays, Plus, Loader2, AlertCircle } from "lucide-react";
-import { concertsApi, type ConcertSummary, type ConcertStatus } from "@/lib/concerts-api";
-import { ApiClientError } from "@/lib/api-client";
+import { useQuery } from "@tanstack/react-query";
+import { concertsApi, type ConcertStatus } from "@/lib/concerts-api";
+import { concertKeys } from "@/lib/query-keys";
 import { ConcertCard } from "./_components/ConcertCard";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
@@ -23,29 +24,15 @@ const FILTERS: { value: Filter; label: string }[] = [
 
 export default function ConcertsPage() {
   const { org } = useParams<{ org: string }>();
-  const router = useRouter();
-
   const { roles } = useMember();
-  const [concerts, setConcerts] = useState<ConcertSummary[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    concertsApi.list(org)
-      .then((data) => {
-        setConcerts(data);
-      })
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      })
-      .finally(() => setLoading(false));
-  }, [org, router]);
+  const { data: concerts = [], isLoading: loading, error: concertsError } = useQuery({
+    queryKey: concertKeys.list(org),
+    queryFn:  () => concertsApi.list(org),
+  });
 
   const filtered = filter === "all" ? concerts : concerts.filter((c) => c.status === filter);
-
-  // 終了以外を先に、その中で日付昇順。終了は最後
   const sorted = [
     ...filtered.filter((c) => c.status !== "past"),
     ...filtered.filter((c) => c.status === "past"),
@@ -98,25 +85,24 @@ export default function ConcertsPage() {
           </div>
         )}
 
-        {!loading && error && (
+        {!loading && concertsError && (
           <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
             <AlertCircle size={16} />
-            <span className="text-sm">{error}</span>
+            <span className="text-sm">{concertsError.message}</span>
           </div>
         )}
 
-        {!loading && !error && sorted.length === 0 && (
+        {!loading && !concertsError && sorted.length === 0 && (
           <div className="text-center py-16 text-gray-400">
             <CalendarDays size={32} className="mx-auto mb-3 opacity-40" />
             <p className="text-sm">演奏会が登録されていません</p>
           </div>
         )}
 
-        {!loading && !error && sorted.map((concert) => (
+        {!loading && !concertsError && sorted.map((concert) => (
           <ConcertCard key={concert.id} concert={concert} org={org} />
         ))}
       </PageMain>
-
     </div>
   );
 }

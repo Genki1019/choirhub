@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, CalendarDays, MapPin, Music, ClipboardList,
   Users, Loader2, AlertCircle, Pencil, Trash2,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   concertsApi,
   type ConcertDetail,
@@ -17,6 +17,8 @@ import {
   type StageDetail,
 } from "@/lib/concerts-api";
 import { ApiClientError } from "@/lib/api-client";
+import { formatJaDate } from "@/lib/date";
+import { concertKeys } from "@/lib/query-keys";
 import { useMember } from "@/contexts/MemberContext";
 import { StagesTab } from "./_components/StagesTab";
 import { AddStageModal } from "./_components/AddStageModal";
@@ -44,17 +46,16 @@ export default function ConcertDetailPage() {
   const { org, id } = useParams<{ org: string; id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
 
   const tabParam = searchParams.get("tab") as Tab | null;
   const initialTab: Tab = tabParam && VALID_TABS.includes(tabParam) ? tabParam : "stages";
   const fromParam = searchParams.get("from");
   const backHref = fromParam === "schedule" ? `/${org}/schedule` : `/${org}/concerts`;
-  const [concert, setConcert] = useState<ConcertDetail | null>(null);
+
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const { roles, memberId } = useMember();
   const isAdmin = roles.includes("admin");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [addProgramStageId, setAddProgramStageId] = useState<string | null>(null);
   const [showAddStageModal, setShowAddStageModal] = useState(false);
   const [moveCopySource, setMoveCopySource] = useState<{ stageId: string; program: ProgramDetail } | null>(null);
@@ -63,39 +64,42 @@ export default function ConcertDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const { data: concert, isLoading: loading, error: queryError } = useQuery({
+    queryKey: concertKeys.detail(org, id),
+    queryFn:  () => concertsApi.get(org, id),
+  });
+
   useEffect(() => {
-    concertsApi.get(org, id)
-      .then((data) => {
-        setConcert(data);
-      })
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        if (err instanceof ApiClientError && err.status === 404) { router.push(`/${org}/concerts`); return; }
-        setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      })
-      .finally(() => setLoading(false));
-  }, [org, id, router]);
+    if (queryError instanceof ApiClientError && queryError.status === 404) {
+      router.push(`/${org}/concerts`);
+    }
+  }, [queryError, org, router]);
 
   const handleStageAdded = (stage: StageDetail) => {
-    setConcert((prev) => prev ? { ...prev, stages: [...prev.stages, stage] } : prev);
+    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) =>
+      prev ? { ...prev, stages: [...prev.stages, stage] } : prev
+    );
     setShowAddStageModal(false);
   };
 
   const handleMoveStage = (stageId: string, dir: -1 | 1) => {
-    setConcert((prev) => {
+    let orderedIds: string[] = [];
+    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) => {
       if (!prev) return prev;
       const idx = prev.stages.findIndex((s) => s.id === stageId);
       const newIdx = idx + dir;
       if (newIdx < 0 || newIdx >= prev.stages.length) return prev;
       const next = [...prev.stages];
       [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
-      concertsApi.reorderStages(org, id, next.map((s) => s.id)).catch(() => {});
+      orderedIds = next.map((s) => s.id);
       return { ...prev, stages: next };
     });
+    if (orderedIds.length > 0) concertsApi.reorderStages(org, id, orderedIds).catch(() => {});
   };
 
   const handleMoveProgram = (stageId: string, programId: string, dir: -1 | 1) => {
-    setConcert((prev) => {
+    let orderedIds: string[] = [];
+    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) => {
       if (!prev) return prev;
       const stageIdx = prev.stages.findIndex((s) => s.id === stageId);
       if (stageIdx === -1) return prev;
@@ -108,19 +112,17 @@ export default function ConcertDetailPage() {
       const nextStages = prev.stages.map((s, i) =>
         i === stageIdx ? { ...s, programs: nextPrograms } : s
       );
-      concertsApi.reorderPrograms(org, id, stageId, nextPrograms.map((p) => p.id)).catch(() => {});
+      orderedIds = nextPrograms.map((p) => p.id);
       return { ...prev, stages: nextStages };
     });
+    if (orderedIds.length > 0) concertsApi.reorderPrograms(org, id, stageId, orderedIds).catch(() => {});
   };
 
   const handleEditStageName = async (stageId: string, name: string) => {
     await concertsApi.updateStage(org, id, stageId, { name });
-    setConcert((prev) => {
+    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) => {
       if (!prev) return prev;
-      return {
-        ...prev,
-        stages: prev.stages.map((s) => (s.id === stageId ? { ...s, name } : s)),
-      };
+      return { ...prev, stages: prev.stages.map((s) => (s.id === stageId ? { ...s, name } : s)) };
     });
   };
 
@@ -132,7 +134,7 @@ export default function ConcertDetailPage() {
     if (!moveCopySource) return;
     const { stageId: sourceStageId, program: { id: sourceProgramId } } = moveCopySource;
 
-    setConcert((prev) => {
+    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) => {
       if (!prev) return prev;
       let stages = prev.stages;
 
@@ -159,16 +161,22 @@ export default function ConcertDetailPage() {
   };
 
   const handleEditSaved = useCallback((updated: Partial<ConcertDetail>) => {
-    setConcert((prev) => prev ? { ...prev, ...updated } : prev);
-  }, []);
+    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) =>
+      prev ? { ...prev, ...updated } : prev
+    );
+  }, [org, id, queryClient]);
 
   const handleSurveysChanged = useCallback((surveys: SurveySummary[]) => {
-    setConcert((prev) => prev ? { ...prev, surveys } : prev);
-  }, []);
+    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) =>
+      prev ? { ...prev, surveys } : prev
+    );
+  }, [org, id, queryClient]);
 
   const handleConcertStatusChanged = useCallback((status: ConcertStatus) => {
-    setConcert((prev) => prev ? { ...prev, status } : prev);
-  }, []);
+    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) =>
+      prev ? { ...prev, status } : prev
+    );
+  }, [org, id, queryClient]);
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -182,7 +190,7 @@ export default function ConcertDetailPage() {
   };
 
   const handleProgramAdded = (stageId: string, program: ProgramDetail) => {
-    setConcert((prev) => {
+    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) => {
       if (!prev) return prev;
       return {
         ...prev,
@@ -195,7 +203,7 @@ export default function ConcertDetailPage() {
   };
 
   const handleProgramEdited = (stageId: string, updated: ProgramDetail) => {
-    setConcert((prev) => {
+    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) => {
       if (!prev) return prev;
       return {
         ...prev,
@@ -218,22 +226,21 @@ export default function ConcertDetailPage() {
     );
   }
 
-  if (error || !concert) {
+  if (queryError || !concert) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
           <AlertCircle size={16} />
-          <span className="text-sm">{error ?? "演奏会が見つかりません"}</span>
+          <span className="text-sm">{queryError?.message ?? "演奏会が見つかりません"}</span>
         </div>
       </div>
     );
   }
 
   const s = STATUS_CONFIG[concert.status];
-  const date = new Date(concert.heldOn);
-  const dateStr = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+  const dateStr = formatJaDate(concert.heldOn);
 
-  const totalPrograms = concert.stages.reduce((n, s) => n + s.programs.length, 0);
+  const totalPrograms = concert.stages.reduce((n, st) => n + st.programs.length, 0);
   const onCount = concert.assignments.filter((a) => a.status === "on").length;
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [

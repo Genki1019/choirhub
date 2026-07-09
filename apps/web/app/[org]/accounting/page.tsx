@@ -11,7 +11,7 @@ import { accountingApi } from "@/lib/accounting-api";
 import type { ExpenseItem } from "@/lib/accounting-api";
 import { settingsApi } from "@/lib/settings-api";
 import { ApiClientError } from "@/lib/api-client";
-import { accountingKeys, memberKeys } from "@/lib/query-keys";
+import { accountingKeys, memberKeys, settingsKeys } from "@/lib/query-keys";
 import { ExpenseModal } from "./_components/ExpenseModal";
 import { CollectionModal } from "./_components/CollectionModal";
 import { CollectionsTab } from "./_components/CollectionsTab";
@@ -68,8 +68,8 @@ export default function AccountingPage() {
     }),
   });
   const { data: categories  = [] } = useQuery({
-    queryKey: accountingKeys.expenseCategories(org),
-    queryFn:  () => accountingApi.listCategories(org),
+    queryKey: settingsKeys.expenseCategories(org),
+    queryFn:  () => settingsApi.listExpenseCategories(org),
     enabled:  expenseModal.open,
   });
   const { data: memberTypes = [] } = useQuery({

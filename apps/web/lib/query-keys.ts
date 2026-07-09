@@ -1,3 +1,7 @@
+export const homeKeys = {
+  get: (org: string) => ["home", org] as const,
+};
+
 export const memberKeys = {
   list:       (org: string)             => ["members",     org]           as const,
   activeList: (org: string)             => ["members",     org, "active"] as const,
@@ -28,11 +32,16 @@ export const mailingKeys = {
   detail: (org: string, id: string)   => ["mail",  org, id]   as const,
 };
 
+export const settingsKeys = {
+  org:               (org: string) => ["settings", org, "org"]               as const,
+  fee:               (org: string) => ["settings", org, "fee"]               as const,
+  expenseCategories: (org: string) => ["settings", org, "expenseCategories"] as const,
+};
+
 export const accountingKeys = {
-  all:              (org: string)               => ["accounting", org]                       as const,
-  summary:          (org: string, year: number) => ["accounting", org, "summary",     year] as const,
-  expenses:         (org: string, year: number) => ["accounting", org, "expenses",    year] as const,
-  collections:      (org: string, year: number) => ["accounting", org, "collections", year] as const,
-  collection:       (org: string, id: string)   => ["accounting", org, "collection",  id]   as const,
-  expenseCategories:(org: string)               => ["accounting", org, "categories"]        as const,
+  all:         (org: string)               => ["accounting", org]                       as const,
+  summary:     (org: string, year: number) => ["accounting", org, "summary",     year] as const,
+  expenses:    (org: string, year: number) => ["accounting", org, "expenses",    year] as const,
+  collections: (org: string, year: number) => ["accounting", org, "collections", year] as const,
+  collection:  (org: string, id: string)   => ["accounting", org, "collection",  id]   as const,
 };

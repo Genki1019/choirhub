@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { AlertCircle, Loader2, CalendarDays, Mail } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { homeApi, type HomeData } from "@/lib/home-api";
-import { ApiClientError } from "@/lib/api-client";
+import { homeKeys } from "@/lib/query-keys";
 import { StatCard } from "./_components/StatCard";
 import { EventCard } from "./_components/EventCard";
 import { MonthlyOrganizerCard } from "./_components/MonthlyOrganizerCard";
@@ -28,19 +28,12 @@ function formatMailDate(isoString: string): string {
 
 export default function HomePage() {
   const { org } = useParams<{ org: string }>();
-  const router  = useRouter();
+  const queryClient = useQueryClient();
 
-  const [data,    setData]    = useState<HomeData | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    homeApi.get(org)
-      .then(setData)
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) router.push("/login");
-      })
-      .finally(() => setLoading(false));
-  }, [org, router]);
+  const { data, isLoading: loading } = useQuery({
+    queryKey: homeKeys.get(org),
+    queryFn:  () => homeApi.get(org),
+  });
 
   const upcomingEvents = data?.upcomingEvents ?? [];
   const nextRehearsal  = data?.nextRehearsal  ?? null;
@@ -49,7 +42,7 @@ export default function HomePage() {
   return (
     <div className="flex flex-col">
       <header className="bg-white border-b border-gray-200 shrink-0">
-        <PageBleedRow  className="flex items-center justify-between py-4">
+        <PageBleedRow className="flex items-center justify-between py-4">
           <h1 className="text-lg font-semibold text-gray-800">ホーム</h1>
           {data && data.unansweredEventCount > 0 && (
             <Link
@@ -105,7 +98,9 @@ export default function HomePage() {
                 organizer={data?.monthlyOrganizer ?? null}
                 isTicketManager={data?.isTicketManager ?? false}
                 org={org}
-                onSaved={(value) => setData((prev) => prev ? { ...prev, monthlyOrganizer: value } : prev)}
+                onSaved={(value) => queryClient.setQueryData<HomeData>(homeKeys.get(org), (prev) =>
+                  prev ? { ...prev, monthlyOrganizer: value } : prev
+                )}
               />
             </div>
 

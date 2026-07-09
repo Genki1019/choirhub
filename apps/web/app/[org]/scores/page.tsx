@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState, useMemo } from "react";
+import { useParams } from "next/navigation";
 import { Plus, Loader2, AlertCircle, BookOpen } from "lucide-react";
-import { scoresApi, type ConcertWithScores, type ScoreSummary } from "@/lib/scores-api";
-import { ApiClientError } from "@/lib/api-client";
-import { membersApi } from "@/lib/members-api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { scoresApi, type GroupedScores, type ScoreSummary } from "@/lib/scores-api";
+import { scoresKeys } from "@/lib/query-keys";
+import { useMember } from "@/contexts/MemberContext";
 import { ScoreFormModal } from "./_components/ScoreFormModal";
 import { ConcertSection } from "./_components/ConcertSection";
 import { UnassignedSection } from "./_components/UnassignedSection";
@@ -14,44 +15,28 @@ import { PageBleedRow } from "@/components/PageBleedRow";
 
 export default function ScoresPage() {
   const { org } = useParams<{ org: string }>();
-  const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const [data, setData] = useState<{ concerts: ConcertWithScores[]; unassigned: ScoreSummary[] } | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loadedFor, setLoadedFor] = useState<string | null>(null);
-  const [reloadTick, setReloadTick] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const { roles } = useMember();
   const [showAddModal, setShowAddModal] = useState(false);
 
-  const loading = loadedFor !== org;
+  const { data, isLoading: loading, error: scoresError } = useQuery({
+    queryKey: scoresKeys.grouped(org),
+    queryFn:  () => scoresApi.grouped(org),
+  });
 
   const existingScores = useMemo(() => [
     ...(data?.unassigned ?? []),
     ...(data?.concerts.flatMap((c) => c.stages.flatMap((s) => s.programs.flatMap((p) => p.score ? [p.score] : []))) ?? []),
   ], [data]);
 
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([scoresApi.grouped(org), membersApi.me(org)])
-      .then(([scoreData, me]) => {
-        if (cancelled) return;
-        setData(scoreData);
-        setIsAdmin(me.roles.includes("admin"));
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      })
-      .finally(() => { if (!cancelled) setLoadedFor(org); });
-    return () => { cancelled = true; };
-  }, [org, reloadTick]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const handleScoreCreated = (score: ScoreSummary, stageAssigned: boolean) => {
     if (stageAssigned) {
-      setReloadTick((t) => t + 1);
+      queryClient.invalidateQueries({ queryKey: scoresKeys.grouped(org) });
     } else {
-      setData((prev) => prev ? { ...prev, unassigned: [...prev.unassigned, score] } : prev);
+      queryClient.setQueryData<GroupedScores>(scoresKeys.grouped(org), (prev) =>
+        prev ? { ...prev, unassigned: [...prev.unassigned, score] } : prev
+      );
     }
     setShowAddModal(false);
   };
@@ -71,7 +56,7 @@ export default function ScoresPage() {
               <span className="text-sm text-gray-400">{totalScores}曲</span>
             )}
           </div>
-          {isAdmin && (
+          {roles.includes("admin") && (
             <button
               onClick={() => setShowAddModal(true)}
               className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-brand-700 transition-colors"
@@ -91,10 +76,10 @@ export default function ScoresPage() {
           </div>
         )}
 
-        {!loading && error && (
+        {!loading && scoresError && (
           <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
             <AlertCircle size={16} />
-            <span className="text-sm">{error}</span>
+            <span className="text-sm">{scoresError.message}</span>
           </div>
         )}
 

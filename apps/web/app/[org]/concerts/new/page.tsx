@@ -1,74 +1,65 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Calendar, MapPin, FileText, AlertCircle, Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { concertsApi } from "@/lib/concerts-api";
-import { membersApi, type PartSummary } from "@/lib/members-api";
-import { ApiClientError } from "@/lib/api-client";
+import { membersApi } from "@/lib/members-api";
+import { useMember } from "@/contexts/MemberContext";
+import { canManageSchedule } from "@/lib/roles";
+import { toJstIso, todayStr } from "@/lib/date";
+import { memberKeys } from "@/lib/query-keys";
 import { NotFoundPage } from "@/components/NotFoundPage";
 import { LocationSearch } from "@/components/LocationSearch";
+import { SectionLabel } from "../../_components/SectionLabel";
 import { TargetAudienceSection } from "../../_components/TargetAudienceSection";
 import { DeadlineSection } from "../../_components/DeadlineSection";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
 
-function SectionLabel({ icon, label }: { icon: React.ReactNode; label: string }) {
-  return (
-    <div className="flex items-center gap-2 text-sm font-medium text-gray-600 mb-3">
-      {icon}
-      {label}
-    </div>
-  );
-}
-
-function toJstIso(date: string, time: string): string {
-  return `${date}T${time}:00+09:00`;
-}
-
-function getTodayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
 export default function NewConcertPage() {
   const { org } = useParams<{ org: string }>();
   const router  = useRouter();
 
-  const [canCreate,  setCanCreate]  = useState<boolean | null>(null);
-  const [parts,      setParts]      = useState<PartSummary[]>([]);
-  const [initError,  setInitError]  = useState<string | null>(null);
+  const { roles } = useMember();
+  const canCreate = canManageSchedule(roles);
 
   const [title,         setTitle]         = useState("");
-  const [startDate,     setStartDate]     = useState(getTodayStr);
+  const [startDate,     setStartDate]     = useState(todayStr);
   const [startTime,     setStartTime]     = useState("18:00");
-  const [endDate,       setEndDate]       = useState(getTodayStr);
+  const [endDate,       setEndDate]       = useState(todayStr);
   const [endTime,       setEndTime]       = useState("22:00");
   const [location,      setLocation]      = useState("");
   const [locationUrl,   setLocationUrl]   = useState("");
   const [targetRoles,   setTargetRoles]   = useState<string[]>([]);
   const [targetPartIds, setTargetPartIds] = useState<string[]>([]);
-  const [hasDeadline,  setHasDeadline]  = useState(false);
-  const [deadlineDate, setDeadlineDate] = useState("");
-  const [deadlineTime, setDeadlineTime] = useState("23:59");
+  const [hasDeadline,   setHasDeadline]   = useState(false);
+  const [deadlineDate,  setDeadlineDate]  = useState("");
+  const [deadlineTime,  setDeadlineTime]  = useState("23:59");
   const [pageMemo,      setPageMemo]      = useState("");
   const [error,         setError]         = useState("");
   const [saving,        setSaving]        = useState(false);
 
-  useEffect(() => {
-    Promise.all([membersApi.me(org), membersApi.parts(org)])
-      .then(([me, partList]) => {
-        setCanCreate(me.roles.includes("admin") || me.roles.includes("tech"));
-        setParts(partList);
-      })
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        setInitError(err instanceof Error ? err.message : "権限の確認に失敗しました");
-      });
-  }, [org, router]);
+  const { data: parts = [], isLoading: partsLoading, error: partsError } = useQuery({
+    queryKey: memberKeys.parts(org),
+    queryFn:  () => membersApi.parts(org),
+    enabled:  canCreate,
+  });
 
-  if (canCreate === null && !initError) {
+  const loading   = canCreate && partsLoading;
+  const initError = partsError?.message ?? null;
+
+  if (!canCreate) {
+    return (
+      <div className="flex flex-col h-full">
+        <NotFoundPage message="このページにアクセスする権限がありません" />
+      </div>
+    );
+  }
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-full gap-2 text-gray-400">
         <Loader2 size={18} className="animate-spin" />
@@ -92,14 +83,6 @@ export default function NewConcertPage() {
           <AlertCircle size={16} />
           <span className="text-sm">{initError}</span>
         </div>
-      </div>
-    );
-  }
-
-  if (!canCreate) {
-    return (
-      <div className="flex flex-col h-full">
-        <NotFoundPage message="このページにアクセスする権限がありません" />
       </div>
     );
   }

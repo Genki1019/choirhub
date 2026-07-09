@@ -1,30 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { settingsApi } from "@/lib/settings-api";
-import { ApiClientError } from "@/lib/api-client";
+import { settingsKeys } from "@/lib/query-keys";
 import { ROLE_LABELS, type RoleKey } from "@/lib/roles";
 import { RoleNamesForm } from "./_components/RoleNamesForm";
 
 export default function RolesPage() {
   const { org } = useParams<{ org: string }>();
-  const router  = useRouter();
 
-  const [names,   setNames]   = useState<Record<RoleKey, string>>({ ...ROLE_LABELS } as Record<RoleKey, string>);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    settingsApi.get(org)
-      .then((data) => {
-        setNames((prev) => ({ ...prev, ...data.roleNames }) as Record<RoleKey, string>);
-      })
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) router.push("/login");
-      })
-      .finally(() => setLoading(false));
-  }, [org, router]);
+  const { data: settings, isLoading: loading } = useQuery({
+    queryKey: settingsKeys.org(org),
+    queryFn:  () => settingsApi.get(org),
+  });
 
   if (loading) {
     return (
@@ -33,6 +23,8 @@ export default function RolesPage() {
       </div>
     );
   }
+
+  const names = { ...ROLE_LABELS, ...settings?.roleNames } as Record<RoleKey, string>;
 
   return (
     <div className="max-w-2xl">

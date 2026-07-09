@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, MapPin, Clock, Lock, Pencil, Trash2, Loader2, AlertCircle } from "lucide-react";
-import { eventsApi, type EventDetail } from "@/lib/events-api";
-import { membersApi, type MemberProfile, type PartSummary } from "@/lib/members-api";
+import { useQuery } from "@tanstack/react-query";
+import { eventsApi } from "@/lib/events-api";
+import { membersApi } from "@/lib/members-api";
+import { useMember } from "@/contexts/MemberContext";
 import { comparePartOrder } from "@/lib/voice-order";
-import { ApiClientError } from "@/lib/api-client";
+import { eventKeys, memberKeys } from "@/lib/query-keys";
 import { AttendanceTable, type LocalAttendance } from "./_components/AttendanceTable";
 import { DeleteConfirmModal } from "./_components/DeleteConfirmModal";
 import { PageMain } from "@/components/PageMain";
@@ -25,55 +27,48 @@ export default function ScheduleDetailPage() {
   const { org, id } = useParams<{ org: string; id: string }>();
   const router = useRouter();
 
-  const [event,   setEvent]   = useState<EventDetail | null>(null);
-  const [members, setMembers] = useState<MemberProfile[]>([]);
-  const [parts,   setParts]   = useState<PartSummary[]>([]);
-  const [selfId,  setSelfId]  = useState<string | null>(null);
-  const [canEdit, setCanEdit] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
+  const { roles, memberId: selfId } = useMember();
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting,          setDeleting]          = useState(false);
   const [deleteError,       setDeleteError]       = useState<string | null>(null);
+  const [attendances,       setAttendances]       = useState<Record<string, LocalAttendance>>({});
+  const [saving,            setSaving]            = useState(false);
+  const [expandedId,        setExpandedId]        = useState<string | null>(null);
 
-  const [attendances, setAttendances] = useState<Record<string, LocalAttendance>>({});
-  const [saving,      setSaving]      = useState(false);
-  const [expandedId,  setExpandedId]  = useState<string | null>(null);
+  const { data: event, isLoading: eventLoading, error: eventError } = useQuery({
+    queryKey: eventKeys.detail(org, id),
+    queryFn:  () => eventsApi.get(org, id),
+  });
+  const { data: members = [], isLoading: membersLoading } = useQuery({
+    queryKey: memberKeys.activeList(org),
+    queryFn:  () => membersApi.list(org, { status: "active" }),
+  });
+  const { data: parts = [], isLoading: partsLoading } = useQuery({
+    queryKey: memberKeys.parts(org),
+    queryFn:  () => membersApi.parts(org),
+  });
 
+  const loading = eventLoading || membersLoading || partsLoading;
+
+  // event + members が揃ったときだけ attendances を初期化する（同一イベントで再フェッチしても上書きしない）
+  const initializedForRef = useRef<string | null>(null);
   useEffect(() => {
-    Promise.all([
-      eventsApi.get(org, id),
-      membersApi.me(org),
-      membersApi.list(org, { status: "active" }),
-      membersApi.parts(org),
-    ])
-      .then(([ev, me, memberList, partList]) => {
-        setEvent(ev);
-        setSelfId(me.id);
-        setCanEdit(me.roles.includes("admin"));
-        setMembers(memberList);
-        setParts(partList);
-
-        const map: Record<string, LocalAttendance> = {};
-        const attMap = new Map(ev.attendances.map(a => [a.member.id, a]));
-        memberList.forEach(m => {
-          const rec = attMap.get(m.id);
-          map[m.id] = {
-            status:     rec?.status     ?? "undecided",
-            arriveTime: rec?.arriveTime ?? null,
-            leaveTime:  rec?.leaveTime  ?? null,
-            dayMemo:    rec?.dayMemo    ?? null,
-          };
-        });
-        setAttendances(map);
-      })
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      })
-      .finally(() => setLoading(false));
-  }, [org, id, router]);
+    if (!event || !members.length || initializedForRef.current === id) return;
+    const attMap = new Map(event.attendances.map(a => [a.member.id, a]));
+    const map: Record<string, LocalAttendance> = {};
+    members.forEach(m => {
+      const rec = attMap.get(m.id);
+      map[m.id] = {
+        status:     rec?.status     ?? "undecided",
+        arriveTime: rec?.arriveTime ?? null,
+        leaveTime:  rec?.leaveTime  ?? null,
+        dayMemo:    rec?.dayMemo    ?? null,
+      };
+    });
+    setAttendances(map);
+    initializedForRef.current = id;
+  }, [event, members, id]);
 
   const isLocked = event?.isLocked ?? false;
 
@@ -100,7 +95,7 @@ export default function ScheduleDetailPage() {
   }, [isLocked, selfId, org, id]);
 
   const saveMemo = useCallback(async (memberId: string, data: Partial<LocalAttendance>) => {
-    if (!selfId || memberId !== selfId) return;
+    if (memberId !== selfId) return;
     setSaving(true);
     const prev = attendances[memberId];
     const next = { ...prev, ...data };
@@ -132,11 +127,15 @@ export default function ScheduleDetailPage() {
     }
   };
 
-  const sortedParts = [...parts].sort(comparePartOrder);
-  const partGroups  = sortedParts
-    .map(part => ({ part, members: members.filter(m => m.part?.id === part.id) }))
-    .filter(g => g.members.length > 0);
-  const unassigned  = members.filter(m => !m.part);
+  const { partGroups, unassigned } = useMemo(() => {
+    const sorted = [...parts].sort(comparePartOrder);
+    return {
+      partGroups: sorted
+        .map(part => ({ part, members: members.filter(m => m.part?.id === part.id) }))
+        .filter(g => g.members.length > 0),
+      unassigned: members.filter(m => !m.part),
+    };
+  }, [parts, members]);
 
   if (loading) {
     return (
@@ -147,7 +146,7 @@ export default function ScheduleDetailPage() {
     );
   }
 
-  if (error || !event) {
+  if (eventError || !event) {
     return (
       <div className="flex flex-col h-full">
         <header className="bg-white border-b border-gray-200">
@@ -160,13 +159,13 @@ export default function ScheduleDetailPage() {
         </header>
         <div className="m-8 flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
           <AlertCircle size={16} />
-          <span className="text-sm">{error ?? "イベントが見つかりません"}</span>
+          <span className="text-sm">{eventError?.message ?? "イベントが見つかりません"}</span>
         </div>
       </div>
     );
   }
 
-  const selfAnswered = attendances[selfId ?? ""]?.status !== "undecided";
+  const selfAnswered = attendances[selfId]?.status !== "undecided";
 
   return (
     <div className="flex flex-col">
@@ -215,10 +214,11 @@ export default function ScheduleDetailPage() {
             </div>
           </div>
 
-          {canEdit && (
+          {roles.includes("admin") && (
             <div className="flex items-center gap-2 shrink-0">
               <Link
                 href={`/${org}/schedule/${id}/edit`}
+                prefetch={false}
                 className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors"
               >
                 <Pencil size={13} />

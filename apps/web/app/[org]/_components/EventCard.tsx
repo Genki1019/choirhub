@@ -23,6 +23,7 @@ export function EventCard({ event, org, from = "home" }: { event: EventCardItem;
   return (
     <Link
       href={href}
+      prefetch={false}
       className="flex bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-sm transition-shadow"
     >
       <div className="w-1 shrink-0" style={{ backgroundColor: event.category.color }} />

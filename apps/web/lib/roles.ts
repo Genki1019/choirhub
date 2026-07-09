@@ -77,3 +77,11 @@ export const MANAGEABLE_ROLES = ROLES.map((r) => ({ value: r.key, label: r.defau
 
 /** 招待モーダル・フィルターで使用するロール全件オプション */
 export const ROLE_OPTIONS = ROLES.map((r) => ({ value: r.key, label: r.defaultName }));
+
+/** スケジュール・イベント作成・編集の権限（admin / tech） */
+export const canManageSchedule = (roles: string[]): boolean =>
+  roles.includes("admin") || roles.includes("tech");
+
+/** 設定画面・財務画面へのアクセス権限（admin / finance） */
+export const canAccessSettings = (roles: string[]): boolean =>
+  roles.includes("admin") || roles.includes("finance");

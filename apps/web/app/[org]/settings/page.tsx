@@ -1,40 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { settingsApi } from "@/lib/settings-api";
-import { membersApi } from "@/lib/members-api";
-import { ApiClientError } from "@/lib/api-client";
+import { settingsKeys } from "@/lib/query-keys";
+import { useMember } from "@/contexts/MemberContext";
 import { OrgSettingsForm } from "./_components/OrgSettingsForm";
 import { DangerZone } from "./_components/DangerZone";
 
 export default function SettingsPage() {
   const { org } = useParams<{ org: string }>();
-  const router  = useRouter();
+  const { roles } = useMember();
 
-  const [initialName, setInitialName] = useState("");
-  const [initialSlug, setInitialSlug] = useState("");
-  const [isAdmin, setIsAdmin]         = useState(false);
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState<string | null>(null);
-
-  useEffect(() => {
-    Promise.all([
-      settingsApi.get(org),
-      membersApi.me(org),
-    ])
-      .then(([settings, me]) => {
-        setInitialName(settings.name);
-        setInitialSlug(settings.slug);
-        setIsAdmin(me.roles.includes("admin"));
-      })
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      })
-      .finally(() => setLoading(false));
-  }, [org, router]);
+  const { data: settings, isLoading: loading, error } = useQuery({
+    queryKey: settingsKeys.org(org),
+    queryFn:  () => settingsApi.get(org),
+  });
 
   if (loading) {
     return (
@@ -47,15 +29,15 @@ export default function SettingsPage() {
   if (error) {
     return (
       <div className="flex items-center justify-center py-16 text-sm text-red-500">
-        {error}
+        {error.message}
       </div>
     );
   }
 
   return (
     <div className="max-w-lg space-y-5">
-      <OrgSettingsForm orgSlug={org} initialName={initialName} initialSlug={initialSlug} />
-      {isAdmin && <DangerZone />}
+      <OrgSettingsForm orgSlug={org} initialName={settings?.name ?? ""} initialSlug={settings?.slug ?? ""} />
+      {roles.includes("admin") && <DangerZone />}
     </div>
   );
 }

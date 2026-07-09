@@ -1,17 +1,19 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState, useRef } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, FileText, Music2, EyeOff, Tag, Pencil,
   Loader2, AlertCircle, Users, FolderOpen, BookOpen, CheckCircle2,
 } from "lucide-react";
-import { scoresApi, type ScoreDetail, type ScoreFile, type ScoreMetaResponse } from "@/lib/scores-api";
-import { membersApi, type PartSummary } from "@/lib/members-api";
-import { settingsApi, type MemberType } from "@/lib/settings-api";
-import { ApiClientError } from "@/lib/api-client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { scoresApi, type ScoreDetail } from "@/lib/scores-api";
+import { membersApi } from "@/lib/members-api";
+import { useMember } from "@/contexts/MemberContext";
+import { settingsApi } from "@/lib/settings-api";
 import { MEMBER_LEVEL_ROLES } from "@/lib/roles";
+import { scoresKeys, memberKeys } from "@/lib/query-keys";
 import { MidiModal } from "../_components/MidiModal";
 import { PurchaseModal } from "../_components/PurchaseModal";
 import { FileManageModal } from "../_components/FileManageModal";
@@ -22,14 +24,13 @@ import { PageBleedRow } from "@/components/PageBleedRow";
 
 export default function ScoreDetailPage() {
   const { org, scoreId } = useParams<{ org: string; scoreId: string }>();
-  const router = useRouter();
+  const queryClient = useQueryClient();
+  const patchScore = (patch: Partial<ScoreDetail>) =>
+    queryClient.setQueryData<ScoreDetail>(scoresKeys.detail(org, scoreId), (prev) =>
+      prev ? { ...prev, ...patch } : prev
+    );
 
-  const [score, setScore] = useState<ScoreDetail | null>(null);
-  const [myRoles, setMyRoles] = useState<string[]>([]);
-  const [parts, setParts] = useState<PartSummary[]>([]);
-  const [memberTypes, setMemberTypes] = useState<MemberType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { roles: myRoles } = useMember();
 
   const [showMidi,       setShowMidi]       = useState(false);
   const [showPurchase,   setShowPurchase]   = useState(false);
@@ -47,29 +48,22 @@ export default function ScoreDetailPage() {
   const isFileManager = isPrivileged || canManageMidi;
   const canViewPrice  = myRoles.some((r) => MEMBER_LEVEL_ROLES.has(r));
 
-  const load = useCallback(() => {
-    setLoading(true);
-    Promise.all([
-      scoresApi.getDetail(org, scoreId),
-      membersApi.me(org),
-      membersApi.parts(org),
-      settingsApi.listMemberTypes(org),
-    ])
-      .then(([scoreData, me, partData, types]) => {
-        setScore(scoreData);
-        setMyRoles(me.roles);
-        setParts(partData);
-        setMemberTypes(types);
-        setError(null);
-      })
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      })
-      .finally(() => setLoading(false));
-  }, [org, scoreId, router]);
+  const { data: score, isLoading: loading, error: scoreError } = useQuery({
+    queryKey: scoresKeys.detail(org, scoreId),
+    queryFn:  () => scoresApi.getDetail(org, scoreId),
+  });
 
-  useEffect(() => { load(); }, [load]);
+  const { data: parts = [] } = useQuery({
+    queryKey: memberKeys.parts(org),
+    queryFn:  () => membersApi.parts(org),
+    enabled:  showFileManage,
+  });
+
+  const { data: memberTypes = [] } = useQuery({
+    queryKey: memberKeys.types(org),
+    queryFn:  () => settingsApi.listMemberTypes(org),
+    enabled:  showCollection,
+  });
 
   const startEditPrice = () => {
     if (!score) return;
@@ -87,7 +81,7 @@ export default function ScoreDetailPage() {
     setSavingPrice(true);
     try {
       await scoresApi.setPrice(org, score.id, parsed);
-      setScore((s) => s ? { ...s, distributionPrice: parsed } : s);
+      patchScore({ distributionPrice: parsed });
       setEditingPrice(false);
     } catch {
       setEditingPrice(false);
@@ -97,15 +91,6 @@ export default function ScoreDetailPage() {
     }
   };
 
-  const handleFilesUpdated = (updatedFiles: ScoreFile[]) => {
-    setScore((s) => s ? { ...s, files: updatedFiles } : s);
-    setShowFileManage(false);
-  };
-
-  const handleMetaSaved = (updated: ScoreMetaResponse) => {
-    setScore((s) => s ? { ...s, ...updated } : s);
-    setShowEdit(false);
-  };
 
   if (loading) {
     return (
@@ -116,12 +101,12 @@ export default function ScoreDetailPage() {
     );
   }
 
-  if (error || !score) {
+  if (scoreError || !score) {
     return (
       <div className="p-6">
         <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
           <AlertCircle size={16} />
-          <span className="text-sm">{error ?? "楽譜が見つかりません"}</span>
+          <span className="text-sm">{scoreError?.message ?? "楽譜が見つかりません"}</span>
         </div>
       </div>
     );
@@ -354,7 +339,10 @@ export default function ScoreDetailPage() {
         <PurchaseModal
           orgSlug={org}
           score={score}
-          onClose={() => { setShowPurchase(false); load(); }}
+          onClose={() => {
+            setShowPurchase(false);
+            queryClient.invalidateQueries({ queryKey: scoresKeys.detail(org, scoreId) });
+          }}
         />
       )}
 
@@ -365,7 +353,7 @@ export default function ScoreDetailPage() {
           parts={parts}
           canManagePdf={isPrivileged}
           canManageMidi={canManageMidi}
-          onClose={handleFilesUpdated}
+          onClose={(files) => { patchScore({ files }); setShowFileManage(false); }}
         />
       )}
 
@@ -379,7 +367,7 @@ export default function ScoreDetailPage() {
           onClose={() => setShowCollection(false)}
           onSaved={() => {
             setShowCollection(false);
-            setScore((s) => s ? { ...s, hasCollection: true } : s);
+            patchScore({ hasCollection: true });
           }}
         />
       )}
@@ -391,7 +379,7 @@ export default function ScoreDetailPage() {
           score={score}
           isAdmin={isAdmin}
           onClose={() => setShowEdit(false)}
-          onSaved={handleMetaSaved}
+          onSaved={(updated) => { patchScore(updated as Partial<ScoreDetail>); setShowEdit(false); }}
         />
       )}
     </div>

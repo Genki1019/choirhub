@@ -1,37 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Calendar, MapPin, AlertCircle, FileText, Loader2 } from "lucide-react";
-import { eventsApi, type EventCategory } from "@/lib/events-api";
-import { membersApi, type PartSummary } from "@/lib/members-api";
+import { useQuery } from "@tanstack/react-query";
+import { eventsApi } from "@/lib/events-api";
+import { membersApi } from "@/lib/members-api";
+import { useMember } from "@/contexts/MemberContext";
+import { canManageSchedule } from "@/lib/roles";
 import { settingsApi } from "@/lib/settings-api";
-import { ApiClientError } from "@/lib/api-client";
+import { toJstIso, todayStr } from "@/lib/date";
+import { eventKeys, memberKeys } from "@/lib/query-keys";
 import { NotFoundPage } from "@/components/NotFoundPage";
 import { LocationSearch } from "@/components/LocationSearch";
+import { SectionLabel } from "../../_components/SectionLabel";
 import { TargetAudienceSection } from "../../_components/TargetAudienceSection";
 import { DeadlineSection } from "../../_components/DeadlineSection";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
-
-function SectionLabel({ icon, label }: { icon: React.ReactNode; label: string }) {
-  return (
-    <div className="flex items-center gap-2 text-sm font-medium text-gray-600 mb-3">
-      {icon}
-      {label}
-    </div>
-  );
-}
-
-function toJstIso(date: string, time: string): string {
-  return `${date}T${time}:00+09:00`;
-}
-
-function getTodayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 function ToggleChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
@@ -54,16 +41,14 @@ export default function NewSchedulePage() {
   const { org } = useParams<{ org: string }>();
   const router  = useRouter();
 
-  const [canCreate,    setCanCreate]    = useState<boolean | null>(null);
-  const [parts,        setParts]        = useState<PartSummary[]>([]);
-  const [categories,   setCategories]   = useState<EventCategory[]>([]);
-  const [initError,    setInitError]    = useState<string | null>(null);
+  const { roles } = useMember();
+  const canCreate = canManageSchedule(roles);
 
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [title,         setTitle]         = useState("");
-  const [categoryId,    setCategoryId]    = useState("");
-  const [startDate,     setStartDate]     = useState(getTodayStr);
+  const [startDate,     setStartDate]     = useState(todayStr);
   const [startTime,     setStartTime]     = useState("18:00");
-  const [endDate,       setEndDate]       = useState(getTodayStr);
+  const [endDate,       setEndDate]       = useState(todayStr);
   const [endTime,       setEndTime]       = useState("22:00");
   const [location,      setLocation]      = useState("");
   const [locationUrl,   setLocationUrl]   = useState("");
@@ -76,25 +61,23 @@ export default function NewSchedulePage() {
   const [error,         setError]         = useState("");
   const [saving,        setSaving]        = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([membersApi.me(org), membersApi.parts(org), settingsApi.listEventCategories(org)])
-      .then(([me, partList, catList]) => {
-        if (cancelled) return;
-        setCanCreate(me.roles.includes("admin") || me.roles.includes("tech"));
-        setParts(partList);
-        setCategories(catList);
-        if (catList.length > 0) setCategoryId(catList[0].id);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        setInitError(err instanceof Error ? err.message : "権限の確認に失敗しました");
-      });
-    return () => { cancelled = true; };
-  }, [org, router]);
+  const { data: parts = [], isLoading: partsLoading, error: partsError } = useQuery({
+    queryKey: memberKeys.parts(org),
+    queryFn:  () => membersApi.parts(org),
+    enabled:  canCreate,
+  });
+  const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useQuery({
+    queryKey: eventKeys.categories(org),
+    queryFn:  () => settingsApi.listEventCategories(org),
+    enabled:  canCreate,
+  });
 
-  if (canCreate === null && !initError) {
+  const categoryId = selectedCategoryId ?? categories[0]?.id ?? "";
+
+  const loading   = canCreate && (partsLoading || categoriesLoading);
+  const initError = partsError?.message ?? categoriesError?.message ?? null;
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-full gap-2 text-gray-400">
         <Loader2 size={18} className="animate-spin" />
@@ -202,7 +185,7 @@ export default function NewSchedulePage() {
                   key={cat.id}
                   label={cat.name}
                   active={categoryId === cat.id}
-                  onClick={() => setCategoryId(cat.id)}
+                  onClick={() => setSelectedCategoryId(cat.id)}
                 />
               ))}
             </div>

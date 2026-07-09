@@ -1,62 +1,39 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { useParams } from "next/navigation";
 import { PenSquare, Loader2, AlertCircle, Mail } from "lucide-react";
-import { mailingApi, type MailSummary, type MailListMeta } from "@/lib/mailing-api";
-import { ApiClientError } from "@/lib/api-client";
-import { membersApi, type PartSummary } from "@/lib/members-api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { mailingApi } from "@/lib/mailing-api";
+import { membersApi } from "@/lib/members-api";
+import { mailingKeys, memberKeys } from "@/lib/query-keys";
 import { ComposeModal } from "./_components/ComposeModal";
 import { MailCard } from "./_components/MailCard";
 import { Pagination } from "@/components/Pagination";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
 
+const PER_PAGE = 20;
+
 export default function MailingPage() {
   const { org } = useParams<{ org: string }>();
-  const router = useRouter();
-
-  const [mails, setMails]             = useState<MailSummary[]>([]);
-  const [meta, setMeta]               = useState<MailListMeta>({ total: 0, page: 1, perPage: 20 });
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState<string | null>(null);
-  const [parts, setParts]             = useState<PartSummary[]>([]);
+  const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
   const [showCompose, setShowCompose] = useState(false);
 
-  const fetchMails = useCallback((page: number) => {
-    mailingApi.list(org, { page, perPage: 20 })
-      .then((res) => {
-        setMails(res.data);
-        setMeta(res.meta);
-      })
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      })
-      .finally(() => setLoading(false));
-  }, [org, router]);
+  const { data: result, isLoading: loading, error: mailsError } = useQuery({
+    queryKey: mailingKeys.list(org, page),
+    queryFn:  () => mailingApi.list(org, { page, perPage: PER_PAGE }),
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    membersApi.parts(org).then((p) => { if (!cancelled) setParts(p); }).catch(() => {});
-    mailingApi.list(org, { page: 1, perPage: 20 })
-      .then((res) => { if (!cancelled) { setMails(res.data); setMeta(res.meta); } })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [org, router]);
+  const { data: parts = [] } = useQuery({
+    queryKey: memberKeys.parts(org),
+    queryFn:  () => membersApi.parts(org),
+    enabled:  showCompose,
+  });
 
-  const handlePageChange = (page: number) => {
-    setLoading(true);
-    setError(null);
-    fetchMails(page);
-  };
+  const mails = result?.data ?? [];
+  const meta  = result?.meta ?? { total: 0, page, perPage: PER_PAGE };
 
   return (
     <div className="flex flex-col">
@@ -83,33 +60,37 @@ export default function MailingPage() {
           </div>
         )}
 
-        {!loading && error && (
+        {!loading && mailsError && (
           <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
-            <AlertCircle size={16} /><span className="text-sm">{error}</span>
+            <AlertCircle size={16} /><span className="text-sm">{mailsError.message}</span>
           </div>
         )}
 
-        {!loading && !error && mails.length === 0 && (
+        {!loading && !mailsError && mails.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-gray-400">
             <Mail size={28} className="mb-3 opacity-40" />
             <p className="text-sm">メールがありません</p>
           </div>
         )}
 
-        {!loading && !error && mails.length > 0 && (
+        {!loading && !mailsError && mails.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             {mails.map((mail) => <MailCard key={mail.id} mail={mail} org={org} />)}
           </div>
         )}
 
-        <Pagination meta={meta} onPageChange={handlePageChange} />
+        <Pagination meta={meta} onPageChange={setPage} />
       </PageMain>
 
       {showCompose && (
         <ComposeModal
-          orgSlug={org} parts={parts}
+          orgSlug={org}
+          parts={parts}
           onClose={() => setShowCompose(false)}
-          onSent={() => fetchMails(1)}
+          onSent={() => {
+            setPage(1);
+            queryClient.invalidateQueries({ queryKey: mailingKeys.list(org, 1) });
+          }}
         />
       )}
     </div>

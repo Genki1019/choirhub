@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, AlertCircle, Users, User, Globe, EyeOff } from "lucide-react";
 import { ticketsApi, type RaceData } from "@/lib/tickets-api";
-import { ApiClientError } from "@/lib/api-client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ticketKeys } from "@/lib/query-keys";
 import { PartCard } from "./_components/PartCard";
 import { IndividualTable } from "./_components/IndividualTable";
 import { ScoringRules } from "./_components/ScoringRules";
@@ -13,23 +14,15 @@ import { PageBleedRow } from "@/components/PageBleedRow";
 
 export default function RacePage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
-  const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const [data,       setData]       = useState<RaceData | null>(null);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState<string | null>(null);
   const [tab,        setTab]        = useState<"parts" | "individuals">("parts");
   const [publishing, setPublishing] = useState(false);
 
-  useEffect(() => {
-    ticketsApi.race(org, concertId)
-      .then(setData)
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      })
-      .finally(() => setLoading(false));
-  }, [org, concertId, router]);
+  const { data, isLoading: loading, error } = useQuery({
+    queryKey: ticketKeys.race(org, concertId),
+    queryFn:  () => ticketsApi.race(org, concertId),
+  });
 
   if (loading) {
     return (
@@ -45,7 +38,7 @@ export default function RacePage() {
       <div className="flex items-center justify-center h-full">
         <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
           <AlertCircle size={16} />
-          <span className="text-sm">{error ?? "データが見つかりません"}</span>
+          <span className="text-sm">{error?.message ?? "データが見つかりません"}</span>
         </div>
       </div>
     );
@@ -92,7 +85,9 @@ export default function RacePage() {
                   setPublishing(true);
                   try {
                     await ticketsApi.unpublishRace(org, concertId);
-                    setData((prev) => prev ? { ...prev, racePublishedAt: null } : prev);
+                    queryClient.setQueryData<RaceData>(ticketKeys.race(org, concertId), (prev) =>
+                      prev ? { ...prev, racePublishedAt: null } : prev
+                    );
                   } finally { setPublishing(false); }
                 }}
                 disabled={publishing}
@@ -107,7 +102,9 @@ export default function RacePage() {
                   setPublishing(true);
                   try {
                     const result = await ticketsApi.publishRace(org, concertId);
-                    setData((prev) => prev ? { ...prev, racePublishedAt: result.racePublishedAt } : prev);
+                    queryClient.setQueryData<RaceData>(ticketKeys.race(org, concertId), (prev) =>
+                      prev ? { ...prev, racePublishedAt: result.racePublishedAt } : prev
+                    );
                   } finally { setPublishing(false); }
                 }}
                 disabled={publishing}

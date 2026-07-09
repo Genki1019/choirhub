@@ -1,52 +1,38 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, Loader2, AlertCircle, MapPin } from "lucide-react";
 import { ticketsApi, type OutreachActivityRow } from "@/lib/tickets-api";
 import { membersApi } from "@/lib/members-api";
-import { concertsApi } from "@/lib/concerts-api";
-import type { MemberProfile } from "@/lib/api-types";
-import { ApiClientError } from "@/lib/api-client";
+import { useMember } from "@/contexts/MemberContext";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ticketKeys, memberKeys } from "@/lib/query-keys";
 import { CreateModal } from "./_components/CreateModal";
 import { ActivityCard } from "./_components/ActivityCard";
 import { PageBleedRow } from "@/components/PageBleedRow";
 
 export default function OutreachPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
-  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { roles, memberId } = useMember();
+  const [showCreate, setShowCreate] = useState(false);
 
-  const [activities,    setActivities]    = useState<OutreachActivityRow[]>([]);
-  const [members,       setMembers]       = useState<MemberProfile[]>([]);
-  const [myMemberId,    setMyMemberId]    = useState("");
-  const [isAdmin,       setIsAdmin]       = useState(false);
-  const [concertTitle,  setConcertTitle]  = useState("");
-  const [loading,       setLoading]       = useState(true);
-  const [error,         setError]         = useState<string | null>(null);
-  const [showCreate,    setShowCreate]    = useState(false);
-
-  useEffect(() => {
-    Promise.all([
-      ticketsApi.listOutreachActivities(org, concertId),
-      membersApi.list(org, { status: "active" }),
-      membersApi.me(org),
-      concertsApi.list(org),
-    ])
-      .then(([acts, mems, me, concerts]) => {
-        setActivities(acts);
-        setMembers(mems);
-        setMyMemberId(me.id);
-        setIsAdmin(me.roles.includes("admin") || me.roles.includes("ticket"));
-        const concert = concerts.find((c) => c.id === concertId);
-        setConcertTitle(concert?.title ?? "");
-      })
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      })
-      .finally(() => setLoading(false));
-  }, [org, concertId, router]);
+  const { data: activities = [], isLoading: loadingActs, error } = useQuery({
+    queryKey: ticketKeys.outreach(org, concertId),
+    queryFn:  () => ticketsApi.listOutreachActivities(org, concertId),
+  });
+  const { data: members = [], isLoading: loadingMembers } = useQuery({
+    queryKey: memberKeys.activeList(org),
+    queryFn:  () => membersApi.list(org, { status: "active" }),
+  });
+  const { data: concertTitle = "" } = useQuery({
+    queryKey: ticketKeys.detail(org, concertId),
+    queryFn:  () => ticketsApi.get(org, concertId),
+    select:   (d) => d.concert.title,
+  });
+  const loading = loadingActs || loadingMembers;
 
   if (loading) {
     return (
@@ -62,7 +48,7 @@ export default function OutreachPage() {
       <div className="flex items-center justify-center h-full">
         <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
           <AlertCircle size={16} />
-          <span className="text-sm">{error}</span>
+          <span className="text-sm">{error?.message}</span>
         </div>
       </div>
     );
@@ -103,11 +89,13 @@ export default function OutreachPage() {
             <ActivityCard
               key={a.id}
               activity={a}
-              myMemberId={myMemberId}
-              isAdmin={isAdmin}
+              myMemberId={memberId}
+              isAdmin={roles.includes("admin") || roles.includes("ticket")}
               orgSlug={org}
               concertId={concertId}
-              onDeleted={(id) => setActivities((prev) => prev.filter((x) => x.id !== id))}
+              onDeleted={(id) => queryClient.setQueryData<OutreachActivityRow[]>(ticketKeys.outreach(org, concertId), (prev) =>
+                prev ? prev.filter((x) => x.id !== id) : prev
+              )}
             />
           ))
         )}
@@ -119,7 +107,12 @@ export default function OutreachPage() {
           concertId={concertId}
           members={members}
           onClose={() => setShowCreate(false)}
-          onCreated={(activity) => { setActivities((prev) => [activity, ...prev]); setShowCreate(false); }}
+          onCreated={(activity) => {
+            queryClient.setQueryData<OutreachActivityRow[]>(ticketKeys.outreach(org, concertId), (prev) =>
+              prev ? [activity, ...prev] : prev
+            );
+            setShowCreate(false);
+          }}
         />
       )}
     </div>

@@ -12,18 +12,27 @@ export const eventKeys = {
   categories: (org: string)                              => ["eventCategories", org]              as const,
 };
 
-export const concertKeys = {
-  list:   (org: string)             => ["concerts", org]     as const,
-  detail: (org: string, id: string) => ["concert",  org, id] as const,
-};
-
 export const scoresKeys = {
   grouped: (org: string)             => ["scores", org, "grouped"] as const,
   detail:  (org: string, id: string) => ["score",  org, id]        as const,
+};
+
+export const concertKeys = {
+  list:   (org: string)             => ["concerts", org]     as const,
+  detail: (org: string, id: string) => ["concert",  org, id] as const,
 };
 
 export const mailingKeys = {
   all:    (org: string)               => ["mails", org]       as const,
   list:   (org: string, page: number) => ["mails", org, page] as const,
   detail: (org: string, id: string)   => ["mail",  org, id]   as const,
+};
+
+export const accountingKeys = {
+  all:              (org: string)               => ["accounting", org]                       as const,
+  summary:          (org: string, year: number) => ["accounting", org, "summary",     year] as const,
+  expenses:         (org: string, year: number) => ["accounting", org, "expenses",    year] as const,
+  collections:      (org: string, year: number) => ["accounting", org, "collections", year] as const,
+  collection:       (org: string, id: string)   => ["accounting", org, "collection",  id]   as const,
+  expenseCategories:(org: string)               => ["accounting", org, "categories"]        as const,
 };

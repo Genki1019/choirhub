@@ -14,6 +14,7 @@ export function ScoreRow({ score, orgSlug }: ScoreRowProps) {
   return (
     <Link
       href={`/${orgSlug}/scores/${score.id}`}
+      prefetch={false}
       className="flex items-center gap-3 px-5 py-4 hover:bg-gray-50 transition-colors"
     >
       <BookOpen size={15} className="text-gray-400 shrink-0" />

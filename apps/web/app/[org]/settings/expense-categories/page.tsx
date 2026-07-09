@@ -1,34 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { settingsApi } from "@/lib/settings-api";
-import { ApiClientError } from "@/lib/api-client";
 import type { ExpenseCategory } from "@/lib/accounting-api";
+import { settingsKeys } from "@/lib/query-keys";
 import { ExpenseCategoryCard } from "./_components/ExpenseCategoryCard";
 
 export default function ExpenseCategoriesPage() {
   const { org } = useParams<{ org: string }>();
-  const router  = useRouter();
+  const queryClient = useQueryClient();
+  const [toast, setToast] = useState<string | null>(null);
 
-  const [cats,    setCats]    = useState<ExpenseCategory[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [toast,   setToast]   = useState<string | null>(null);
+  const { data: cats = [], isLoading: loading } = useQuery({
+    queryKey: settingsKeys.expenseCategories(org),
+    queryFn:  () => settingsApi.listExpenseCategories(org),
+  });
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
   };
-
-  useEffect(() => {
-    settingsApi.listExpenseCategories(org)
-      .then(setCats)
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) router.push("/login");
-      })
-      .finally(() => setLoading(false));
-  }, [org, router]);
 
   if (loading) {
     return (
@@ -49,9 +43,15 @@ export default function ExpenseCategoriesPage() {
       <ExpenseCategoryCard
         cats={cats}
         org={org}
-        onUpdated={(updated) => setCats((prev) => prev.map((c) => c.id === updated.id ? updated : c))}
-        onDeleted={(id) => setCats((prev) => prev.filter((c) => c.id !== id))}
-        onCreated={(created) => setCats((prev) => [...prev, created])}
+        onUpdated={(updated) => queryClient.setQueryData<ExpenseCategory[]>(settingsKeys.expenseCategories(org), (prev) =>
+          prev ? prev.map((c) => c.id === updated.id ? updated : c) : prev
+        )}
+        onDeleted={(id) => queryClient.setQueryData<ExpenseCategory[]>(settingsKeys.expenseCategories(org), (prev) =>
+          prev ? prev.filter((c) => c.id !== id) : prev
+        )}
+        onCreated={(created) => queryClient.setQueryData<ExpenseCategory[]>(settingsKeys.expenseCategories(org), (prev) =>
+          prev ? [...prev, created] : prev
+        )}
         onToast={showToast}
       />
 

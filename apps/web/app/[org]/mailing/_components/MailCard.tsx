@@ -33,6 +33,7 @@ export function MailCard({ mail, org }: MailCardProps) {
   return (
     <Link
       href={`/${org}/mailing/${mail.id}`}
+      prefetch={false}
       className="block px-6 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0"
     >
       <div className="flex items-start gap-4">

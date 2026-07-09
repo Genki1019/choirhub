@@ -1,33 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { membersApi, type PartSummary } from "@/lib/members-api";
-import { ApiClientError } from "@/lib/api-client";
+import { useQuery } from "@tanstack/react-query";
+import { membersApi } from "@/lib/members-api";
+import { memberKeys } from "@/lib/query-keys";
 import { PartCard } from "./_components/PartCard";
 
 export default function PartsPage() {
   const { org } = useParams<{ org: string }>();
-  const router  = useRouter();
+  const [toast, setToast] = useState<string | null>(null);
 
-  const [parts,   setParts]   = useState<PartSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [toast,   setToast]   = useState<string | null>(null);
+  const { data: parts = [], isLoading: loading } = useQuery({
+    queryKey: memberKeys.parts(org),
+    queryFn:  () => membersApi.parts(org),
+    select:   (data) => [...data].sort((a, b) => a.sortOrder - b.sortOrder),
+  });
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
   };
-
-  useEffect(() => {
-    membersApi.parts(org)
-      .then((data) => setParts([...data].sort((a, b) => a.sortOrder - b.sortOrder)))
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) router.push("/login");
-      })
-      .finally(() => setLoading(false));
-  }, [org, router]);
 
   if (loading) {
     return (

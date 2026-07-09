@@ -1,50 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Calendar, MapPin, AlertCircle, FileText, Loader2 } from "lucide-react";
-import { eventsApi, type EventCategory } from "@/lib/events-api";
-import { membersApi, type PartSummary } from "@/lib/members-api";
+import { useQuery } from "@tanstack/react-query";
+import { eventsApi } from "@/lib/events-api";
+import { membersApi } from "@/lib/members-api";
+import { useMember } from "@/contexts/MemberContext";
+import { canManageSchedule } from "@/lib/roles";
 import { settingsApi } from "@/lib/settings-api";
-import { ApiClientError } from "@/lib/api-client";
+import { toJstIso, isoToJstParts } from "@/lib/date";
+import { eventKeys, memberKeys } from "@/lib/query-keys";
 import { NotFoundPage } from "@/components/NotFoundPage";
 import { LocationSearch } from "@/components/LocationSearch";
+import { SectionLabel } from "../../../_components/SectionLabel";
 import { TargetAudienceSection } from "../../../_components/TargetAudienceSection";
 import { DeadlineSection } from "../../../_components/DeadlineSection";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
 
-function SectionLabel({ icon, label }: { icon: React.ReactNode; label: string }) {
-  return (
-    <div className="flex items-center gap-2 text-sm font-medium text-gray-600 mb-3">
-      {icon}
-      {label}
-    </div>
-  );
-}
-
-function toJstIso(date: string, time: string): string {
-  return `${date}T${time}:00+09:00`;
-}
-
-function isoToJstParts(iso: string): { date: string; time: string } {
-  const utc = new Date(iso);
-  const jst = new Date(utc.getTime() + 9 * 60 * 60 * 1000);
-  return {
-    date: jst.toISOString().slice(0, 10),
-    time: jst.toISOString().slice(11, 16),
-  };
-}
-
 export default function EditSchedulePage() {
   const { org, id } = useParams<{ org: string; id: string }>();
   const router = useRouter();
 
-  const [canEdit,     setCanEdit]     = useState<boolean | null>(null);
-  const [parts,       setParts]       = useState<PartSummary[]>([]);
-  const [categories,  setCategories]  = useState<EventCategory[]>([]);
-  const [initError,   setInitError]   = useState<string | null>(null);
+  const { roles } = useMember();
+  const canEdit = canManageSchedule(roles);
 
   const [title,         setTitle]         = useState("");
   const [categoryId,    setCategoryId]    = useState("");
@@ -63,49 +44,58 @@ export default function EditSchedulePage() {
   const [error,         setError]         = useState("");
   const [saving,        setSaving]        = useState(false);
 
+  const { data: event, isLoading: eventLoading, error: eventError } = useQuery({
+    queryKey: eventKeys.detail(org, id),
+    queryFn:  () => eventsApi.get(org, id),
+    enabled:  canEdit,
+  });
+  const { data: parts = [], isLoading: partsLoading, error: partsError } = useQuery({
+    queryKey: memberKeys.parts(org),
+    queryFn:  () => membersApi.parts(org),
+    enabled:  canEdit,
+  });
+  const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useQuery({
+    queryKey: eventKeys.categories(org),
+    queryFn:  () => settingsApi.listEventCategories(org),
+    enabled:  canEdit,
+  });
+
+  const loading   = canEdit && (eventLoading || partsLoading || categoriesLoading);
+  const initError = eventError?.message ?? partsError?.message ?? categoriesError?.message ?? null;
+
+  // イベントデータが揃ったときだけフォームを初期化する（再フェッチで上書きしない）
+  const formInitializedRef = useRef<string | null>(null);
   useEffect(() => {
-    Promise.all([eventsApi.get(org, id), membersApi.me(org), membersApi.parts(org), settingsApi.listEventCategories(org)])
-      .then(([ev, me, partList, catList]) => {
-        if (!me.roles.includes("admin") && !me.roles.includes("tech")) {
-          setCanEdit(false);
-          return;
-        }
-        setCanEdit(true);
-        setParts(partList);
-        setCategories(catList);
+    if (!event || formInitializedRef.current === id) return;
 
-        setTitle(ev.title);
-        setCategoryId(ev.category.id);
+    setTitle(event.title);
+    setCategoryId(event.category.id);
 
-        const s = isoToJstParts(ev.startsAt);
-        setStartDate(s.date);
-        setStartTime(s.time);
+    const s = isoToJstParts(event.startsAt);
+    setStartDate(s.date);
+    setStartTime(s.time);
 
-        const e = isoToJstParts(ev.endsAt);
-        setEndDate(e.date);
-        setEndTime(e.time);
+    const e = isoToJstParts(event.endsAt);
+    setEndDate(e.date);
+    setEndTime(e.time);
 
-        setLocation(ev.location ?? "");
-        setLocationUrl(ev.locationUrl ?? "");
-        setTargetRoles(ev.targetRoles ?? []);
-        setTargetPartIds(ev.targetPartIds ?? []);
+    setLocation(event.location ?? "");
+    setLocationUrl(event.locationUrl ?? "");
+    setTargetRoles(event.targetRoles ?? []);
+    setTargetPartIds(event.targetPartIds ?? []);
 
-        if (ev.deadline) {
-          setHasDeadline(true);
-          const d = isoToJstParts(ev.deadline);
-          setDeadlineDate(d.date);
-          setDeadlineTime(d.time);
-        }
+    if (event.deadline) {
+      setHasDeadline(true);
+      const d = isoToJstParts(event.deadline);
+      setDeadlineDate(d.date);
+      setDeadlineTime(d.time);
+    }
 
-        setPageMemo(ev.pageMemo ?? "");
-      })
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        setInitError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      });
-  }, [org, id, router]);
+    setPageMemo(event.pageMemo ?? "");
+    formInitializedRef.current = id;
+  }, [event, id]);
 
-  if (canEdit === null && !initError) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-full gap-2 text-gray-400">
         <Loader2 size={18} className="animate-spin" />

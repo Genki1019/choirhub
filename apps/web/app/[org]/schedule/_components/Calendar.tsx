@@ -127,6 +127,7 @@ export function Calendar({ year, month, today, events, org, onPrevMonth, onNextM
                         <Link
                           key={ev.id}
                           href={href}
+                          prefetch={false}
                           className="flex items-center gap-0.5 font-medium px-1 py-0.5 rounded hover:opacity-80 transition-opacity"
                           style={{ backgroundColor: `${getCategoryColor(ev.category)}20`, color: getCategoryColor(ev.category) }}
                         >

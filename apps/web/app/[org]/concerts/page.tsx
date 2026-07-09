@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState, useMemo } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { CalendarDays, Plus, Loader2, AlertCircle } from "lucide-react";
-import { concertsApi, type ConcertSummary, type ConcertStatus } from "@/lib/concerts-api";
-import { ApiClientError } from "@/lib/api-client";
-import { membersApi } from "@/lib/members-api";
+import { useQuery } from "@tanstack/react-query";
+import { concertsApi, type ConcertStatus } from "@/lib/concerts-api";
+import { concertKeys } from "@/lib/query-keys";
 import { ConcertCard } from "./_components/ConcertCard";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
+import { useMember } from "@/contexts/MemberContext";
 
 type Filter = "all" | ConcertStatus;
 
@@ -23,37 +24,18 @@ const FILTERS: { value: Filter; label: string }[] = [
 
 export default function ConcertsPage() {
   const { org } = useParams<{ org: string }>();
-  const router = useRouter();
-
-  const [concerts, setConcerts] = useState<ConcertSummary[]>([]);
+  const { roles } = useMember();
   const [filter, setFilter] = useState<Filter>("all");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
 
-  useEffect(() => {
-    Promise.all([
-      concertsApi.list(org),
-      membersApi.me(org),
-    ])
-      .then(([data, me]) => {
-        setConcerts(data);
-        setIsAdmin(me.roles.includes("admin"));
-      })
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      })
-      .finally(() => setLoading(false));
-  }, [org, router]);
+  const { data: concerts = [], isLoading: loading, error: concertsError } = useQuery({
+    queryKey: concertKeys.list(org),
+    queryFn:  () => concertsApi.list(org),
+  });
 
-  const filtered = filter === "all" ? concerts : concerts.filter((c) => c.status === filter);
-
-  // 終了以外を先に、その中で日付昇順。終了は最後
-  const sorted = [
-    ...filtered.filter((c) => c.status !== "past"),
-    ...filtered.filter((c) => c.status === "past"),
-  ];
+  const sorted = useMemo(() => {
+    const f = filter === "all" ? concerts : concerts.filter((c) => c.status === filter);
+    return [...f.filter((c) => c.status !== "past"), ...f.filter((c) => c.status === "past")];
+  }, [concerts, filter]);
 
   return (
     <div className="flex flex-col">
@@ -63,9 +45,10 @@ export default function ConcertsPage() {
             <h1 className="text-lg font-semibold text-gray-800">本番</h1>
             {!loading && <span className="text-sm text-gray-400">{sorted.length}件</span>}
           </div>
-          {isAdmin && (
+          {roles.includes("admin") && (
             <Link
               href={`/${org}/concerts/new`}
+              prefetch={false}
               className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-brand-700 transition-colors"
             >
               <Plus size={14} />
@@ -101,25 +84,24 @@ export default function ConcertsPage() {
           </div>
         )}
 
-        {!loading && error && (
+        {!loading && concertsError && (
           <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
             <AlertCircle size={16} />
-            <span className="text-sm">{error}</span>
+            <span className="text-sm">{concertsError.message}</span>
           </div>
         )}
 
-        {!loading && !error && sorted.length === 0 && (
+        {!loading && !concertsError && sorted.length === 0 && (
           <div className="text-center py-16 text-gray-400">
             <CalendarDays size={32} className="mx-auto mb-3 opacity-40" />
             <p className="text-sm">演奏会が登録されていません</p>
           </div>
         )}
 
-        {!loading && !error && sorted.map((concert) => (
+        {!loading && !concertsError && sorted.map((concert) => (
           <ConcertCard key={concert.id} concert={concert} org={org} />
         ))}
       </PageMain>
-
     </div>
   );
 }

@@ -1,41 +1,33 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, AlertCircle, Trophy, Lock, MapPin } from "lucide-react";
 import { ticketsApi, type MyAllocationConcert, type MyAllocationBatch } from "@/lib/tickets-api";
-import { ApiClientError } from "@/lib/api-client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ticketKeys } from "@/lib/query-keys";
 import { BatchCard } from "./_components/BatchCard";
 import { OutreachCountCard } from "./_components/OutreachCountCard";
 import { PageBleedRow } from "@/components/PageBleedRow";
 
 export default function MyTicketPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
-  const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const [concert, setConcert] = useState<MyAllocationConcert | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
+  const { data: myList, isLoading: loading, error } = useQuery({
+    queryKey: ticketKeys.myList(org),
+    queryFn:  () => ticketsApi.myList(org),
+  });
 
-  useEffect(() => {
-    ticketsApi.myList(org)
-      .then((list) => {
-        const found = list.find((c) => c.concertId === concertId) ?? null;
-        setConcert(found);
-      })
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      })
-      .finally(() => setLoading(false));
-  }, [org, concertId, router]);
+  const concert = myList?.find((c) => c.concertId === concertId) ?? null;
 
   const handleBatchUpdated = (batchId: string, data: Partial<MyAllocationBatch>) => {
-    setConcert((prev) =>
-      prev
-        ? { ...prev, batches: prev.batches.map((b) => b.batchId === batchId ? { ...b, ...data } : b) }
-        : prev
+    queryClient.setQueryData<MyAllocationConcert[]>(ticketKeys.myList(org), (prev) =>
+      prev ? prev.map((c) =>
+        c.concertId === concertId
+          ? { ...c, batches: c.batches.map((b) => b.batchId === batchId ? { ...b, ...data } : b) }
+          : c
+      ) : prev
     );
   };
 
@@ -53,7 +45,7 @@ export default function MyTicketPage() {
       <div className="flex items-center justify-center h-full">
         <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
           <AlertCircle size={16} />
-          <span className="text-sm">{error ?? "チケット情報が見つかりません"}</span>
+          <span className="text-sm">{error?.message ?? "チケット情報が見つかりません"}</span>
         </div>
       </div>
     );
@@ -88,6 +80,7 @@ export default function MyTicketPage() {
         {concert.racePublishedAt && (
           <Link
             href={`/${org}/tickets/${concertId}/race`}
+            prefetch={false}
             className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 hover:bg-amber-100 transition-colors"
           >
             <Trophy size={16} className="text-amber-600 shrink-0" />
@@ -118,6 +111,7 @@ export default function MyTicketPage() {
 
             <Link
               href={`/${org}/tickets/${concertId}/outreach`}
+              prefetch={false}
               className="flex items-center gap-3 bg-brand-50 border border-brand-200 rounded-2xl px-5 py-3.5 hover:bg-brand-100 transition-colors"
             >
               <MapPin size={16} className="text-brand-600 shrink-0" />

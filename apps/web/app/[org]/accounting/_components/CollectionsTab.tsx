@@ -45,6 +45,7 @@ export function CollectionsTab({ collections, org, onAddClick }: CollectionsTabP
                 <Link
                   key={col.id}
                   href={`/${org}/accounting/collections/${col.id}`}
+                  prefetch={false}
                   className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex-1 min-w-0">

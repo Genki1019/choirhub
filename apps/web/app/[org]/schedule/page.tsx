@@ -1,43 +1,36 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Plus, Loader2, AlertCircle } from "lucide-react";
-import { eventsApi, type EventSummary } from "@/lib/events-api";
-import { membersApi } from "@/lib/members-api";
-import { ApiClientError } from "@/lib/api-client";
+import { useQuery } from "@tanstack/react-query";
+import { eventsApi } from "@/lib/events-api";
+import { monthStart } from "@/lib/date";
+import { eventKeys } from "@/lib/query-keys";
 import { Calendar } from "./_components/Calendar";
 import { EventList } from "./_components/EventList";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
+import { useMember } from "@/contexts/MemberContext";
 
 export default function SchedulePage() {
   const { org } = useParams<{ org: string }>();
-  const router  = useRouter();
   const today   = new Date();
 
-  const [events,  setEvents]  = useState<EventSummary[]>([]);
-  const [myRoles, setMyRoles] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
-  const [year,    setYear]    = useState(today.getFullYear());
-  const [month,   setMonth]   = useState(today.getMonth() + 1);
+  const { roles } = useMember();
+  const [year,  setYear]  = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth() + 1);
 
-  useEffect(() => {
-    Promise.all([eventsApi.list(org), membersApi.me(org)])
-      .then(([evList, me]) => {
-        setEvents(evList);
-        setMyRoles(me.roles);
-      })
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      })
-      .finally(() => setLoading(false));
-  }, [org, router]);
+  const from = monthStart(year, month);
+  const to   = month === 12 ? monthStart(year + 1, 1) : monthStart(year, month + 1);
 
-  const canCreateEvent = myRoles.some((r) => ["admin", "tech", "conductor"].includes(r));
+  const { data: events = [], isLoading: loading, error: eventsError } = useQuery({
+    queryKey: eventKeys.list(org, year, month),
+    queryFn:  () => eventsApi.list(org, { from, to }),
+  });
+
+  const canCreateEvent = roles.some((r) => ["admin", "tech", "conductor"].includes(r));
 
   const prevMonth = () => {
     if (month === 1) { setYear(y => y - 1); setMonth(12); }
@@ -49,13 +42,14 @@ export default function SchedulePage() {
   };
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col h-full">
       <header className="bg-white border-b border-gray-200 shrink-0">
         <PageBleedRow className="flex items-center justify-between py-4">
           <h1 className="text-lg font-semibold text-gray-800">スケジュール</h1>
           {canCreateEvent && (
             <Link
               href={`/${org}/schedule/new`}
+              prefetch={false}
               className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-brand-700 transition-colors"
             >
               <Plus size={14} /> イベントを追加
@@ -71,14 +65,14 @@ export default function SchedulePage() {
         </div>
       )}
 
-      {!loading && error && (
+      {!loading && eventsError && (
         <div className="m-8 flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
           <AlertCircle size={16} />
-          <span className="text-sm">{error}</span>
+          <span className="text-sm">{eventsError.message}</span>
         </div>
       )}
 
-      {!loading && !error && (
+      {!loading && !eventsError && (
         <PageMain className="flex flex-col gap-6">
           <Calendar
             year={year}

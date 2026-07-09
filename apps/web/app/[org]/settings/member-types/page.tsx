@@ -1,34 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { settingsApi } from "@/lib/settings-api";
-import { ApiClientError } from "@/lib/api-client";
 import type { MemberType } from "@/lib/settings-api";
+import { memberKeys } from "@/lib/query-keys";
 import { MemberTypeCard } from "./_components/MemberTypeCard";
 
 export default function MemberTypesPage() {
   const { org } = useParams<{ org: string }>();
-  const router  = useRouter();
+  const queryClient = useQueryClient();
+  const [toast, setToast] = useState<string | null>(null);
 
-  const [types,   setTypes]   = useState<MemberType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [toast,   setToast]   = useState<string | null>(null);
+  const { data: types = [], isLoading: loading } = useQuery({
+    queryKey: memberKeys.types(org),
+    queryFn:  () => settingsApi.listMemberTypes(org),
+  });
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
   };
-
-  useEffect(() => {
-    settingsApi.listMemberTypes(org)
-      .then(setTypes)
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) router.push("/login");
-      })
-      .finally(() => setLoading(false));
-  }, [org, router]);
 
   if (loading) {
     return (
@@ -49,9 +43,15 @@ export default function MemberTypesPage() {
       <MemberTypeCard
         types={types}
         org={org}
-        onUpdated={(updated) => setTypes((prev) => prev.map((t) => t.id === updated.id ? updated : t))}
-        onDeleted={(id) => setTypes((prev) => prev.filter((t) => t.id !== id))}
-        onCreated={(created) => setTypes((prev) => [...prev, created])}
+        onUpdated={(updated) => queryClient.setQueryData<MemberType[]>(memberKeys.types(org), (prev) =>
+          prev ? prev.map((t) => t.id === updated.id ? updated : t) : prev
+        )}
+        onDeleted={(id) => queryClient.setQueryData<MemberType[]>(memberKeys.types(org), (prev) =>
+          prev ? prev.filter((t) => t.id !== id) : prev
+        )}
+        onCreated={(created) => queryClient.setQueryData<MemberType[]>(memberKeys.types(org), (prev) =>
+          prev ? [...prev, created] : prev
+        )}
         onToast={showToast}
       />
 

@@ -6,14 +6,12 @@ import {
   ChevronRight, ChevronLeft,
   Loader2, AlertCircle, Check,
 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { accountingApi } from "@/lib/accounting-api";
-import type {
-  FinanceSummary, ExpenseItem, CollectionSummaryItem,
-  ExpenseCategory,
-} from "@/lib/accounting-api";
+import type { ExpenseItem } from "@/lib/accounting-api";
 import { settingsApi } from "@/lib/settings-api";
-import type { MemberType } from "@/lib/settings-api";
 import { ApiClientError } from "@/lib/api-client";
+import { accountingKeys, memberKeys, settingsKeys } from "@/lib/query-keys";
 import { ExpenseModal } from "./_components/ExpenseModal";
 import { CollectionModal } from "./_components/CollectionModal";
 import { CollectionsTab } from "./_components/CollectionsTab";
@@ -39,80 +37,77 @@ type Tab = "expenses" | "collections";
 
 export default function AccountingPage() {
   const { org } = useParams<{ org: string }>();
-  const router  = useRouter();
+  const router = useRouter();
+  const queryClient = useQueryClient();
 
   const currentYear = new Date().getFullYear();
-  const [year, setYear]       = useState(currentYear);
-  const [tab,  setTab]        = useState<Tab>("collections");
-  const [summary,     setSummary]     = useState<FinanceSummary | null>(null);
-  const [expenses,    setExpenses]    = useState<ExpenseItem[]>([]);
-  const [collections, setCollections] = useState<CollectionSummaryItem[]>([]);
-  const [categories,  setCategories]  = useState<ExpenseCategory[]>([]);
-  const [memberTypes, setMemberTypes] = useState<MemberType[]>([]);
-  const [error,       setError]       = useState<string | null>(null);
-
-  const [loadedFor,  setLoadedFor]  = useState<string | null>(null);
-  const [reloadTick, setReloadTick] = useState(0);
-  const loadKey = `${org}-${year}`;
-  const loading = loadedFor !== loadKey;
+  const [year, setYear] = useState(currentYear);
+  const [tab,  setTab]  = useState<Tab>("collections");
 
   const [expenseModal,    setExpenseModal]    = useState<{ open: boolean; editing: ExpenseItem | null }>({ open: false, editing: null });
   const [collectionModal, setCollectionModal] = useState(false);
   const [deletingId,      setDeletingId]      = useState<string | null>(null);
   const [toast,           setToast]           = useState<string | null>(null);
 
+  const { data: summary,     isLoading: loadingSummary,     error: summaryError     } = useQuery({
+    queryKey: accountingKeys.summary(org, year),
+    queryFn:  () => accountingApi.summary(org, year),
+  });
+  const { data: expenses    = [], isLoading: loadingExpenses,    error: expensesError    } = useQuery({
+    queryKey: accountingKeys.expenses(org, year),
+    queryFn:  () => accountingApi.listExpenses(org, {
+      from: `${year}-01-01T00:00:00.000Z`,
+      to:   `${year}-12-31T23:59:59.999Z`,
+    }),
+  });
+  const { data: collections = [], isLoading: loadingCollections, error: collectionsError } = useQuery({
+    queryKey: accountingKeys.collections(org, year),
+    queryFn:  () => accountingApi.listCollections(org, {
+      from: `${year}-01-01T00:00:00.000Z`,
+      to:   `${year}-12-31T23:59:59.999Z`,
+    }),
+  });
+  const { data: categories  = [] } = useQuery({
+    queryKey: settingsKeys.expenseCategories(org),
+    queryFn:  () => settingsApi.listExpenseCategories(org),
+    enabled:  expenseModal.open,
+  });
+  const { data: memberTypes = [] } = useQuery({
+    queryKey: memberKeys.types(org),
+    queryFn:  () => settingsApi.listMemberTypes(org),
+    enabled:  collectionModal,
+  });
+
+  const loading = loadingSummary || loadingExpenses || loadingCollections;
+
+  useEffect(() => {
+    const is403 = (e: unknown) => e instanceof ApiClientError && e.status === 403;
+    if (is403(summaryError) || is403(expensesError) || is403(collectionsError)) {
+      router.replace(`/${org}`);
+    }
+  }, [summaryError, expensesError, collectionsError, org, router]);
+
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
   };
 
-  useEffect(() => {
-    let cancelled = false;
-    const key = `${org}-${year}`;
-    const from = `${year}-01-01T00:00:00.000Z`;
-    const to   = `${year}-12-31T23:59:59.999Z`;
-    Promise.all([
-      accountingApi.summary(org, year),
-      accountingApi.listExpenses(org, { from, to }),
-      accountingApi.listCollections(org, { from, to }),
-      accountingApi.listCategories(org),
-      settingsApi.listMemberTypes(org),
-    ]).then(([sum, exp, col, cats, types]) => {
-      if (cancelled) return;
-      setSummary(sum);
-      setExpenses(exp);
-      setCollections(col);
-      setCategories(cats);
-      setMemberTypes(types);
-      setError(null);
-    }).catch((err) => {
-      if (cancelled) return;
-      if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-      if (err instanceof ApiClientError && err.status === 403) { router.replace(`/${org}`); return; }
-      setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-    }).finally(() => { if (!cancelled) setLoadedFor(key); });
-    return () => { cancelled = true; };
-  }, [org, year, reloadTick, router]);
-
-  const reload = () => {
-    setLoadedFor(null);
-    setReloadTick((t) => t + 1);
-  };
-
   const handleExpenseSaved = (item: ExpenseItem, isNew: boolean) => {
-    setExpenses((prev) =>
-      isNew ? [item, ...prev] : prev.map((e) => e.id === item.id ? item : e)
+    queryClient.setQueryData<ExpenseItem[]>(accountingKeys.expenses(org, year), (prev) =>
+      prev ? (isNew ? [item, ...prev] : prev.map((e) => e.id === item.id ? item : e)) : prev
     );
     setExpenseModal({ open: false, editing: null });
-    accountingApi.summary(org, year).then(setSummary).catch(() => null);
+    queryClient.invalidateQueries({ queryKey: accountingKeys.summary(org, year) });
   };
 
   const handleDeleteExpense = async (id: string) => {
     setDeletingId(id);
     try {
       await accountingApi.deleteExpense(org, id);
-      setExpenses((prev) => prev.filter((e) => e.id !== id));
-      accountingApi.summary(org, year).then(setSummary).catch(() => null);
+      queryClient.setQueryData<ExpenseItem[]>(accountingKeys.expenses(org, year), (prev) =>
+        prev ? prev.filter((e) => e.id !== id) : prev
+      );
+      queryClient.invalidateQueries({ queryKey: accountingKeys.summary(org, year) });
     } catch {
       showToast("削除に失敗しました");
     } finally {
@@ -144,14 +139,14 @@ export default function AccountingPage() {
           </div>
         )}
 
-        {error && (
+        {!loading && summaryError && (
           <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
             <AlertCircle size={16} />
-            <span className="text-sm">{error}</span>
+            <span className="text-sm">{summaryError.message}</span>
           </div>
         )}
 
-        {!loading && !error && summary && (
+        {!loading && !summaryError && summary && (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <SummaryCard label="支出合計" value={summary.totalExpense}   color="text-red-600" />
@@ -225,7 +220,10 @@ export default function AccountingPage() {
           org={org}
           memberTypes={memberTypes}
           onClose={() => setCollectionModal(false)}
-          onSaved={() => { setCollectionModal(false); reload(); }}
+          onSaved={() => {
+            setCollectionModal(false);
+            queryClient.invalidateQueries({ queryKey: accountingKeys.all(org) });
+          }}
         />
       )}
 

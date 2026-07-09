@@ -61,6 +61,7 @@ export default function UserMenu({ nameJa, avatarUrl, org, memberId }: Props) {
           </div>
           <Link
             href={`/${org}/members/${memberId}`}
+            prefetch={false}
             onClick={() => setOpen(false)}
             className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
           >

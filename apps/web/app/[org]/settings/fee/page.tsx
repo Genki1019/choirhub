@@ -1,31 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { settingsApi } from "@/lib/settings-api";
-import { ApiClientError } from "@/lib/api-client";
+import { settingsKeys } from "@/lib/query-keys";
 import { FeeSettingsForm } from "./_components/FeeSettingsForm";
 
 export default function FeeSettingsPage() {
   const { org } = useParams<{ org: string }>();
-  const router  = useRouter();
 
-  const [feeType, setFeeType] = useState<"per_rehearsal" | "monthly">("per_rehearsal");
-  const [amount,  setAmount]  = useState("");
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    settingsApi.getFee(org)
-      .then((data) => {
-        setFeeType(data.feeType);
-        setAmount(data.defaultFeeAmount != null ? String(data.defaultFeeAmount) : "");
-      })
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) router.push("/login");
-      })
-      .finally(() => setLoading(false));
-  }, [org, router]);
+  const { data: feeData, isLoading: loading } = useQuery({
+    queryKey: settingsKeys.fee(org),
+    queryFn:  () => settingsApi.getFee(org),
+  });
 
   if (loading) {
     return (
@@ -37,7 +25,11 @@ export default function FeeSettingsPage() {
 
   return (
     <div className="max-w-lg">
-      <FeeSettingsForm orgSlug={org} initialFeeType={feeType} initialAmount={amount} />
+      <FeeSettingsForm
+        orgSlug={org}
+        initialFeeType={feeData?.feeType ?? "per_rehearsal"}
+        initialAmount={feeData?.defaultFeeAmount != null ? String(feeData.defaultFeeAmount) : ""}
+      />
     </div>
   );
 }

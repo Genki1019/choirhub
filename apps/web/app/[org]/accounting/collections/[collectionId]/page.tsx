@@ -4,11 +4,13 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Check, Loader2, AlertCircle, X } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { accountingApi } from "@/lib/accounting-api";
 import type {
   CollectionDetail, CollectionPaymentItem, CollectionPaymentStatus, PaymentMethod,
 } from "@/lib/accounting-api";
 import { ApiClientError } from "@/lib/api-client";
+import { accountingKeys } from "@/lib/query-keys";
 import { RecordModal } from "./_components/RecordModal";
 import { PaymentsList } from "./_components/PaymentsList";
 import { PageMain } from "@/components/PageMain";
@@ -17,30 +19,28 @@ import { PageBleedRow } from "@/components/PageBleedRow";
 export default function CollectionDetailPage() {
   const { org, collectionId } = useParams<{ org: string; collectionId: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const [col,        setCol]        = useState<CollectionDetail | null>(null);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState<string | null>(null);
   const [selected,   setSelected]   = useState<CollectionPaymentItem | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [bulking,    setBulking]    = useState(false);
   const [toast,      setToast]      = useState<string | null>(null);
 
+  const { data: col, isLoading: loading, error } = useQuery({
+    queryKey: accountingKeys.collection(org, collectionId),
+    queryFn:  () => accountingApi.getCollection(org, collectionId),
+  });
+
+  useEffect(() => {
+    if (error instanceof ApiClientError && error.status === 403) {
+      router.replace(`/${org}`);
+    }
+  }, [error, org, router]);
+
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
   };
-
-  useEffect(() => {
-    accountingApi.getCollection(org, collectionId)
-      .then(setCol)
-      .catch((err: unknown) => {
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        if (err instanceof ApiClientError && err.status === 403) { router.replace(`/${org}`); return; }
-        setError(err instanceof Error ? err.message : "取得に失敗しました");
-      })
-      .finally(() => setLoading(false));
-  }, [org, collectionId, router]);
 
   const handleQuickPaid = async (payment: CollectionPaymentItem) => {
     if (!col) return;
@@ -51,10 +51,12 @@ export default function CollectionDetailPage() {
         paidAt: new Date().toISOString(),
         method: "cash",
       });
-      setCol((prev) => prev ? {
-        ...prev,
-        payments: prev.payments.map((p) => p.id === payment.id ? { ...p, ...updated } : p),
-      } : prev);
+      queryClient.setQueryData<CollectionDetail>(accountingKeys.collection(org, collectionId), (prev) =>
+        prev ? {
+          ...prev,
+          payments: prev.payments.map((p) => p.id === payment.id ? { ...p, ...updated } : p),
+        } : prev
+      );
       showToast(`${payment.member.nameJa} の支払いを記録しました`);
     } catch {
       showToast("記録に失敗しました");
@@ -62,10 +64,12 @@ export default function CollectionDetailPage() {
   };
 
   const handleModalSaved = (updated: CollectionPaymentItem) => {
-    setCol((prev) => prev ? {
-      ...prev,
-      payments: prev.payments.map((p) => p.id === selected?.id ? { ...p, ...updated } : p),
-    } : prev);
+    queryClient.setQueryData<CollectionDetail>(accountingKeys.collection(org, collectionId), (prev) =>
+      prev ? {
+        ...prev,
+        payments: prev.payments.map((p) => p.id === selected?.id ? { ...p, ...updated } : p),
+      } : prev
+    );
     setSelected(null);
     showToast("更新しました");
   };
@@ -89,28 +93,30 @@ export default function CollectionDetailPage() {
   const handleBulkPaid = async () => {
     if (!col || checkedIds.size === 0) return;
     setBulking(true);
+    const memberIds = Array.from(checkedIds);
     try {
       await accountingApi.bulkRecordPayment(org, collectionId, {
-        memberIds: Array.from(checkedIds),
-        status:    "paid",
-        paidAt:    new Date().toISOString(),
-        method:    "cash",
+        memberIds,
+        status: "paid",
+        paidAt: new Date().toISOString(),
+        method: "cash",
       });
       const paidAt = new Date().toISOString();
-      setCol((prev) => {
+      queryClient.setQueryData<CollectionDetail>(accountingKeys.collection(org, collectionId), (prev) => {
         if (!prev) return prev;
+        const ids = new Set(memberIds);
         return {
           ...prev,
           payments: prev.payments.map((p) =>
-            checkedIds.has(p.member.id)
+            ids.has(p.member.id)
               ? { ...p, status: "paid" as CollectionPaymentStatus, paidAt, method: "cash" as PaymentMethod, amount: p.amount ?? prev.amount }
               : p
           ),
         };
       });
-      const count = checkedIds.size;
       clearChecked();
-      showToast(`${count}名を現金支払済みにしました`);
+      queryClient.invalidateQueries({ queryKey: accountingKeys.all(org) });
+      showToast(`${memberIds.length}名を現金支払済みにしました`);
     } catch {
       showToast("一括処理に失敗しました");
     } finally {
@@ -130,7 +136,7 @@ export default function CollectionDetailPage() {
     return (
       <div className="flex items-center gap-2 m-8 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
         <AlertCircle size={16} />
-        <span className="text-sm">{error ?? "徴収が見つかりません"}</span>
+        <span className="text-sm">{error?.message ?? "徴収が見つかりません"}</span>
       </div>
     );
   }

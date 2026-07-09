@@ -1,43 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { useParams } from "next/navigation";
 import { Loader2, AlertCircle } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { settingsApi, type EventCategory } from "@/lib/settings-api";
+import { eventKeys } from "@/lib/query-keys";
 import { CategoryList } from "./_components/CategoryList";
 import { AddCategoryForm } from "./_components/AddCategoryForm";
 
 export default function EventCategoriesPage() {
-  const { org }  = useParams<{ org: string }>();
-  const router   = useRouter();
+  const { org } = useParams<{ org: string }>();
+  const queryClient = useQueryClient();
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
-  const [categories, setCategories] = useState<EventCategory[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState<string | null>(null);
-
-  useEffect(() => {
-    settingsApi.listEventCategories(org)
-      .then(setCategories)
-      .catch(() => setError("読み込みに失敗しました"))
-      .finally(() => setLoading(false));
-  }, [org]);
-
-  const handleUpdated = (updated: EventCategory) => {
-    setCategories((prev) => prev.map((c) => c.id === updated.id ? updated : c));
-    router.refresh();
-  };
-  const handleDeleted = (id: string) => {
-    setCategories((prev) => prev.filter((c) => c.id !== id));
-    router.refresh();
-  };
-  const handleCreated = (cat: EventCategory) => {
-    setCategories((prev) => [...prev, cat]);
-    router.refresh();
-  };
-  const handleReordered = (reordered: EventCategory[]) => {
-    setCategories(reordered);
-    router.refresh();
-  };
+  const { data: categories = [], isLoading: loading, error: queryError } = useQuery({
+    queryKey: eventKeys.categories(org),
+    queryFn:  () => settingsApi.listEventCategories(org),
+  });
 
   if (loading) {
     return (
@@ -48,6 +28,8 @@ export default function EventCategoriesPage() {
     );
   }
 
+  const displayError = queryError?.message ?? mutationError;
+
   return (
     <div className="max-w-lg space-y-6">
       <div>
@@ -55,25 +37,31 @@ export default function EventCategoriesPage() {
         <p className="text-xs text-gray-400 mt-0.5">練習・本番などのシステム標準区分は削除できません。名前・色の変更は可能です。</p>
       </div>
 
-      {error && (
+      {displayError && (
         <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm">
           <AlertCircle size={14} className="shrink-0" />
-          {error}
+          {displayError}
         </div>
       )}
 
       <CategoryList
         categories={categories}
         org={org}
-        onUpdated={handleUpdated}
-        onDeleted={handleDeleted}
-        onReordered={handleReordered}
-        onError={setError}
+        onUpdated={(updated) => queryClient.setQueryData<EventCategory[]>(eventKeys.categories(org), (prev) =>
+          prev ? prev.map((c) => c.id === updated.id ? updated : c) : prev
+        )}
+        onDeleted={(id) => queryClient.setQueryData<EventCategory[]>(eventKeys.categories(org), (prev) =>
+          prev ? prev.filter((c) => c.id !== id) : prev
+        )}
+        onReordered={(reordered) => queryClient.setQueryData(eventKeys.categories(org), reordered)}
+        onError={setMutationError}
       />
 
       <AddCategoryForm
         org={org}
-        onCreated={handleCreated}
+        onCreated={(cat) => queryClient.setQueryData<EventCategory[]>(eventKeys.categories(org), (prev) =>
+          prev ? [...prev, cat] : prev
+        )}
       />
 
       <p className="text-xs text-gray-400">↑↓ で表示順を変更できます。</p>

@@ -27,6 +27,7 @@ export function ManagerConcertCard({ item, org }: { item: TicketConcertSummary; 
   return (
     <Link
       href={`/${org}/tickets/${item.concertId}`}
+      prefetch={false}
       className="block bg-white rounded-xl border border-gray-200 px-6 py-5 hover:border-brand-300 hover:shadow-sm transition-all"
     >
       <div className="flex items-start justify-between gap-4">

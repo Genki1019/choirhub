@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Pencil, Loader2, AlertCircle } from "lucide-react";
-import { membersApi, type MemberProfile, type PartSummary } from "@/lib/members-api";
-import { settingsApi, type MemberType } from "@/lib/settings-api";
-import { ApiClientError } from "@/lib/api-client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { membersApi, type MemberProfile } from "@/lib/members-api";
+import { useMember } from "@/contexts/MemberContext";
+import { settingsApi } from "@/lib/settings-api";
+import { memberKeys } from "@/lib/query-keys";
 import { MEMBER_LEVEL_ROLES } from "@/lib/roles";
 import { ProfileCard } from "./_components/ProfileCard";
 import { ProfileInfoSection } from "./_components/ProfileInfoSection";
@@ -17,48 +19,42 @@ import { PageBleedRow } from "@/components/PageBleedRow";
 export default function MemberDetailPage() {
   const { org, id } = useParams<{ org: string; id: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const [member,      setMember]      = useState<MemberProfile | null>(null);
-  const [myMemberId,  setMyMemberId]  = useState<string | null>(null);
-  const [myRoles,     setMyRoles]     = useState<string[]>([]);
-  const [parts,       setParts]       = useState<PartSummary[]>([]);
-  const [memberTypes, setMemberTypes] = useState<MemberType[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [error,       setError]       = useState<string | null>(null);
-  const [isEditing,   setIsEditing]   = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([membersApi.get(org, id), membersApi.me(org), membersApi.parts(org), settingsApi.listMemberTypes(org)])
-      .then(([memberData, meData, partsData, typesData]) => {
-        if (cancelled) return;
-        setMember(memberData);
-        setMyMemberId(meData.id);
-        setMyRoles(meData.roles);
-        setParts(partsData);
-        setMemberTypes(typesData);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [org, id, router]);
+  const { roles: myRoles, memberId: myMemberId } = useMember();
+  const [isEditing, setIsEditing] = useState(false);
 
   const isSelf       = myMemberId === id;
   const isAdmin      = myRoles.includes("admin");
   const isMemberPlus = myRoles.some(r => MEMBER_LEVEL_ROLES.has(r));
 
+  const { data: member, isLoading: memberLoading, error: memberError } = useQuery({
+    queryKey: memberKeys.detail(org, id),
+    queryFn: () => membersApi.get(org, id),
+  });
+  const { data: parts = [], isLoading: partsLoading } = useQuery({
+    queryKey: memberKeys.parts(org),
+    queryFn: () => membersApi.parts(org),
+    enabled: isAdmin,
+  });
+  const { data: memberTypes = [], isLoading: typesLoading } = useQuery({
+    queryKey: memberKeys.types(org),
+    queryFn: () => settingsApi.listMemberTypes(org),
+    enabled: isAdmin,
+  });
+
+  const loading = memberLoading || (isAdmin && (partsLoading || typesLoading));
+
   const handleSelfSave = async (data: Record<string, unknown>) => {
     const updated = await membersApi.updateMe(org, data as Partial<MemberProfile>);
-    setMember(updated);
+    queryClient.setQueryData(memberKeys.detail(org, id), updated);
+    queryClient.invalidateQueries({ queryKey: memberKeys.list(org) });
     setIsEditing(false);
   };
 
   const handleAdminSave = async (data: Record<string, unknown>) => {
     await membersApi.updateById(org, id, data);
+    queryClient.invalidateQueries({ queryKey: memberKeys.list(org) });
     const savedStatus = (data.status as string) ?? member?.status ?? "active";
     router.push(`/${org}/members?status=${savedStatus}`);
   };
@@ -66,6 +62,7 @@ export default function MemberDetailPage() {
   const handleAdminDelete = async () => {
     if (!confirm(`${member?.nameJa} を退団処理しますか？この操作は取り消せません。`)) return;
     await membersApi.delete(org, id);
+    queryClient.invalidateQueries({ queryKey: memberKeys.list(org) });
     router.push(`/${org}/members`);
   };
 
@@ -78,12 +75,12 @@ export default function MemberDetailPage() {
     );
   }
 
-  if (error || !member) {
+  if (memberError || !member) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
           <AlertCircle size={16} />
-          <span className="text-sm">{error ?? "メンバーが見つかりません"}</span>
+          <span className="text-sm">{memberError?.message ?? "メンバーが見つかりません"}</span>
         </div>
       </div>
     );

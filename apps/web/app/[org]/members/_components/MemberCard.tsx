@@ -49,6 +49,7 @@ export function MemberCard({ member, org }: { member: MemberProfile; org: string
   return (
     <Link
       href={`/${org}/members/${member.id}`}
+      prefetch={false}
       className="flex sm:flex-col items-center sm:items-center gap-4 sm:gap-0 bg-white rounded-xl border border-gray-200 px-4 py-3 sm:py-5 hover:border-brand-300 hover:shadow-sm transition-all"
     >
       {/* アバター: モバイルは小さめ、sm以上は大きく */}
@@ -105,6 +106,7 @@ export function MemberRow({ member, org }: { member: MemberProfile; org: string 
   return (
     <Link
       href={`/${org}/members/${member.id}`}
+      prefetch={false}
       className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0"
     >
       <div

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Pencil, Loader2, AlertCircle,
@@ -12,8 +12,9 @@ import {
   type TicketDetail, type AllocationRow, type BatchDetail, type UpdateBatchInput,
 } from "@/lib/tickets-api";
 import { membersApi } from "@/lib/members-api";
-import type { MemberProfile } from "@/lib/api-types";
 import { ApiClientError } from "@/lib/api-client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ticketKeys, memberKeys } from "@/lib/query-keys";
 import { CreateBatchModal } from "./_components/CreateBatchModal";
 import { EditBatchModal } from "./_components/EditBatchModal";
 import { BatchTab } from "./_components/BatchTab";
@@ -23,85 +24,67 @@ import { PageBleedRow } from "@/components/PageBleedRow";
 
 export default function TicketDetailPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
-  const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const [detail,          setDetail]          = useState<TicketDetail | null>(null);
-  const [allMembers,      setAllMembers]       = useState<MemberProfile[]>([]);
-  const [activeBatchIdx,  setActiveBatchIdx]   = useState<number | "outreach">(0);
-  const [loading,         setLoading]          = useState(true);
-  const [error,           setError]            = useState<string | null>(null);
-  const [showCreateBatch, setShowCreateBatch]  = useState(false);
-  const [editingBatch,    setEditingBatch]     = useState<BatchDetail | null>(null);
-  const [closingInput,    setClosingInput]     = useState(false);
+  const [activeBatchIdx,  setActiveBatchIdx]  = useState<number | "outreach">(0);
+  const [showCreateBatch, setShowCreateBatch] = useState(false);
+  const [editingBatch,    setEditingBatch]    = useState<BatchDetail | null>(null);
+  const [closingInput,    setClosingInput]    = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    ticketsApi.get(org, concertId)
-      .then((d) => {
-        if (cancelled) return;
-        setDetail(d);
-        if (d.isAdmin) {
-          membersApi.list(org).then((m) => { if (!cancelled) setAllMembers(m); }).catch(() => {});
-        }
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        if (err instanceof ApiClientError && err.status === 401) { router.push("/login"); return; }
-        if (err instanceof ApiClientError && err.status === 403) { setError("チケット担当者または管理者のみアクセスできます"); return; }
-        setError(err instanceof Error ? err.message : "データの取得に失敗しました");
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [org, concertId, router]);
+  const { data: detail, isLoading: loading, error: queryError } = useQuery({
+    queryKey: ticketKeys.detail(org, concertId),
+    queryFn:  () => ticketsApi.get(org, concertId),
+  });
+  const { data: allMembers = [] } = useQuery({
+    queryKey: memberKeys.list(org),
+    queryFn:  () => membersApi.list(org),
+    enabled:  detail?.isAdmin === true,
+  });
+
+  const patchDetail = (fn: (prev: TicketDetail) => TicketDetail) =>
+    queryClient.setQueryData<TicketDetail>(ticketKeys.detail(org, concertId), (prev) =>
+      prev ? fn(prev) : prev
+    );
 
   const handleAllocationUpdated = (allocationId: string, data: Partial<AllocationRow>) => {
-    setDetail((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        batches: prev.batches.map((batch) => ({
-          ...batch,
-          allocations: batch.allocations.map((a) =>
-            a.id === allocationId ? { ...a, ...data } : a
-          ),
-        })),
-      };
-    });
+    patchDetail((prev) => ({
+      ...prev,
+      batches: prev.batches.map((batch) => ({
+        ...batch,
+        allocations: batch.allocations.map((a) =>
+          a.id === allocationId ? { ...a, ...data } : a
+        ),
+      })),
+    }));
   };
 
   const handleBatchCreated = (batch: BatchDetail) => {
-    setDetail((prev) => prev ? { ...prev, batches: [...prev.batches, batch] } : prev);
+    patchDetail((prev) => ({ ...prev, batches: [...prev.batches, batch] }));
     setActiveBatchIdx(detail?.batches.length ?? 0);
     setShowCreateBatch(false);
   };
 
   const handleBatchUpdated = (batchId: string, data: UpdateBatchInput) => {
-    setDetail((prev) => {
-      if (!prev) return prev;
-      return { ...prev, batches: prev.batches.map((b) => b.id === batchId ? { ...b, ...data } : b) };
-    });
+    patchDetail((prev) => ({
+      ...prev,
+      batches: prev.batches.map((b) => b.id === batchId ? { ...b, ...data } : b),
+    }));
     setEditingBatch(null);
   };
 
   const handleBatchDeleted = (batchId: string) => {
-    setDetail((prev) => {
-      if (!prev) return prev;
-      return { ...prev, batches: prev.batches.filter((b) => b.id !== batchId) };
-    });
+    patchDetail((prev) => ({ ...prev, batches: prev.batches.filter((b) => b.id !== batchId) }));
     setActiveBatchIdx(0);
     setEditingBatch(null);
   };
 
   const handleMemberAdded = (batchId: string, row: AllocationRow) => {
-    setDetail((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        batches: prev.batches.map((b) =>
-          b.id === batchId ? { ...b, allocations: [...b.allocations, row] } : b
-        ),
-      };
-    });
+    patchDetail((prev) => ({
+      ...prev,
+      batches: prev.batches.map((b) =>
+        b.id === batchId ? { ...b, allocations: [...b.allocations, row] } : b
+      ),
+    }));
   };
 
   if (loading) {
@@ -113,12 +96,16 @@ export default function TicketDetailPage() {
     );
   }
 
-  if (error || !detail) {
+  const errorMsg = queryError instanceof ApiClientError && queryError.status === 403
+    ? "チケット担当者または管理者のみアクセスできます"
+    : queryError?.message ?? "チケット情報が見つかりません";
+
+  if (queryError || !detail) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
           <AlertCircle size={16} />
-          <span className="text-sm">{error ?? "チケット情報が見つかりません"}</span>
+          <span className="text-sm">{errorMsg}</span>
         </div>
       </div>
     );
@@ -148,10 +135,7 @@ export default function TicketDetailPage() {
                     setClosingInput(true);
                     try {
                       await ticketsApi.reopenTicketInput(org, concertId);
-                      setDetail((prev) => prev
-                        ? { ...prev, concert: { ...prev.concert, ticketInputClosedAt: null } }
-                        : prev
-                      );
+                      patchDetail((prev) => ({ ...prev, concert: { ...prev.concert, ticketInputClosedAt: null } }));
                     } finally { setClosingInput(false); }
                   }}
                   disabled={closingInput}
@@ -166,10 +150,7 @@ export default function TicketDetailPage() {
                     setClosingInput(true);
                     try {
                       const result = await ticketsApi.closeTicketInput(org, concertId);
-                      setDetail((prev) => prev
-                        ? { ...prev, concert: { ...prev.concert, ticketInputClosedAt: result.ticketInputClosedAt } }
-                        : prev
-                      );
+                      patchDetail((prev) => ({ ...prev, concert: { ...prev.concert, ticketInputClosedAt: result.ticketInputClosedAt } }));
                     } finally { setClosingInput(false); }
                   }}
                   disabled={closingInput}
@@ -201,7 +182,7 @@ export default function TicketDetailPage() {
           </div>
         </PageBleedRow>
 
-        {/* 締め切りバナー（タイトル行の外に分離） */}
+        {/* 締め切りバナー */}
         {detail.concert.ticketInputClosedAt && (
           <div className="border-t border-red-100 bg-red-50">
             <PageBleedRow className="flex items-center gap-2 text-xs text-red-600 py-2">

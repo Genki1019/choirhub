@@ -45,3 +45,12 @@ export const accountingKeys = {
   collections: (org: string, year: number) => ["accounting", org, "collections", year] as const,
   collection:  (org: string, id: string)   => ["accounting", org, "collection",  id]   as const,
 };
+
+export const ticketKeys = {
+  all:      (org: string)                    => ["tickets", org]                          as const,
+  list:     (org: string)                    => ["tickets", org, "list"]                  as const,
+  myList:   (org: string)                    => ["tickets", org, "my"]                    as const,
+  detail:   (org: string, concertId: string) => ["tickets", org, "detail",   concertId]  as const,
+  outreach: (org: string, concertId: string) => ["tickets", org, "outreach", concertId]  as const,
+  race:     (org: string, concertId: string) => ["tickets", org, "race",     concertId]  as const,
+};

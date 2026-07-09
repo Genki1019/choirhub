@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, Loader2, AlertCircle, MapPin } from "lucide-react";
-import { ticketsApi, type OutreachActivityRow, type TicketDetail } from "@/lib/tickets-api";
+import { ticketsApi, type OutreachActivityRow } from "@/lib/tickets-api";
 import { membersApi } from "@/lib/members-api";
 import { useMember } from "@/contexts/MemberContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -27,7 +27,11 @@ export default function OutreachPage() {
     queryKey: memberKeys.activeList(org),
     queryFn:  () => membersApi.list(org, { status: "active" }),
   });
-  const concertTitle = queryClient.getQueryData<TicketDetail>(ticketKeys.detail(org, concertId))?.concert.title ?? "";
+  const { data: concertTitle = "" } = useQuery({
+    queryKey: ticketKeys.detail(org, concertId),
+    queryFn:  () => ticketsApi.get(org, concertId),
+    select:   (d) => d.concert.title,
+  });
   const loading = loadingActs || loadingMembers;
 
   if (loading) {
@@ -44,7 +48,7 @@ export default function OutreachPage() {
       <div className="flex items-center justify-center h-full">
         <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
           <AlertCircle size={16} />
-          <span className="text-sm">{error.message}</span>
+          <span className="text-sm">{error?.message}</span>
         </div>
       </div>
     );

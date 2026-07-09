@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { CalendarDays, Plus, Loader2, AlertCircle } from "lucide-react";
@@ -32,11 +32,10 @@ export default function ConcertsPage() {
     queryFn:  () => concertsApi.list(org),
   });
 
-  const filtered = filter === "all" ? concerts : concerts.filter((c) => c.status === filter);
-  const sorted = [
-    ...filtered.filter((c) => c.status !== "past"),
-    ...filtered.filter((c) => c.status === "past"),
-  ];
+  const sorted = useMemo(() => {
+    const f = filter === "all" ? concerts : concerts.filter((c) => c.status === filter);
+    return [...f.filter((c) => c.status !== "past"), ...f.filter((c) => c.status === "past")];
+  }, [concerts, filter]);
 
   return (
     <div className="flex flex-col">

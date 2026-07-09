@@ -53,14 +53,14 @@ export default function AccountingPage() {
     queryKey: accountingKeys.summary(org, year),
     queryFn:  () => accountingApi.summary(org, year),
   });
-  const { data: expenses    = [], isLoading: loadingExpenses    } = useQuery({
+  const { data: expenses    = [], isLoading: loadingExpenses,    error: expensesError    } = useQuery({
     queryKey: accountingKeys.expenses(org, year),
     queryFn:  () => accountingApi.listExpenses(org, {
       from: `${year}-01-01T00:00:00.000Z`,
       to:   `${year}-12-31T23:59:59.999Z`,
     }),
   });
-  const { data: collections = [], isLoading: loadingCollections } = useQuery({
+  const { data: collections = [], isLoading: loadingCollections, error: collectionsError } = useQuery({
     queryKey: accountingKeys.collections(org, year),
     queryFn:  () => accountingApi.listCollections(org, {
       from: `${year}-01-01T00:00:00.000Z`,
@@ -81,10 +81,11 @@ export default function AccountingPage() {
   const loading = loadingSummary || loadingExpenses || loadingCollections;
 
   useEffect(() => {
-    if (summaryError instanceof ApiClientError && summaryError.status === 403) {
+    const is403 = (e: unknown) => e instanceof ApiClientError && e.status === 403;
+    if (is403(summaryError) || is403(expensesError) || is403(collectionsError)) {
       router.replace(`/${org}`);
     }
-  }, [summaryError, org, router]);
+  }, [summaryError, expensesError, collectionsError, org, router]);
 
   const showToast = (msg: string) => {
     setToast(msg);

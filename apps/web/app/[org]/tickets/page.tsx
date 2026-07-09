@@ -22,7 +22,7 @@ export default function TicketsPage() {
 
   const isForbidden = managerError instanceof ApiClientError && managerError.status === 403;
 
-  const { data: memberData, isLoading: loadingMember } = useQuery({
+  const { data: memberData, isLoading: loadingMember, error: memberError } = useQuery({
     queryKey: ticketKeys.myList(org),
     queryFn:  () => ticketsApi.myList(org),
     enabled:  isForbidden,
@@ -53,7 +53,14 @@ export default function TicketsPage() {
           </div>
         )}
 
-        {!loading && isForbidden && (!memberData || memberData.length === 0) && (
+        {!loading && isForbidden && memberError && (
+          <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
+            <AlertCircle size={16} />
+            <span className="text-sm">{memberError.message}</span>
+          </div>
+        )}
+
+        {!loading && isForbidden && !memberError && (!memberData || memberData.length === 0) && (
           <div className="text-center py-16 text-gray-400">
             <Ticket size={32} className="mx-auto mb-3 opacity-40" />
             <p className="text-sm">チケットが配布されていません</p>

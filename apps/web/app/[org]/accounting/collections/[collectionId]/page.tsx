@@ -37,11 +37,6 @@ export default function CollectionDetailPage() {
     }
   }, [error, org, router]);
 
-  const patchCol = (patch: Partial<CollectionDetail>) =>
-    queryClient.setQueryData<CollectionDetail>(accountingKeys.collection(org, collectionId), (prev) =>
-      prev ? { ...prev, ...patch } : prev
-    );
-
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
@@ -69,10 +64,12 @@ export default function CollectionDetailPage() {
   };
 
   const handleModalSaved = (updated: CollectionPaymentItem) => {
-    if (!col) return;
-    patchCol({
-      payments: col.payments.map((p) => p.id === selected?.id ? { ...p, ...updated } : p),
-    });
+    queryClient.setQueryData<CollectionDetail>(accountingKeys.collection(org, collectionId), (prev) =>
+      prev ? {
+        ...prev,
+        payments: prev.payments.map((p) => p.id === selected?.id ? { ...p, ...updated } : p),
+      } : prev
+    );
     setSelected(null);
     showToast("更新しました");
   };
@@ -118,6 +115,7 @@ export default function CollectionDetailPage() {
         };
       });
       clearChecked();
+      queryClient.invalidateQueries({ queryKey: accountingKeys.all(org) });
       showToast(`${memberIds.length}名を現金支払済みにしました`);
     } catch {
       showToast("一括処理に失敗しました");

@@ -89,7 +89,7 @@ export default function MailingPage() {
           onClose={() => setShowCompose(false)}
           onSent={() => {
             setPage(1);
-            queryClient.invalidateQueries({ queryKey: mailingKeys.all(org) });
+            queryClient.invalidateQueries({ queryKey: mailingKeys.list(org, 1) });
           }}
         />
       )}

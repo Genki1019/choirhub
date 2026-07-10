@@ -55,8 +55,6 @@ export const ROLES = [
   },
 ] as const;
 
-export type RoleKey = (typeof ROLES)[number]["key"];
-
 /** key → 日本語表示名（string でアクセス可） */
 export const ROLE_LABELS: Record<string, string> = Object.fromEntries(
   ROLES.map((r) => [r.key, r.defaultName])

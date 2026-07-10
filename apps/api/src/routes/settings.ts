@@ -5,18 +5,6 @@ import { prisma } from "../lib/prisma.js";
 import { isAdmin, isFinancePlus } from "../services/access.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
-const roleNamesSchema = z.object({
-  admin:     z.string().optional(),
-  tech:      z.string().optional(),
-  conductor: z.string().optional(),
-  score:     z.string().optional(),
-  ticket:    z.string().optional(),
-  finance:   z.string().optional(),
-  member:    z.string().optional(),
-  guest:     z.string().optional(),
-  visitor:   z.string().optional(),
-});
-
 export const settingsRouter = new Hono<TenantEnv>()
 
   // ── GET /settings ──
@@ -24,10 +12,9 @@ export const settingsRouter = new Hono<TenantEnv>()
     const org = c.get("org");
     return c.json({
       data: {
-        id:        org.id,
-        name:      org.name,
-        slug:      org.slug,
-        roleNames: (org.roleNames ?? {}) as Record<string, string>,
+        id:   org.id,
+        name: org.name,
+        slug: org.slug,
       },
     });
   })
@@ -36,8 +23,7 @@ export const settingsRouter = new Hono<TenantEnv>()
   .patch(
     "/settings",
     zValidator("json", z.object({
-      name:      z.string().min(1).optional(),
-      roleNames: roleNamesSchema.optional(),
+      name: z.string().min(1).optional(),
     }), (result, c) => {
       if (!result.success) {
         return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
@@ -51,22 +37,18 @@ export const settingsRouter = new Hono<TenantEnv>()
         return c.json({ error: { code: "FORBIDDEN", message: "管理者権限が必要です" } }, 403);
       }
 
-      const { name, roleNames } = c.req.valid("json");
+      const { name } = c.req.valid("json");
 
       const updated = await prisma.organization.update({
         where: { id: org.id },
-        data: {
-          ...(name      !== undefined && { name }),
-          ...(roleNames !== undefined && { roleNames }),
-        },
+        data: { name },
       });
 
       return c.json({
         data: {
-          id:        updated.id,
-          name:      updated.name,
-          slug:      updated.slug,
-          roleNames: (updated.roleNames ?? {}) as Record<string, string>,
+          id:   updated.id,
+          name: updated.name,
+          slug: updated.slug,
         },
       });
     }

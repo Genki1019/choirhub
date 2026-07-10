@@ -21,7 +21,6 @@ export interface OrgSettings {
   id: string;
   name: string;
   slug: string;
-  roleNames: Record<string, string>;
 }
 
 export interface FeeSettings {
@@ -33,7 +32,7 @@ export const settingsApi = {
   get: (orgSlug: string) =>
     apiClient.get<OrgSettings>(`/${orgSlug}/settings`),
 
-  update: (orgSlug: string, data: { name?: string; roleNames?: Record<string, string> }) =>
+  update: (orgSlug: string, data: { name?: string }) =>
     apiClient.patch<OrgSettings>(`/${orgSlug}/settings`, data),
 
   createPart: (orgSlug: string, data: { name: string; voiceType?: string }) =>

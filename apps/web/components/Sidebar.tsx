@@ -35,7 +35,6 @@ const FINANCE_NAV_ITEMS = [
 const SETTINGS_ADMIN_ITEMS = [
   { label: "団体情報",       suffix: "" },
   { label: "パート管理",     suffix: "/parts" },
-  { label: "ロール管理",     suffix: "/roles" },
   { label: "会費設定",       suffix: "/fee" },
   { label: "支出カテゴリ",   suffix: "/expense-categories" },
   { label: "メンバー区分",   suffix: "/member-types" },

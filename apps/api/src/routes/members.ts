@@ -307,6 +307,10 @@ export const membersRouter = new Hono<TenantEnv>()
         return c.json({ error: { code: "FORBIDDEN", message: "管理者権限が必要です" } }, 403);
       }
 
+      if (id === actingMember.id) {
+        return c.json({ error: { code: "SELF_UPDATE_FORBIDDEN", message: "自分自身の更新は /members/me を使用してください" } }, 400);
+      }
+
       const target = await prisma.member.findUnique({ where: { id } });
       if (!target || target.orgId !== org.id) {
         return c.json({ error: { code: "NOT_FOUND", message: "メンバーが見つかりません" } }, 404);

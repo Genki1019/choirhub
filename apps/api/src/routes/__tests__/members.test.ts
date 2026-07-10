@@ -227,6 +227,7 @@ describe("PATCH /members/me", () => {
     const me = makeNormalMember();
     const updated = { ...me, bio: "更新された自己紹介", userRef: testUser, part: testPart };
     vi.mocked(prisma.member.update).mockResolvedValue(updated as unknown as Member);
+    vi.mocked(prisma.member.findUnique).mockResolvedValue(updated as unknown as Member);
 
     const app = createTestApp(me);
     const res = await app.request("/members/me", {
@@ -317,7 +318,9 @@ describe("PATCH /members/:id", () => {
   it("admin はロールを変更できる", async () => {
     const target = makeNormalMember("member-2");
     const updated = { ...target, roles: ["member", "tech"], userRef: testUser, part: testPart };
-    vi.mocked(prisma.member.findUnique).mockResolvedValue(target as unknown as Member);
+    vi.mocked(prisma.member.findUnique)
+      .mockResolvedValueOnce(target as unknown as Member)
+      .mockResolvedValueOnce(updated as unknown as Member);
     vi.mocked(prisma.member.update).mockResolvedValue(updated as unknown as Member);
 
     const app = createTestApp(makeAdminMember());

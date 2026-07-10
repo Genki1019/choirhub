@@ -98,7 +98,6 @@ erDiagram
         string name
         string slug UK
         json   partTemplate
-        json   roleNames
     }
     Part {
         string id PK
@@ -404,7 +403,6 @@ erDiagram
 | name | VARCHAR | NOT NULL | 団体名 |
 | slug | VARCHAR | NOT NULL, UNIQUE | URLパスに使う識別子（例: `tokyo-men-choir`）|
 | partTemplate | JSONB | NOT NULL | パート構成テンプレート（初期パート作成用）|
-| roleNames | JSONB | | ロール表示名カスタマイズ（例: `{"tech": "技術系"}`）|
 | feeType | ENUM | NOT NULL, DEFAULT `per_rehearsal` | 徴収方式（per_rehearsal / monthly）|
 | defaultFeeAmount | INT | | デフォルト徴収金額（円）。Collection 自動生成時の初期値 |
 | monthlyOrganizer | VARCHAR | | 今月の飲み会幹事パート名（ホーム画面表示用）|

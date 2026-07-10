@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useMember } from "@/contexts/MemberContext";
 import { canAccessSettings } from "@/lib/roles";
-import { PageMain } from "@/components/PageMain";
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const { org } = useParams<{ org: string }>();
@@ -19,5 +18,5 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
   if (!isAllowed) return null;
 
-  return <PageMain>{children}</PageMain>;
+  return <>{children}</>;
 }

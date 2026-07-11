@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { settingsApi } from "@/lib/settings-api";
 import type { ExpenseCategory } from "@/lib/accounting-api";
 import { settingsKeys } from "@/lib/query-keys";
+import { settingsPageTitle } from "@/lib/settings-nav";
+import { SettingsPageShell } from "../_components/SettingsPageShell";
 import { ExpenseCategoryCard } from "./_components/ExpenseCategoryCard";
 
 export default function ExpenseCategoriesPage() {
@@ -24,16 +25,8 @@ export default function ExpenseCategoriesPage() {
     setTimeout(() => setToast(null), 2500);
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <Loader2 size={18} className="animate-spin text-gray-400" />
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-md space-y-4">
+    <SettingsPageShell title={settingsPageTitle("/expense-categories")} loading={loading}>
       {toast && (
         <div className="fixed bottom-6 right-6 bg-gray-800 text-white text-xs px-4 py-2.5 rounded-lg shadow-lg z-50">
           {toast}
@@ -58,6 +51,6 @@ export default function ExpenseCategoriesPage() {
       <p className="text-xs text-gray-400">
         支出記録が紐付いているカテゴリは削除できません。
       </p>
-    </div>
+    </SettingsPageShell>
   );
 }

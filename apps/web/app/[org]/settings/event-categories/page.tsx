@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { Loader2, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { settingsApi, type EventCategory } from "@/lib/settings-api";
 import { eventKeys } from "@/lib/query-keys";
+import { settingsPageTitle } from "@/lib/settings-nav";
+import { SettingsPageShell } from "../_components/SettingsPageShell";
 import { CategoryList } from "./_components/CategoryList";
 import { AddCategoryForm } from "./_components/AddCategoryForm";
 
@@ -19,23 +21,11 @@ export default function EventCategoriesPage() {
     queryFn:  () => settingsApi.listEventCategories(org),
   });
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-16 gap-2 text-gray-400">
-        <Loader2 size={18} className="animate-spin" />
-        <span className="text-sm">読み込み中...</span>
-      </div>
-    );
-  }
-
   const displayError = queryError?.message ?? mutationError;
 
   return (
-    <div className="max-w-lg space-y-6">
-      <div>
-        <h2 className="text-sm font-semibold text-gray-800">イベント区分</h2>
-        <p className="text-xs text-gray-400 mt-0.5">練習・本番などのシステム標準区分は削除できません。名前・色の変更は可能です。</p>
-      </div>
+    <SettingsPageShell title={settingsPageTitle("/event-categories")} loading={loading}>
+      <p className="text-xs text-gray-400">練習・本番などのシステム標準区分は削除できません。名前・色の変更は可能です。</p>
 
       {displayError && (
         <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm">
@@ -65,6 +55,6 @@ export default function EventCategoriesPage() {
       />
 
       <p className="text-xs text-gray-400">↑↓ で表示順を変更できます。</p>
-    </div>
+    </SettingsPageShell>
   );
 }

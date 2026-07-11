@@ -1,10 +1,11 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { settingsApi } from "@/lib/settings-api";
 import { settingsKeys } from "@/lib/query-keys";
+import { settingsPageTitle } from "@/lib/settings-nav";
+import { SettingsPageShell } from "../_components/SettingsPageShell";
 import { FeeSettingsForm } from "./_components/FeeSettingsForm";
 
 export default function FeeSettingsPage() {
@@ -15,21 +16,13 @@ export default function FeeSettingsPage() {
     queryFn:  () => settingsApi.getFee(org),
   });
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <Loader2 size={18} className="animate-spin text-gray-400" />
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-lg">
+    <SettingsPageShell title={settingsPageTitle("/fee")} loading={loading}>
       <FeeSettingsForm
         orgSlug={org}
         initialFeeType={feeData?.feeType ?? "per_rehearsal"}
         initialAmount={feeData?.defaultFeeAmount != null ? String(feeData.defaultFeeAmount) : ""}
       />
-    </div>
+    </SettingsPageShell>
   );
 }

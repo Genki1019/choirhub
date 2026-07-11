@@ -2,12 +2,11 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { membersApi } from "@/lib/members-api";
 import { memberKeys } from "@/lib/query-keys";
-import { PageMain } from "@/components/PageMain";
-import { PageBleedRow } from "@/components/PageBleedRow";
+import { settingsPageTitle } from "@/lib/settings-nav";
+import { SettingsPageShell } from "../_components/SettingsPageShell";
 import { PartCard } from "./_components/PartCard";
 
 export default function PartsPage() {
@@ -26,34 +25,18 @@ export default function PartsPage() {
   };
 
   return (
-    <div className="flex flex-col">
-      <header className="bg-white border-b border-gray-200 shrink-0">
-        <PageBleedRow className="flex items-center py-4">
-          <h1 className="text-lg font-semibold text-gray-800">パート管理</h1>
-        </PageBleedRow>
-      </header>
+    <SettingsPageShell title={settingsPageTitle("/parts")} loading={loading}>
+      {toast && (
+        <div className="fixed bottom-6 right-6 bg-gray-800 text-white text-xs px-4 py-2.5 rounded-lg shadow-lg z-50">
+          {toast}
+        </div>
+      )}
 
-      <PageMain>
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 size={18} className="animate-spin text-gray-400" />
-          </div>
-        ) : (
-          <div className="max-w-md space-y-4">
-            {toast && (
-              <div className="fixed bottom-6 right-6 bg-gray-800 text-white text-xs px-4 py-2.5 rounded-lg shadow-lg z-50">
-                {toast}
-              </div>
-            )}
+      <PartCard initialParts={parts} org={org} onToast={showToast} />
 
-            <PartCard initialParts={parts} org={org} onToast={showToast} />
-
-            <p className="text-xs text-gray-400">
-              ↑↓ で表示順を変更できます。在団メンバーが所属しているパートは削除できません。
-            </p>
-          </div>
-        )}
-      </PageMain>
-    </div>
+      <p className="text-xs text-gray-400">
+        ↑↓ で表示順を変更できます。在団メンバーが所属しているパートは削除できません。
+      </p>
+    </SettingsPageShell>
   );
 }

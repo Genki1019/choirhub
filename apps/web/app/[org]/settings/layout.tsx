@@ -18,5 +18,5 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
   if (!isAllowed) return null;
 
-  return <>{children}</>;
+  return children;
 }

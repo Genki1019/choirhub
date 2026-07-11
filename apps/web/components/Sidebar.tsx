@@ -17,6 +17,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import { SETTINGS_NAV_ITEMS } from "@/lib/settings-nav";
 
 const BASE_NAV_ITEMS = [
   { suffix: "",             label: "ホーム",       icon: Home },
@@ -32,17 +33,8 @@ const FINANCE_NAV_ITEMS = [
   { suffix: "/accounting",  label: "会計",         icon: Wallet },
 ];
 
-const SETTINGS_ADMIN_ITEMS = [
-  { label: "団体情報",       suffix: "" },
-  { label: "パート管理",     suffix: "/parts" },
-  { label: "会費設定",       suffix: "/fee" },
-  { label: "支出カテゴリ",   suffix: "/expense-categories" },
-  { label: "メンバー区分",   suffix: "/member-types" },
-  { label: "イベント区分",   suffix: "/event-categories" },
-];
-
 const SETTINGS_FINANCE_SUFFIXES = new Set(["/fee", "/expense-categories"]);
-const SETTINGS_FINANCE_ITEMS = SETTINGS_ADMIN_ITEMS.filter((item) =>
+const SETTINGS_FINANCE_ITEMS = SETTINGS_NAV_ITEMS.filter((item) =>
   SETTINGS_FINANCE_SUFFIXES.has(item.suffix)
 );
 
@@ -174,7 +166,7 @@ export default function Sidebar({
 
               {settingsOpen && (
                 <div className="pb-1">
-                  {(isAdmin ? SETTINGS_ADMIN_ITEMS : SETTINGS_FINANCE_ITEMS).map(({ label, suffix }) => {
+                  {(isAdmin ? SETTINGS_NAV_ITEMS : SETTINGS_FINANCE_ITEMS).map(({ label, suffix }) => {
                     const href     = `/${org}/settings${suffix}`;
                     const isActive = pathname === href;
                     return (

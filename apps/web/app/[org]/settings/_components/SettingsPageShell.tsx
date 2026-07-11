@@ -19,8 +19,9 @@ export function SettingsPageShell({ title, loading, children }: SettingsPageShel
 
       <PageMain>
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 size={18} className="animate-spin text-gray-400" />
+          <div className="flex items-center justify-center py-16 gap-2 text-gray-400">
+            <Loader2 size={18} className="animate-spin" />
+            <span className="text-sm">読み込み中...</span>
           </div>
         ) : (
           <div className="max-w-lg mx-auto space-y-4">{children}</div>

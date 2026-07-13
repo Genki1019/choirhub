@@ -56,6 +56,7 @@ export default function ConcertDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const { roles, memberId } = useMember();
   const isAdmin = roles.includes("admin");
+  const canManageStage = isAdmin || roles.includes("tech");
   const [addProgramStageId, setAddProgramStageId] = useState<string | null>(null);
   const [showAddStageModal, setShowAddStageModal] = useState(false);
   const [moveCopySource, setMoveCopySource] = useState<{ stageId: string; program: ProgramDetail } | null>(null);
@@ -172,9 +173,23 @@ export default function ConcertDetailPage() {
     );
   }, [org, id, queryClient]);
 
+  const handleAssignmentsMayChange = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: concertKeys.detail(org, id) });
+  }, [org, id, queryClient]);
+
   const handleConcertStatusChanged = useCallback((status: ConcertStatus) => {
     queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) =>
       prev ? { ...prev, status } : prev
+    );
+    // confirmed 遷移時はサーバー側でオンステ確定（OnStageAssignment）が生成されるため再取得する
+    if (status === "confirmed") {
+      handleAssignmentsMayChange();
+    }
+  }, [handleAssignmentsMayChange, org, id, queryClient]);
+
+  const handleStagesChanged = useCallback((stages: StageDetail[]) => {
+    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) =>
+      prev ? { ...prev, stages } : prev
     );
   }, [org, id, queryClient]);
 
@@ -241,7 +256,6 @@ export default function ConcertDetailPage() {
   const dateStr = formatJaDate(concert.heldOn);
 
   const totalPrograms = concert.stages.reduce((n, st) => n + st.programs.length, 0);
-  const onCount = concert.assignments.filter((a) => a.status === "on").length;
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "stages",  label: "ステージ構成", icon: <Music size={13} /> },
@@ -305,9 +319,6 @@ export default function ConcertDetailPage() {
           <PageBleedRow className="flex items-center gap-6 py-2">
             <span className="text-xs text-gray-500">{concert.stages.length} ステージ</span>
             <span className="text-xs text-gray-500">{totalPrograms} 曲</span>
-            {onCount > 0 && (
-              <span className="text-xs text-green-600 font-medium">出演確定 {onCount}名</span>
-            )}
           </PageBleedRow>
         </div>
 
@@ -349,12 +360,21 @@ export default function ConcertDetailPage() {
             concert={concert}
             org={org}
             isAdmin={isAdmin}
+            canManageStage={canManageStage}
             myMemberId={memberId}
             onSurveysChanged={handleSurveysChanged}
             onConcertStatusChanged={handleConcertStatusChanged}
+            onAssignmentsMayChange={handleAssignmentsMayChange}
           />
         )}
-        {activeTab === "onstage" && <OnstageTab concert={concert} />}
+        {activeTab === "onstage" && (
+          <OnstageTab
+            concert={concert}
+            org={org}
+            canManageStage={canManageStage}
+            onStagesChanged={handleStagesChanged}
+          />
+        )}
       </PageMain>
 
       {showAddStageModal && (

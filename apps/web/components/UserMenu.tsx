@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut, User } from "lucide-react";
 import { authApi } from "@/lib/auth-api";
+import { useClickOutside } from "@/lib/useClickOutside";
 
 interface Props {
   nameJa: string;
@@ -19,15 +20,7 @@ export default function UserMenu({ nameJa, avatarUrl, org, memberId }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
+  useClickOutside(ref, () => setOpen(false), open);
 
   const handleLogout = async () => {
     try {

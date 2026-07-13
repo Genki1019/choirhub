@@ -27,24 +27,25 @@ const SURVEY_STATUS_CONFIG: Record<AttendanceStatus, {
   badgeClass: string; cellClass: string;
 }> = {
   attending: { symbol: "○", label: "参加",   badgeClass: "text-green-600 font-bold", cellClass: "bg-green-50" },
-  maybe:     { symbol: "△", label: "未定",   badgeClass: "text-amber-500 font-bold", cellClass: "bg-amber-50" },
   absent:    { symbol: "✕", label: "不参加", badgeClass: "text-red-500  font-bold", cellClass: "bg-red-50" },
   undecided: { symbol: "—", label: "未回答", badgeClass: "text-gray-400",            cellClass: "bg-gray-50" },
 };
 
-const STATUS_CYCLE: AttendanceStatus[] = ["attending", "absent", "maybe", "undecided"];
+const STATUS_CYCLE: AttendanceStatus[] = ["attending", "absent", "undecided"];
 
 interface SurveyTabProps {
   concert: ConcertDetail;
   org: string;
   isAdmin: boolean;
+  canManageStage: boolean;
   myMemberId: string;
   onSurveysChanged: (surveys: SurveySummary[]) => void;
   onConcertStatusChanged: (status: ConcertStatus) => void;
+  onAssignmentsMayChange: () => void;
 }
 
 export function SurveyTab({
-  concert, org, isAdmin, onSurveysChanged, onConcertStatusChanged, myMemberId,
+  concert, org, isAdmin, canManageStage, onSurveysChanged, onConcertStatusChanged, onAssignmentsMayChange, myMemberId,
 }: SurveyTabProps) {
   const surveys = concert.surveys;
 
@@ -59,7 +60,9 @@ export function SurveyTab({
   const [saving,          setSaving]          = useState<string | null>(null);
   const [savingMemo,      setSavingMemo]      = useState<string | null>(null);
   const [toggling,        setToggling]        = useState(false);
+  const [applying,        setApplying]        = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [applyError,      setApplyError]      = useState<string | null>(null);
 
   const loadingDetail    = selectedSurveyId !== null && loadedForId !== selectedSurveyId;
   const activeSurveyDetail = selectedSurveyId !== null && loadedForId === selectedSurveyId ? surveyDetail : null;
@@ -84,6 +87,16 @@ export function SurveyTab({
 
   const canEdit = (rowMemberId: string) => isAdmin || rowMemberId === myMemberId;
 
+  const setCellStatus = (rowMemberId: string, stageId: string, status: AttendanceStatus) => {
+    setStateMap((prev) => {
+      const next = new Map(prev);
+      const inner = new Map(next.get(rowMemberId) ?? []);
+      inner.set(stageId, status);
+      next.set(rowMemberId, inner);
+      return next;
+    });
+  };
+
   const handleCellClick = async (rowMemberId: string, stageId: string) => {
     if (!activeSurveyDetail || !selectedSurveyId || !canEdit(rowMemberId)) return;
     if (!activeSurveyDetail.isOpen && !isAdmin) return;
@@ -94,13 +107,7 @@ export function SurveyTab({
     const prevStatus = stateMap.get(rowMemberId)?.get(stageId) ?? "undecided";
     const nextStatus = STATUS_CYCLE[(STATUS_CYCLE.indexOf(prevStatus) + 1) % STATUS_CYCLE.length];
 
-    setStateMap((prev) => {
-      const next = new Map(prev);
-      const inner = new Map(next.get(rowMemberId) ?? []);
-      inner.set(stageId, nextStatus);
-      next.set(rowMemberId, inner);
-      return next;
-    });
+    setCellStatus(rowMemberId, stageId, nextStatus);
     setSaving(key);
 
     try {
@@ -110,14 +117,10 @@ export function SurveyTab({
         undefined,
         rowMemberId !== myMemberId ? rowMemberId : undefined,
       );
+      // 締切済みの調査を管理者が修正した場合、オンステ確定にも反映されるため出演メンバータブ側を再取得する
+      if (!activeSurveyDetail.isOpen) onAssignmentsMayChange();
     } catch {
-      setStateMap((prev) => {
-        const next = new Map(prev);
-        const inner = new Map(next.get(rowMemberId) ?? []);
-        inner.set(stageId, prevStatus);
-        next.set(rowMemberId, inner);
-        return next;
-      });
+      setCellStatus(rowMemberId, stageId, prevStatus);
     } finally {
       setSaving(null);
     }
@@ -158,6 +161,20 @@ export function SurveyTab({
     }
   };
 
+  const handleApplyToFormation = async () => {
+    if (!selectedSurveyId || applying) return;
+    setApplying(true);
+    setApplyError(null);
+    try {
+      await concertsApi.applySurveyToFormation(org, concert.id, selectedSurveyId);
+      onAssignmentsMayChange();
+    } catch {
+      setApplyError("フォーメーションへの反映に失敗しました。もう一度お試しください。");
+    } finally {
+      setApplying(false);
+    }
+  };
+
   const handleSurveyCreated = (newSurvey: SurveySummary) => {
     onSurveysChanged([
       newSurvey,
@@ -174,7 +191,7 @@ export function SurveyTab({
         <div className="text-center py-12 text-gray-400">
           <ClipboardList size={32} className="mx-auto mb-3 opacity-40" />
           <p className="text-sm">オンステ調査はまだ開設されていません</p>
-          {isAdmin && (
+          {canManageStage && (
             <button
               onClick={() => setShowCreateModal(true)}
               className="mt-4 flex items-center gap-1.5 mx-auto bg-brand-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-brand-700 transition-colors"
@@ -224,7 +241,7 @@ export function SurveyTab({
             </span>
           </button>
         ))}
-        {isAdmin && (
+        {canManageStage && (
           <button
             onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 border border-dashed border-gray-200 hover:border-brand-300 hover:text-brand-500 transition-colors"
@@ -247,6 +264,7 @@ export function SurveyTab({
         const closeDateStr = closeDate
           ? `${closeDate.getFullYear()}年${closeDate.getMonth() + 1}月${closeDate.getDate()}日`
           : null;
+        const gridCols = `1fr${stages.map(() => " 80px").join("")} 1fr`;
 
         return (
           <>
@@ -259,7 +277,24 @@ export function SurveyTab({
                 <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${activeSurveyDetail.isOpen ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                   {activeSurveyDetail.isOpen ? "受付中" : "締切"}
                 </span>
-                {isAdmin && (
+                {canManageStage && surveys.length > 1 && (
+                  <button
+                    onClick={handleApplyToFormation}
+                    disabled={applying}
+                    className={[
+                      "text-xs rounded-lg px-3 py-1.5 transition-colors disabled:opacity-60",
+                      selectedSurveyId === concert.appliedSurveyId
+                        ? "bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200"
+                        : "text-brand-600 border border-brand-200 hover:bg-brand-50",
+                    ].join(" ")}
+                    title="この調査の回答をオンステ確定・フォーメーションに反映します"
+                  >
+                    {applying
+                      ? <Loader2 size={12} className="animate-spin inline" />
+                      : selectedSurveyId === concert.appliedSurveyId ? "反映済み" : "フォーメーションに反映"}
+                  </button>
+                )}
+                {canManageStage && (
                   <button
                     onClick={handleToggle}
                     disabled={toggling}
@@ -267,11 +302,17 @@ export function SurveyTab({
                   >
                     {toggling
                       ? <Loader2 size={12} className="animate-spin inline" />
-                      : activeSurveyDetail.isOpen ? "締切る" : "再開する"}
+                      : activeSurveyDetail.isOpen ? "確定する" : "再開する"}
                   </button>
                 )}
               </div>
             </div>
+            {canManageStage && activeSurveyDetail.isOpen && (
+              <p className="text-xs text-gray-400 -mt-3 px-1">
+                確定すると回答をもとにオンステが確定し、出演メンバータブでフォーメーションを設定できるようになります
+              </p>
+            )}
+            {applyError && <p className="text-xs text-red-500 -mt-3 px-1">{applyError}</p>}
 
             {stages.length === 0 && (
               <p className="text-sm text-gray-400 text-center py-8">ステージが登録されていません</p>
@@ -281,7 +322,7 @@ export function SurveyTab({
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div
                   className="grid text-xs font-medium text-gray-500 bg-gray-50 border-b border-gray-200 px-4 py-2.5"
-                  style={{ gridTemplateColumns: `1fr${stages.map(() => " 80px").join("")} 1fr` }}
+                  style={{ gridTemplateColumns: gridCols }}
                 >
                   <span>メンバー</span>
                   {stages.map((s) => (
@@ -292,7 +333,7 @@ export function SurveyTab({
 
                 <div
                   className="grid text-xs border-b border-gray-200 bg-gray-50/60 px-4 py-2"
-                  style={{ gridTemplateColumns: `1fr${stages.map(() => " 80px").join("")} 1fr` }}
+                  style={{ gridTemplateColumns: gridCols }}
                 >
                   <span className="text-gray-400 text-[11px]">集計</span>
                   {stages.map((s) => {
@@ -301,7 +342,6 @@ export function SurveyTab({
                       <div key={s.id} className="text-center space-y-0.5">
                         <div className="text-green-600">○ {ss?.summary.attending ?? 0}</div>
                         <div className="text-red-500">✕ {ss?.summary.absent ?? 0}</div>
-                        <div className="text-amber-500">△ {ss?.summary.maybe ?? 0}</div>
                         <div className="text-gray-400">— {ss?.summary.undecided ?? 0}</div>
                       </div>
                     );
@@ -322,7 +362,7 @@ export function SurveyTab({
                         idx < activeSurveyDetail.rows.length - 1 ? "border-b border-gray-100" : "",
                         isMyRow ? "bg-brand-50/40" : "",
                       ].join(" ")}
-                      style={{ gridTemplateColumns: `1fr${stages.map(() => " 80px").join("")} 1fr` }}
+                      style={{ gridTemplateColumns: gridCols }}
                     >
                       <div className="min-w-0 pr-2">
                         <p className={`text-sm truncate ${isMyRow ? "font-semibold text-brand-700" : "text-gray-800"}`}>

@@ -1,7 +1,7 @@
 import { apiClient } from "./api-client";
 
 export type ConcertStatus = "draft" | "survey_open" | "confirmed" | "past";
-export type AttendanceStatus = "attending" | "absent" | "maybe" | "undecided";
+export type AttendanceStatus = "attending" | "absent" | "undecided";
 
 export interface ConcertSummary {
   id: string;
@@ -23,11 +23,43 @@ export interface ProgramDetail {
   score: { id: string; composer: string | null; arranger: string | null } | null;
 }
 
+export interface FormationSlotDetail {
+  id: string;
+  memberId: string | null;
+  nameJa: string | null;
+  partName: string | null;
+  label: string | null;
+  boxId: string | null;
+  rowNum: number | null;
+  positionOrder: number;
+}
+
+export type PianoPosition = "center" | "kamite";
+export type FormationBoxKind = "conductor" | "piano" | "custom";
+
+export interface FormationBoxDetail {
+  id: string;
+  kind: FormationBoxKind;
+  title: string | null;
+  sortOrder: number;
+}
+
+export interface FormationPatternDetail {
+  id: string;
+  name: string;
+  sortOrder: number;
+  isStaggered: boolean;
+  pianoPosition: PianoPosition;
+  boxes: FormationBoxDetail[];
+  slots: FormationSlotDetail[];
+}
+
 export interface StageDetail {
   id: string;
   name: string;
   sortOrder: number;
   programs: ProgramDetail[];
+  formationPatterns?: FormationPatternDetail[];
 }
 
 export interface SurveySummary {
@@ -57,7 +89,7 @@ export interface SurveyMemberRow {
 
 export interface SurveyStageSummary {
   stageId: string;
-  summary: { attending: number; absent: number; maybe: number; undecided: number };
+  summary: { attending: number; absent: number; undecided: number };
 }
 
 export interface SurveyDetail {
@@ -69,6 +101,8 @@ export interface SurveyDetail {
   stageSummaries: SurveyStageSummary[];
 }
 
+export type OnStageStatus = "on" | "off" | "undecided";
+
 export interface AssignmentDetail {
   memberId: string;
   nameJa: string;
@@ -76,9 +110,8 @@ export interface AssignmentDetail {
   partName: string | null;
   partSortOrder: number;
   partVoiceType: string;
-  programId: string | null;
-  status: "on" | "off" | "undecided";
-  sortOrder: number | null;
+  stageId: string;
+  status: OnStageStatus;
 }
 
 export interface ConcertDetail {
@@ -90,6 +123,7 @@ export interface ConcertDetail {
   linkedEventId: string | null;
   stages: StageDetail[];
   surveys: SurveySummary[];
+  appliedSurveyId: string | null;
   assignments: AssignmentDetail[];
 }
 
@@ -205,5 +239,44 @@ export const concertsApi = {
     apiClient.put<{ ok: boolean }>(
       `/${orgSlug}/concerts/${concertId}/surveys/${surveyId}/respond`,
       { responses, memo: memo ?? undefined, targetMemberId }
+    ),
+
+  applySurveyToFormation: (orgSlug: string, concertId: string, surveyId: string) =>
+    apiClient.post<{ ok: boolean }>(`/${orgSlug}/concerts/${concertId}/surveys/${surveyId}/apply`, {}),
+
+  createFormationPattern: (orgSlug: string, concertId: string, stageId: string, name: string) =>
+    apiClient.post<FormationPatternDetail>(
+      `/${orgSlug}/concerts/${concertId}/stages/${stageId}/formation-patterns`, { name }
+    ),
+
+  updateFormationPattern: (
+    orgSlug: string,
+    concertId: string,
+    stageId: string,
+    patternId: string,
+    patch: Partial<{ name: string; isStaggered: boolean; pianoPosition: PianoPosition }>,
+  ) =>
+    apiClient.patch<{ id: string; name: string; sortOrder: number; isStaggered: boolean; pianoPosition: PianoPosition }>(
+      `/${orgSlug}/concerts/${concertId}/stages/${stageId}/formation-patterns/${patternId}`, patch
+    ),
+
+  deleteFormationPattern: (orgSlug: string, concertId: string, stageId: string, patternId: string) =>
+    apiClient.delete(`/${orgSlug}/concerts/${concertId}/stages/${stageId}/formation-patterns/${patternId}`),
+
+  reorderFormationPatterns: (orgSlug: string, concertId: string, stageId: string, ids: string[]) =>
+    apiClient.put<void>(`/${orgSlug}/concerts/${concertId}/stages/${stageId}/formation-patterns/order`, { ids }),
+
+  saveFormationSlots: (
+    orgSlug: string,
+    concertId: string,
+    stageId: string,
+    patternId: string,
+    payload: {
+      boxes: { clientId: string; kind: FormationBoxKind; title?: string; sortOrder: number }[];
+      slots: { memberId?: string; label?: string; boxClientId?: string; rowNum?: number; positionOrder: number }[];
+    },
+  ) =>
+    apiClient.put<void>(
+      `/${orgSlug}/concerts/${concertId}/stages/${stageId}/formation-patterns/${patternId}/slots`, payload
     ),
 };

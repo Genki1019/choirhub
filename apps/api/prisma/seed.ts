@@ -1,5 +1,5 @@
-import { PrismaClient } from "@prisma/client";
-import argon2 from "argon2";
+import { PrismaClient } from "../src/generated/prisma/index.js";
+import { hash } from "argon2";
 
 const prisma = new PrismaClient();
 
@@ -24,7 +24,7 @@ async function seedAdmin() {
   const orgName  = process.env.SEED_ORG_NAME ?? "テスト合唱団";
   const orgSlug  = process.env.SEED_ORG_SLUG ?? "test-choir";
 
-  const passwordHash = await argon2.hash(password);
+  const passwordHash = await hash(password);
 
   const user = await prisma.user.upsert({
     where:  { email },
@@ -155,7 +155,7 @@ async function seedDemo() {
   });
 
   // ── 5. Users & Members ────────────────────────────────────────────────────
-  const pw = await argon2.hash(DEMO_PASS);
+  const pw = await hash(DEMO_PASS);
 
   type MemberDef = {
     email: string; nameJa: string; nameKana: string;
@@ -294,20 +294,42 @@ async function seedDemo() {
   });
   const st15a = await prisma.stage.create({ data: { concertId: pastConcert.id, name: "前半",  sortOrder: 1 } });
   const st15b = await prisma.stage.create({ data: { concertId: pastConcert.id, name: "後半",  sortOrder: 2 } });
-  const p15Programs = await Promise.all([
+  await Promise.all([
     prisma.program.create({ data: { stageId: st15a.id, scoreId: sAveVerum.id,   title: sAveVerum.title,   sortOrder: 1 } }),
     prisma.program.create({ data: { stageId: st15a.id, scoreId: sJesu.id,       title: sJesu.title,       sortOrder: 2 } }),
     prisma.program.create({ data: { stageId: st15b.id, scoreId: sHallelujah.id, title: sHallelujah.title, sortOrder: 1 } }),
     prisma.program.create({ data: { stageId: st15b.id, scoreId: sOdeToJoy.id,   title: sOdeToJoy.title,   sortOrder: 2 } }),
   ]);
 
-  // 第15回 オンステ（全員出演）
-  for (const m of members) {
-    for (const prog of p15Programs) {
-      await prisma.onStageAssignment.create({
-        data: { concertId: pastConcert.id, memberId: m.id, programId: prog.id, status: "on" },
-      });
-    }
+  // 第15回 オンステ確定（全員出演）＋ フォーメーションパターン（前列5名・後列5名＋指揮）
+  for (const stage of [st15a, st15b]) {
+    await prisma.onStageAssignment.createMany({
+      data: members.map((m) => ({ concertId: pastConcert.id, memberId: m.id, stageId: stage.id, status: "on" })),
+    });
+
+    const pattern = await prisma.formationPattern.create({
+      data: {
+        stageId: stage.id,
+        name: "メインフォーメーション",
+        sortOrder: 1,
+        boxes: { create: [{ kind: "conductor", sortOrder: 1 }, { kind: "piano", sortOrder: 2 }] },
+      },
+      include: { boxes: true },
+    });
+    const conductorBox = pattern.boxes.find((b) => b.kind === "conductor")!;
+    const pianoBox = pattern.boxes.find((b) => b.kind === "piano")!;
+
+    // 山台1段目以降=1,2,...
+    const frontRow = members.slice(0, 5);
+    const backRow = members.slice(5);
+    await prisma.formationSlot.createMany({
+      data: [
+        { patternId: pattern.id, label: "指揮者名",   boxId: conductorBox.id, positionOrder: 1 },
+        { patternId: pattern.id, label: "ピアニスト名", boxId: pianoBox.id,     positionOrder: 1 },
+        ...frontRow.map((m, i) => ({ patternId: pattern.id, memberId: m.id, rowNum: 1, positionOrder: i + 1 })),
+        ...backRow.map((m, i) => ({ patternId: pattern.id, memberId: m.id, rowNum: 2, positionOrder: i + 1 })),
+      ],
+    });
   }
 
   // 第16回（調査中）

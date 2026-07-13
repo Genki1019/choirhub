@@ -3,6 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { isAdmin, hasRole, isVisitor, isHiddenRole, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
+import { syncOnStageFromResponses, applySurveyToOnStage } from "../services/onstage.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 export const concertsRouter = new Hono<TenantEnv>()
@@ -484,6 +485,22 @@ export const concertsRouter = new Hono<TenantEnv>()
                 score: { select: { id: true, title: true, composer: true, arranger: true } },
               },
             },
+            formationPatterns: {
+              orderBy: { sortOrder: "asc" },
+              include: {
+                boxes: true,
+                slots: {
+                  include: {
+                    member: {
+                      include: {
+                        userRef: { select: { nameJa: true } },
+                        part: { select: { name: true } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
         concertSurveys: {
@@ -506,7 +523,11 @@ export const concertsRouter = new Hono<TenantEnv>()
               },
             },
           },
-          orderBy: { sortOrder: "asc" },
+          orderBy: [
+            { member: { part: { sortOrder: "asc" } } },
+            { member: { userRef: { nameKana: "asc" } } },
+            { member: { userRef: { nameJa: "asc" } } },
+          ],
         },
         linkedEvent: { select: { id: true } },
       },
@@ -551,9 +572,8 @@ export const concertsRouter = new Hono<TenantEnv>()
       partName:      a.member.part?.name      ?? null,
       partSortOrder: a.member.part?.sortOrder ?? 99,
       partVoiceType: a.member.part?.voiceType ?? "other",
-      programId:     a.programId,
+      stageId:       a.stageId,
       status:        a.status,
-      sortOrder:     a.sortOrder,
     }));
 
     return c.json({
@@ -578,6 +598,31 @@ export const concertsRouter = new Hono<TenantEnv>()
               arranger: p.score.arranger,
             } : null,
           })),
+          formationPatterns: stage.formationPatterns.map((pattern) => ({
+            id:            pattern.id,
+            name:          pattern.name,
+            sortOrder:     pattern.sortOrder,
+            isStaggered:   pattern.isStaggered,
+            pianoPosition: pattern.pianoPosition,
+            boxes: pattern.boxes.map((box) => ({
+              id:        box.id,
+              kind:      box.kind,
+              title:     box.title,
+              sortOrder: box.sortOrder,
+            })),
+            slots: pattern.slots
+              .filter((slot) => !slot.member || !isHiddenRole(slot.member))
+              .map((slot) => ({
+                id:            slot.id,
+                memberId:      slot.memberId,
+                nameJa:        slot.member?.userRef.nameJa ?? null,
+                partName:      slot.member?.part?.name ?? null,
+                label:         slot.label,
+                boxId:         slot.boxId,
+                rowNum:        slot.rowNum,
+                positionOrder: slot.positionOrder,
+              })),
+          })),
         })),
         surveys: concert.concertSurveys.map((s) => ({
           id:            s.id,
@@ -587,6 +632,7 @@ export const concertsRouter = new Hono<TenantEnv>()
           closeAt:       s.closeAt?.toISOString() ?? null,
           responseCount: s._count.surveyResponses,
         })),
+        appliedSurveyId: concert.appliedSurveyId,
         assignments,
       },
     });
@@ -775,8 +821,6 @@ export const concertsRouter = new Hono<TenantEnv>()
       return c.json({ error: { code: "NOT_FOUND", message: "調査が見つかりません" } }, 404);
     }
 
-    type AttStatus = "attending" | "absent" | "maybe" | "undecided";
-
     const orgMembers = await prisma.member.findMany({
       where:   { orgId: org.id, status: "active", ...EXCLUDE_HIDDEN_ROLES },
       include: {
@@ -786,11 +830,13 @@ export const concertsRouter = new Hono<TenantEnv>()
       orderBy: { createdAt: "asc" },
     });
 
-    const responseMap = new Map<string, Map<string, { status: AttStatus; memo: string | null }>>();
+    // status カラムは Attendance（スケジュールの出欠）と共有する enum のため "maybe" も
+    // 取りうるが、オンステ調査では使わないので "undecided" に丸めてフロントへ渡す
+    const responseMap = new Map<string, Map<string, { status: "attending" | "absent" | "undecided"; memo: string | null }>>();
     survey.surveyResponses.forEach((r) => {
       if (!responseMap.has(r.memberId)) responseMap.set(r.memberId, new Map());
       responseMap.get(r.memberId)!.set(r.stageId, {
-        status: r.status as AttStatus,
+        status: r.status === "maybe" ? "undecided" : r.status,
         memo:   r.memo ?? null,
       });
     });
@@ -798,7 +844,7 @@ export const concertsRouter = new Hono<TenantEnv>()
     const stages = survey.concert.stages;
 
     const stageSummaries = stages.map((stage) => {
-      const counts: Record<AttStatus, number> = { attending: 0, absent: 0, maybe: 0, undecided: 0 };
+      const counts = { attending: 0, absent: 0, undecided: 0 };
       orgMembers.forEach((m) => {
         const s = responseMap.get(m.id)?.get(stage.id)?.status ?? "undecided";
         counts[s]++;
@@ -884,6 +930,7 @@ export const concertsRouter = new Hono<TenantEnv>()
         if (stillOpen === 0) {
           await prisma.concert.update({ where: { id: concertId }, data: { status: "confirmed" } });
           concertStatus = "confirmed";
+          await applySurveyToOnStage(concertId, surveyId);
         } else {
           concertStatus = "survey_open";
         }
@@ -899,7 +946,7 @@ export const concertsRouter = new Hono<TenantEnv>()
     zValidator("json", z.object({
       responses: z.array(z.object({
         stageId: z.string(),
-        status:  z.enum(["attending", "absent", "maybe", "undecided"]),
+        status:  z.enum(["attending", "absent", "undecided"]),
       })).min(1).max(100),
       memo:           z.string().optional().nullable(),
       targetMemberId: z.string().optional(),
@@ -962,6 +1009,13 @@ export const concertsRouter = new Hono<TenantEnv>()
         )
       );
 
+      // 締切済みの調査は管理者のみ編集可能（上のガード参照）。
+      // 締切後の修正はオンステ確定にもその場で反映する（開設中は確定時にまとめて反映される）。
+      if (!survey.isOpen) {
+        await syncOnStageFromResponses(concertId, responses.map((r) => ({ memberId, stageId: r.stageId, status: r.status })));
+      }
+
       return c.json({ data: { ok: true } });
     }
   );
+

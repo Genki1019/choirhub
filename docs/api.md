@@ -29,162 +29,162 @@
 
 ### 認証
 
-| API名 | Method | Path | 権限 |
-|-------|--------|------|------|
-| [ログイン](#auth-login) | POST | `/auth/login` | 公開 |
-| [ログアウト](#auth-logout) | POST | `/auth/logout` | ログイン済み |
-| [自分の認証情報取得](#auth-me) | GET | `/auth/me` | ログイン済み |
-| [招待トークン確認](#auth-invite-get) | GET | `/auth/invite/:token` | 公開 |
-| [招待受諾・登録](#auth-invite-post) | POST | `/auth/invite/:token` | 公開 |
-| [パスワードリセット申請](#auth-password-reset-request) | POST | `/auth/password-reset/request` | 公開 |
-| [パスワードリセットトークン確認](#auth-password-reset-get) | GET | `/auth/password-reset/:token` | 公開 |
-| [パスワードリセット実行](#auth-password-reset-confirm) | POST | `/auth/password-reset/:token` | 公開 |
-| [団体作成](#auth-orgs-create) | POST | `/auth/orgs` | ログイン済み |
+| API名                                                      | Method | Path                           | 権限         |
+| ---------------------------------------------------------- | ------ | ------------------------------ | ------------ |
+| [ログイン](#auth-login)                                    | POST   | `/auth/login`                  | 公開         |
+| [ログアウト](#auth-logout)                                 | POST   | `/auth/logout`                 | ログイン済み |
+| [自分の認証情報取得](#auth-me)                             | GET    | `/auth/me`                     | ログイン済み |
+| [招待トークン確認](#auth-invite-get)                       | GET    | `/auth/invite/:token`          | 公開         |
+| [招待受諾・登録](#auth-invite-post)                        | POST   | `/auth/invite/:token`          | 公開         |
+| [パスワードリセット申請](#auth-password-reset-request)     | POST   | `/auth/password-reset/request` | 公開         |
+| [パスワードリセットトークン確認](#auth-password-reset-get) | GET    | `/auth/password-reset/:token`  | 公開         |
+| [パスワードリセット実行](#auth-password-reset-confirm)     | POST   | `/auth/password-reset/:token`  | 公開         |
+| [団体作成](#auth-orgs-create)                              | POST   | `/auth/orgs`                   | ログイン済み |
 
 ### ホーム
 
-| API名 | Method | Path | 権限 |
-|-------|--------|------|------|
-| [ホームデータ取得](#home-get) | GET | `/:orgSlug/home` | member+ |
+| API名                         | Method | Path             | 権限    |
+| ----------------------------- | ------ | ---------------- | ------- |
+| [ホームデータ取得](#home-get) | GET    | `/:orgSlug/home` | member+ |
 
 ### メンバー管理
 
-| API名 | Method | Path | 権限 |
-|-------|--------|------|------|
-| [メンバー一覧取得](#members-list) | GET | `/:orgSlug/members` | member+ |
-| [自分のプロフィール取得](#members-me-get) | GET | `/:orgSlug/members/me` | member+ |
-| [自分のプロフィール更新](#members-me-patch) | PATCH | `/:orgSlug/members/me` | member+ |
-| [アバター画像アップロード](#members-me-avatar) | POST | `/:orgSlug/members/me/avatar` | member+ |
-| [招待メール送信](#members-invite) | POST | `/:orgSlug/members/invite` | admin |
-| [メンバー詳細取得](#members-id-get) | GET | `/:orgSlug/members/:id` | member+ |
-| [メンバー情報更新（管理者）](#members-id-patch) | PATCH | `/:orgSlug/members/:id` | admin |
-| [パート一覧取得](#parts-list) | GET | `/:orgSlug/parts` | member+ |
+| API名                                           | Method | Path                          | 権限    |
+| ----------------------------------------------- | ------ | ----------------------------- | ------- |
+| [メンバー一覧取得](#members-list)               | GET    | `/:orgSlug/members`           | member+ |
+| [自分のプロフィール取得](#members-me-get)       | GET    | `/:orgSlug/members/me`        | member+ |
+| [自分のプロフィール更新](#members-me-patch)     | PATCH  | `/:orgSlug/members/me`        | member+ |
+| [アバター画像アップロード](#members-me-avatar)  | POST   | `/:orgSlug/members/me/avatar` | member+ |
+| [招待メール送信](#members-invite)               | POST   | `/:orgSlug/members/invite`    | admin   |
+| [メンバー詳細取得](#members-id-get)             | GET    | `/:orgSlug/members/:id`       | member+ |
+| [メンバー情報更新（管理者）](#members-id-patch) | PATCH  | `/:orgSlug/members/:id`       | admin   |
+| [パート一覧取得](#parts-list)                   | GET    | `/:orgSlug/parts`             | member+ |
 
 ### スケジュール・出欠
 
-| API名 | Method | Path | 権限 |
-|-------|--------|------|------|
-| [イベント一覧取得](#events-list) | GET | `/:orgSlug/events` | member+ |
-| [イベント作成](#events-create) | POST | `/:orgSlug/events` | tech+ |
-| [イベント詳細・出欠一覧取得](#events-id-get) | GET | `/:orgSlug/events/:id` | member+ |
-| [イベント更新](#events-id-patch) | PATCH | `/:orgSlug/events/:id` | tech+ |
-| [イベント削除](#events-id-delete) | DELETE | `/:orgSlug/events/:id` | tech+ |
-| [自分の出欠更新](#attendance-me) | PUT | `/:orgSlug/events/:id/attendance/me` | member+ |
-| [他メンバーの出欠更新（代理）](#attendance-proxy) | PATCH | `/:orgSlug/events/:id/attendance/:memberId` | admin |
+| API名                                             | Method | Path                                        | 権限    |
+| ------------------------------------------------- | ------ | ------------------------------------------- | ------- |
+| [イベント一覧取得](#events-list)                  | GET    | `/:orgSlug/events`                          | member+ |
+| [イベント作成](#events-create)                    | POST   | `/:orgSlug/events`                          | tech+   |
+| [イベント詳細・出欠一覧取得](#events-id-get)      | GET    | `/:orgSlug/events/:id`                      | member+ |
+| [イベント更新](#events-id-patch)                  | PATCH  | `/:orgSlug/events/:id`                      | tech+   |
+| [イベント削除](#events-id-delete)                 | DELETE | `/:orgSlug/events/:id`                      | tech+   |
+| [自分の出欠更新](#attendance-me)                  | PUT    | `/:orgSlug/events/:id/attendance/me`        | member+ |
+| [他メンバーの出欠更新（代理）](#attendance-proxy) | PATCH  | `/:orgSlug/events/:id/attendance/:memberId` | admin   |
 
 ### 楽譜管理
 
-| API名 | Method | Path | 権限 |
-|-------|--------|------|------|
-| [楽譜フラット一覧取得](#scores-list) | GET | `/:orgSlug/scores` | 全ロール |
-| [楽譜グループ一覧取得](#scores-grouped) | GET | `/:orgSlug/scores/grouped` | 全ロール |
-| [楽譜新規登録](#scores-create) | POST | `/:orgSlug/scores` | admin |
-| [楽譜詳細取得](#scores-detail) | GET | `/:orgSlug/scores/:scoreId` | 全ロール |
-| [楽譜メタデータ更新](#scores-meta-patch) | PATCH | `/:orgSlug/scores/:scoreId` | score+ |
-| [配布価格設定](#scores-price) | PATCH | `/:orgSlug/scores/:scoreId/price` | score+ |
-| [購入記録取得](#scores-purchases-get) | GET | `/:orgSlug/scores/:scoreId/purchases` | score+ |
-| [購入記録一括保存](#scores-purchases-put) | PUT | `/:orgSlug/scores/:scoreId/purchases` | score+ |
-| [ファイルアップロード](#scores-file-upload) | POST | `/:orgSlug/scores/:scoreId/files` | score+/tech+ |
-| [ファイルダウンロード](#scores-file-download) | GET | `/:orgSlug/scores/:scoreId/files/:fileId/download` | 権限別 |
-| [ファイル削除](#scores-file-delete) | DELETE | `/:orgSlug/scores/:scoreId/files/:fileId` | score+/tech+ |
+| API名                                         | Method | Path                                               | 権限         |
+| --------------------------------------------- | ------ | -------------------------------------------------- | ------------ |
+| [楽譜フラット一覧取得](#scores-list)          | GET    | `/:orgSlug/scores`                                 | 全ロール     |
+| [楽譜グループ一覧取得](#scores-grouped)       | GET    | `/:orgSlug/scores/grouped`                         | 全ロール     |
+| [楽譜新規登録](#scores-create)                | POST   | `/:orgSlug/scores`                                 | admin        |
+| [楽譜詳細取得](#scores-detail)                | GET    | `/:orgSlug/scores/:scoreId`                        | 全ロール     |
+| [楽譜メタデータ更新](#scores-meta-patch)      | PATCH  | `/:orgSlug/scores/:scoreId`                        | score+       |
+| [配布価格設定](#scores-price)                 | PATCH  | `/:orgSlug/scores/:scoreId/price`                  | score+       |
+| [購入記録取得](#scores-purchases-get)         | GET    | `/:orgSlug/scores/:scoreId/purchases`              | score+       |
+| [購入記録一括保存](#scores-purchases-put)     | PUT    | `/:orgSlug/scores/:scoreId/purchases`              | score+       |
+| [ファイルアップロード](#scores-file-upload)   | POST   | `/:orgSlug/scores/:scoreId/files`                  | score+/tech+ |
+| [ファイルダウンロード](#scores-file-download) | GET    | `/:orgSlug/scores/:scoreId/files/:fileId/download` | 権限別       |
+| [ファイル削除](#scores-file-delete)           | DELETE | `/:orgSlug/scores/:scoreId/files/:fileId`          | score+/tech+ |
 
 ### 本番・オンステ
 
-| API名 | Method | Path | 権限 |
-|-------|--------|------|------|
-| [演奏会一覧取得](#concerts-list) | GET | `/:orgSlug/concerts` | member+ |
-| [演奏会作成](#concerts-create) | POST | `/:orgSlug/concerts` | admin |
-| [演奏会+ステージ軽量一覧取得](#concerts-structure) | GET | `/:orgSlug/concerts/structure` | 全ロール |
-| [演奏会詳細取得](#concerts-id-get) | GET | `/:orgSlug/concerts/:id` | member+ |
-| [演奏会情報更新](#concerts-id-patch) | PATCH | `/:orgSlug/concerts/:id` | admin |
-| [演奏会削除](#concerts-id-delete) | DELETE | `/:orgSlug/concerts/:id` | admin |
-| [ステージ追加](#stage-create) | POST | `/:orgSlug/concerts/:concertId/stages` | admin |
-| [ステージ名更新](#stage-patch) | PATCH | `/:orgSlug/concerts/:concertId/stages/:stageId` | admin |
-| [ステージ並び替え](#stages-order) | PUT | `/:orgSlug/concerts/:concertId/stages/order` | admin |
-| [演目追加](#program-create) | POST | `/:orgSlug/concerts/:concertId/stages/:stageId/programs` | admin |
-| [演目並び替え](#programs-order) | PUT | `/:orgSlug/concerts/:concertId/stages/:stageId/programs/order` | admin |
-| [演目削除](#program-delete) | DELETE | `/:orgSlug/concerts/:concertId/programs/:programId` | admin |
-| [調査作成（複数回対応）](#surveys-create) | POST | `/:orgSlug/concerts/:concertId/surveys` | tech+ |
-| [調査詳細取得](#surveys-id-get) | GET | `/:orgSlug/concerts/:concertId/surveys/:surveyId` | member+ |
-| [調査更新（開閉・タイトル）](#surveys-id-patch) | PATCH | `/:orgSlug/concerts/:concertId/surveys/:surveyId` | tech+ |
-| [オンステ調査回答](#surveys-respond) | PUT | `/:orgSlug/concerts/:concertId/surveys/:surveyId/respond` | member+ |
-| [調査回答をオンステ確定に反映](#survey-apply) | POST | `/:orgSlug/concerts/:concertId/surveys/:surveyId/apply` | tech+ |
-| [フォーメーションパターン作成](#formation-patterns-create) | POST | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns` | tech+ |
-| [フォーメーションパターン更新](#formation-patterns-patch) | PATCH | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId` | tech+ |
-| [フォーメーションパターン削除](#formation-patterns-delete) | DELETE | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId` | tech+ |
-| [フォーメーションパターン並び替え](#formation-patterns-order) | PUT | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/order` | tech+ |
-| [枠・スロット一括保存](#formation-slots-save) | PUT | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId/slots` | tech+ |
+| API名                                                         | Method | Path                                                                                | 権限     |
+| ------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------- | -------- |
+| [演奏会一覧取得](#concerts-list)                              | GET    | `/:orgSlug/concerts`                                                                | member+  |
+| [演奏会作成](#concerts-create)                                | POST   | `/:orgSlug/concerts`                                                                | admin    |
+| [演奏会+ステージ軽量一覧取得](#concerts-structure)            | GET    | `/:orgSlug/concerts/structure`                                                      | 全ロール |
+| [演奏会詳細取得](#concerts-id-get)                            | GET    | `/:orgSlug/concerts/:id`                                                            | member+  |
+| [演奏会情報更新](#concerts-id-patch)                          | PATCH  | `/:orgSlug/concerts/:id`                                                            | admin    |
+| [演奏会削除](#concerts-id-delete)                             | DELETE | `/:orgSlug/concerts/:id`                                                            | admin    |
+| [ステージ追加](#stage-create)                                 | POST   | `/:orgSlug/concerts/:concertId/stages`                                              | admin    |
+| [ステージ名更新](#stage-patch)                                | PATCH  | `/:orgSlug/concerts/:concertId/stages/:stageId`                                     | admin    |
+| [ステージ並び替え](#stages-order)                             | PUT    | `/:orgSlug/concerts/:concertId/stages/order`                                        | admin    |
+| [演目追加](#program-create)                                   | POST   | `/:orgSlug/concerts/:concertId/stages/:stageId/programs`                            | admin    |
+| [演目並び替え](#programs-order)                               | PUT    | `/:orgSlug/concerts/:concertId/stages/:stageId/programs/order`                      | admin    |
+| [演目削除](#program-delete)                                   | DELETE | `/:orgSlug/concerts/:concertId/programs/:programId`                                 | admin    |
+| [調査作成（複数回対応）](#surveys-create)                     | POST   | `/:orgSlug/concerts/:concertId/surveys`                                             | tech+    |
+| [調査詳細取得](#surveys-id-get)                               | GET    | `/:orgSlug/concerts/:concertId/surveys/:surveyId`                                   | member+  |
+| [調査更新（開閉・タイトル）](#surveys-id-patch)               | PATCH  | `/:orgSlug/concerts/:concertId/surveys/:surveyId`                                   | tech+    |
+| [オンステ調査回答](#surveys-respond)                          | PUT    | `/:orgSlug/concerts/:concertId/surveys/:surveyId/respond`                           | member+  |
+| [調査回答をオンステ確定に反映](#survey-apply)                 | POST   | `/:orgSlug/concerts/:concertId/surveys/:surveyId/apply`                             | tech+    |
+| [フォーメーションパターン作成](#formation-patterns-create)    | POST   | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns`                  | tech+    |
+| [フォーメーションパターン更新](#formation-patterns-patch)     | PATCH  | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId`       | tech+    |
+| [フォーメーションパターン削除](#formation-patterns-delete)    | DELETE | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId`       | tech+    |
+| [フォーメーションパターン並び替え](#formation-patterns-order) | PUT    | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/order`            | tech+    |
+| [枠・スロット一括保存](#formation-slots-save)                 | PUT    | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId/slots` | tech+    |
 
 ### メール
 
-| API名 | Method | Path | 権限 |
-|-------|--------|------|------|
-| [メール一覧取得](#mailing-list) | GET | `/:orgSlug/mailing` | 送信者 or 受信者 |
-| [メール詳細取得](#mailing-id-get) | GET | `/:orgSlug/mailing/:id` | 送信者 or 受信者 |
-| [メール送信](#mailing-send) | POST | `/:orgSlug/mailing/send` | member+ |
-| [テンプレート一覧](#mailing-templates-list) | GET | `/:orgSlug/mailing/templates` | member+ |
-| [テンプレート保存](#mailing-templates-save) | POST | `/:orgSlug/mailing/templates` | member+ |
-| [テンプレート更新](#mailing-templates-update) | PATCH | `/:orgSlug/mailing/templates/:id` | 作成者 or admin |
-| [テンプレート削除](#mailing-templates-delete) | DELETE | `/:orgSlug/mailing/templates/:id` | 作成者 or admin |
+| API名                                         | Method | Path                              | 権限             |
+| --------------------------------------------- | ------ | --------------------------------- | ---------------- |
+| [メール一覧取得](#mailing-list)               | GET    | `/:orgSlug/mailing`               | 送信者 or 受信者 |
+| [メール詳細取得](#mailing-id-get)             | GET    | `/:orgSlug/mailing/:id`           | 送信者 or 受信者 |
+| [メール送信](#mailing-send)                   | POST   | `/:orgSlug/mailing/send`          | member+          |
+| [テンプレート一覧](#mailing-templates-list)   | GET    | `/:orgSlug/mailing/templates`     | member+          |
+| [テンプレート保存](#mailing-templates-save)   | POST   | `/:orgSlug/mailing/templates`     | member+          |
+| [テンプレート更新](#mailing-templates-update) | PATCH  | `/:orgSlug/mailing/templates/:id` | 作成者 or admin  |
+| [テンプレート削除](#mailing-templates-delete) | DELETE | `/:orgSlug/mailing/templates/:id` | 作成者 or admin  |
 
 ### チケット管理
 
-| API名 | Method | Path | 権限 |
-|-------|--------|------|------|
-| [チケット管理一覧](#tickets-list) | GET | `/:orgSlug/tickets` | ticket or admin |
-| [チケット一覧（自分）](#tickets-my-get) | GET | `/:orgSlug/tickets/my` | member+ |
-| [チケット集計取得](#tickets-id-get) | GET | `/:orgSlug/tickets/:concertId` | ticket or admin |
-| [席種作成](#tickets-batches-create) | POST | `/:orgSlug/tickets/:concertId/batches` | ticket or admin |
-| [席種削除](#tickets-batches-delete) | DELETE | `/:orgSlug/tickets/:concertId/batches/:batchId` | admin |
-| [チケット配布記録](#tickets-allocate) | POST | `/:orgSlug/tickets/:concertId/allocate` | admin / member（自分のみ）|
-| [販売・回収報告](#tickets-allocation-patch) | PATCH | `/:orgSlug/tickets/allocations/:id` | member（自分）/ admin |
-| [パートレース取得](#tickets-race) | GET | `/:orgSlug/tickets/:concertId/race` | ticket or admin |
-| [レース公開](#tickets-race-publish) | POST | `/:orgSlug/tickets/:concertId/race/publish` | ticket or admin |
-| [レース非公開](#tickets-race-unpublish) | DELETE | `/:orgSlug/tickets/:concertId/race/publish` | ticket or admin |
-| [入力締め切り](#tickets-close) | POST | `/:orgSlug/tickets/:concertId/close` | ticket or admin |
-| [入力再開](#tickets-reopen) | DELETE | `/:orgSlug/tickets/:concertId/close` | ticket or admin |
-| [情宣活動一覧取得](#outreach-list) | GET | `/:orgSlug/tickets/:concertId/outreach` | member+ |
-| [情宣活動申請](#outreach-create) | POST | `/:orgSlug/tickets/:concertId/outreach` | member+ |
-| [交通費支払い承認](#outreach-pay) | PATCH | `/:orgSlug/tickets/:concertId/outreach/:activityId/pay` | ticket or admin |
-| [情宣活動削除](#outreach-delete) | DELETE | `/:orgSlug/tickets/:concertId/outreach/:activityId` | 申請者 or ticket or admin |
+| API名                                       | Method | Path                                                    | 権限                       |
+| ------------------------------------------- | ------ | ------------------------------------------------------- | -------------------------- |
+| [チケット管理一覧](#tickets-list)           | GET    | `/:orgSlug/tickets`                                     | ticket or admin            |
+| [チケット一覧（自分）](#tickets-my-get)     | GET    | `/:orgSlug/tickets/my`                                  | member+                    |
+| [チケット集計取得](#tickets-id-get)         | GET    | `/:orgSlug/tickets/:concertId`                          | ticket or admin            |
+| [席種作成](#tickets-batches-create)         | POST   | `/:orgSlug/tickets/:concertId/batches`                  | ticket or admin            |
+| [席種削除](#tickets-batches-delete)         | DELETE | `/:orgSlug/tickets/:concertId/batches/:batchId`         | admin                      |
+| [チケット配布記録](#tickets-allocate)       | POST   | `/:orgSlug/tickets/:concertId/allocate`                 | admin / member（自分のみ） |
+| [販売・回収報告](#tickets-allocation-patch) | PATCH  | `/:orgSlug/tickets/allocations/:id`                     | member（自分）/ admin      |
+| [パートレース取得](#tickets-race)           | GET    | `/:orgSlug/tickets/:concertId/race`                     | ticket or admin            |
+| [レース公開](#tickets-race-publish)         | POST   | `/:orgSlug/tickets/:concertId/race/publish`             | ticket or admin            |
+| [レース非公開](#tickets-race-unpublish)     | DELETE | `/:orgSlug/tickets/:concertId/race/publish`             | ticket or admin            |
+| [入力締め切り](#tickets-close)              | POST   | `/:orgSlug/tickets/:concertId/close`                    | ticket or admin            |
+| [入力再開](#tickets-reopen)                 | DELETE | `/:orgSlug/tickets/:concertId/close`                    | ticket or admin            |
+| [情宣活動一覧取得](#outreach-list)          | GET    | `/:orgSlug/tickets/:concertId/outreach`                 | member+                    |
+| [情宣活動申請](#outreach-create)            | POST   | `/:orgSlug/tickets/:concertId/outreach`                 | member+                    |
+| [交通費支払い承認](#outreach-pay)           | PATCH  | `/:orgSlug/tickets/:concertId/outreach/:activityId/pay` | ticket or admin            |
+| [情宣活動削除](#outreach-delete)            | DELETE | `/:orgSlug/tickets/:concertId/outreach/:activityId`     | 申請者 or ticket or admin  |
 
 ### 設定
 
-| API名 | Method | Path | 権限 |
-|-------|--------|------|------|
-| [設定取得](#settings-get) | GET | `/:orgSlug/settings` | admin |
-| [団体情報更新](#settings-org-patch) | PATCH | `/:orgSlug/settings/org` | admin |
-| [パート追加](#parts-create) | POST | `/:orgSlug/settings/parts` | admin |
-| [パート更新](#parts-patch) | PATCH | `/:orgSlug/settings/parts/:id` | admin |
-| [パート削除](#parts-delete) | DELETE | `/:orgSlug/settings/parts/:id` | admin |
-| [会費設定更新](#settings-fee-patch) | PATCH | `/:orgSlug/settings/fee` | admin |
-| [支出カテゴリ一覧取得](#expense-categories-list) | GET | `/:orgSlug/settings/expense-categories` | finance+ |
-| [支出カテゴリ追加](#expense-categories-create) | POST | `/:orgSlug/settings/expense-categories` | admin |
-| [支出カテゴリ更新](#expense-categories-patch) | PATCH | `/:orgSlug/settings/expense-categories/:id` | admin |
-| [支出カテゴリ削除](#expense-categories-delete) | DELETE | `/:orgSlug/settings/expense-categories/:id` | admin |
-| [メンバー区分一覧取得](#member-types-list) | GET | `/:orgSlug/settings/member-types` | member+ |
-| [メンバー区分追加](#member-types-create) | POST | `/:orgSlug/settings/member-types` | admin |
-| [メンバー区分更新](#member-types-patch) | PATCH | `/:orgSlug/settings/member-types/:id` | admin |
-| [メンバー区分削除](#member-types-delete) | DELETE | `/:orgSlug/settings/member-types/:id` | admin |
-| [イベント区分一覧取得](#event-categories-list) | GET | `/:orgSlug/settings/event-categories` | member+ |
-| [イベント区分追加](#event-categories-create) | POST | `/:orgSlug/settings/event-categories` | admin |
-| [イベント区分更新](#event-categories-patch) | PATCH | `/:orgSlug/settings/event-categories/:id` | admin |
-| [イベント区分削除](#event-categories-delete) | DELETE | `/:orgSlug/settings/event-categories/:id` | admin |
+| API名                                            | Method | Path                                        | 権限     |
+| ------------------------------------------------ | ------ | ------------------------------------------- | -------- |
+| [設定取得](#settings-get)                        | GET    | `/:orgSlug/settings`                        | admin    |
+| [団体情報更新](#settings-org-patch)              | PATCH  | `/:orgSlug/settings/org`                    | admin    |
+| [パート追加](#parts-create)                      | POST   | `/:orgSlug/settings/parts`                  | admin    |
+| [パート更新](#parts-patch)                       | PATCH  | `/:orgSlug/settings/parts/:id`              | admin    |
+| [パート削除](#parts-delete)                      | DELETE | `/:orgSlug/settings/parts/:id`              | admin    |
+| [会費設定更新](#settings-fee-patch)              | PATCH  | `/:orgSlug/settings/fee`                    | admin    |
+| [支出カテゴリ一覧取得](#expense-categories-list) | GET    | `/:orgSlug/settings/expense-categories`     | finance+ |
+| [支出カテゴリ追加](#expense-categories-create)   | POST   | `/:orgSlug/settings/expense-categories`     | admin    |
+| [支出カテゴリ更新](#expense-categories-patch)    | PATCH  | `/:orgSlug/settings/expense-categories/:id` | admin    |
+| [支出カテゴリ削除](#expense-categories-delete)   | DELETE | `/:orgSlug/settings/expense-categories/:id` | admin    |
+| [メンバー区分一覧取得](#member-types-list)       | GET    | `/:orgSlug/settings/member-types`           | member+  |
+| [メンバー区分追加](#member-types-create)         | POST   | `/:orgSlug/settings/member-types`           | admin    |
+| [メンバー区分更新](#member-types-patch)          | PATCH  | `/:orgSlug/settings/member-types/:id`       | admin    |
+| [メンバー区分削除](#member-types-delete)         | DELETE | `/:orgSlug/settings/member-types/:id`       | admin    |
+| [イベント区分一覧取得](#event-categories-list)   | GET    | `/:orgSlug/settings/event-categories`       | member+  |
+| [イベント区分追加](#event-categories-create)     | POST   | `/:orgSlug/settings/event-categories`       | admin    |
+| [イベント区分更新](#event-categories-patch)      | PATCH  | `/:orgSlug/settings/event-categories/:id`   | admin    |
+| [イベント区分削除](#event-categories-delete)     | DELETE | `/:orgSlug/settings/event-categories/:id`   | admin    |
 
 ### 会計
 
-| API名 | Method | Path | 権限 |
-|-------|--------|------|------|
-| [収支サマリー取得](#accounting-summary) | GET | `/:orgSlug/finance/summary` | finance+ |
-| [徴収一覧取得](#collections-list) | GET | `/:orgSlug/finance/collections` | finance+ |
-| [徴収作成](#collections-create) | POST | `/:orgSlug/finance/collections` | finance+ |
-| [徴収詳細取得](#collections-id-get) | GET | `/:orgSlug/finance/collections/:id` | finance+ |
-| [徴収削除](#collections-id-delete) | DELETE | `/:orgSlug/finance/collections/:id` | admin |
-| [支払い記録更新](#collection-payment-patch) | PATCH | `/:orgSlug/finance/collections/:id/payments/:memberId` | finance+ |
-| [支出一覧取得](#expenses-list) | GET | `/:orgSlug/finance/expenses` | finance+ |
-| [支出登録](#expenses-create) | POST | `/:orgSlug/finance/expenses` | finance+ |
-| [支出更新](#expenses-patch) | PATCH | `/:orgSlug/finance/expenses/:id` | finance+ |
-| [支出削除](#expenses-delete) | DELETE | `/:orgSlug/finance/expenses/:id` | finance+ |
+| API名                                       | Method | Path                                                   | 権限     |
+| ------------------------------------------- | ------ | ------------------------------------------------------ | -------- |
+| [収支サマリー取得](#accounting-summary)     | GET    | `/:orgSlug/finance/summary`                            | finance+ |
+| [徴収一覧取得](#collections-list)           | GET    | `/:orgSlug/finance/collections`                        | finance+ |
+| [徴収作成](#collections-create)             | POST   | `/:orgSlug/finance/collections`                        | finance+ |
+| [徴収詳細取得](#collections-id-get)         | GET    | `/:orgSlug/finance/collections/:id`                    | finance+ |
+| [徴収削除](#collections-id-delete)          | DELETE | `/:orgSlug/finance/collections/:id`                    | admin    |
+| [支払い記録更新](#collection-payment-patch) | PATCH  | `/:orgSlug/finance/collections/:id/payments/:memberId` | finance+ |
+| [支出一覧取得](#expenses-list)              | GET    | `/:orgSlug/finance/expenses`                           | finance+ |
+| [支出登録](#expenses-create)                | POST   | `/:orgSlug/finance/expenses`                           | finance+ |
+| [支出更新](#expenses-patch)                 | PATCH  | `/:orgSlug/finance/expenses/:id`                       | finance+ |
+| [支出削除](#expenses-delete)                | DELETE | `/:orgSlug/finance/expenses/:id`                       | finance+ |
 
 ---
 
@@ -252,28 +252,28 @@ Cookie: session=<session_token>
 
 ### 1.4 共通エラーコード
 
-| HTTPステータス | code | 説明 |
-|--------------|------|------|
-| 400 | `VALIDATION_ERROR` | バリデーションエラー。`details` に Zod エラー詳細 |
-| 401 | `UNAUTHORIZED` | 未認証 |
-| 403 | `FORBIDDEN` | 権限不足 |
-| 404 | `NOT_FOUND` | リソースが存在しない |
-| 409 | `CONFLICT` | 重複登録など |
-| 500 | `INTERNAL_ERROR` | サーバーエラー |
+| HTTPステータス | code               | 説明                                              |
+| -------------- | ------------------ | ------------------------------------------------- |
+| 400            | `VALIDATION_ERROR` | バリデーションエラー。`details` に Zod エラー詳細 |
+| 401            | `UNAUTHORIZED`     | 未認証                                            |
+| 403            | `FORBIDDEN`        | 権限不足                                          |
+| 404            | `NOT_FOUND`        | リソースが存在しない                              |
+| 409            | `CONFLICT`         | 重複登録など                                      |
+| 500            | `INTERNAL_ERROR`   | サーバーエラー                                    |
 
 ### 1.5 権限チェック記法
 
 本書では各エンドポイントの「最低必要ロール」を以下の表記で示す。
 
-| 表記 | 意味 |
-|------|------|
-| `admin` | 最高管理者のみ |
-| `tech+` | tech 以上（tech / admin）|
-| `score+` | score 以上（score / admin）|
-| `tech+, score+` | tech または score 以上（どちらか一方でよい）|
-| `member+` | ログイン済み全員（guest / visitor を除く）|
-| `self or admin` | 自分自身 または admin |
-| `ticket or admin` | `ticket` ロール保有者 または `admin` |
+| 表記              | 意味                                         |
+| ----------------- | -------------------------------------------- |
+| `admin`           | 最高管理者のみ                               |
+| `tech+`           | tech 以上（tech / admin）                    |
+| `score+`          | score 以上（score / admin）                  |
+| `tech+, score+`   | tech または score 以上（どちらか一方でよい） |
+| `member+`         | ログイン済み全員（guest / visitor を除く）   |
+| `self or admin`   | 自分自身 または admin                        |
+| `ticket or admin` | `ticket` ロール保有者 または `admin`         |
 
 ---
 
@@ -308,8 +308,20 @@ Cookie: session=<session_token>
       "avatarUrl": null
     },
     "orgs": [
-      { "orgSlug": "tokyo-men-choir", "orgName": "男声合唱団A", "roles": ["member"], "partName": "Tenor I", "status": "active" },
-      { "orgSlug": "mixed-choir-b",   "orgName": "混声合唱団B",  "roles": ["tech"],   "partName": "Bass",    "status": "active" }
+      {
+        "orgSlug": "tokyo-men-choir",
+        "orgName": "男声合唱団A",
+        "roles": ["member"],
+        "partName": "Tenor I",
+        "status": "active"
+      },
+      {
+        "orgSlug": "mixed-choir-b",
+        "orgName": "混声合唱団B",
+        "roles": ["tech"],
+        "partName": "Bass",
+        "status": "active"
+      }
     ]
   }
 }
@@ -355,8 +367,22 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
       "avatarUrl": null
     },
     "orgs": [
-      { "orgSlug": "tokyo-men-choir", "orgName": "男声合唱団A", "memberId": "cuid", "roles": ["member", "tech"], "partName": "Tenor I", "status": "active" },
-      { "orgSlug": "mixed-choir-b",   "orgName": "混声合唱団B",  "memberId": "cuid", "roles": ["member"],         "partName": "Bass",     "status": "active" }
+      {
+        "orgSlug": "tokyo-men-choir",
+        "orgName": "男声合唱団A",
+        "memberId": "cuid",
+        "roles": ["member", "tech"],
+        "partName": "Tenor I",
+        "status": "active"
+      },
+      {
+        "orgSlug": "mixed-choir-b",
+        "orgName": "混声合唱団B",
+        "memberId": "cuid",
+        "roles": ["member"],
+        "partName": "Bass",
+        "status": "active"
+      }
     ]
   }
 }
@@ -491,10 +517,10 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 **Request Body:**
 
-| フィールド | 型 | 必須 | 説明 |
-|-----------|-----|------|------|
-| name | string | ✓ | 団体名（最大100文字） |
-| slug | string | ✓ | URL スラグ（英小文字・数字・ハイフン、2〜50文字） |
+| フィールド | 型     | 必須 | 説明                                              |
+| ---------- | ------ | ---- | ------------------------------------------------- |
+| name       | string | ✓    | 団体名（最大100文字）                             |
+| slug       | string | ✓    | URL スラグ（英小文字・数字・ハイフン、2〜50文字） |
 
 ```json
 { "name": "○○男声合唱団", "slug": "circle-choir" }
@@ -582,11 +608,11 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 **Query Parameters:**
 
-| パラメータ | 型 | 説明 |
-|-----------|-----|------|
-| partId | string | パートでフィルタ |
-| status | string | `active` / `offstage` / `alumni` / `suspended` |
-| role | string | ロールでフィルタ |
+| パラメータ | 型     | 説明                                           |
+| ---------- | ------ | ---------------------------------------------- |
+| partId     | string | パートでフィルタ                               |
+| status     | string | `active` / `offstage` / `alumni` / `suspended` |
+| role       | string | ロールでフィルタ                               |
 
 **Response** `200`
 
@@ -760,12 +786,12 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 各イベントには **`targetRoles`（対象ロール）** と **`targetPartIds`（対象パート）** の2つのフィルタを設定できる。
 
-| `targetRoles` | `targetPartIds` | 招待対象 |
-|---|---|---|
-| `null` | `null` | 全メンバー |
-| `["admin","tech"]` | `null` | 指定ロールを持つ全メンバー |
-| `null` | `["cuid1","cuid2"]` | 指定パートに所属する全メンバー |
-| `["admin","tech"]` | `["cuid1"]` | 指定ロール **かつ** 指定パートの両方に該当するメンバー |
+| `targetRoles`      | `targetPartIds`     | 招待対象                                               |
+| ------------------ | ------------------- | ------------------------------------------------------ |
+| `null`             | `null`              | 全メンバー                                             |
+| `["admin","tech"]` | `null`              | 指定ロールを持つ全メンバー                             |
+| `null`             | `["cuid1","cuid2"]` | 指定パートに所属する全メンバー                         |
+| `["admin","tech"]` | `["cuid1"]`         | 指定ロール **かつ** 指定パートの両方に該当するメンバー |
 
 - **GET 系エンドポイント**はサーバーが自動的に絞り込みを行い、リクエストユーザーが招待されていないイベントは返さない
 - 招待対象外のイベントに対して出欠回答を行うと `403 NOT_INVITED` を返す
@@ -784,11 +810,11 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 **Query Parameters:**
 
-| パラメータ | 型 | 説明 |
-|-----------|-----|------|
-| from | ISO8601 date | 期間始端（例: 2026-06-01）|
-| to | ISO8601 date | 期間終端（例: 2026-06-30）|
-| type | string | rehearsal / concert / meeting / other |
+| パラメータ | 型           | 説明                                  |
+| ---------- | ------------ | ------------------------------------- |
+| from       | ISO8601 date | 期間始端（例: 2026-06-01）            |
+| to         | ISO8601 date | 期間終端（例: 2026-06-30）            |
+| type       | string       | rehearsal / concert / meeting / other |
 
 **Response** `200`
 
@@ -837,18 +863,18 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 **Request Body:**
 
-| フィールド | 型 | 必須 | 説明 |
-|-----------|-----|------|------|
-| title | string | ✓ | イベント名 |
-| categoryId | string (cuid) | ✓ | イベント区分 ID（`GET /settings/event-categories` で取得） |
-| startsAt | ISO8601 | ✓ | 開始日時 |
-| endsAt | ISO8601 | ✓ | 終了日時 |
-| location | string | | 場所名 |
-| locationUrl | string | | 地図URL等 |
-| deadline | ISO8601 | | 出欠回答締切 |
-| pageMemo | string | | 連絡事項 |
-| targetRoles | string[] \| null | | 招待対象ロール（省略・null = 全員）|
-| targetPartIds | string[] \| null | | 招待対象パートID（省略・null = 全パート）|
+| フィールド    | 型               | 必須 | 説明                                                       |
+| ------------- | ---------------- | ---- | ---------------------------------------------------------- |
+| title         | string           | ✓    | イベント名                                                 |
+| categoryId    | string (cuid)    | ✓    | イベント区分 ID（`GET /settings/event-categories` で取得） |
+| startsAt      | ISO8601          | ✓    | 開始日時                                                   |
+| endsAt        | ISO8601          | ✓    | 終了日時                                                   |
+| location      | string           |      | 場所名                                                     |
+| locationUrl   | string           |      | 地図URL等                                                  |
+| deadline      | ISO8601          |      | 出欠回答締切                                               |
+| pageMemo      | string           |      | 連絡事項                                                   |
+| targetRoles   | string[] \| null |      | 招待対象ロール（省略・null = 全員）                        |
+| targetPartIds | string[] \| null |      | 招待対象パートID（省略・null = 全パート）                  |
 
 ```json
 {
@@ -924,10 +950,10 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 **Errors:**
 
-| コード | 説明 |
-|--------|------|
+| コード            | 説明                 |
+| ----------------- | -------------------- |
 | `403 NOT_INVITED` | 招待対象外のイベント |
-| `404 NOT_FOUND` | イベントが存在しない |
+| `404 NOT_FOUND`   | イベントが存在しない |
 
 ---
 
@@ -999,10 +1025,10 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 **Errors:**
 
-| コード | 説明 |
-|--------|------|
+| コード            | 説明                 |
+| ----------------- | -------------------- |
 | `403 NOT_INVITED` | 招待対象外のイベント |
-| `403 LOCKED` | 締切後ロック済み |
+| `403 LOCKED`      | 締切後ロック済み     |
 
 ---
 
@@ -1116,16 +1142,16 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 **Request Body:**
 
-| フィールド | 型 | 必須 | 説明 |
-|-----------|-----|------|------|
-| title | string | ✓ | 曲名 |
-| composer | string \| null | | 作曲者 |
-| arranger | string \| null | | 編曲者 |
-| isCommissioned | boolean | | 委嘱作品かどうか（default: `false`）|
-| purchaseDate | string \| null | | 購入日（ISO8601 date）|
-| distributionStart | string \| null | | 配布開始日（ISO8601 date）|
-| purchasePrice | number \| null | | 仕入価格（円・整数・0以上）|
-| notes | string \| null | | 備考 |
+| フィールド        | 型             | 必須 | 説明                                 |
+| ----------------- | -------------- | ---- | ------------------------------------ |
+| title             | string         | ✓    | 曲名                                 |
+| composer          | string \| null |      | 作曲者                               |
+| arranger          | string \| null |      | 編曲者                               |
+| isCommissioned    | boolean        |      | 委嘱作品かどうか（default: `false`） |
+| purchaseDate      | string \| null |      | 購入日（ISO8601 date）               |
+| distributionStart | string \| null |      | 配布開始日（ISO8601 date）           |
+| purchasePrice     | number \| null |      | 仕入価格（円・整数・0以上）          |
+| notes             | string \| null |      | 備考                                 |
 
 ```json
 {
@@ -1198,13 +1224,13 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
-| フィールド | 条件 |
-|-----------|------|
-| `purchasePrice` | `score+`（admin / score）のみ返却。それ以外は `undefined` |
-| `purchaseCount` | `score+, tech+, conductor` のみ返却。それ以外は `undefined` |
-| `hasCollection` | 同上。`true` = この楽譜に紐づく徴収が作成済み |
-| `files` | `canAccessFiles: true` のときのみ内容を返す（`false` は空配列）|
-| `canDownload` | `visitor` は `false`（PDF をインライン表示のみ可）|
+| フィールド      | 条件                                                            |
+| --------------- | --------------------------------------------------------------- |
+| `purchasePrice` | `score+`（admin / score）のみ返却。それ以外は `undefined`       |
+| `purchaseCount` | `score+, tech+, conductor` のみ返却。それ以外は `undefined`     |
+| `hasCollection` | 同上。`true` = この楽譜に紐づく徴収が作成済み                   |
+| `files`         | `canAccessFiles: true` のときのみ内容を返す（`false` は空配列） |
+| `canDownload`   | `visitor` は `false`（PDF をインライン表示のみ可）              |
 
 > `visitor` は `accessLevel` を問わず全楽譜の PDF を閲覧可（`canDownload: false`）。`canAccessFiles: false` の場合は閲覧不可。
 
@@ -1222,17 +1248,17 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 **Request Body:**（すべて省略可）
 
-| フィールド | 型 | 更新可能ロール | 説明 |
-|-----------|-----|-------------|------|
-| title | string | admin のみ | 曲名 |
-| composer | string \| null | admin のみ | 作曲者 |
-| arranger | string \| null | admin のみ | 編曲者 |
-| accessLevel | string | admin のみ | `secret` / `restricted` / `public` |
-| isCommissioned | boolean | score+ | 委嘱作品フラグ |
-| purchaseDate | string \| null | score+ | 購入日（ISO8601 date）|
-| distributionStart | string \| null | score+ | 配布開始日（ISO8601 date）|
-| purchasePrice | number \| null | score+ | 仕入価格（円）|
-| notes | string \| null | score+ | 備考 |
+| フィールド        | 型             | 更新可能ロール | 説明                               |
+| ----------------- | -------------- | -------------- | ---------------------------------- |
+| title             | string         | admin のみ     | 曲名                               |
+| composer          | string \| null | admin のみ     | 作曲者                             |
+| arranger          | string \| null | admin のみ     | 編曲者                             |
+| accessLevel       | string         | admin のみ     | `secret` / `restricted` / `public` |
+| isCommissioned    | boolean        | score+         | 委嘱作品フラグ                     |
+| purchaseDate      | string \| null | score+         | 購入日（ISO8601 date）             |
+| distributionStart | string \| null | score+         | 配布開始日（ISO8601 date）         |
+| purchasePrice     | number \| null | score+         | 仕入価格（円）                     |
+| notes             | string \| null | score+         | 備考                               |
 
 ```json
 {
@@ -1276,9 +1302,9 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 **Request Body:**
 
-| フィールド | 型 | 必須 | 説明 |
-|-----------|-----|------|------|
-| price | number \| null | ✓ | 価格（円・整数・0以上）。null で未設定に戻す |
+| フィールド | 型             | 必須 | 説明                                         |
+| ---------- | -------------- | ---- | -------------------------------------------- |
+| price      | number \| null | ✓    | 価格（円・整数・0以上）。null で未設定に戻す |
 
 ```json
 { "price": 500 }
@@ -1361,11 +1387,11 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 **Request Body:** (multipart)
 
-| フィールド | 説明 |
-|-----------|------|
-| `file` | バイナリファイル |
+| フィールド | 説明                            |
+| ---------- | ------------------------------- |
+| `file`     | バイナリファイル                |
 | `fileType` | `full_score` / `midi` / `other` |
-| `partId` | パートID（パート譜の場合）|
+| `partId`   | パートID（パート譜の場合）      |
 
 **Response** `201`
 
@@ -1393,11 +1419,11 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 **権限**: アクセスレベルとロールによる
 
-| ロール | secret | restricted | public |
-|--------|--------|-----------|--------|
-| `visitor` | 403 | PDF のみインライン表示、MIDI/音声は 403 | PDF のみインライン表示、MIDI/音声は 403 |
-| `member`（購入済み） | 403 | OK | OK |
-| `score` / `tech` / `admin` | OK | OK | OK |
+| ロール                     | secret | restricted                              | public                                  |
+| -------------------------- | ------ | --------------------------------------- | --------------------------------------- |
+| `visitor`                  | 403    | PDF のみインライン表示、MIDI/音声は 403 | PDF のみインライン表示、MIDI/音声は 403 |
+| `member`（購入済み）       | 403    | OK                                      | OK                                      |
+| `score` / `tech` / `admin` | OK     | OK                                      | OK                                      |
 
 **Response** `200`
 
@@ -1466,11 +1492,11 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 **Request Body:**
 
-| フィールド | 型 | 必須 | 説明 |
-|-----------|-----|------|------|
-| title | string | ✓ | 演奏会名 |
-| heldOn | string | ✓ | 開催日（ISO8601 date） |
-| venue | string \| null | | 会場名 |
+| フィールド | 型             | 必須 | 説明                   |
+| ---------- | -------------- | ---- | ---------------------- |
+| title      | string         | ✓    | 演奏会名               |
+| heldOn     | string         | ✓    | 開催日（ISO8601 date） |
+| venue      | string \| null |      | 会場名                 |
 
 ```json
 {
@@ -1727,13 +1753,13 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 **Request Body:**
 
-| フィールド | 型 | 必須 | 説明 |
-|-----------|-----|------|------|
-| scoreId | string | △ | 既存楽譜ID。`title` と排他（どちらか必須）|
-| title | string | △ | 曲名。`scoreId` 未指定時は必須。新規楽譜を作成する |
-| composer | string \| null | | 作曲者（新規作成時のみ有効）|
-| arranger | string \| null | | 編曲者（新規作成時のみ有効）|
-| accessLevel | string | | `secret` / `restricted` / `public`（新規作成時のみ有効、default: `restricted`）|
+| フィールド  | 型             | 必須 | 説明                                                                            |
+| ----------- | -------------- | ---- | ------------------------------------------------------------------------------- |
+| scoreId     | string         | △    | 既存楽譜ID。`title` と排他（どちらか必須）                                      |
+| title       | string         | △    | 曲名。`scoreId` 未指定時は必須。新規楽譜を作成する                              |
+| composer    | string \| null |      | 作曲者（新規作成時のみ有効）                                                    |
+| arranger    | string \| null |      | 編曲者（新規作成時のみ有効）                                                    |
+| accessLevel | string         |      | `secret` / `restricted` / `public`（新規作成時のみ有効、default: `restricted`） |
 
 ```json
 { "scoreId": "cuid" }
@@ -1861,9 +1887,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
         "partName": "Tenor I",
         "partSortOrder": 1,
         "partVoiceType": "tenor",
-        "stages": [
-          { "stageId": "cuid_st1", "status": "attending" }
-        ],
+        "stages": [{ "stageId": "cuid_st1", "status": "attending" }],
         "memo": "体調次第で欠席するかも"
       }
     ]
@@ -1959,9 +1983,9 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 **Request Body:**
 
-| フィールド | 型 | 必須 | 説明 |
-|-----------|-----|------|------|
-| name | string | ✓ | パターン名 |
+| フィールド | 型     | 必須 | 説明       |
+| ---------- | ------ | ---- | ---------- |
+| name       | string | ✓    | パターン名 |
 
 **Response** `201`
 
@@ -1996,11 +2020,11 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 **Request Body:**
 
-| フィールド | 型 | 必須 | 説明 |
-|-----------|-----|------|------|
-| name | string | | パターン名 |
-| isStaggered | boolean | | 山台の段を半人分ずつずらすか |
-| pianoPosition | string | | `center` \| `kamite` |
+| フィールド    | 型      | 必須 | 説明                         |
+| ------------- | ------- | ---- | ---------------------------- |
+| name          | string  |      | パターン名                   |
+| isStaggered   | boolean |      | 山台の段を半人分ずつずらすか |
+| pianoPosition | string  |      | `center` \| `kamite`         |
 
 **Response** `200` → 更新後のパターン基本情報（`boxes` / `slots` は含まない）
 
@@ -2046,19 +2070,19 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 **Request Body:**
 
-| フィールド | 型 | 必須 | 説明 |
-|-----------|-----|------|------|
-| boxes | array | ✓ | 枠一覧（最大50件） |
-| boxes[].clientId | string | ✓ | クライアント側で発行した仮ID（`slots[].boxClientId` から参照） |
-| boxes[].kind | string | ✓ | `conductor` \| `piano` \| `custom` |
-| boxes[].title | string | | 枠名（custom のみ） |
-| boxes[].sortOrder | number | ✓ | 表示順 |
-| slots | array | ✓ | スロット一覧（最大300件） |
-| slots[].memberId | string | | 団員として配置する場合の Member ID |
-| slots[].label | string | | 表示名の上書き、または客演・指揮者名（memberId と label はどちらか必須） |
-| slots[].boxClientId | string | | 枠に配置する場合、対応する `boxes[].clientId`（rowNum とは排他） |
-| slots[].rowNum | number | | 山台の段番号（1始まり）。boxClientId とは排他 |
-| slots[].positionOrder | number | ✓ | 枠内での並び順、または山台グリッドの列番号 |
+| フィールド            | 型     | 必須 | 説明                                                                     |
+| --------------------- | ------ | ---- | ------------------------------------------------------------------------ |
+| boxes                 | array  | ✓    | 枠一覧（最大50件）                                                       |
+| boxes[].clientId      | string | ✓    | クライアント側で発行した仮ID（`slots[].boxClientId` から参照）           |
+| boxes[].kind          | string | ✓    | `conductor` \| `piano` \| `custom`                                       |
+| boxes[].title         | string |      | 枠名（custom のみ）                                                      |
+| boxes[].sortOrder     | number | ✓    | 表示順                                                                   |
+| slots                 | array  | ✓    | スロット一覧（最大300件）                                                |
+| slots[].memberId      | string |      | 団員として配置する場合の Member ID                                       |
+| slots[].label         | string |      | 表示名の上書き、または客演・指揮者名（memberId と label はどちらか必須） |
+| slots[].boxClientId   | string |      | 枠に配置する場合、対応する `boxes[].clientId`（rowNum とは排他）         |
+| slots[].rowNum        | number |      | 山台の段番号（1始まり）。boxClientId とは排他                            |
+| slots[].positionOrder | number | ✓    | 枠内での並び順、または山台グリッドの列番号                               |
 
 ```json
 {
@@ -2095,10 +2119,10 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 **Query Parameters:**
 
-| パラメータ | 型 | 説明 |
-|-----------|-----|------|
-| page | number | ページ番号（default: 1）|
-| perPage | number | 件数（default: 20）|
+| パラメータ | 型     | 説明                     |
+| ---------- | ------ | ------------------------ |
+| page       | number | ページ番号（default: 1） |
+| perPage    | number | 件数（default: 20）      |
 
 **Response** `200`
 
@@ -2183,12 +2207,12 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 `recipientType` と `recipientFilter` の対応:
 
-| recipientType | recipientFilter |
-|--------------|-----------------|
-| `all` | null |
-| `part` | `{ "partIds": ["..."] }` |
-| `role` | `{ "roles": ["tech", "score"] }` |
-| `custom` | `{ "memberIds": ["..."] }` （最大500件）|
+| recipientType | recipientFilter                          |
+| ------------- | ---------------------------------------- |
+| `all`         | null                                     |
+| `part`        | `{ "partIds": ["..."] }`                 |
+| `role`        | `{ "roles": ["tech", "score"] }`         |
+| `custom`      | `{ "memberIds": ["..."] }` （最大500件） |
 
 **Response** `201`
 
@@ -2253,7 +2277,13 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 ```json
 {
-  "data": { "id": "cuid", "name": "練習案内テンプレート", "subject": "...", "body": "...", "updatedAt": "..." }
+  "data": {
+    "id": "cuid",
+    "name": "練習案内テンプレート",
+    "subject": "...",
+    "body": "...",
+    "updatedAt": "..."
+  }
 }
 ```
 
@@ -2330,7 +2360,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
         "part": { "name": "Tenor I" },
         "allocated": 40,
         "sold": 28,
-        "rate": 0.70
+        "rate": 0.7
       }
     ]
   }
@@ -2439,7 +2469,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
         "partName": "Tenor I",
         "sold": 28,
         "allocated": 40,
-        "rate": 0.70,
+        "rate": 0.7,
         "timeline": [
           { "date": "2026-10-01", "cumulativeSold": 5 },
           { "date": "2026-10-15", "cumulativeSold": 18 }
@@ -2468,9 +2498,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 {
   "data": {
     "org": { "id": "cuid", "name": "東京男声合唱団", "slug": "tokyo-men-choir" },
-    "parts": [
-      { "id": "cuid", "name": "Tenor I", "voiceType": "tenor", "sortOrder": 1 }
-    ]
+    "parts": [{ "id": "cuid", "name": "Tenor I", "voiceType": "tenor", "sortOrder": 1 }]
   }
 }
 ```
@@ -2559,9 +2587,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 ```json
 {
-  "data": [
-    { "id": "cuid", "name": "正団員", "defaultFeeAmount": 3000, "sortOrder": 0 }
-  ]
+  "data": [{ "id": "cuid", "name": "正団員", "defaultFeeAmount": 3000, "sortOrder": 0 }]
 }
 ```
 
@@ -2586,8 +2612,10 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 ```json
 {
   "data": {
-    "id": "cuid", "name": "正団員",
-    "defaultFeeAmount": 3000, "sortOrder": 0
+    "id": "cuid",
+    "name": "正団員",
+    "defaultFeeAmount": 3000,
+    "sortOrder": 0
   }
 }
 ```
@@ -2613,8 +2641,10 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 ```json
 {
   "data": {
-    "id": "cuid", "name": "OB",
-    "defaultFeeAmount": 1000, "sortOrder": 1
+    "id": "cuid",
+    "name": "OB",
+    "defaultFeeAmount": 1000,
+    "sortOrder": 1
   }
 }
 ```
@@ -2651,8 +2681,11 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 {
   "data": [
     {
-      "id": "cuid", "name": "練習",
-      "slug": "rehearsal", "color": "#3B82F6", "sortOrder": 0
+      "id": "cuid",
+      "name": "練習",
+      "slug": "rehearsal",
+      "color": "#3B82F6",
+      "sortOrder": 0
     }
   ]
 }
@@ -2681,8 +2714,11 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 ```json
 {
   "data": {
-    "id": "cuid", "name": "合宿",
-    "slug": null, "color": "#10B981", "sortOrder": 4
+    "id": "cuid",
+    "name": "合宿",
+    "slug": null,
+    "color": "#10B981",
+    "sortOrder": 4
   }
 }
 ```
@@ -2749,10 +2785,10 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 }
 ```
 
-| フィールド | 型 | 必須 | 説明 |
-|-----------|-----|------|------|
-| feeType | string | | `per_rehearsal` / `monthly` |
-| defaultFeeAmount | number \| null | | デフォルト徴収金額（円）|
+| フィールド       | 型             | 必須 | 説明                        |
+| ---------------- | -------------- | ---- | --------------------------- |
+| feeType          | string         |      | `per_rehearsal` / `monthly` |
+| defaultFeeAmount | number \| null |      | デフォルト徴収金額（円）    |
 
 **Response** `200`
 
@@ -2840,9 +2876,9 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 **Query Parameters:**
 
-| パラメータ | 型 | 説明 |
-|-----------|-----|------|
-| year | string | 対象年（例: `2026`、4桁の数字）省略時: 当年 |
+| パラメータ | 型     | 説明                                        |
+| ---------- | ------ | ------------------------------------------- |
+| year       | string | 対象年（例: `2026`、4桁の数字）省略時: 当年 |
 
 **Response** `200`
 
@@ -2876,10 +2912,10 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 **Query Parameters:**
 
-| パラメータ | 型 | 説明 |
-|-----------|-----|------|
-| yearMonth | string | 月フィルタ（例: `2026-06`）|
-| eventId | string | イベントフィルタ |
+| パラメータ | 型     | 説明                        |
+| ---------- | ------ | --------------------------- |
+| yearMonth  | string | 月フィルタ（例: `2026-06`） |
+| eventId    | string | イベントフィルタ            |
 
 **Response** `200`
 
@@ -3009,13 +3045,13 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 }
 ```
 
-| フィールド | 型 | 必須 | 説明 |
-|-----------|-----|------|------|
-| status | string | ✓ | `pending` / `paid` / `waived` |
-| amount | number | | `paid` 時に設定（省略時 Collection.amount）|
-| paidAt | string | | `paid` 時に設定（省略時 今日）|
-| method | string | | `cash` / `paypay` / `bank_transfer` / `other` |
-| note | string | | 備考 |
+| フィールド | 型     | 必須 | 説明                                          |
+| ---------- | ------ | ---- | --------------------------------------------- |
+| status     | string | ✓    | `pending` / `paid` / `waived`                 |
+| amount     | number |      | `paid` 時に設定（省略時 Collection.amount）   |
+| paidAt     | string |      | `paid` 時に設定（省略時 今日）                |
+| method     | string |      | `cash` / `paypay` / `bank_transfer` / `other` |
+| note       | string |      | 備考                                          |
 
 **Response** `200` → 更新後の CollectionPayment
 
@@ -3033,11 +3069,11 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 **Query Parameters:**
 
-| パラメータ | 型 | 説明 |
-|-----------|-----|------|
-| from | string | 開始日フィルタ（ISO8601）paidAt: null の支出も常に含まれる |
-| to | string | 終了日フィルタ（ISO8601）|
-| categoryId | string | カテゴリフィルタ |
+| パラメータ | 型     | 説明                                                       |
+| ---------- | ------ | ---------------------------------------------------------- |
+| from       | string | 開始日フィルタ（ISO8601）paidAt: null の支出も常に含まれる |
+| to         | string | 終了日フィルタ（ISO8601）                                  |
+| categoryId | string | カテゴリフィルタ                                           |
 
 **Response** `200`
 

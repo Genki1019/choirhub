@@ -52,7 +52,7 @@ export default async function OrgLayout({
     }
 
     orgName = matched.orgName;
-    roles   = matched.roles;
+    roles = matched.roles;
     isAdmin = matched.roles.includes("admin");
     nameJa = user?.nameJa ?? "";
     avatarUrl = user?.avatarUrl ?? null;

@@ -20,16 +20,24 @@ import { DeadlineSection } from "../../_components/DeadlineSection";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
 
-function ToggleChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function ToggleChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={[
-        "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
+        "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
         active
-          ? "bg-brand-600 text-white border-brand-600"
-          : "bg-white text-gray-600 border-gray-200 hover:border-gray-400",
+          ? "bg-brand-600 border-brand-600 text-white"
+          : "border-gray-200 bg-white text-gray-600 hover:border-gray-400",
       ].join(" ")}
     >
       {label}
@@ -39,47 +47,55 @@ function ToggleChip({ label, active, onClick }: { label: string; active: boolean
 
 export default function NewSchedulePage() {
   const { org } = useParams<{ org: string }>();
-  const router  = useRouter();
+  const router = useRouter();
 
   const { roles } = useMember();
   const canCreate = canManageSchedule(roles);
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [title,         setTitle]         = useState("");
-  const [startDate,     setStartDate]     = useState(todayStr);
-  const [startTime,     setStartTime]     = useState("18:00");
-  const [endDate,       setEndDate]       = useState(todayStr);
-  const [endTime,       setEndTime]       = useState("22:00");
-  const [location,      setLocation]      = useState("");
-  const [locationUrl,   setLocationUrl]   = useState("");
-  const [targetRoles,   setTargetRoles]   = useState<string[]>([]);
+  const [title, setTitle] = useState("");
+  const [startDate, setStartDate] = useState(todayStr);
+  const [startTime, setStartTime] = useState("18:00");
+  const [endDate, setEndDate] = useState(todayStr);
+  const [endTime, setEndTime] = useState("22:00");
+  const [location, setLocation] = useState("");
+  const [locationUrl, setLocationUrl] = useState("");
+  const [targetRoles, setTargetRoles] = useState<string[]>([]);
   const [targetPartIds, setTargetPartIds] = useState<string[]>([]);
-  const [hasDeadline,   setHasDeadline]   = useState(false);
-  const [deadlineDate,  setDeadlineDate]  = useState("");
-  const [deadlineTime,  setDeadlineTime]  = useState("23:59");
-  const [pageMemo,      setPageMemo]      = useState("");
-  const [error,         setError]         = useState("");
-  const [saving,        setSaving]        = useState(false);
+  const [hasDeadline, setHasDeadline] = useState(false);
+  const [deadlineDate, setDeadlineDate] = useState("");
+  const [deadlineTime, setDeadlineTime] = useState("23:59");
+  const [pageMemo, setPageMemo] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const { data: parts = [], isLoading: partsLoading, error: partsError } = useQuery({
+  const {
+    data: parts = [],
+    isLoading: partsLoading,
+    error: partsError,
+  } = useQuery({
     queryKey: memberKeys.parts(org),
-    queryFn:  () => membersApi.parts(org),
-    enabled:  canCreate,
+    queryFn: () => membersApi.parts(org),
+    enabled: canCreate,
   });
-  const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useQuery({
+  const {
+    data: categories = [],
+    isLoading: categoriesLoading,
+    error: categoriesError,
+  } = useQuery({
     queryKey: eventKeys.categories(org),
-    queryFn:  () => settingsApi.listEventCategories(org),
-    enabled:  canCreate,
+    queryFn: () => settingsApi.listEventCategories(org),
+    enabled: canCreate,
   });
 
   const categoryId = selectedCategoryId ?? categories[0]?.id ?? "";
 
-  const loading   = canCreate && (partsLoading || categoriesLoading);
+  const loading = canCreate && (partsLoading || categoriesLoading);
   const initError = partsError?.message ?? categoriesError?.message ?? null;
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full gap-2 text-gray-400">
+      <div className="flex h-full items-center justify-center gap-2 text-gray-400">
         <Loader2 size={18} className="animate-spin" />
         <span className="text-sm">読み込み中...</span>
       </div>
@@ -88,8 +104,8 @@ export default function NewSchedulePage() {
 
   if (initError) {
     return (
-      <div className="flex flex-col h-full">
-        <header className="bg-white border-b border-gray-200">
+      <div className="flex h-full flex-col">
+        <header className="border-b border-gray-200 bg-white">
           <PageBleedRow className="flex items-center gap-4 py-4">
             <Link href={`/${org}/schedule`} className="text-gray-400 hover:text-gray-600">
               <ArrowLeft size={18} />
@@ -97,7 +113,7 @@ export default function NewSchedulePage() {
             <h1 className="text-lg font-semibold text-gray-800">イベントを追加</h1>
           </PageBleedRow>
         </header>
-        <div className="m-8 flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
+        <div className="m-8 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
           <AlertCircle size={16} />
           <span className="text-sm">{initError}</span>
         </div>
@@ -107,7 +123,7 @@ export default function NewSchedulePage() {
 
   if (!canCreate) {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex h-full flex-col">
         <NotFoundPage message="このページにアクセスする権限がありません" />
       </div>
     );
@@ -120,26 +136,38 @@ export default function NewSchedulePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim())                { setError("タイトルを入力してください。"); return; }
-    if (!startDate)                   { setError("開始日を選択してください。"); return; }
-    if (!endDate)                     { setError("終了日を選択してください。"); return; }
-    if (hasDeadline && !deadlineDate) { setError("締切日を選択してください。"); return; }
+    if (!title.trim()) {
+      setError("タイトルを入力してください。");
+      return;
+    }
+    if (!startDate) {
+      setError("開始日を選択してください。");
+      return;
+    }
+    if (!endDate) {
+      setError("終了日を選択してください。");
+      return;
+    }
+    if (hasDeadline && !deadlineDate) {
+      setError("締切日を選択してください。");
+      return;
+    }
 
     setSaving(true);
     setError("");
 
     try {
       await eventsApi.create(org, {
-        title:         title.trim(),
+        title: title.trim(),
         categoryId,
-        startsAt:      toJstIso(startDate, startTime),
-        endsAt:        toJstIso(endDate,   endTime),
-        location:      location     || null,
-        locationUrl:   locationUrl  || null,
-        targetRoles:   targetRoles.length   > 0 ? targetRoles   : null,
-        targetPartIds: targetPartIds.length  > 0 ? targetPartIds : null,
-        deadline:      hasDeadline && deadlineDate ? toJstIso(deadlineDate, deadlineTime) : null,
-        pageMemo:      pageMemo     || null,
+        startsAt: toJstIso(startDate, startTime),
+        endsAt: toJstIso(endDate, endTime),
+        location: location || null,
+        locationUrl: locationUrl || null,
+        targetRoles: targetRoles.length > 0 ? targetRoles : null,
+        targetPartIds: targetPartIds.length > 0 ? targetPartIds : null,
+        deadline: hasDeadline && deadlineDate ? toJstIso(deadlineDate, deadlineTime) : null,
+        pageMemo: pageMemo || null,
       });
       router.push(`/${org}/schedule`);
     } catch (err: unknown) {
@@ -150,9 +178,12 @@ export default function NewSchedulePage() {
 
   return (
     <div className="flex flex-col bg-gray-50">
-      <header className="bg-white border-b border-gray-200 shrink-0">
+      <header className="shrink-0 border-b border-gray-200 bg-white">
         <PageBleedRow className="flex items-center gap-4 py-4">
-          <Link href={`/${org}/schedule`} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <Link
+            href={`/${org}/schedule`}
+            className="text-gray-400 transition-colors hover:text-gray-600"
+          >
             <ArrowLeft size={18} />
           </Link>
           <h1 className="text-lg font-semibold text-gray-800">イベントを追加</h1>
@@ -160,27 +191,29 @@ export default function NewSchedulePage() {
       </header>
 
       <PageMain>
-        <form onSubmit={handleSubmit} className="max-w-xl mx-auto space-y-4">
-
+        <form onSubmit={handleSubmit} className="mx-auto max-w-xl space-y-4">
           {error && (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-600">
+            <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
               <AlertCircle size={14} className="shrink-0" />
               {error}
             </div>
           )}
 
           {/* タイトル + 種別 */}
-          <div className="bg-white rounded-xl border border-gray-200 px-5 py-4 space-y-4">
+          <div className="space-y-4 rounded-xl border border-gray-200 bg-white px-5 py-4">
             <input
               type="text"
               value={title}
-              onChange={e => { setTitle(e.target.value); setError(""); }}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                setError("");
+              }}
               placeholder="タイトルを追加 *"
-              className="w-full text-base font-medium text-gray-800 placeholder-gray-300 border-b border-gray-200 pb-2 focus:outline-none focus:border-brand-400 transition-colors"
+              className="focus:border-brand-400 w-full border-b border-gray-200 pb-2 text-base font-medium text-gray-800 placeholder-gray-300 transition-colors focus:outline-none"
               autoFocus
             />
-            <div className="flex items-center gap-2 flex-wrap">
-              {categories.map(cat => (
+            <div className="flex flex-wrap items-center gap-2">
+              {categories.map((cat) => (
                 <ToggleChip
                   key={cat.id}
                   label={cat.name}
@@ -192,34 +225,57 @@ export default function NewSchedulePage() {
           </div>
 
           {/* 日時 */}
-          <div className="bg-white rounded-xl border border-gray-200 px-5 py-4">
+          <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
             <SectionLabel icon={<Calendar size={15} />} label="日時" />
             <div className="space-y-2.5">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-400 w-8 shrink-0">開始</span>
-                <input type="date" value={startDate} onChange={e => handleStartDateChange(e.target.value)}
-                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400" />
-                <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)}
-                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400" />
+                <span className="w-8 shrink-0 text-xs text-gray-400">開始</span>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
+                  className="focus:ring-brand-400 rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:ring-1 focus:outline-none"
+                />
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="focus:ring-brand-400 rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:ring-1 focus:outline-none"
+                />
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-400 w-8 shrink-0">終了</span>
-                <input type="date" value={endDate} min={startDate} onChange={e => setEndDate(e.target.value)}
-                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400" />
-                <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)}
-                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400" />
+                <span className="w-8 shrink-0 text-xs text-gray-400">終了</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  min={startDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="focus:ring-brand-400 rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:ring-1 focus:outline-none"
+                />
+                <input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="focus:ring-brand-400 rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:ring-1 focus:outline-none"
+                />
               </div>
             </div>
           </div>
 
           {/* 場所 */}
-          <div className="relative z-10 bg-white rounded-xl border border-gray-200 px-5 py-4">
+          <div className="relative z-10 rounded-xl border border-gray-200 bg-white px-5 py-4">
             <SectionLabel icon={<MapPin size={15} />} label="場所" />
             <LocationSearch
               value={location}
               mapUrl={locationUrl}
-              onChangeName={(name) => { setLocation(name); setLocationUrl(""); }}
-              onSelectPlace={(name, url) => { setLocation(name); setLocationUrl(url); }}
+              onChangeName={(name) => {
+                setLocation(name);
+                setLocationUrl("");
+              }}
+              onSelectPlace={(name, url) => {
+                setLocation(name);
+                setLocationUrl(url);
+              }}
             />
           </div>
 
@@ -238,20 +294,20 @@ export default function NewSchedulePage() {
             deadlineDate={deadlineDate}
             deadlineTime={deadlineTime}
             startDate={startDate}
-            onToggle={() => setHasDeadline(v => !v)}
+            onToggle={() => setHasDeadline((v) => !v)}
             onDateChange={setDeadlineDate}
             onTimeChange={setDeadlineTime}
           />
 
           {/* 全体備考 */}
-          <div className="bg-white rounded-xl border border-gray-200 px-5 py-4">
+          <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
             <SectionLabel icon={<FileText size={15} />} label="全体備考（任意）" />
             <textarea
               value={pageMemo}
-              onChange={e => setPageMemo(e.target.value)}
+              onChange={(e) => setPageMemo(e.target.value)}
               placeholder="メンバーへの連絡事項など"
               rows={3}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400 placeholder-gray-300 resize-none"
+              className="focus:ring-brand-400 w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm placeholder-gray-300 focus:ring-1 focus:outline-none"
             />
           </div>
 
@@ -259,14 +315,14 @@ export default function NewSchedulePage() {
           <div className="flex justify-end gap-3 pb-8">
             <Link
               href={`/${org}/schedule`}
-              className="px-5 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition-colors"
+              className="rounded-lg border border-gray-200 bg-white px-5 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50"
             >
               キャンセル
             </Link>
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-1.5 px-5 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors"
+              className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-5 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
             >
               {saving && <Loader2 size={14} className="animate-spin" />}
               作成する

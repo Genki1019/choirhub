@@ -12,27 +12,36 @@ interface AmountSummaryProps {
 }
 
 export function AmountSummary({
-  allocatedCount, soldAdult, soldStudent, returnedCount, price, priceStudent,
+  allocatedCount,
+  soldAdult,
+  soldStudent,
+  returnedCount,
+  price,
+  priceStudent,
 }: AmountSummaryProps) {
   const effectiveStudentPrice = priceStudent ?? price;
-  const soldTotal  = soldAdult + soldStudent;
+  const soldTotal = soldAdult + soldStudent;
   const soldAmount = soldAdult * price + soldStudent * effectiveStudentPrice;
-  const remaining  = allocatedCount - soldTotal - returnedCount;
+  const remaining = allocatedCount - soldTotal - returnedCount;
 
   return (
     <div className="grid grid-cols-3 gap-2 text-center">
-      <div className="bg-gray-50 rounded-xl py-3 px-2">
+      <div className="rounded-xl bg-gray-50 px-2 py-3">
         <p className="text-xs text-gray-400">預かり</p>
-        <p className="text-lg font-bold mt-0.5 text-gray-800">{allocatedCount}枚</p>
+        <p className="mt-0.5 text-lg font-bold text-gray-800">{allocatedCount}枚</p>
       </div>
-      <div className="bg-gray-50 rounded-xl py-3 px-2">
+      <div className="rounded-xl bg-gray-50 px-2 py-3">
         <p className="text-xs text-gray-400">販売済み</p>
-        <p className="text-lg font-bold mt-0.5 text-brand-600">{soldTotal}枚</p>
-        <p className="text-xs mt-0.5 text-brand-600">{yen(soldAmount)}</p>
+        <p className="text-brand-600 mt-0.5 text-lg font-bold">{soldTotal}枚</p>
+        <p className="text-brand-600 mt-0.5 text-xs">{yen(soldAmount)}</p>
       </div>
-      <div className="bg-gray-50 rounded-xl py-3 px-2">
+      <div className="rounded-xl bg-gray-50 px-2 py-3">
         <p className="text-xs text-gray-400">手元残</p>
-        <p className={`text-lg font-bold mt-0.5 ${remaining < 0 ? "text-red-500" : "text-amber-600"}`}>{remaining}枚</p>
+        <p
+          className={`mt-0.5 text-lg font-bold ${remaining < 0 ? "text-red-500" : "text-amber-600"}`}
+        >
+          {remaining}枚
+        </p>
       </div>
     </div>
   );

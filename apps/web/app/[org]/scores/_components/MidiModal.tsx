@@ -12,17 +12,17 @@ function MidiFileRow({ file, splitLabel }: { file: ScoreFile; splitLabel?: strin
   const src = file.downloadUrl ?? DEMO_AUDIO_URL;
 
   return (
-    <div className="bg-gray-50 rounded-lg overflow-hidden">
-      <div className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-100 transition-colors group">
-        <Music2 size={14} className="text-purple-500 shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm text-gray-700 truncate">{file.fileName}</p>
+    <div className="overflow-hidden rounded-lg bg-gray-50">
+      <div className="group flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-gray-100">
+        <Music2 size={14} className="shrink-0 text-purple-500" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm text-gray-700">{file.fileName}</p>
           {splitLabel && <p className="text-xs text-gray-400">{splitLabel}</p>}
         </div>
         <button
           onClick={() => setOpen((v) => !v)}
           title={open ? "閉じる" : "再生"}
-          className="text-purple-400 hover:text-purple-600 transition-colors"
+          className="text-purple-400 transition-colors hover:text-purple-600"
         >
           {open ? <ChevronUp size={14} /> : <Play size={14} />}
         </button>
@@ -30,13 +30,13 @@ function MidiFileRow({ file, splitLabel }: { file: ScoreFile; splitLabel?: strin
           href={src}
           download={file.fileName}
           title="ダウンロード"
-          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-brand-500 transition-all"
+          className="hover:text-brand-500 text-gray-400 opacity-0 transition-all group-hover:opacity-100"
         >
           <Download size={14} />
         </a>
       </div>
       {open && (
-        <div className="px-3 pb-3 pt-1">
+        <div className="px-3 pt-1 pb-3">
           <audio controls src={src} className="w-full" />
         </div>
       )}
@@ -65,7 +65,7 @@ export function MidiModal({ score, onClose }: MidiModalProps) {
     partKeys.map((partId) => {
       const f = grouped.get(partId)![0];
       return [partId, f];
-    })
+    }),
   );
   const sortedPartKeys = partKeys.sort((a, b) => {
     const fa = firstFilePerPart.get(a)!;
@@ -77,7 +77,9 @@ export function MidiModal({ score, onClose }: MidiModalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
   }, [onClose]);
@@ -85,12 +87,15 @@ export function MidiModal({ score, onClose }: MidiModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div ref={containerRef} className="relative bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[80vh] flex flex-col">
-        <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100">
-          <div className="flex-1 min-w-0 pr-4">
+      <div
+        ref={containerRef}
+        className="relative flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl bg-white shadow-xl"
+      >
+        <div className="flex items-start justify-between border-b border-gray-100 px-6 py-4">
+          <div className="min-w-0 flex-1 pr-4">
             <div className="flex items-center gap-2">
-              <Music2 size={16} className="text-purple-500 shrink-0" />
-              <h2 className="font-semibold text-gray-800 text-sm leading-snug truncate">
+              <Music2 size={16} className="shrink-0 text-purple-500" />
+              <h2 className="truncate text-sm leading-snug font-semibold text-gray-800">
                 {score.title}
               </h2>
             </div>
@@ -98,20 +103,24 @@ export function MidiModal({ score, onClose }: MidiModalProps) {
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors shrink-0 mt-0.5"
+            className="mt-0.5 shrink-0 text-gray-400 transition-colors hover:text-gray-600"
           >
             <X size={18} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
           {midiFiles.length === 0 && (
-            <p className="text-sm text-gray-400 text-center py-6">MIDIファイルが登録されていません</p>
+            <p className="py-6 text-center text-sm text-gray-400">
+              MIDIファイルが登録されていません
+            </p>
           )}
           {globalMidis.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-gray-500 mb-2">全体</p>
+              <p className="mb-2 text-xs font-semibold text-gray-500">全体</p>
               <div className="space-y-1.5">
-                {globalMidis.map((f) => <MidiFileRow key={f.id} file={f} />)}
+                {globalMidis.map((f) => (
+                  <MidiFileRow key={f.id} file={f} />
+                ))}
               </div>
             </div>
           )}
@@ -120,7 +129,7 @@ export function MidiModal({ score, onClose }: MidiModalProps) {
             const partName = files[0]?.partName ?? "不明";
             return (
               <div key={partId}>
-                <p className="text-xs font-semibold text-gray-500 mb-2">{partName}</p>
+                <p className="mb-2 text-xs font-semibold text-gray-500">{partName}</p>
                 <div className="space-y-1.5">
                   {files.map((f, idx) => (
                     <MidiFileRow

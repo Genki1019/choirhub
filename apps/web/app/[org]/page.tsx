@@ -32,23 +32,23 @@ export default function HomePage() {
 
   const { data, isLoading: loading } = useQuery({
     queryKey: homeKeys.get(org),
-    queryFn:  () => homeApi.get(org),
+    queryFn: () => homeApi.get(org),
   });
 
   const upcomingEvents = data?.upcomingEvents ?? [];
-  const nextRehearsal  = data?.nextRehearsal  ?? null;
-  const nextConcert    = data?.nextConcert    ?? null;
+  const nextRehearsal = data?.nextRehearsal ?? null;
+  const nextConcert = data?.nextConcert ?? null;
 
   return (
     <div className="flex flex-col">
-      <header className="bg-white border-b border-gray-200 shrink-0">
+      <header className="shrink-0 border-b border-gray-200 bg-white">
         <PageBleedRow className="flex items-center justify-between py-4">
           <h1 className="text-lg font-semibold text-gray-800">ホーム</h1>
           {data && data.unansweredEventCount > 0 && (
             <Link
               href={`/${org}/schedule`}
               prefetch={false}
-              className="flex items-center gap-1.5 bg-orange-50 text-orange-600 text-xs font-medium px-3 py-1.5 rounded-full border border-orange-200 hover:bg-orange-100 transition-colors"
+              className="flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-600 transition-colors hover:bg-orange-100"
             >
               <AlertCircle size={13} />
               出欠未回答 {data.unansweredEventCount}件
@@ -59,13 +59,13 @@ export default function HomePage() {
 
       <PageMain className="space-y-6">
         {loading ? (
-          <div className="flex items-center justify-center py-16 gap-2 text-gray-400">
+          <div className="flex items-center justify-center gap-2 py-16 text-gray-400">
             <Loader2 size={18} className="animate-spin" />
             <span className="text-sm">読み込み中...</span>
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {nextRehearsal ? (
                 <StatCard
                   label="次回練習まで"
@@ -74,9 +74,9 @@ export default function HomePage() {
                   sub={nextRehearsal.title}
                 />
               ) : (
-                <div className="bg-white rounded-xl border border-gray-200 px-5 py-4">
-                  <p className="text-xs text-gray-400 font-medium">次回練習まで</p>
-                  <p className="text-sm text-gray-300 mt-3">予定なし</p>
+                <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
+                  <p className="text-xs font-medium text-gray-400">次回練習まで</p>
+                  <p className="mt-3 text-sm text-gray-300">予定なし</p>
                 </div>
               )}
 
@@ -88,9 +88,9 @@ export default function HomePage() {
                   sub={nextConcert.title}
                 />
               ) : (
-                <div className="bg-white rounded-xl border border-gray-200 px-5 py-4">
-                  <p className="text-xs text-gray-400 font-medium">次回本番まで</p>
-                  <p className="text-sm text-gray-300 mt-3">予定なし</p>
+                <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
+                  <p className="text-xs font-medium text-gray-400">次回本番まで</p>
+                  <p className="mt-3 text-sm text-gray-300">予定なし</p>
                 </div>
               )}
 
@@ -98,24 +98,30 @@ export default function HomePage() {
                 organizer={data?.monthlyOrganizer ?? null}
                 isTicketManager={data?.isTicketManager ?? false}
                 org={org}
-                onSaved={(value) => queryClient.setQueryData<HomeData>(homeKeys.get(org), (prev) =>
-                  prev ? { ...prev, monthlyOrganizer: value } : prev
-                )}
+                onSaved={(value) =>
+                  queryClient.setQueryData<HomeData>(homeKeys.get(org), (prev) =>
+                    prev ? { ...prev, monthlyOrganizer: value } : prev,
+                  )
+                }
               />
             </div>
 
             <section>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-gray-600 flex items-center gap-1.5">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-600">
                   <CalendarDays size={14} className="text-gray-400" />
                   直近の予定
                 </h2>
-                <Link href={`/${org}/schedule`} prefetch={false} className="text-xs text-brand-600 hover:underline">
+                <Link
+                  href={`/${org}/schedule`}
+                  prefetch={false}
+                  className="text-brand-600 text-xs hover:underline"
+                >
                   すべて見る
                 </Link>
               </div>
               {upcomingEvents.length === 0 ? (
-                <div className="bg-white rounded-xl border border-gray-200 px-5 py-8 text-center">
+                <div className="rounded-xl border border-gray-200 bg-white px-5 py-8 text-center">
                   <p className="text-sm text-gray-400">直近の予定はありません</p>
                 </div>
               ) : (
@@ -129,35 +135,50 @@ export default function HomePage() {
 
             {data && data.recentMails.length > 0 && (
               <section>
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-semibold text-gray-600 flex items-center gap-1.5">
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-600">
                     <Mail size={14} className="text-gray-400" />
                     最近のメール
                   </h2>
-                  <Link href={`/${org}/mailing`} prefetch={false} className="text-xs text-brand-600 hover:underline">
+                  <Link
+                    href={`/${org}/mailing`}
+                    prefetch={false}
+                    className="text-brand-600 text-xs hover:underline"
+                  >
                     すべて見る
                   </Link>
                 </div>
-                <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+                <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white">
                   {data.recentMails.map((mail) => (
                     <Link
                       key={mail.id}
                       href={`/${org}/mailing/${mail.id}`}
                       prefetch={false}
-                      className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors"
+                      className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-gray-50"
                     >
-                      <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-100 text-brand-600 font-semibold text-xs flex items-center justify-center shrink-0">
+                      <div className="bg-brand-100 text-brand-600 flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold">
                         {mail.senderAvatarUrl ? (
-                          <Image src={mail.senderAvatarUrl} alt={mail.senderName} width={32} height={32} className="w-full h-full object-cover" unoptimized />
+                          <Image
+                            src={mail.senderAvatarUrl}
+                            alt={mail.senderName}
+                            width={32}
+                            height={32}
+                            className="h-full w-full object-cover"
+                            unoptimized
+                          />
                         ) : (
                           mail.senderName.charAt(0)
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-gray-400 truncate">{mail.senderName}</p>
-                        <p className="text-sm text-gray-700 truncate">{mail.subject || "（件名なし）"}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs text-gray-400">{mail.senderName}</p>
+                        <p className="truncate text-sm text-gray-700">
+                          {mail.subject || "（件名なし）"}
+                        </p>
                       </div>
-                      <span className="text-xs text-gray-400 shrink-0">{formatMailDate(mail.sentAt)}</span>
+                      <span className="shrink-0 text-xs text-gray-400">
+                        {formatMailDate(mail.sentAt)}
+                      </span>
                     </Link>
                   ))}
                 </div>

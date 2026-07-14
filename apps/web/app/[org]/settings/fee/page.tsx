@@ -13,7 +13,7 @@ export default function FeeSettingsPage() {
 
   const { data: feeData, isLoading: loading } = useQuery({
     queryKey: settingsKeys.fee(org),
-    queryFn:  () => settingsApi.getFee(org),
+    queryFn: () => settingsApi.getFee(org),
   });
 
   return (

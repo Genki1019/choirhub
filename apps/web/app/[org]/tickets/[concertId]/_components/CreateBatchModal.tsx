@@ -10,7 +10,12 @@ interface CreateBatchModalProps {
   onClose: () => void;
 }
 
-export function CreateBatchModal({ orgSlug, concertId, onCreated, onClose }: CreateBatchModalProps) {
+export function CreateBatchModal({
+  orgSlug,
+  concertId,
+  onCreated,
+  onClose,
+}: CreateBatchModalProps) {
   return (
     <BatchFormModal
       title="席種を追加"
@@ -18,10 +23,10 @@ export function CreateBatchModal({ orgSlug, concertId, onCreated, onClose }: Cre
       initialValues={{ name: "", price: "", priceStudent: "", totalCount: "" }}
       onSubmit={async (form) => {
         const batch = await ticketsApi.createBatch(orgSlug, concertId, {
-          name:         form.name,
-          price:        Number(form.price),
+          name: form.name,
+          price: Number(form.price),
           priceStudent: form.priceStudent ? Number(form.priceStudent) : null,
-          totalCount:   Number(form.totalCount),
+          totalCount: Number(form.totalCount),
         });
         onCreated(batch);
       }}

@@ -16,17 +16,21 @@ export default function RacePage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
   const queryClient = useQueryClient();
 
-  const [tab,        setTab]        = useState<"parts" | "individuals">("parts");
+  const [tab, setTab] = useState<"parts" | "individuals">("parts");
   const [publishing, setPublishing] = useState(false);
 
-  const { data, isLoading: loading, error } = useQuery({
+  const {
+    data,
+    isLoading: loading,
+    error,
+  } = useQuery({
     queryKey: ticketKeys.race(org, concertId),
-    queryFn:  () => ticketsApi.race(org, concertId),
+    queryFn: () => ticketsApi.race(org, concertId),
   });
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full gap-2 text-gray-400">
+      <div className="flex h-full items-center justify-center gap-2 text-gray-400">
         <Loader2 size={18} className="animate-spin" />
         <span className="text-sm">読み込み中...</span>
       </div>
@@ -35,8 +39,8 @@ export default function RacePage() {
 
   if (error || !data) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
+      <div className="flex h-full items-center justify-center">
+        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
           <AlertCircle size={16} />
           <span className="text-sm">{error?.message ?? "データが見つかりません"}</span>
         </div>
@@ -50,16 +54,16 @@ export default function RacePage() {
 
   if (data.individuals.length === 0) {
     return (
-      <div className="flex flex-col h-full">
-        <header className="bg-white border-b border-gray-200 shrink-0">
+      <div className="flex h-full flex-col">
+        <header className="shrink-0 border-b border-gray-200 bg-white">
           <PageBleedRow className="flex items-center gap-4 py-4">
-            <Link href={backHref} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <Link href={backHref} className="text-gray-400 transition-colors hover:text-gray-600">
               <ArrowLeft size={18} />
             </Link>
             <h1 className="text-lg font-semibold text-gray-800">チケットレース</h1>
           </PageBleedRow>
         </header>
-        <div className="flex items-center justify-center flex-1">
+        <div className="flex flex-1 items-center justify-center">
           <p className="text-sm text-gray-400">まだ配布・販売データがありません</p>
         </div>
       </div>
@@ -68,30 +72,32 @@ export default function RacePage() {
 
   return (
     <div className="flex flex-col">
-      <header className="bg-white border-b border-gray-200 shrink-0">
+      <header className="shrink-0 border-b border-gray-200 bg-white">
         <PageBleedRow className="flex items-center gap-4 py-4">
-          <Link href={backHref} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <Link href={backHref} className="text-gray-400 transition-colors hover:text-gray-600">
             <ArrowLeft size={18} />
           </Link>
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-lg font-semibold text-gray-800">チケットレース</h1>
             <p className="text-sm text-gray-400">{data.concert.title}</p>
           </div>
 
-          {data.isTicketManager && (
-            data.racePublishedAt ? (
+          {data.isTicketManager &&
+            (data.racePublishedAt ? (
               <button
                 onClick={async () => {
                   setPublishing(true);
                   try {
                     await ticketsApi.unpublishRace(org, concertId);
                     queryClient.setQueryData<RaceData>(ticketKeys.race(org, concertId), (prev) =>
-                      prev ? { ...prev, racePublishedAt: null } : prev
+                      prev ? { ...prev, racePublishedAt: null } : prev,
                     );
-                  } finally { setPublishing(false); }
+                  } finally {
+                    setPublishing(false);
+                  }
                 }}
                 disabled={publishing}
-                className="flex items-center gap-1.5 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors font-medium disabled:opacity-60"
+                className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-60"
               >
                 {publishing ? <Loader2 size={13} className="animate-spin" /> : <EyeOff size={13} />}
                 公開取消
@@ -103,23 +109,24 @@ export default function RacePage() {
                   try {
                     const result = await ticketsApi.publishRace(org, concertId);
                     queryClient.setQueryData<RaceData>(ticketKeys.race(org, concertId), (prev) =>
-                      prev ? { ...prev, racePublishedAt: result.racePublishedAt } : prev
+                      prev ? { ...prev, racePublishedAt: result.racePublishedAt } : prev,
                     );
-                  } finally { setPublishing(false); }
+                  } finally {
+                    setPublishing(false);
+                  }
                 }}
                 disabled={publishing}
-                className="flex items-center gap-1.5 text-sm text-white bg-amber-500 hover:bg-amber-600 px-3 py-1.5 rounded-lg transition-colors font-medium disabled:opacity-60"
+                className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-amber-600 disabled:opacity-60"
               >
                 {publishing ? <Loader2 size={13} className="animate-spin" /> : <Globe size={13} />}
                 全体に公開
               </button>
-            )
-          )}
+            ))}
         </PageBleedRow>
 
         {data.racePublishedAt && (
           <PageBleedRow className="pb-2">
-            <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
               <Globe size={12} />
               {new Date(data.racePublishedAt).toLocaleDateString("ja-JP")} に全団員へ公開済み
             </div>
@@ -128,14 +135,14 @@ export default function RacePage() {
 
         <PageBleedRow className="flex pt-1">
           {[
-            { key: "parts"       as const, label: "パート順位", icon: Users },
-            { key: "individuals" as const, label: "個人順位",   icon: User },
+            { key: "parts" as const, label: "パート順位", icon: Users },
+            { key: "individuals" as const, label: "個人順位", icon: User },
           ].map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setTab(key)}
               className={[
-                "flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors",
+                "flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors",
                 tab === key
                   ? "border-brand-500 text-brand-600"
                   : "border-transparent text-gray-500 hover:text-gray-700",
@@ -148,7 +155,7 @@ export default function RacePage() {
         </PageBleedRow>
       </header>
 
-      <main className="flex-1 px-4 sm:px-8 py-6 max-w-2xl mx-auto w-full space-y-4">
+      <main className="mx-auto w-full max-w-2xl flex-1 space-y-4 px-4 py-6 sm:px-8">
         <ScoringRules scoring={data.scoring} />
 
         {tab === "parts" ? (

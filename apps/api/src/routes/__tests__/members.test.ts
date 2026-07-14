@@ -180,7 +180,7 @@ describe("GET /members", () => {
     expect(prisma.member.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ partId: "part-1" }),
-      })
+      }),
     );
   });
 
@@ -190,7 +190,7 @@ describe("GET /members", () => {
     expect(prisma.member.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ status: "alumni" }),
-      })
+      }),
     );
   });
 });
@@ -254,7 +254,11 @@ describe("PATCH /members/me", () => {
 
   it("nameJa の更新時は User テーブルも更新される", async () => {
     const me = makeNormalMember();
-    vi.mocked(prisma.member.update).mockResolvedValue({ ...me, userRef: testUser, part: testPart } as unknown as Member);
+    vi.mocked(prisma.member.update).mockResolvedValue({
+      ...me,
+      userRef: testUser,
+      part: testPart,
+    } as unknown as Member);
     vi.mocked(prisma.user.update).mockResolvedValue({ ...testUser, nameJa: "新しい名前" });
 
     const app = createTestApp(me);
@@ -268,7 +272,7 @@ describe("PATCH /members/me", () => {
       expect.objectContaining({
         where: { id: me.userId },
         data: expect.objectContaining({ nameJa: "新しい名前" }),
-      })
+      }),
     );
   });
 });

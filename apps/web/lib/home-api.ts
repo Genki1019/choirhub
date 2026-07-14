@@ -25,5 +25,7 @@ export interface HomeData {
 export const homeApi = {
   get: (org: string) => apiClient.get<HomeData>(`/${org}/home`),
   setMonthlyOrganizer: (org: string, partName: string | null) =>
-    apiClient.patch<{ monthlyOrganizer: string | null }>(`/${org}/home/monthly-organizer`, { partName }),
+    apiClient.patch<{ monthlyOrganizer: string | null }>(`/${org}/home/monthly-organizer`, {
+      partName,
+    }),
 };

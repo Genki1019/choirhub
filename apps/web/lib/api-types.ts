@@ -1,7 +1,7 @@
 export type MemberStatus = "active" | "offstage";
 
 export const MEMBER_STATUS_OPTIONS: { value: MemberStatus; label: string }[] = [
-  { value: "active",   label: "在団" },
+  { value: "active", label: "在団" },
   { value: "offstage", label: "休団" },
 ];
 

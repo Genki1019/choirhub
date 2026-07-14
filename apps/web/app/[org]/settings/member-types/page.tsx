@@ -17,7 +17,7 @@ export default function MemberTypesPage() {
 
   const { data: types = [], isLoading: loading } = useQuery({
     queryKey: memberKeys.types(org),
-    queryFn:  () => settingsApi.listMemberTypes(org),
+    queryFn: () => settingsApi.listMemberTypes(org),
   });
 
   const showToast = (msg: string) => {
@@ -28,7 +28,7 @@ export default function MemberTypesPage() {
   return (
     <SettingsPageShell title={settingsPageTitle("/member-types")} loading={loading}>
       {toast && (
-        <div className="fixed bottom-6 right-6 bg-gray-800 text-white text-xs px-4 py-2.5 rounded-lg shadow-lg z-50">
+        <div className="fixed right-6 bottom-6 z-50 rounded-lg bg-gray-800 px-4 py-2.5 text-xs text-white shadow-lg">
           {toast}
         </div>
       )}
@@ -36,15 +36,21 @@ export default function MemberTypesPage() {
       <MemberTypeCard
         types={types}
         org={org}
-        onUpdated={(updated) => queryClient.setQueryData<MemberType[]>(memberKeys.types(org), (prev) =>
-          prev ? prev.map((t) => t.id === updated.id ? updated : t) : prev
-        )}
-        onDeleted={(id) => queryClient.setQueryData<MemberType[]>(memberKeys.types(org), (prev) =>
-          prev ? prev.filter((t) => t.id !== id) : prev
-        )}
-        onCreated={(created) => queryClient.setQueryData<MemberType[]>(memberKeys.types(org), (prev) =>
-          prev ? [...prev, created] : prev
-        )}
+        onUpdated={(updated) =>
+          queryClient.setQueryData<MemberType[]>(memberKeys.types(org), (prev) =>
+            prev ? prev.map((t) => (t.id === updated.id ? updated : t)) : prev,
+          )
+        }
+        onDeleted={(id) =>
+          queryClient.setQueryData<MemberType[]>(memberKeys.types(org), (prev) =>
+            prev ? prev.filter((t) => t.id !== id) : prev,
+          )
+        }
+        onCreated={(created) =>
+          queryClient.setQueryData<MemberType[]>(memberKeys.types(org), (prev) =>
+            prev ? [...prev, created] : prev,
+          )
+        }
         onToast={showToast}
       />
 

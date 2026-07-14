@@ -15,10 +15,15 @@ interface EditBatchModalProps {
 }
 
 export function EditBatchModal({
-  orgSlug, concertId, batch, onUpdated, onDeleted, onClose,
+  orgSlug,
+  concertId,
+  batch,
+  onUpdated,
+  onDeleted,
+  onClose,
 }: EditBatchModalProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting,      setDeleting]      = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -32,20 +37,21 @@ export function EditBatchModal({
 
   if (confirmDelete) {
     return (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-          <p className="text-sm font-semibold text-gray-800 mb-1">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+          <p className="mb-1 text-sm font-semibold text-gray-800">
             「{batch.name}」を削除しますか？
           </p>
-          <p className="text-xs text-gray-500 mb-5">
-            配布登録データ（{batch.allocations.length}件）もすべて削除されます。この操作は元に戻せません。
+          <p className="mb-5 text-xs text-gray-500">
+            配布登録データ（{batch.allocations.length}
+            件）もすべて削除されます。この操作は元に戻せません。
           </p>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => setConfirmDelete(false)}
               disabled={deleting}
-              className="flex-1 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-60 transition-colors"
+              className="flex-1 rounded-lg border border-gray-200 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-60"
             >
               キャンセル
             </button>
@@ -53,7 +59,7 @@ export function EditBatchModal({
               type="button"
               onClick={handleDelete}
               disabled={deleting}
-              className="flex-1 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-red-500 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600 disabled:opacity-60"
             >
               {deleting && <Loader2 size={13} className="animate-spin" />}
               削除する
@@ -69,17 +75,17 @@ export function EditBatchModal({
       title="席種を編集"
       submitLabel="保存"
       initialValues={{
-        name:         batch.name,
-        price:        String(batch.price),
+        name: batch.name,
+        price: String(batch.price),
         priceStudent: batch.priceStudent != null ? String(batch.priceStudent) : "",
-        totalCount:   String(batch.totalCount),
+        totalCount: String(batch.totalCount),
       }}
       onSubmit={async (form) => {
         const data: UpdateBatchInput = {
-          name:         form.name,
-          price:        Number(form.price),
+          name: form.name,
+          price: Number(form.price),
           priceStudent: form.priceStudent ? Number(form.priceStudent) : null,
-          totalCount:   Number(form.totalCount),
+          totalCount: Number(form.totalCount),
         };
         await ticketsApi.updateBatch(orgSlug, concertId, batch.id, data);
         onUpdated(data);
@@ -89,7 +95,7 @@ export function EditBatchModal({
         <button
           type="button"
           onClick={() => setConfirmDelete(true)}
-          className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 transition-colors mt-3"
+          className="mt-3 flex items-center gap-1 text-xs text-red-400 transition-colors hover:text-red-600"
         >
           <Trash2 size={12} />
           この席種を削除

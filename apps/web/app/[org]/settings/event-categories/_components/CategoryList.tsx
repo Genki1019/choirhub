@@ -14,11 +14,18 @@ interface CategoryListProps {
   onError: (msg: string) => void;
 }
 
-export function CategoryList({ categories, org, onUpdated, onDeleted, onReordered, onError }: CategoryListProps) {
-  const [editId,    setEditId]    = useState<string | null>(null);
-  const [editName,  setEditName]  = useState("");
+export function CategoryList({
+  categories,
+  org,
+  onUpdated,
+  onDeleted,
+  onReordered,
+  onError,
+}: CategoryListProps) {
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
   const [editColor, setEditColor] = useState("#6B7280");
-  const [busy,      setBusy]      = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const startEdit = (cat: EventCategory) => {
     setEditId(cat.id);
@@ -32,7 +39,10 @@ export function CategoryList({ categories, org, onUpdated, onDeleted, onReordere
     if (!editId) return;
     setBusy(true);
     try {
-      const updated = await settingsApi.updateEventCategory(org, editId, { name: editName, color: editColor });
+      const updated = await settingsApi.updateEventCategory(org, editId, {
+        name: editName,
+        color: editColor,
+      });
       onUpdated(updated);
       setEditId(null);
     } catch {
@@ -65,8 +75,12 @@ export function CategoryList({ categories, org, onUpdated, onDeleted, onReordere
     setBusy(true);
     try {
       await Promise.all([
-        settingsApi.updateEventCategory(org, reindexed[idx].id,   { sortOrder: reindexed[idx].sortOrder }),
-        settingsApi.updateEventCategory(org, reindexed[other].id, { sortOrder: reindexed[other].sortOrder }),
+        settingsApi.updateEventCategory(org, reindexed[idx].id, {
+          sortOrder: reindexed[idx].sortOrder,
+        }),
+        settingsApi.updateEventCategory(org, reindexed[other].id, {
+          sortOrder: reindexed[other].sortOrder,
+        }),
       ]);
     } catch {
       onReordered(snapshot);
@@ -77,7 +91,7 @@ export function CategoryList({ categories, org, onUpdated, onDeleted, onReordere
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+    <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white">
       {categories.map((cat, idx) => (
         <div key={cat.id} className="flex items-center gap-3 px-4 py-3">
           {editId === cat.id ? (
@@ -87,29 +101,38 @@ export function CategoryList({ categories, org, onUpdated, onDeleted, onReordere
                 type="color"
                 value={editColor}
                 onChange={(e) => setEditColor(e.target.value)}
-                className="w-7 h-7 rounded cursor-pointer border border-gray-200"
+                className="h-7 w-7 cursor-pointer rounded border border-gray-200"
               />
               <input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                className="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-400"
+                className="focus:ring-brand-400 flex-1 rounded-lg border border-gray-200 px-2 py-1 text-sm focus:ring-1 focus:outline-none"
                 autoFocus
               />
-              <button onClick={saveEdit} disabled={busy} aria-label="保存" className="text-brand-600 hover:text-brand-800 disabled:opacity-50">
+              <button
+                onClick={saveEdit}
+                disabled={busy}
+                aria-label="保存"
+                className="text-brand-600 hover:text-brand-800 disabled:opacity-50"
+              >
                 <Check size={15} />
               </button>
-              <button onClick={cancelEdit} aria-label="キャンセル" className="text-gray-400 hover:text-gray-600">
+              <button
+                onClick={cancelEdit}
+                aria-label="キャンセル"
+                className="text-gray-400 hover:text-gray-600"
+              >
                 <X size={15} />
               </button>
             </>
           ) : (
             <>
-              <div className="flex flex-col shrink-0">
+              <div className="flex shrink-0 flex-col">
                 <button
                   onClick={() => swap(idx, -1)}
                   disabled={idx === 0 || busy}
                   aria-label="上に移動"
-                  className="p-0.5 text-gray-300 hover:text-gray-500 disabled:opacity-20 transition-colors"
+                  className="p-0.5 text-gray-300 transition-colors hover:text-gray-500 disabled:opacity-20"
                 >
                   <ChevronUp size={14} />
                 </button>
@@ -117,21 +140,36 @@ export function CategoryList({ categories, org, onUpdated, onDeleted, onReordere
                   onClick={() => swap(idx, 1)}
                   disabled={idx === categories.length - 1 || busy}
                   aria-label="下に移動"
-                  className="p-0.5 text-gray-300 hover:text-gray-500 disabled:opacity-20 transition-colors"
+                  className="p-0.5 text-gray-300 transition-colors hover:text-gray-500 disabled:opacity-20"
                 >
                   <ChevronDown size={14} />
                 </button>
               </div>
-              <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+              <span
+                className="h-3 w-3 shrink-0 rounded-full"
+                style={{ backgroundColor: cat.color }}
+              />
               <span className="flex-1 text-sm text-gray-800">{cat.name}</span>
               {cat.slug && (
-                <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">標準</span>
+                <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400">
+                  標準
+                </span>
               )}
-              <button onClick={() => startEdit(cat)} disabled={busy} aria-label="編集" className="text-gray-400 hover:text-gray-600 disabled:opacity-40">
+              <button
+                onClick={() => startEdit(cat)}
+                disabled={busy}
+                aria-label="編集"
+                className="text-gray-400 hover:text-gray-600 disabled:opacity-40"
+              >
                 <Pencil size={14} />
               </button>
               {!cat.slug && (
-                <button onClick={() => handleDelete(cat.id)} disabled={busy} aria-label="削除" className="text-gray-400 hover:text-red-500 disabled:opacity-40">
+                <button
+                  onClick={() => handleDelete(cat.id)}
+                  disabled={busy}
+                  aria-label="削除"
+                  className="text-gray-400 hover:text-red-500 disabled:opacity-40"
+                >
                   <Trash2 size={14} />
                 </button>
               )}

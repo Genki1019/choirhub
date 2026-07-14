@@ -1,6 +1,7 @@
 import type { Member } from "../generated/prisma/index.js";
 
-type Role = "admin" | "tech" | "conductor" | "score" | "ticket" | "finance" | "member" | "guest" | "visitor";
+type Role =
+  "admin" | "tech" | "conductor" | "score" | "ticket" | "finance" | "member" | "guest" | "visitor";
 
 const ROLE_HIERARCHY: Record<Role, number> = {
   admin: 100,

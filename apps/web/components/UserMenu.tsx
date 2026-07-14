@@ -37,33 +37,40 @@ export default function UserMenu({ nameJa, avatarUrl, org, memberId }: Props) {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-brand-100 text-brand-700 font-semibold text-sm hover:ring-2 hover:ring-brand-300 transition-all"
+        className="bg-brand-100 text-brand-700 hover:ring-brand-300 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full text-sm font-semibold transition-all hover:ring-2"
         title={nameJa}
       >
         {avatarUrl ? (
-          <Image src={avatarUrl} alt={nameJa} width={32} height={32} className="w-full h-full object-cover" unoptimized />
+          <Image
+            src={avatarUrl}
+            alt={nameJa}
+            width={32}
+            height={32}
+            className="h-full w-full object-cover"
+            unoptimized
+          />
         ) : (
           initial
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 w-52 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50">
-          <div className="px-4 py-2.5 border-b border-gray-100">
-            <p className="text-sm font-medium text-gray-800 truncate">{nameJa}</p>
+        <div className="absolute top-full right-0 z-50 mt-1.5 w-52 rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
+          <div className="border-b border-gray-100 px-4 py-2.5">
+            <p className="truncate text-sm font-medium text-gray-800">{nameJa}</p>
           </div>
           <Link
             href={`/${org}/members/${memberId}`}
             prefetch={false}
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
           >
             <User size={14} className="text-gray-400" />
             プロフィール
           </Link>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-500 hover:bg-gray-50 transition-colors"
+            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 transition-colors hover:bg-gray-50"
           >
             <LogOut size={14} />
             ログアウト

@@ -12,11 +12,14 @@ interface MonthlyOrganizerCardProps {
 }
 
 export function MonthlyOrganizerCard({
-  organizer, isTicketManager, org, onSaved,
+  organizer,
+  isTicketManager,
+  org,
+  onSaved,
 }: MonthlyOrganizerCardProps) {
-  const [editing,    setEditing]    = useState(false);
+  const [editing, setEditing] = useState(false);
   const [inputValue, setInputValue] = useState(organizer ?? "");
-  const [saving,     setSaving]     = useState(false);
+  const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -41,13 +44,16 @@ export function MonthlyOrganizerCard({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 px-5 py-4 flex flex-col justify-between min-h-[100px]">
+    <div className="flex min-h-[100px] flex-col justify-between rounded-xl border border-gray-200 bg-white px-5 py-4">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-400 font-medium">今月の幹事</p>
+        <p className="text-xs font-medium text-gray-400">今月の幹事</p>
         {isTicketManager && !editing && (
           <button
-            onClick={() => { setInputValue(organizer ?? ""); setEditing(true); }}
-            className="text-gray-300 hover:text-gray-500 transition-colors"
+            onClick={() => {
+              setInputValue(organizer ?? "");
+              setEditing(true);
+            }}
+            className="text-gray-300 transition-colors hover:text-gray-500"
           >
             <Pencil size={13} />
           </button>
@@ -55,30 +61,44 @@ export function MonthlyOrganizerCard({
       </div>
 
       {editing ? (
-        <div className="flex items-center gap-2 mt-2">
+        <div className="mt-2 flex items-center gap-2">
           <input
             ref={inputRef}
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") handleCancel(); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSave();
+              if (e.key === "Escape") handleCancel();
+            }}
             placeholder="パート名を入力"
             maxLength={50}
-            className="flex-1 text-sm border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-teal-400"
+            className="flex-1 rounded-lg border border-gray-300 px-2 py-1 text-sm focus:ring-2 focus:ring-teal-400 focus:outline-none"
           />
-          <button onClick={handleSave} disabled={saving} aria-label="保存" className="text-teal-600 hover:text-teal-800 disabled:opacity-40">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            aria-label="保存"
+            className="text-teal-600 hover:text-teal-800 disabled:opacity-40"
+          >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
           </button>
-          <button onClick={handleCancel} aria-label="キャンセル" className="text-gray-400 hover:text-gray-600">
+          <button
+            onClick={handleCancel}
+            aria-label="キャンセル"
+            className="text-gray-400 hover:text-gray-600"
+          >
             <X size={14} />
           </button>
         </div>
       ) : (
         <>
-          <p className={`text-2xl font-bold mt-1 ${organizer ? "text-brand-500" : "text-gray-300"}`}>
+          <p
+            className={`mt-1 text-2xl font-bold ${organizer ? "text-brand-500" : "text-gray-300"}`}
+          >
             {organizer ?? "未設定"}
           </p>
-          <p className="text-xs text-gray-400 mt-1">飲み会幹事パート</p>
+          <p className="mt-1 text-xs text-gray-400">飲み会幹事パート</p>
         </>
       )}
     </div>

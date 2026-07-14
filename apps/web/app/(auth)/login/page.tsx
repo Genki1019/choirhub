@@ -8,7 +8,8 @@ import { Music, Loader2 } from "lucide-react";
 import { authApi, ApiClientError } from "@/lib/auth-api";
 import { loginSchema, type LoginInput } from "@/lib/schemas";
 
-const INPUT_CLS = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition";
+const INPUT_CLS =
+  "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition";
 const ERROR_CLS = "text-xs text-red-500 mt-1";
 
 export default function LoginPage() {
@@ -26,27 +27,31 @@ export default function LoginPage() {
       await authApi.login(data.email, data.password);
       router.push("/select-org");
     } catch (err) {
-      const message = err instanceof ApiClientError && err.status === 401
-        ? "メールアドレスまたはパスワードが正しくありません"
-        : "ログインに失敗しました。しばらく後でお試しください。";
+      const message =
+        err instanceof ApiClientError && err.status === 401
+          ? "メールアドレスまたはパスワードが正しくありません"
+          : "ログインに失敗しました。しばらく後でお試しください。";
       setError("root", { message });
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 bg-brand-600 rounded-xl flex items-center justify-center mb-4">
+        <div className="mb-8 flex flex-col items-center">
+          <div className="bg-brand-600 mb-4 flex h-12 w-12 items-center justify-center rounded-xl">
             <Music size={24} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">ChoirHub</h1>
-          <p className="text-sm text-gray-500 mt-1">合唱団運営支援サービス</p>
+          <p className="mt-1 text-sm text-gray-500">合唱団運営支援サービス</p>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-2xl border border-gray-200 px-8 py-8 space-y-5">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="space-y-5 rounded-2xl border border-gray-200 bg-white px-8 py-8"
+        >
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
+            <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">
               メールアドレス
             </label>
             <input
@@ -61,7 +66,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
+            <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-700">
               パスワード
             </label>
             <input
@@ -76,7 +81,7 @@ export default function LoginPage() {
           </div>
 
           {errors.root && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
               {errors.root.message}
             </p>
           )}
@@ -84,14 +89,18 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-brand-600 text-white font-medium py-2.5 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition flex items-center justify-center gap-2"
+            className="bg-brand-600 hover:bg-brand-700 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 font-medium text-white transition disabled:opacity-60"
           >
             {isSubmitting && <Loader2 size={16} className="animate-spin" />}
             ログイン
           </button>
 
           <p className="text-center text-xs text-gray-400">
-            <Link href="/password-reset" prefetch={false} className="text-brand-500 hover:underline">
+            <Link
+              href="/password-reset"
+              prefetch={false}
+              className="text-brand-500 hover:underline"
+            >
               パスワードをお忘れですか？
             </Link>
           </p>

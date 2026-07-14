@@ -20,15 +20,20 @@ interface MemberTypeCardProps {
 }
 
 export function MemberTypeCard({
-  types, org, onUpdated, onDeleted, onCreated, onToast,
+  types,
+  org,
+  onUpdated,
+  onDeleted,
+  onCreated,
+  onToast,
 }: MemberTypeCardProps) {
-  const [busy,       setBusy]       = useState(false);
-  const [editId,     setEditId]     = useState<string | null>(null);
-  const [editName,   setEditName]   = useState("");
+  const [busy, setBusy] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
   const [editAmount, setEditAmount] = useState("");
-  const [showAdd,    setShowAdd]    = useState(false);
-  const [newName,    setNewName]    = useState("");
-  const [newAmount,  setNewAmount]  = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newAmount, setNewAmount] = useState("");
 
   const startEdit = (t: MemberType) => {
     setEditId(t.id);
@@ -42,8 +47,8 @@ export function MemberTypeCard({
     try {
       const amount = editAmount.trim() ? parseInt(editAmount, 10) : null;
       const updated = await settingsApi.updateMemberType(org, editId, {
-        name:             editName.trim(),
-        defaultFeeAmount: (amount != null && !isNaN(amount)) ? amount : null,
+        name: editName.trim(),
+        defaultFeeAmount: amount != null && !isNaN(amount) ? amount : null,
       });
       onUpdated(updated);
       setEditId(null);
@@ -60,9 +65,10 @@ export function MemberTypeCard({
       await settingsApi.deleteMemberType(org, t.id);
       onDeleted(t.id);
     } catch (err) {
-      const msg = err instanceof ApiClientError && err.status === 409
-        ? (err as ApiClientError).message || "団員が使用中のため削除できません"
-        : "削除に失敗しました";
+      const msg =
+        err instanceof ApiClientError && err.status === 409
+          ? (err as ApiClientError).message || "団員が使用中のため削除できません"
+          : "削除に失敗しました";
       onToast(msg);
     } finally {
       setBusy(false);
@@ -75,8 +81,8 @@ export function MemberTypeCard({
     try {
       const amount = newAmount.trim() ? parseInt(newAmount, 10) : null;
       const created = await settingsApi.createMemberType(org, {
-        name:             newName.trim(),
-        defaultFeeAmount: (amount != null && !isNaN(amount)) ? amount : null,
+        name: newName.trim(),
+        defaultFeeAmount: amount != null && !isNaN(amount) ? amount : null,
       });
       onCreated(created);
       setNewName("");
@@ -90,25 +96,28 @@ export function MemberTypeCard({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
         <div>
           <p className="text-sm font-semibold text-gray-700">メンバー区分</p>
-          <p className="text-xs text-gray-400 mt-0.5">区分ごとにデフォルト会費を設定できます</p>
+          <p className="mt-0.5 text-xs text-gray-400">区分ごとにデフォルト会費を設定できます</p>
         </div>
         <button
-          onClick={() => { setShowAdd(true); setEditId(null); }}
+          onClick={() => {
+            setShowAdd(true);
+            setEditId(null);
+          }}
           disabled={busy}
-          className="flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700 transition-colors disabled:opacity-40"
+          className="text-brand-600 hover:text-brand-700 flex items-center gap-1 text-xs font-medium transition-colors disabled:opacity-40"
         >
           <Plus size={13} />
           追加
         </button>
       </div>
 
-      <div className="flex items-center gap-3 px-5 py-2 bg-gray-50 border-b border-gray-100">
+      <div className="flex items-center gap-3 border-b border-gray-100 bg-gray-50 px-5 py-2">
         <span className="flex-1 text-xs font-medium text-gray-400">区分名</span>
-        <span className="w-28 text-xs font-medium text-gray-400 text-right">デフォルト会費</span>
+        <span className="w-28 text-right text-xs font-medium text-gray-400">デフォルト会費</span>
         <span className="w-14" />
       </div>
 
@@ -116,7 +125,7 @@ export function MemberTypeCard({
         {types.map((t) => (
           <div key={t.id} className="flex items-center gap-3 px-5 py-3">
             {editId === t.id ? (
-              <div className="flex-1 flex items-center gap-2">
+              <div className="flex flex-1 items-center gap-2">
                 <input
                   autoFocus
                   value={editName}
@@ -126,7 +135,7 @@ export function MemberTypeCard({
                     if (e.key === "Escape") setEditId(null);
                   }}
                   placeholder="区分名"
-                  className="flex-1 border border-brand-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
+                  className="border-brand-300 focus:ring-brand-400 flex-1 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
                 />
                 <input
                   type="number"
@@ -134,31 +143,42 @@ export function MemberTypeCard({
                   onChange={(e) => setEditAmount(e.target.value)}
                   placeholder="会費（円）"
                   min={0}
-                  className="w-28 border border-brand-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
+                  className="border-brand-300 focus:ring-brand-400 w-28 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
                 />
-                <button onClick={confirmEdit} disabled={busy} aria-label="保存" className="text-teal-600 hover:text-teal-700 disabled:opacity-40">
+                <button
+                  onClick={confirmEdit}
+                  disabled={busy}
+                  aria-label="保存"
+                  className="text-teal-600 hover:text-teal-700 disabled:opacity-40"
+                >
                   <Check size={15} />
                 </button>
-                <button onClick={() => setEditId(null)} aria-label="キャンセル" className="text-gray-400 hover:text-gray-600">
+                <button
+                  onClick={() => setEditId(null)}
+                  aria-label="キャンセル"
+                  className="text-gray-400 hover:text-gray-600"
+                >
                   <X size={15} />
                 </button>
               </div>
             ) : (
               <>
                 <span className="flex-1 text-sm text-gray-800">{t.name}</span>
-                <span className="w-28 text-sm text-gray-500 text-right">{yen(t.defaultFeeAmount)}</span>
-                <div className="flex items-center gap-0.5 w-14 justify-end shrink-0">
+                <span className="w-28 text-right text-sm text-gray-500">
+                  {yen(t.defaultFeeAmount)}
+                </span>
+                <div className="flex w-14 shrink-0 items-center justify-end gap-0.5">
                   <button
                     onClick={() => startEdit(t)}
                     disabled={busy}
-                    className="p-1.5 text-gray-300 hover:text-brand-500 transition-colors disabled:opacity-40"
+                    className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors disabled:opacity-40"
                   >
                     <Pencil size={13} />
                   </button>
                   <button
                     onClick={() => deleteType(t)}
                     disabled={busy}
-                    className="p-1.5 text-gray-300 hover:text-red-500 transition-colors disabled:opacity-40"
+                    className="p-1.5 text-gray-300 transition-colors hover:text-red-500 disabled:opacity-40"
                   >
                     <Trash2 size={13} />
                   </button>
@@ -174,17 +194,21 @@ export function MemberTypeCard({
       </div>
 
       {showAdd && (
-        <div className="flex items-center gap-2 px-5 py-3 border-t border-brand-100 bg-brand-50/40">
+        <div className="border-brand-100 bg-brand-50/40 flex items-center gap-2 border-t px-5 py-3">
           <input
             autoFocus
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") addType();
-              if (e.key === "Escape") { setShowAdd(false); setNewName(""); setNewAmount(""); }
+              if (e.key === "Escape") {
+                setShowAdd(false);
+                setNewName("");
+                setNewAmount("");
+              }
             }}
             placeholder="区分名（例: 社会人）"
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400 bg-white placeholder-gray-300"
+            className="focus:ring-brand-400 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm placeholder-gray-300 focus:ring-1 focus:outline-none"
           />
           <input
             type="number"
@@ -192,18 +216,22 @@ export function MemberTypeCard({
             onChange={(e) => setNewAmount(e.target.value)}
             placeholder="会費（円）"
             min={0}
-            className="w-28 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400 bg-white placeholder-gray-300"
+            className="focus:ring-brand-400 w-28 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm placeholder-gray-300 focus:ring-1 focus:outline-none"
           />
           <button
             onClick={addType}
             disabled={busy}
-            className="px-3 py-1.5 text-xs font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors"
+            className="bg-brand-600 hover:bg-brand-700 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-60"
           >
             {busy ? <Loader2 size={12} className="animate-spin" /> : "追加"}
           </button>
           <button
-            onClick={() => { setShowAdd(false); setNewName(""); setNewAmount(""); }}
-            className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
+            onClick={() => {
+              setShowAdd(false);
+              setNewName("");
+              setNewAmount("");
+            }}
+            className="p-1.5 text-gray-400 transition-colors hover:text-gray-600"
           >
             <X size={15} />
           </button>

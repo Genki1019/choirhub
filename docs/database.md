@@ -1,8 +1,8 @@
 # ChoirHub DB設計書
 
-**バージョン**: 1.4  
+**バージョン**: 1.5  
 **作成日**: 2026-06-04  
-**更新日**: 2026-06-14  
+**更新日**: 2026-07-14  
 **対応 Prisma Schema**: `apps/api/prisma/schema.prisma`
 
 ---
@@ -43,6 +43,7 @@ erDiagram
     Member ||--o{ Attendance          : "answers"
     Member ||--o{ SurveyResponse      : "answers"
     Member ||--o{ OnStageAssignment   : "assigned"
+    Member ||--o{ FormationSlot       : "placed"
     Member ||--o{ TicketAllocation    : "allocated"
     Member ||--o{ MailLog             : "sends"
     Member ||--o{ ScoreAccessLog      : "logs"
@@ -70,10 +71,16 @@ erDiagram
 
     Stage   ||--o{ Program           : "has"
 
-    Program ||--o{ OnStageAssignment : "has"
+    Stage   ||--o{ OnStageAssignment : "has"
     Stage   ||--o{ SurveyResponse    : "has"
+    Stage   ||--o{ FormationPattern  : "has"
+
+    FormationPattern ||--o{ FormationBox  : "has"
+    FormationPattern ||--o{ FormationSlot : "has"
+    FormationBox      ||--o{ FormationSlot : "has"
 
     ConcertSurvey ||--o{ SurveyResponse : "has"
+    Concert       ||--o| ConcertSurvey  : "applied"
 
     TicketBatch    ||--o{ TicketAllocation : "has"
     Collection     ||--o{ CollectionPayment : "has"
@@ -217,6 +224,7 @@ erDiagram
         datetime      heldOn
         string        venue
         ConcertStatus status
+        string        appliedSurveyId FK
     }
     Stage {
         string id PK
@@ -251,18 +259,47 @@ erDiagram
         string        id PK
         string        concertId FK
         string        memberId FK
-        string        programId FK
+        string        stageId FK
         OnStageStatus status
+    }
+    FormationPattern {
+        string        id PK
+        string        stageId FK
+        string        name
         int           sortOrder
+        boolean       isStaggered
+        PianoPosition pianoPosition
+    }
+    FormationBox {
+        string           id PK
+        string           patternId FK
+        FormationBoxKind kind
+        string           title
+        int              sortOrder
+    }
+    FormationSlot {
+        string id PK
+        string patternId FK
+        string memberId FK
+        string label
+        string boxId FK
+        int    rowNum
+        int    positionOrder
     }
 
-    Concert       ||--o{ Stage             : "has"
-    Concert       ||--o{ ConcertSurvey     : "has"
-    Concert       ||--o{ OnStageAssignment : "has"
-    Stage         ||--o{ Program           : "has"
-    Stage         ||--o{ SurveyResponse    : "has"
-    Program       ||--o{ OnStageAssignment : "has"
-    ConcertSurvey ||--o{ SurveyResponse    : "has"
+    Concert          ||--o{ Stage             : "has"
+    Concert          ||--o{ ConcertSurvey     : "has"
+    Concert          ||--o{ OnStageAssignment : "has"
+    Concert          ||--o| ConcertSurvey     : "applied"
+    Stage            ||--o{ Program           : "has"
+    Stage            ||--o{ SurveyResponse    : "has"
+    Stage            ||--o{ OnStageAssignment : "has"
+    Stage            ||--o{ FormationPattern  : "has"
+    ConcertSurvey    ||--o{ SurveyResponse    : "has"
+    FormationPattern ||--o{ FormationBox      : "has"
+    FormationPattern ||--o{ FormationSlot     : "has"
+    FormationBox     ||--o{ FormationSlot     : "has"
+    Member           ||--o{ FormationSlot     : "placed"
 ```
 
 ### 1.6 チケット管理
@@ -586,6 +623,7 @@ erDiagram
 | racePublishedAt | TIMESTAMP | | パートレース公開日時（NULL = 未公開）|
 | ticketInputClosedAt | TIMESTAMP | | チケット入力締め切り日時（NULL = 入力可能）|
 | outreachExpensePerTrip | INT | | 情宣1回あたりの交通費（円）。NULL = 個別入力 |
+| appliedSurveyId | CUID | FK → ConcertSurvey | オンステ確定に反映済みの調査。NULL = 未反映 |
 | createdAt | TIMESTAMP | NOT NULL, DEFAULT now() | |
 
 #### status 遷移
@@ -594,7 +632,7 @@ erDiagram
 draft → survey_open → confirmed → past
 ```
 
-> **自動連動**: `ConcertSurvey` の開設（POST）または再開（PATCH isOpen: true）で `survey_open` に自動遷移。締め切り（PATCH isOpen: false）で `confirmed` に自動遷移。手動で `survey_open` にはできない。
+> **自動連動**: `ConcertSurvey` の開設（POST）または再開（PATCH isOpen: true）で `survey_open` に自動遷移。締め切り（PATCH isOpen: false）で `confirmed` に自動遷移し、その調査の回答が `OnStageAssignment` に反映されて `appliedSurveyId` が設定される。手動で `survey_open` にはできない。調査が複数ある場合、管理者は締切後に別の調査を選んで明示的に反映し直せる（`POST .../surveys/:surveyId/apply`。この操作は status を変更しない）。
 
 ---
 
@@ -636,7 +674,7 @@ draft → survey_open → confirmed → past
 
 ### SurveyResponse（オンステ調査回答）
 
-> 演目（Program）単位ではなく**ステージ（Stage）単位**で回答を記録する。画面はステージ × メンバーのマトリクスビューで表示する。メモはメンバーごとに1つ（全ステージ共通）。
+> 演目（Program）単位ではなく**ステージ（Stage）単位**で回答を記録する。画面はステージ × メンバーのマトリクスビューで表示する。メモはメンバーごとに1つ（全ステージ共通）。`status` は `Attendance`（スケジュールの出欠）と列自体は共有するが、オンステ調査では `maybe`（未定）は使わず出席/欠席/未回答の3択のみを受け付ける（API バリデーションで制限）。
 
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|
@@ -653,16 +691,62 @@ draft → survey_open → confirmed → past
 
 ### OnStageAssignment（オンステ確定）
 
+> 演目（Program）単位ではなく**ステージ（Stage）単位**で出欠を記録する（SurveyResponse と同じ粒度）。
+
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|
 | id | CUID | PK | |
 | concertId | CUID | NOT NULL, FK → Concert | |
 | memberId | CUID | NOT NULL, FK → Member | |
-| programId | CUID | FK → Program | NULL = 全演目共通 |
+| stageId | CUID | NOT NULL, FK → Stage | |
 | status | ENUM | NOT NULL, DEFAULT `undecided` | on / off / undecided |
-| sortOrder | INT | | ステージ上の並び位置 |
 
-**UNIQUE**: `(concertId, memberId, programId)`
+**UNIQUE**: `(concertId, memberId, stageId)`
+
+---
+
+### FormationPattern（フォーメーションパターン）
+
+> ステージごとに複数作成できる立ち位置パターン（曲によって配置を変える場合などに使う）。パターン作成時に `FormationBox`（指揮・ピアノの2件）が自動作成される。
+
+| カラム | 型 | 制約 | 説明 |
+|--------|-----|------|------|
+| id | CUID | PK | |
+| stageId | CUID | NOT NULL, FK → Stage | |
+| name | VARCHAR | NOT NULL | パターン名（例: パターン1） |
+| sortOrder | INT | NOT NULL | 表示順 |
+| isStaggered | BOOLEAN | NOT NULL, DEFAULT false | 山台の段を半人分ずつ互い違いにずらすか |
+| pianoPosition | ENUM | NOT NULL, DEFAULT `center` | center / kamite（ピアノの表示位置） |
+
+---
+
+### FormationBox（指揮・ピアノ・カスタム枠）
+
+> 山台の段（`FormationSlot.rowNum`）とは別に、指揮・ピアノ・ソロ/楽器などの立ち位置を表す枠。conductor / piano はパターン作成時に1件ずつ自動作成される固定枠、custom は管理者が任意に追加する枠。
+
+| カラム | 型 | 制約 | 説明 |
+|--------|-----|------|------|
+| id | CUID | PK | |
+| patternId | CUID | NOT NULL, FK → FormationPattern | |
+| kind | ENUM | NOT NULL | conductor / piano / custom |
+| title | VARCHAR | | 枠名（custom のみ使用。例: ソロ、打楽器） |
+| sortOrder | INT | NOT NULL | 表示順 |
+
+---
+
+### FormationSlot（山台・枠への配置）
+
+> 「山台の段」と「枠（FormationBox）」のどちらか一方に配置されるスロット。`boxId` が設定されていれば枠内の配置、NULL なら `rowNum`（山台の段番号）による配置で、両者は排他（アプリ側の Zod バリデーションで担保）。`memberId` が NULL の場合は客演など団員外の出演者で、`label` に表示名を保持する。`memberId` を指定する場合、そのメンバーが当該ステージで `OnStageAssignment.status: "on"` であることをAPI側で検証する（DB制約ではなくアプリ側で担保）。
+
+| カラム | 型 | 制約 | 説明 |
+|--------|-----|------|------|
+| id | CUID | PK | |
+| patternId | CUID | NOT NULL, FK → FormationPattern | |
+| memberId | CUID | FK → Member | NULL = 客演など団員外（label で表示名を保持） |
+| label | VARCHAR | | 丸バッジの表示名の上書き、または客演・指揮者名 |
+| boxId | CUID | FK → FormationBox | 枠に配置する場合に設定（rowNum とは排他） |
+| rowNum | INT | | 山台の段番号（1始まり）。boxId とは排他 |
+| positionOrder | INT | NOT NULL | 枠内での並び順、または山台グリッドの列番号 |
 
 ---
 
@@ -890,7 +974,11 @@ draft → survey_open → confirmed → past
 | Concert | (orgId, heldOn) | INDEX | 本番一覧の日付ソート |
 | Program | (stageId, sortOrder) | INDEX | 演目の表示順取得 |
 | SurveyResponse | (surveyId, memberId, stageId) | UNIQUE | 重複回答防止 |
-| OnStageAssignment | (concertId, memberId, programId) | UNIQUE | 重複登録防止 |
+| OnStageAssignment | (concertId, memberId, stageId) | UNIQUE | 重複登録防止 |
+| FormationPattern | (stageId, sortOrder) | INDEX | パターンの表示順取得 |
+| FormationBox | (patternId, sortOrder) | INDEX | 枠の表示順取得 |
+| FormationSlot | patternId | INDEX | パターンに紐づくスロット取得 |
+| FormationSlot | boxId | INDEX | 枠に紐づくスロット取得 |
 | MailLog | (orgId, sentAt) | INDEX | メール履歴の時系列取得 |
 | TicketAllocation | (batchId, memberId) | INDEX | 団員別チケット集計 |
 | Collection | orgId | INDEX | 団ごとの徴収一覧取得 |
@@ -951,6 +1039,8 @@ draft → survey_open → confirmed → past
 | FileType | full_score / part_score / midi / audio / other |
 | ConcertStatus | draft / survey_open / confirmed / past |
 | OnStageStatus | on / off / undecided |
+| PianoPosition | center / kamite |
+| FormationBoxKind | conductor / piano / custom |
 | FeeType | per_rehearsal / monthly |
 | PaymentMethod | cash / paypay / bank_transfer / other |
 | CollectionPaymentStatus | pending / paid / waived |

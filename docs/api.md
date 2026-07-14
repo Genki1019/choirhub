@@ -252,14 +252,15 @@ Cookie: session=<session_token>
 
 ### 1.4 共通エラーコード
 
-| HTTPステータス | code               | 説明                                              |
-| -------------- | ------------------ | ------------------------------------------------- |
-| 400            | `VALIDATION_ERROR` | バリデーションエラー。`details` に Zod エラー詳細 |
-| 401            | `UNAUTHORIZED`     | 未認証                                            |
-| 403            | `FORBIDDEN`        | 権限不足                                          |
-| 404            | `NOT_FOUND`        | リソースが存在しない                              |
-| 409            | `CONFLICT`         | 重複登録など                                      |
-| 500            | `INTERNAL_ERROR`   | サーバーエラー                                    |
+| HTTPステータス | code                | 説明                                              |
+| -------------- | ------------------- | ------------------------------------------------- |
+| 400            | `VALIDATION_ERROR`  | バリデーションエラー。`details` に Zod エラー詳細 |
+| 401            | `UNAUTHORIZED`      | 未認証                                            |
+| 403            | `FORBIDDEN`         | 権限不足                                          |
+| 404            | `NOT_FOUND`         | リソースが存在しない                              |
+| 409            | `CONFLICT`          | 重複登録など                                      |
+| 429            | `TOO_MANY_REQUESTS` | レート制限超過                                    |
+| 500            | `INTERNAL_ERROR`    | サーバーエラー                                    |
 
 ### 1.5 権限チェック記法
 
@@ -331,7 +332,7 @@ Cookie: session=<session_token>
 
 Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
-**Errors:**: `400` バリデーションエラー / `401` メールアドレスまたはパスワードが不正 / `429` レート制限超過
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `401` `UNAUTHORIZED` メールアドレスまたはパスワードが不正 / `429` `TOO_MANY_REQUESTS` レート制限超過
 
 ---
 
@@ -388,7 +389,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
-**Errors:**: `401` 未認証（Cookie無し・セッション無効/期限切れ）
+**Errors:**: `401` `UNAUTHORIZED` 未認証（Cookie無し・セッション無効/期限切れ）
 
 ---
 
@@ -414,7 +415,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
-**Errors:**: `400` トークン期限切れ / `404` トークンが存在しない
+**Errors:**: `404` `INVALID_TOKEN` トークンが存在しない / `404` `TOKEN_USED` 使用済み / `404` `TOKEN_EXPIRED` 期限切れ
 
 ---
 
@@ -441,7 +442,9 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 { "data": { "message": "登録が完了しました" } }
 ```
 
-**Errors:**: `400` バリデーションエラー / `404` トークン無効・期限切れ / `409` 同一メールが既に登録済み
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `401` `UNAUTHORIZED` 既存ユーザーのパスワード不一致 / `404` `INVALID_TOKEN` トークンが存在しない / `404` `TOKEN_USED` 使用済み / `404` `TOKEN_EXPIRED` 期限切れ / `409` `CONFLICT` 同一メールが既に登録済み
+
+---
 
 <a id="auth-password-reset-request"></a>
 

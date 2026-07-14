@@ -10,9 +10,10 @@ async function json(res: Response): Promise<Record<string, any>> {
 
 vi.mock("../../lib/prisma.js", () => ({
   prisma: {
-    user: { findUnique: vi.fn(), update: vi.fn() },
+    user: { findUnique: vi.fn(), update: vi.fn(), create: vi.fn() },
     session: { create: vi.fn(), findUnique: vi.fn(), deleteMany: vi.fn() },
-    member: { findMany: vi.fn() },
+    member: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
+    inviteToken: { findUnique: vi.fn(), update: vi.fn() },
   },
 }));
 
@@ -33,7 +34,7 @@ vi.mock("../../services/mail.js", () => ({
 
 import { prisma } from "../../lib/prisma.js";
 import { checkLoginRateLimit } from "../../lib/redis.js";
-import { verify } from "argon2";
+import { verify, hash } from "argon2";
 import { authRouter } from "../auth.js";
 
 function createTestApp() {
@@ -62,6 +63,17 @@ const testMembership = {
   status: "active",
   org: { slug: "tokyo-men-choir", name: "東京男声合唱団" },
   part: { name: "Tenor I" },
+};
+
+const testInvite = {
+  token: "invite-token-abc",
+  email: "new@example.com",
+  nameJa: "新人 太郎",
+  orgId: "org-1",
+  roles: ["member"],
+  partId: "part-1",
+  usedAt: null as Date | null,
+  expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
 };
 
 beforeEach(() => {
@@ -248,5 +260,211 @@ describe("GET /auth/me", () => {
         status: "active",
       },
     ]);
+  });
+});
+
+describe("GET /auth/invite/:token", () => {
+  it("トークンが存在しない: 404 INVALID_TOKENを返す", async () => {
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp();
+    const res = await app.request("/auth/invite/nonexistent");
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("INVALID_TOKEN");
+  });
+
+  it("使用済み: 404 TOKEN_USEDを返す", async () => {
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue({
+      ...testInvite,
+      usedAt: new Date("2022-01-01"),
+      org: { name: "東京男声合唱団", slug: "tokyo-men-choir" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/invite/${testInvite.token}`);
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("TOKEN_USED");
+  });
+
+  it("期限切れ: 404 TOKEN_EXPIREDを返す", async () => {
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue({
+      ...testInvite,
+      expiresAt: new Date("2022-01-01"),
+      org: { name: "東京男声合唱団", slug: "tokyo-men-choir" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/invite/${testInvite.token}`);
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("TOKEN_EXPIRED");
+  });
+
+  it("正常: 200を返し招待情報を返す", async () => {
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue({
+      ...testInvite,
+      org: { name: "東京男声合唱団", slug: "tokyo-men-choir" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/invite/${testInvite.token}`);
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({
+      email: testInvite.email,
+      nameJa: testInvite.nameJa,
+      orgName: "東京男声合唱団",
+      orgSlug: "tokyo-men-choir",
+      expiresAt: testInvite.expiresAt.toISOString(),
+    });
+  });
+});
+
+describe("POST /auth/invite/:token", () => {
+  it("バリデーションエラー: nameJa空は400を返す", async () => {
+    const app = createTestApp();
+    const res = await app.request(`/auth/invite/${testInvite.token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nameJa: "", password: "password123" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("無効なトークン: 404を返す", async () => {
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp();
+    const res = await app.request("/auth/invite/nonexistent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nameJa: "新人 太郎", password: "password123" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("INVALID_TOKEN");
+  });
+
+  it("既存ユーザーが既にそのteamのメンバー: 409を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue(testInvite as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.member.findUnique).mockResolvedValue({ id: "member-1" } as any);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/invite/${testInvite.token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nameJa: "新人 太郎", password: "password123" }),
+    });
+
+    expect(res.status).toBe(409);
+    const body = await json(res);
+    expect(body.error.code).toBe("CONFLICT");
+  });
+
+  it("既存ユーザーだがパスワード不一致: 401を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue(testInvite as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+    vi.mocked(prisma.member.findUnique).mockResolvedValue(null);
+    vi.mocked(verify).mockResolvedValue(false);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/invite/${testInvite.token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nameJa: "新人 太郎", password: "wrong-password" }),
+    });
+
+    expect(res.status).toBe(401);
+    const body = await json(res);
+    expect(body.error.code).toBe("UNAUTHORIZED");
+  });
+
+  it("既存ユーザー・パスワード一致: 201を返し既存ユーザーにMemberが追加される", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue(testInvite as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+    vi.mocked(prisma.member.findUnique).mockResolvedValue(null);
+    vi.mocked(verify).mockResolvedValue(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.member.create).mockResolvedValue({} as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.inviteToken.update).mockResolvedValue({} as any);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/invite/${testInvite.token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nameJa: "新人 太郎", password: "correct-password" }),
+    });
+
+    expect(res.status).toBe(201);
+    expect(prisma.user.create).not.toHaveBeenCalled();
+    expect(prisma.member.create).toHaveBeenCalledWith({
+      data: {
+        userId: testUser.id,
+        orgId: testInvite.orgId,
+        roles: testInvite.roles,
+        partId: testInvite.partId,
+        joinedAt: expect.any(Date),
+      },
+    });
+    expect(prisma.inviteToken.update).toHaveBeenCalledWith({
+      where: { token: testInvite.token },
+      data: { usedAt: expect.any(Date) },
+    });
+  });
+
+  it("新規ユーザー: 201を返しUser・Memberが新規作成される", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue(testInvite as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+    vi.mocked(hash).mockResolvedValue("hashed-new-password");
+    vi.mocked(prisma.user.create).mockResolvedValue(testUser);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.member.create).mockResolvedValue({} as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.inviteToken.update).mockResolvedValue({} as any);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/invite/${testInvite.token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nameJa: "新人 太郎", password: "correct-password" }),
+    });
+
+    expect(res.status).toBe(201);
+    expect(prisma.user.create).toHaveBeenCalledWith({
+      data: {
+        email: testInvite.email,
+        nameJa: "新人 太郎",
+        passwordHash: "hashed-new-password",
+      },
+    });
+    expect(prisma.member.create).toHaveBeenCalledWith({
+      data: {
+        userId: testUser.id,
+        orgId: testInvite.orgId,
+        roles: testInvite.roles,
+        partId: testInvite.partId,
+        joinedAt: expect.any(Date),
+      },
+    });
   });
 });

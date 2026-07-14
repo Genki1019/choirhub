@@ -44,6 +44,18 @@ function getClientIp(c: Context): string {
   return ips[ips.length - 1] ?? c.req.header("x-real-ip") ?? "unknown";
 }
 
+const INVALID_TOKEN_ERROR = { code: "INVALID_TOKEN", message: "招待リンクが無効です" } as const;
+
+function usedOrExpiredInviteError(invite: {
+  usedAt: Date | null;
+  expiresAt: Date;
+}): { code: string; message: string } | null {
+  if (invite.usedAt) return { code: "TOKEN_USED", message: "この招待リンクは既に使用されています" };
+  if (invite.expiresAt < new Date())
+    return { code: "TOKEN_EXPIRED", message: "招待リンクの有効期限が切れています" };
+  return null;
+}
+
 export const authRouter = new Hono()
 
   .post(
@@ -143,12 +155,9 @@ export const authRouter = new Hono()
       include: { org: { select: { name: true, slug: true } } },
     });
 
-    if (!invite || invite.usedAt || invite.expiresAt < new Date()) {
-      return c.json(
-        { error: { code: "INVALID_TOKEN", message: "招待リンクが無効または期限切れです" } },
-        404,
-      );
-    }
+    if (!invite) return c.json({ error: INVALID_TOKEN_ERROR }, 404);
+    const err = usedOrExpiredInviteError(invite);
+    if (err) return c.json({ error: err }, 404);
 
     return c.json({
       data: {
@@ -180,12 +189,9 @@ export const authRouter = new Hono()
       const { nameJa, password } = c.req.valid("json");
 
       const invite = await prisma.inviteToken.findUnique({ where: { token } });
-      if (!invite || invite.usedAt || invite.expiresAt < new Date()) {
-        return c.json(
-          { error: { code: "INVALID_TOKEN", message: "招待リンクが無効または期限切れです" } },
-          404,
-        );
-      }
+      if (!invite) return c.json({ error: INVALID_TOKEN_ERROR }, 404);
+      const tokenErr = usedOrExpiredInviteError(invite);
+      if (tokenErr) return c.json({ error: tokenErr }, 404);
 
       const existingUser = await prisma.user.findUnique({ where: { email: invite.email } });
       if (existingUser) {

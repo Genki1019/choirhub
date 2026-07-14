@@ -388,6 +388,8 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
+**Errors:**: `401` 未認証（Cookie無し・セッション無効/期限切れ）
+
 ---
 
 <a id="auth-invite-get"></a>

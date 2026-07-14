@@ -11,7 +11,7 @@ async function json(res: Response): Promise<Record<string, any>> {
 vi.mock("../../lib/prisma.js", () => ({
   prisma: {
     user: { findUnique: vi.fn(), update: vi.fn() },
-    session: { create: vi.fn() },
+    session: { create: vi.fn(), findUnique: vi.fn(), deleteMany: vi.fn() },
     member: { findMany: vi.fn() },
   },
 }));
@@ -160,6 +160,89 @@ describe("POST /auth/login", () => {
       {
         orgSlug: "tokyo-men-choir",
         orgName: "東京男声合唱団",
+        roles: ["member"],
+        partName: "Tenor I",
+        status: "active",
+      },
+    ]);
+  });
+});
+
+describe("POST /auth/logout", () => {
+  it("Cookieあり: 204を返しセッションが削除される", async () => {
+    const app = createTestApp();
+    const res = await app.request("/auth/logout", {
+      method: "POST",
+      headers: { Cookie: "session=session-abc" },
+    });
+
+    expect(res.status).toBe(204);
+    expect(prisma.session.deleteMany).toHaveBeenCalledWith({ where: { id: "session-abc" } });
+  });
+
+  it("Cookieなし: それでも204を返し、セッション削除は呼ばれない", async () => {
+    const app = createTestApp();
+    const res = await app.request("/auth/logout", { method: "POST" });
+
+    expect(res.status).toBe(204);
+    expect(prisma.session.deleteMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /auth/me", () => {
+  it("Cookieなし: 401を返す", async () => {
+    const app = createTestApp();
+    const res = await app.request("/auth/me");
+
+    expect(res.status).toBe(401);
+    const body = await json(res);
+    expect(body.error.code).toBe("UNAUTHORIZED");
+  });
+
+  it("セッションが無効: 401を返す", async () => {
+    vi.mocked(prisma.session.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp();
+    const res = await app.request("/auth/me", {
+      headers: { Cookie: "session=invalid-session" },
+    });
+
+    expect(res.status).toBe(401);
+    const body = await json(res);
+    expect(body.error.code).toBe("UNAUTHORIZED");
+  });
+
+  it("正常: 200を返し、ユーザーとmemberId付きの所属団体一覧を返す", async () => {
+    vi.mocked(prisma.session.findUnique).mockResolvedValue({
+      id: "session-abc",
+      userId: testUser.id,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      user: testUser,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.member.findMany).mockResolvedValue([
+      { ...testMembership, id: "member-1" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp();
+    const res = await app.request("/auth/me", {
+      headers: { Cookie: "session=session-abc" },
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.user).toEqual({
+      id: testUser.id,
+      nameJa: testUser.nameJa,
+      email: testUser.email,
+      avatarUrl: null,
+    });
+    expect(body.data.orgs).toEqual([
+      {
+        orgSlug: "tokyo-men-choir",
+        orgName: "東京男声合唱団",
+        memberId: "member-1",
         roles: ["member"],
         partName: "Tenor I",
         status: "active",

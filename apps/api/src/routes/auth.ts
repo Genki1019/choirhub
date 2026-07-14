@@ -125,6 +125,7 @@ export const authRouter = new Hono()
     },
   )
 
+  // ── POST /auth/logout ── セッション破棄
   .post("/auth/logout", async (c) => {
     const sessionId = getCookie(c, sessionManager.sessionCookieName);
     if (sessionId) {
@@ -234,6 +235,7 @@ export const authRouter = new Hono()
     },
   )
 
+  // ── GET /auth/me ── 現在のログインユーザー情報取得
   .get("/auth/me", async (c) => {
     const sessionId = getCookie(c, sessionManager.sessionCookieName);
     if (!sessionId)

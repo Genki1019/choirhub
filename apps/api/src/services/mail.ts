@@ -8,8 +8,6 @@ const FROM_ADDRESS   = process.env.MAIL_FROM      ?? "ChoirHub <onboarding@resen
 // DEV_MAIL_TO が設定されている場合、すべてのメールをそのアドレスに転送する（開発用）
 const DEV_MAIL_TO = process.env.DEV_MAIL_TO ?? "";
 
-const isDev = FRONTEND_URL.includes("localhost");
-
 function isResendConfigured(): boolean {
   return RESEND_API_KEY.startsWith("re_") && RESEND_API_KEY.length > 10 && !RESEND_API_KEY.includes("xxx");
 }

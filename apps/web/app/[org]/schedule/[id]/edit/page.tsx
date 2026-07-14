@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Calendar, MapPin, AlertCircle, FileText, Loader2 } from "lucide-react";
@@ -64,9 +64,9 @@ export default function EditSchedulePage() {
   const initError = eventError?.message ?? partsError?.message ?? categoriesError?.message ?? null;
 
   // イベントデータが揃ったときだけフォームを初期化する（再フェッチで上書きしない）
-  const formInitializedRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!event || formInitializedRef.current === id) return;
+  const [initializedId, setInitializedId] = useState<string | null>(null);
+  if (event && initializedId !== id) {
+    setInitializedId(id);
 
     setTitle(event.title);
     setCategoryId(event.category.id);
@@ -92,8 +92,7 @@ export default function EditSchedulePage() {
     }
 
     setPageMemo(event.pageMemo ?? "");
-    formInitializedRef.current = id;
-  }, [event, id]);
+  }
 
   if (loading) {
     return (

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "prisma generate && tsc",
+    "lint": "eslint .",
     "vercel-build": "prisma generate && prisma migrate deploy",
     "start": "node dist/index.js",
     "test": "vitest run",
@@ -34,11 +35,14 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^22.15.21",
     "@vitest/coverage-v8": "^3.2.2",
+    "eslint": "^9.39.4",
     "prisma": "^6.3.1",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
+    "typescript-eslint": "^8.63.0",
     "vitest": "^3.2.2"
   }
 }

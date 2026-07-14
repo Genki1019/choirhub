@@ -32,6 +32,9 @@ jobs:
       - name: Lint (web)
         run: pnpm --filter @choirhub/web lint
 
+      - name: Lint (api)
+        run: pnpm --filter @choirhub/api lint
+
       - name: Typecheck (web)
         run: pnpm --filter @choirhub/web exec tsc --noEmit
 

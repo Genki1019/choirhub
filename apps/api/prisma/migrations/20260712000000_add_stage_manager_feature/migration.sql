@@ -13,6 +13,10 @@ DROP INDEX "on_stage_assignments_concert_id_member_id_program_id_key";
 -- AlterTable
 ALTER TABLE "concerts" ADD COLUMN     "applied_survey_id" TEXT;
 
+-- on_stage_assignments は SurveyResponse から再生成される派生データなので、
+-- 列構成変更にあたり一旦クリアする（各演奏会で「フォーメーションに反映」を再実行すれば復元する）
+DELETE FROM "on_stage_assignments";
+
 -- AlterTable
 ALTER TABLE "on_stage_assignments" DROP COLUMN "program_id",
 DROP COLUMN "sort_order",

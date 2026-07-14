@@ -35,9 +35,9 @@ function sortMembers(a: MemberProfile, b: MemberProfile, key: SortKey): number {
 }
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: "nameJa",       label: "名前順" },
+  { value: "nameJa", label: "名前順" },
   { value: "joinedAt_asc", label: "在籍歴が長い順" },
-  { value: "joinedAt_desc",label: "入団が新しい順" },
+  { value: "joinedAt_desc", label: "入団が新しい順" },
 ];
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
@@ -54,7 +54,7 @@ function MembersContent() {
   const [viewMode, setViewMode] = useState<ViewMode>("card");
   const [isMobile, setIsMobile] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
-    (searchParams.get("status") as StatusFilter) ?? "active"
+    (searchParams.get("status") as StatusFilter) ?? "active",
   );
   const [memberTypeFilter, setMemberTypeFilter] = useState<string>("all");
   const { roles: myRoles } = useMember();
@@ -63,7 +63,11 @@ function MembersContent() {
 
   const isAdmin = myRoles.includes("admin");
 
-  const { data: members = [], isLoading: membersLoading, error: membersError } = useQuery({
+  const {
+    data: members = [],
+    isLoading: membersLoading,
+    error: membersError,
+  } = useQuery({
     queryKey: memberKeys.list(org),
     queryFn: () => membersApi.list(org),
   });
@@ -93,7 +97,12 @@ function MembersContent() {
     const filtered = members.filter((m) => {
       if (statusFilter !== "all" && m.status !== statusFilter) return false;
       if (memberTypeFilter === "__none__" && m.memberType !== null) return false;
-      if (memberTypeFilter !== "all" && memberTypeFilter !== "__none__" && m.memberType?.id !== memberTypeFilter) return false;
+      if (
+        memberTypeFilter !== "all" &&
+        memberTypeFilter !== "__none__" &&
+        m.memberType?.id !== memberTypeFilter
+      )
+        return false;
       return true;
     });
 
@@ -101,7 +110,10 @@ function MembersContent() {
     const baseParts = isFiltering
       ? [...parts].sort(comparePartOrder)
       : (() => {
-          const partMap = new Map<string, { id: string; name: string; voiceType: string; sortOrder: number }>();
+          const partMap = new Map<
+            string,
+            { id: string; name: string; voiceType: string; sortOrder: number }
+          >();
           filtered.forEach((m) => {
             if (m.part && !partMap.has(m.part.id)) partMap.set(m.part.id, m.part);
           });
@@ -130,127 +142,136 @@ function MembersContent() {
 
   return (
     <>
-    {showInvite && (
-      <InviteModal
-        org={org}
-        parts={parts}
-        onClose={() => setShowInvite(false)}
-        onSuccess={() => { setShowInvite(false); setShowInviteSuccess(true); }}
-      />
-    )}
-    {showInviteSuccess && (
-      <InviteSuccessModal onClose={() => setShowInviteSuccess(false)} />
-    )}
-    <div className="flex flex-col">
-      {/* ヘッダー */}
-      <header className="bg-white border-b border-gray-200 shrink-0">
-        <PageBleedRow className="flex items-center justify-between py-4">
-          <h1 className="text-lg font-semibold text-gray-800">メンバー</h1>
-          {isAdmin && (
-            <button
-              onClick={() => setShowInvite(true)}
-              className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-brand-700 transition-colors"
-            >
-              <UserPlus size={14} />
-              メンバーを招待
-            </button>
-          )}
-        </PageBleedRow>
-      </header>
-
-      {/* コントロールバー */}
-      <div className="bg-white border-b border-gray-100 shrink-0">
-        <PageBleedRow className="flex flex-wrap items-center gap-y-2 justify-between py-3">
-          <div className="flex items-center gap-2">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="text-xs text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-brand-400"
-            >
-              {STATUS_FILTERS.map(({ value, label }) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-            {memberTypes.length > 0 && (
-              <select
-                value={memberTypeFilter}
-                onChange={(e) => setMemberTypeFilter(e.target.value)}
-                className="text-xs text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-brand-400"
+      {showInvite && (
+        <InviteModal
+          org={org}
+          parts={parts}
+          onClose={() => setShowInvite(false)}
+          onSuccess={() => {
+            setShowInvite(false);
+            setShowInviteSuccess(true);
+          }}
+        />
+      )}
+      {showInviteSuccess && <InviteSuccessModal onClose={() => setShowInviteSuccess(false)} />}
+      <div className="flex flex-col">
+        {/* ヘッダー */}
+        <header className="shrink-0 border-b border-gray-200 bg-white">
+          <PageBleedRow className="flex items-center justify-between py-4">
+            <h1 className="text-lg font-semibold text-gray-800">メンバー</h1>
+            {isAdmin && (
+              <button
+                onClick={() => setShowInvite(true)}
+                className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
               >
-                <option value="all">全区分</option>
-                {memberTypes.map(({ id, name }) => (
-                  <option key={id} value={id}>{name}</option>
-                ))}
-                <option value="__none__">未設定</option>
-              </select>
+                <UserPlus size={14} />
+                メンバーを招待
+              </button>
             )}
-            {!loading && <span className="text-xs text-gray-400">{totalCount}名</span>}
-          </div>
+          </PageBleedRow>
+        </header>
 
-          <div className="flex items-center gap-3">
-            <select
-              value={sortKey}
-              onChange={(e) => setSortKey(e.target.value as SortKey)}
-              className="text-xs text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-brand-400"
-            >
-              {SORT_OPTIONS.map(({ value, label }) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-
-            <div className="hidden sm:flex border border-gray-200 rounded-lg overflow-hidden">
-              <button
-                onClick={() => setViewMode("card")}
-                className={`p-1.5 transition-colors ${viewMode === "card" ? "bg-brand-600 text-white" : "text-gray-400 hover:bg-gray-50"}`}
+        {/* コントロールバー */}
+        <div className="shrink-0 border-b border-gray-100 bg-white">
+          <PageBleedRow className="flex flex-wrap items-center justify-between gap-y-2 py-3">
+            <div className="flex items-center gap-2">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                className="focus:ring-brand-400 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-600 focus:ring-1 focus:outline-none"
               >
-                <LayoutGrid size={15} />
-              </button>
-              <button
-                onClick={() => setViewMode("list")}
-                className={`p-1.5 transition-colors ${viewMode === "list" ? "bg-brand-600 text-white" : "text-gray-400 hover:bg-gray-50"}`}
-              >
-                <List size={15} />
-              </button>
+                {STATUS_FILTERS.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              {memberTypes.length > 0 && (
+                <select
+                  value={memberTypeFilter}
+                  onChange={(e) => setMemberTypeFilter(e.target.value)}
+                  className="focus:ring-brand-400 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-600 focus:ring-1 focus:outline-none"
+                >
+                  <option value="all">全区分</option>
+                  {memberTypes.map(({ id, name }) => (
+                    <option key={id} value={id}>
+                      {name}
+                    </option>
+                  ))}
+                  <option value="__none__">未設定</option>
+                </select>
+              )}
+              {!loading && <span className="text-xs text-gray-400">{totalCount}名</span>}
             </div>
-          </div>
-        </PageBleedRow>
+
+            <div className="flex items-center gap-3">
+              <select
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as SortKey)}
+                className="focus:ring-brand-400 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-600 focus:ring-1 focus:outline-none"
+              >
+                {SORT_OPTIONS.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+
+              <div className="hidden overflow-hidden rounded-lg border border-gray-200 sm:flex">
+                <button
+                  onClick={() => setViewMode("card")}
+                  className={`p-1.5 transition-colors ${viewMode === "card" ? "bg-brand-600 text-white" : "text-gray-400 hover:bg-gray-50"}`}
+                >
+                  <LayoutGrid size={15} />
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`p-1.5 transition-colors ${viewMode === "list" ? "bg-brand-600 text-white" : "text-gray-400 hover:bg-gray-50"}`}
+                >
+                  <List size={15} />
+                </button>
+              </div>
+            </div>
+          </PageBleedRow>
+        </div>
+
+        {/* メインコンテンツ */}
+        <PageMain className="space-y-8">
+          {loading && (
+            <div className="flex items-center justify-center gap-2 py-16 text-gray-400">
+              <Loader2 size={18} className="animate-spin" />
+              <span className="text-sm">読み込み中...</span>
+            </div>
+          )}
+
+          {!loading && membersError && (
+            <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
+              <AlertCircle size={16} />
+              <span className="text-sm">{membersError.message}</span>
+            </div>
+          )}
+
+          {!loading && !membersError && grouped.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+              <Users size={40} className="mb-3 opacity-40" />
+              <p className="text-sm">該当するメンバーがいません</p>
+            </div>
+          )}
+
+          {!loading &&
+            !membersError &&
+            grouped.map(({ partId, partName, members: partMembers }) => (
+              <MemberPartSection
+                key={partId}
+                partId={partId}
+                partName={partName}
+                members={partMembers}
+                viewMode={effectiveViewMode}
+                org={org}
+              />
+            ))}
+        </PageMain>
       </div>
-
-      {/* メインコンテンツ */}
-      <PageMain className="space-y-8">
-        {loading && (
-          <div className="flex items-center justify-center py-16 gap-2 text-gray-400">
-            <Loader2 size={18} className="animate-spin" />
-            <span className="text-sm">読み込み中...</span>
-          </div>
-        )}
-
-        {!loading && membersError && (
-          <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
-            <AlertCircle size={16} />
-            <span className="text-sm">{membersError.message}</span>
-          </div>
-        )}
-
-        {!loading && !membersError && grouped.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-            <Users size={40} className="mb-3 opacity-40" />
-            <p className="text-sm">該当するメンバーがいません</p>
-          </div>
-        )}
-
-        {!loading && !membersError && grouped.map(({ partId, partName, members: partMembers }) => (
-          <MemberPartSection
-            key={partId}
-            partId={partId}
-            partName={partName}
-            members={partMembers}
-            viewMode={effectiveViewMode}
-            org={org}
-          />
-        ))}
-      </PageMain>
-    </div>
     </>
   );
 }
@@ -259,7 +280,7 @@ export default function MembersPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center h-full gap-2 text-gray-400">
+        <div className="flex h-full items-center justify-center gap-2 text-gray-400">
           <Loader2 size={18} className="animate-spin" />
           <span className="text-sm">読み込み中...</span>
         </div>

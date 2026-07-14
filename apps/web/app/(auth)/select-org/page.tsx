@@ -7,7 +7,7 @@ import { authApi, ApiClientError } from "@/lib/auth-api";
 import { ROLE_LABELS } from "@/lib/roles";
 
 const STATUS_LABELS: Record<string, { label: string; dot: string }> = {
-  active:   { label: "在団", dot: "bg-teal-400" },
+  active: { label: "在団", dot: "bg-teal-400" },
   offstage: { label: "休団", dot: "bg-yellow-400" },
 };
 
@@ -30,18 +30,19 @@ function toSlug(name: string): string {
 
 export default function SelectOrgPage() {
   const router = useRouter();
-  const [orgs, setOrgs]         = useState<OrgEntry[]>([]);
-  const [userName, setUserName]  = useState("");
-  const [loading, setLoading]    = useState(true);
-  const [showForm, setShowForm]  = useState(false);
-  const [orgName, setOrgName]    = useState("");
-  const [orgSlug, setOrgSlug]    = useState("");
+  const [orgs, setOrgs] = useState<OrgEntry[]>([]);
+  const [userName, setUserName] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [orgName, setOrgName] = useState("");
+  const [orgSlug, setOrgSlug] = useState("");
   const [slugManual, setSlugManual] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError]   = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    authApi.me()
+    authApi
+      .me()
       .then((result) => {
         setUserName(result.user.nameJa);
         setOrgs(result.orgs);
@@ -86,45 +87,48 @@ export default function SelectOrgPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <Loader2 size={24} className="animate-spin text-gray-400" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
         {/* ロゴ */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 bg-brand-600 rounded-xl flex items-center justify-center mb-4">
+        <div className="mb-8 flex flex-col items-center">
+          <div className="bg-brand-600 mb-4 flex h-12 w-12 items-center justify-center rounded-xl">
             <Music size={24} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">ChoirHub</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {userName} さん、ようこそ
-          </p>
+          <p className="mt-1 text-sm text-gray-500">{userName} さん、ようこそ</p>
         </div>
 
         {/* 団体リスト */}
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-gray-100">
-            <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+          <div className="border-b border-gray-100 px-5 py-3.5">
+            <div className="flex items-center gap-2 text-xs font-semibold tracking-wide text-gray-500 uppercase">
               <Users size={12} />
               所属団体を選択
             </div>
           </div>
 
           {orgs.length === 0 ? (
-            <div className="flex flex-col items-center py-10 px-6 text-center gap-2">
-              <Users size={32} className="text-gray-200 mb-1" />
+            <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+              <Users size={32} className="mb-1 text-gray-200" />
               <p className="text-sm font-medium text-gray-600">所属している団体がありません</p>
-              <p className="text-xs text-gray-400">退団処理された可能性があります。団体の管理者にお問い合わせください。</p>
+              <p className="text-xs text-gray-400">
+                退団処理された可能性があります。団体の管理者にお問い合わせください。
+              </p>
             </div>
           ) : (
             <ul className="divide-y divide-gray-100">
               {orgs.map((org) => {
-                const status = STATUS_LABELS[org.status] ?? { label: org.status, dot: "bg-gray-400" };
+                const status = STATUS_LABELS[org.status] ?? {
+                  label: org.status,
+                  dot: "bg-gray-400",
+                };
                 const displayRoles = org.roles
                   .filter((r) => r !== "member")
                   .map((r) => ROLE_LABELS[r] ?? r);
@@ -133,23 +137,25 @@ export default function SelectOrgPage() {
                   <li key={org.orgSlug}>
                     <button
                       onClick={() => router.push(`/${org.orgSlug}`)}
-                      className="w-full flex items-center gap-4 px-5 py-4 hover:bg-brand-50 transition-colors text-left group"
+                      className="hover:bg-brand-50 group flex w-full items-center gap-4 px-5 py-4 text-left transition-colors"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center shrink-0 text-white font-bold text-base">
+                      <div className="bg-brand-600 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-bold text-white">
                         {org.orgName.charAt(0)}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-800 truncate">{org.orgName}</p>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-gray-800">
+                          {org.orgName}
+                        </p>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-2">
                           {org.partName && (
                             <span className="text-xs text-gray-500">{org.partName}</span>
                           )}
                           <span className="flex items-center gap-1 text-xs text-gray-500">
-                            <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+                            <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
                             {status.label}
                           </span>
                           {displayRoles.length > 0 && (
-                            <span className="text-xs text-brand-600 font-medium">
+                            <span className="text-brand-600 text-xs font-medium">
                               {displayRoles.join(" / ")}
                             </span>
                           )}
@@ -157,7 +163,7 @@ export default function SelectOrgPage() {
                       </div>
                       <ChevronRight
                         size={16}
-                        className="text-gray-300 group-hover:text-brand-400 transition-colors shrink-0"
+                        className="group-hover:text-brand-400 shrink-0 text-gray-300 transition-colors"
                       />
                     </button>
                   </li>
@@ -171,13 +177,16 @@ export default function SelectOrgPage() {
         {showForm ? (
           <form
             onSubmit={handleCreate}
-            className="mt-4 bg-white rounded-2xl border border-gray-200 p-5 space-y-4"
+            className="mt-4 space-y-4 rounded-2xl border border-gray-200 bg-white p-5"
           >
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-gray-800">新しい団体を作成</p>
               <button
                 type="button"
-                onClick={() => { setShowForm(false); setFormError(null); }}
+                onClick={() => {
+                  setShowForm(false);
+                  setFormError(null);
+                }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X size={16} />
@@ -186,7 +195,7 @@ export default function SelectOrgPage() {
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">団体名</label>
+                <label className="mb-1 block text-xs font-medium text-gray-600">団体名</label>
                 <input
                   type="text"
                   value={orgName}
@@ -194,14 +203,14 @@ export default function SelectOrgPage() {
                   placeholder="○○合唱団"
                   required
                   maxLength={100}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="focus:ring-brand-500 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  スラグ <span className="text-gray-400 font-normal">（URL に使用）</span>
+                <label className="mb-1 block text-xs font-medium text-gray-600">
+                  スラグ <span className="font-normal text-gray-400">（URL に使用）</span>
                 </label>
-                <div className="flex items-center gap-1 text-sm border border-gray-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-brand-500">
+                <div className="focus-within:ring-brand-500 flex items-center gap-1 overflow-hidden rounded-lg border border-gray-200 text-sm focus-within:ring-2">
                   <span className="px-2 text-gray-400 select-none">choirhub.app/</span>
                   <input
                     type="text"
@@ -218,36 +227,34 @@ export default function SelectOrgPage() {
               </div>
             </div>
 
-            {formError && (
-              <p className="text-xs text-red-600">{formError}</p>
-            )}
+            {formError && <p className="text-xs text-red-600">{formError}</p>}
 
             <button
               type="submit"
               disabled={submitting || !orgName.trim() || !orgSlug.trim()}
-              className="w-full py-2 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="bg-brand-600 hover:bg-brand-700 w-full rounded-lg py-2 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submitting ? <Loader2 size={16} className="animate-spin mx-auto" /> : "作成する"}
+              {submitting ? <Loader2 size={16} className="mx-auto animate-spin" /> : "作成する"}
             </button>
           </form>
         ) : (
           <button
             onClick={() => setShowForm(true)}
-            className="mt-4 w-full flex items-center justify-center gap-2 py-3 text-sm text-gray-500 hover:text-brand-600 hover:bg-white border border-dashed border-gray-300 hover:border-brand-300 rounded-2xl transition-colors"
+            className="hover:text-brand-600 hover:border-brand-300 mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-300 py-3 text-sm text-gray-500 transition-colors hover:bg-white"
           >
             <Plus size={16} />
             新しい団体を作成
           </button>
         )}
 
-        <p className="text-xs text-gray-400 text-center mt-5">
+        <p className="mt-5 text-center text-xs text-gray-400">
           別のアカウントでログインする場合は
           <button
             onClick={async () => {
               await fetch("/api/v1/auth/logout", { method: "POST", credentials: "include" });
               router.push("/login");
             }}
-            className="text-brand-500 hover:underline ml-1"
+            className="text-brand-500 ml-1 hover:underline"
           >
             ログアウト
           </button>

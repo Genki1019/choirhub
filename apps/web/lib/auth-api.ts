@@ -2,7 +2,13 @@ import { apiClient, ApiClientError } from "./api-client";
 
 export interface LoginResult {
   user: { id: string; nameJa: string; email: string; avatarUrl: string | null };
-  orgs: { orgSlug: string; orgName: string; roles: string[]; partName: string | null; status: string }[];
+  orgs: {
+    orgSlug: string;
+    orgName: string;
+    roles: string[];
+    partName: string | null;
+    status: string;
+  }[];
 }
 
 export interface InviteInfo {
@@ -21,8 +27,7 @@ export const authApi = {
 
   me: () => apiClient.get<LoginResult>("/auth/me"),
 
-  getInvite: (token: string) =>
-    apiClient.get<InviteInfo>(`/auth/invite/${token}`),
+  getInvite: (token: string) => apiClient.get<InviteInfo>(`/auth/invite/${token}`),
 
   acceptInvite: (token: string, data: { nameJa: string; password: string }) =>
     apiClient.post<{ message: string }>(`/auth/invite/${token}`, data),

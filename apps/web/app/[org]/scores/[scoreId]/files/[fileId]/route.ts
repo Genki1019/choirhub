@@ -5,13 +5,13 @@ const API_INTERNAL_URL = process.env.API_INTERNAL_URL ?? "http://localhost:3001"
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ org: string; scoreId: string; fileId: string }> }
+  { params }: { params: Promise<{ org: string; scoreId: string; fileId: string }> },
 ) {
   const { org, scoreId, fileId } = await params;
 
   const upstream = await fetch(
     `${API_INTERNAL_URL}/api/v1/${org}/scores/${scoreId}/files/${fileId}/download`,
-    { headers: { Cookie: request.headers.get("cookie") ?? "" } }
+    { headers: { Cookie: request.headers.get("cookie") ?? "" } },
   ).catch(() => null);
 
   if (!upstream || !upstream.ok) notFound();
@@ -30,9 +30,9 @@ export async function GET(
 
   return new Response(upstream.body, {
     headers: {
-      "Content-Type":        contentType,
+      "Content-Type": contentType,
       "Content-Disposition": contentDisposition,
-      "Cache-Control":       "private, max-age=3600",
+      "Cache-Control": "private, max-age=3600",
     },
   });
 }

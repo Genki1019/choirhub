@@ -23,7 +23,10 @@ export const tenantMiddleware = createMiddleware<TenantEnv>(async (c, next) => {
     where: { userId_orgId: { userId: user.id, orgId: org.id } },
   });
   if (!member) {
-    return c.json({ error: { code: "FORBIDDEN", message: "この団体へのアクセス権限がありません" } }, 403);
+    return c.json(
+      { error: { code: "FORBIDDEN", message: "この団体へのアクセス権限がありません" } },
+      403,
+    );
   }
 
   if (member.deletedAt) {

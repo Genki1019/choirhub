@@ -14,11 +14,7 @@ export function MemberProvider({
   roles,
   children,
 }: MemberContextValue & { children: React.ReactNode }) {
-  return (
-    <MemberContext.Provider value={{ memberId, roles }}>
-      {children}
-    </MemberContext.Provider>
-  );
+  return <MemberContext.Provider value={{ memberId, roles }}>{children}</MemberContext.Provider>;
 }
 
 export function useMember(): MemberContextValue {

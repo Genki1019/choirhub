@@ -25,16 +25,24 @@ export const outreachRouter = new Hono<TenantEnv>()
         creator: { select: { id: true, userRef: { select: { nameJa: true } } } },
         participants: {
           include: {
-            member: { select: { id: true, partId: true, userRef: { select: { nameJa: true } }, part: { select: { name: true } } } },
+            member: {
+              select: {
+                id: true,
+                partId: true,
+                userRef: { select: { nameJa: true } },
+                part: { select: { name: true } },
+              },
+            },
           },
         },
       },
     });
 
     if (!isTicketManager(actingMember)) {
-      const filtered = activities.filter((a) =>
-        a.createdById === actingMember.id ||
-        a.participants.some((p) => p.memberId === actingMember.id)
+      const filtered = activities.filter(
+        (a) =>
+          a.createdById === actingMember.id ||
+          a.participants.some((p) => p.memberId === actingMember.id),
       );
       return c.json({ data: filtered.map(formatActivity) });
     }
@@ -45,18 +53,27 @@ export const outreachRouter = new Hono<TenantEnv>()
   // POST /tickets/:concertId/outreach
   .post(
     "/tickets/:concertId/outreach",
-    zValidator("json", z.object({
-      destination: z.string().min(1),
-      activityDate: z.string().date(),
-      note: z.string().optional(),
-      participants: z.array(z.object({
-        memberId: z.string(),
-        ticketsSold: z.number().int().min(0).default(0),
-        expense: z.number().int().min(0).optional(),
-      })).min(1),
-    }), (result, c) => {
-      if (!result.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
-    }),
+    zValidator(
+      "json",
+      z.object({
+        destination: z.string().min(1),
+        activityDate: z.string().date(),
+        note: z.string().optional(),
+        participants: z
+          .array(
+            z.object({
+              memberId: z.string(),
+              ticketsSold: z.number().int().min(0).default(0),
+              expense: z.number().int().min(0).optional(),
+            }),
+          )
+          .min(1),
+      }),
+      (result, c) => {
+        if (!result.success)
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      },
+    ),
     async (c) => {
       const actingMember = c.get("member");
       const org = c.get("org");
@@ -64,13 +81,19 @@ export const outreachRouter = new Hono<TenantEnv>()
       const body = c.req.valid("json");
 
       if (!isMemberPlus(actingMember)) {
-        return c.json({ error: { code: "FORBIDDEN", message: "情宣記録の申請は一般団員以上のみ可能です" } }, 403);
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "情宣記録の申請は一般団員以上のみ可能です" } },
+          403,
+        );
       }
 
       if (!isTicketManager(actingMember)) {
         const includesSelf = body.participants.some((p) => p.memberId === actingMember.id);
         if (!includesSelf) {
-          return c.json({ error: { code: "FORBIDDEN", message: "自分を参加者に含めてください" } }, 403);
+          return c.json(
+            { error: { code: "FORBIDDEN", message: "自分を参加者に含めてください" } },
+            403,
+          );
         }
       }
 
@@ -107,14 +130,21 @@ export const outreachRouter = new Hono<TenantEnv>()
           creator: { select: { id: true, userRef: { select: { nameJa: true } } } },
           participants: {
             include: {
-              member: { select: { id: true, partId: true, userRef: { select: { nameJa: true } }, part: { select: { name: true } } } },
+              member: {
+                select: {
+                  id: true,
+                  partId: true,
+                  userRef: { select: { nameJa: true } },
+                  part: { select: { name: true } },
+                },
+              },
             },
           },
         },
       });
 
       return c.json({ data: formatActivity(activity) }, 201);
-    }
+    },
   )
 
   // PATCH /tickets/:concertId/outreach/:activityId/pay
@@ -147,7 +177,14 @@ export const outreachRouter = new Hono<TenantEnv>()
         creator: { select: { id: true, userRef: { select: { nameJa: true } } } },
         participants: {
           include: {
-            member: { select: { id: true, partId: true, userRef: { select: { nameJa: true } }, part: { select: { name: true } } } },
+            member: {
+              select: {
+                id: true,
+                partId: true,
+                userRef: { select: { nameJa: true } },
+                part: { select: { name: true } },
+              },
+            },
           },
         },
       },

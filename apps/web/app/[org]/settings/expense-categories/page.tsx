@@ -17,7 +17,7 @@ export default function ExpenseCategoriesPage() {
 
   const { data: cats = [], isLoading: loading } = useQuery({
     queryKey: settingsKeys.expenseCategories(org),
-    queryFn:  () => settingsApi.listExpenseCategories(org),
+    queryFn: () => settingsApi.listExpenseCategories(org),
   });
 
   const showToast = (msg: string) => {
@@ -28,7 +28,7 @@ export default function ExpenseCategoriesPage() {
   return (
     <SettingsPageShell title={settingsPageTitle("/expense-categories")} loading={loading}>
       {toast && (
-        <div className="fixed bottom-6 right-6 bg-gray-800 text-white text-xs px-4 py-2.5 rounded-lg shadow-lg z-50">
+        <div className="fixed right-6 bottom-6 z-50 rounded-lg bg-gray-800 px-4 py-2.5 text-xs text-white shadow-lg">
           {toast}
         </div>
       )}
@@ -36,21 +36,28 @@ export default function ExpenseCategoriesPage() {
       <ExpenseCategoryCard
         cats={cats}
         org={org}
-        onUpdated={(updated) => queryClient.setQueryData<ExpenseCategory[]>(settingsKeys.expenseCategories(org), (prev) =>
-          prev ? prev.map((c) => c.id === updated.id ? updated : c) : prev
-        )}
-        onDeleted={(id) => queryClient.setQueryData<ExpenseCategory[]>(settingsKeys.expenseCategories(org), (prev) =>
-          prev ? prev.filter((c) => c.id !== id) : prev
-        )}
-        onCreated={(created) => queryClient.setQueryData<ExpenseCategory[]>(settingsKeys.expenseCategories(org), (prev) =>
-          prev ? [...prev, created] : prev
-        )}
+        onUpdated={(updated) =>
+          queryClient.setQueryData<ExpenseCategory[]>(
+            settingsKeys.expenseCategories(org),
+            (prev) => (prev ? prev.map((c) => (c.id === updated.id ? updated : c)) : prev),
+          )
+        }
+        onDeleted={(id) =>
+          queryClient.setQueryData<ExpenseCategory[]>(
+            settingsKeys.expenseCategories(org),
+            (prev) => (prev ? prev.filter((c) => c.id !== id) : prev),
+          )
+        }
+        onCreated={(created) =>
+          queryClient.setQueryData<ExpenseCategory[]>(
+            settingsKeys.expenseCategories(org),
+            (prev) => (prev ? [...prev, created] : prev),
+          )
+        }
         onToast={showToast}
       />
 
-      <p className="text-xs text-gray-400">
-        支出記録が紐付いているカテゴリは削除できません。
-      </p>
+      <p className="text-xs text-gray-400">支出記録が紐付いているカテゴリは削除できません。</p>
     </SettingsPageShell>
   );
 }

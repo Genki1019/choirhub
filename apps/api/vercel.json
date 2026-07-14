@@ -1,9 +1,7 @@
 {
   "buildCommand": "pnpm run vercel-build",
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index" }
-  ],
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }],
   "outputDirectory": ".",
   "functions": {
     "api/index.ts": {

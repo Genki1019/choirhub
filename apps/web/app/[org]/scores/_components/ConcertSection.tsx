@@ -10,7 +10,10 @@ interface ConcertSectionProps {
   orgSlug: string;
 }
 
-export const ConcertSection = memo(function ConcertSection({ concert, orgSlug }: ConcertSectionProps) {
+export const ConcertSection = memo(function ConcertSection({
+  concert,
+  orgSlug,
+}: ConcertSectionProps) {
   const [open, setOpen] = useState(true);
 
   const date = new Date(concert.heldOn);
@@ -18,18 +21,18 @@ export const ConcertSection = memo(function ConcertSection({ concert, orgSlug }:
   const totalPrograms = concert.stages.reduce((n, s) => n + s.programs.length, 0);
 
   return (
-    <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <section className="overflow-hidden rounded-xl border border-gray-200 bg-white">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-3 px-5 py-4 hover:bg-gray-50 transition-colors text-left"
+        className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-gray-50"
       >
         <span className="text-gray-400">
           {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
         </span>
         <CalendarDays size={15} className="text-brand-500 shrink-0" />
-        <div className="flex-1 min-w-0">
-          <span className="font-semibold text-gray-800 text-sm">{concert.title}</span>
-          <p className="text-xs text-gray-400 mt-0.5">
+        <div className="min-w-0 flex-1">
+          <span className="text-sm font-semibold text-gray-800">{concert.title}</span>
+          <p className="mt-0.5 text-xs text-gray-400">
             {dateStr}
             {concert.venue && ` ・ ${concert.venue}`}
             {` ・ ${totalPrograms}曲`}
@@ -45,7 +48,7 @@ export const ConcertSection = memo(function ConcertSection({ concert, orgSlug }:
             concert.stages.map((stage) => (
               <div key={stage.id}>
                 {concert.stages.length > 1 && (
-                  <div className="px-5 py-2 bg-gray-50 border-b border-gray-100">
+                  <div className="border-b border-gray-100 bg-gray-50 px-5 py-2">
                     <p className="text-xs font-semibold text-gray-500">{stage.name}</p>
                   </div>
                 )}
@@ -54,9 +57,7 @@ export const ConcertSection = memo(function ConcertSection({ concert, orgSlug }:
                     key={program.id}
                     className={idx < stage.programs.length - 1 ? "border-b border-gray-100" : ""}
                   >
-                    {program.score && (
-                      <ScoreRow score={program.score} orgSlug={orgSlug} />
-                    )}
+                    {program.score && <ScoreRow score={program.score} orgSlug={orgSlug} />}
                   </div>
                 ))}
               </div>

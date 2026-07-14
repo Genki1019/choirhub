@@ -1,9 +1,11 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
+import prettier from "eslint-config-prettier";
 
 export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  prettier,
   {
     ignores: ["dist/**", "src/generated/**"],
   },
@@ -14,5 +16,5 @@ export default tseslint.config(
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
     },
-  }
+  },
 );

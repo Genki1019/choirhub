@@ -14,26 +14,35 @@ export default function MyTicketPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
   const queryClient = useQueryClient();
 
-  const { data: myList, isLoading: loading, error } = useQuery({
+  const {
+    data: myList,
+    isLoading: loading,
+    error,
+  } = useQuery({
     queryKey: ticketKeys.myList(org),
-    queryFn:  () => ticketsApi.myList(org),
+    queryFn: () => ticketsApi.myList(org),
   });
 
   const concert = myList?.find((c) => c.concertId === concertId) ?? null;
 
   const handleBatchUpdated = (batchId: string, data: Partial<MyAllocationBatch>) => {
     queryClient.setQueryData<MyAllocationConcert[]>(ticketKeys.myList(org), (prev) =>
-      prev ? prev.map((c) =>
-        c.concertId === concertId
-          ? { ...c, batches: c.batches.map((b) => b.batchId === batchId ? { ...b, ...data } : b) }
-          : c
-      ) : prev
+      prev
+        ? prev.map((c) =>
+            c.concertId === concertId
+              ? {
+                  ...c,
+                  batches: c.batches.map((b) => (b.batchId === batchId ? { ...b, ...data } : b)),
+                }
+              : c,
+          )
+        : prev,
     );
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full gap-2 text-gray-400">
+      <div className="flex h-full items-center justify-center gap-2 text-gray-400">
         <Loader2 size={18} className="animate-spin" />
         <span className="text-sm">読み込み中...</span>
       </div>
@@ -42,8 +51,8 @@ export default function MyTicketPage() {
 
   if (error || !concert) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
+      <div className="flex h-full items-center justify-center">
+        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
           <AlertCircle size={16} />
           <span className="text-sm">{error?.message ?? "チケット情報が見つかりません"}</span>
         </div>
@@ -51,15 +60,18 @@ export default function MyTicketPage() {
     );
   }
 
-  const date    = new Date(concert.heldOn);
+  const date = new Date(concert.heldOn);
   const dateStr = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
   const isClosed = !!concert.ticketInputClosedAt;
 
   return (
     <div className="flex flex-col">
-      <header className="bg-white border-b border-gray-200 shrink-0">
+      <header className="shrink-0 border-b border-gray-200 bg-white">
         <PageBleedRow className="flex items-center gap-4 py-4">
-          <Link href={`/${org}/tickets`} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <Link
+            href={`/${org}/tickets`}
+            className="text-gray-400 transition-colors hover:text-gray-600"
+          >
             <ArrowLeft size={18} />
           </Link>
           <div>
@@ -69,11 +81,14 @@ export default function MyTicketPage() {
         </PageBleedRow>
       </header>
 
-      <main className="flex-1 px-6 py-6 space-y-4 max-w-lg mx-auto w-full">
+      <main className="mx-auto w-full max-w-lg flex-1 space-y-4 px-6 py-6">
         {isClosed && (
-          <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+          <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <Lock size={14} className="shrink-0" />
-            <span>チケット入力は締め切られました（{new Date(concert.ticketInputClosedAt!).toLocaleDateString("ja-JP")}）</span>
+            <span>
+              チケット入力は締め切られました（
+              {new Date(concert.ticketInputClosedAt!).toLocaleDateString("ja-JP")}）
+            </span>
           </div>
         )}
 
@@ -81,20 +96,22 @@ export default function MyTicketPage() {
           <Link
             href={`/${org}/tickets/${concertId}/race`}
             prefetch={false}
-            className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 hover:bg-amber-100 transition-colors"
+            className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 transition-colors hover:bg-amber-100"
           >
-            <Trophy size={16} className="text-amber-600 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-amber-800">チケットレース結果が公開されました</p>
+            <Trophy size={16} className="shrink-0 text-amber-600" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-amber-800">
+                チケットレース結果が公開されました
+              </p>
               <p className="text-xs text-amber-600">タップして結果を見る</p>
             </div>
           </Link>
         )}
 
         {concert.batches.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">
+          <div className="py-12 text-center text-gray-400">
             <p className="text-sm">配布登録されていません</p>
-            <p className="text-xs mt-1">チケット担当者にお問い合わせください</p>
+            <p className="mt-1 text-xs">チケット担当者にお問い合わせください</p>
           </div>
         ) : (
           <>
@@ -112,12 +129,12 @@ export default function MyTicketPage() {
             <Link
               href={`/${org}/tickets/${concertId}/outreach`}
               prefetch={false}
-              className="flex items-center gap-3 bg-brand-50 border border-brand-200 rounded-2xl px-5 py-3.5 hover:bg-brand-100 transition-colors"
+              className="bg-brand-50 border-brand-200 hover:bg-brand-100 flex items-center gap-3 rounded-2xl border px-5 py-3.5 transition-colors"
             >
               <MapPin size={16} className="text-brand-600 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-brand-800">情宣活動の申請・確認</p>
-                <p className="text-xs text-brand-600">行き先・参加者・交通費・販売枚数を記録</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-brand-800 text-sm font-semibold">情宣活動の申請・確認</p>
+                <p className="text-brand-600 text-xs">行き先・参加者・交通費・販売枚数を記録</p>
               </div>
               <ArrowLeft size={14} className="text-brand-400 rotate-180" />
             </Link>

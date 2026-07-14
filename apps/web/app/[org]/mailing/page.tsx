@@ -21,23 +21,27 @@ export default function MailingPage() {
   const [page, setPage] = useState(1);
   const [showCompose, setShowCompose] = useState(false);
 
-  const { data: result, isLoading: loading, error: mailsError } = useQuery({
+  const {
+    data: result,
+    isLoading: loading,
+    error: mailsError,
+  } = useQuery({
     queryKey: mailingKeys.list(org, page),
-    queryFn:  () => mailingApi.list(org, { page, perPage: PER_PAGE }),
+    queryFn: () => mailingApi.list(org, { page, perPage: PER_PAGE }),
   });
 
   const { data: parts = [] } = useQuery({
     queryKey: memberKeys.parts(org),
-    queryFn:  () => membersApi.parts(org),
-    enabled:  showCompose,
+    queryFn: () => membersApi.parts(org),
+    enabled: showCompose,
   });
 
   const mails = result?.data ?? [];
-  const meta  = result?.meta ?? { total: 0, page, perPage: PER_PAGE };
+  const meta = result?.meta ?? { total: 0, page, perPage: PER_PAGE };
 
   return (
     <div className="flex flex-col">
-      <header className="bg-white border-b border-gray-200 shrink-0">
+      <header className="shrink-0 border-b border-gray-200 bg-white">
         <PageBleedRow className="flex items-center justify-between py-4">
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-semibold text-gray-800">メール</h1>
@@ -45,24 +49,26 @@ export default function MailingPage() {
           </div>
           <button
             onClick={() => setShowCompose(true)}
-            className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-brand-700 transition-colors"
+            className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
           >
-            <PenSquare size={14} />メールを作成
+            <PenSquare size={14} />
+            メールを作成
           </button>
         </PageBleedRow>
       </header>
 
       <PageMain className="space-y-4">
         {loading && (
-          <div className="flex items-center justify-center py-16 gap-2 text-gray-400">
+          <div className="flex items-center justify-center gap-2 py-16 text-gray-400">
             <Loader2 size={18} className="animate-spin" />
             <span className="text-sm">読み込み中...</span>
           </div>
         )}
 
         {!loading && mailsError && (
-          <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
-            <AlertCircle size={16} /><span className="text-sm">{mailsError.message}</span>
+          <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
+            <AlertCircle size={16} />
+            <span className="text-sm">{mailsError.message}</span>
           </div>
         )}
 
@@ -74,8 +80,10 @@ export default function MailingPage() {
         )}
 
         {!loading && !mailsError && mails.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            {mails.map((mail) => <MailCard key={mail.id} mail={mail} org={org} />)}
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+            {mails.map((mail) => (
+              <MailCard key={mail.id} mail={mail} org={org} />
+            ))}
           </div>
         )}
 

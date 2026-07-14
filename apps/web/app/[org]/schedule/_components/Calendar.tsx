@@ -11,8 +11,8 @@ function getCategoryColor(cat: EventCategory): string {
 
 const ATTENDANCE_STYLE: Record<AttendanceStatus, { symbol: string; text: string }> = {
   attending: { symbol: "○", text: "text-teal-600" },
-  maybe:     { symbol: "△", text: "text-orange-500" },
-  absent:    { symbol: "✕", text: "text-red-500" },
+  maybe: { symbol: "△", text: "text-orange-500" },
+  absent: { symbol: "✕", text: "text-red-500" },
   undecided: { symbol: "—", text: "text-gray-400" },
 };
 
@@ -24,9 +24,9 @@ const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
 
 // 日曜始まり: getDay() は 0=日 でそのまま列インデックスと一致するのでオフセット不要
 function buildCalendarCells(year: number, month: number) {
-  const firstDow    = new Date(year, month - 1, 1).getDay();
+  const firstDow = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
-  const total       = Math.ceil((firstDow + daysInMonth) / 7) * 7;
+  const total = Math.ceil((firstDow + daysInMonth) / 7) * 7;
   return Array.from({ length: total }, (_, i) => {
     const day = i - firstDow + 1;
     return day >= 1 && day <= daysInMonth ? day : null;
@@ -52,18 +52,36 @@ interface CalendarProps {
   onNextMonth: () => void;
 }
 
-export function Calendar({ year, month, today, events, org, onPrevMonth, onNextMonth }: CalendarProps) {
+export function Calendar({
+  year,
+  month,
+  today,
+  events,
+  org,
+  onPrevMonth,
+  onNextMonth,
+}: CalendarProps) {
   const cells = buildCalendarCells(year, month);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
       {/* 月ナビ */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-        <button onClick={onPrevMonth} aria-label="前の月" className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+        <button
+          onClick={onPrevMonth}
+          aria-label="前の月"
+          className="rounded-lg p-1.5 transition-colors hover:bg-gray-100"
+        >
           <ChevronLeft size={18} className="text-gray-500" />
         </button>
-        <p className="font-semibold text-gray-800">{year}年 {month}月</p>
-        <button onClick={onNextMonth} aria-label="次の月" className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+        <p className="font-semibold text-gray-800">
+          {year}年 {month}月
+        </p>
+        <button
+          onClick={onNextMonth}
+          aria-label="次の月"
+          className="rounded-lg p-1.5 transition-colors hover:bg-gray-100"
+        >
           <ChevronRight size={18} className="text-gray-500" />
         </button>
       </div>
@@ -89,50 +107,62 @@ export function Calendar({ year, month, today, events, org, onPrevMonth, onNextM
           const dow = idx % 7; // 0=日, 6=土
           const isToday =
             day !== null &&
-            year  === today.getFullYear() &&
+            year === today.getFullYear() &&
             month === today.getMonth() + 1 &&
-            day   === today.getDate();
+            day === today.getDate();
           const dayEvents = day ? eventsOnDay(events, year, month, day) : [];
 
           return (
             <div
               key={idx}
               className={[
-                "min-h-[64px] sm:min-h-[72px] p-1 sm:p-1.5 border-b border-r border-gray-100 last:border-r-0",
-                !day      ? "bg-gray-50"      : "bg-white",
-                dow === 0 && day ? "bg-red-50/30"  : "",
+                "min-h-[64px] border-r border-b border-gray-100 p-1 last:border-r-0 sm:min-h-[72px] sm:p-1.5",
+                !day ? "bg-gray-50" : "bg-white",
+                dow === 0 && day ? "bg-red-50/30" : "",
                 dow === 6 && day ? "bg-brand-50/20" : "",
               ].join(" ")}
             >
               {day !== null && (
                 <>
-                  <div className="flex justify-end mb-1">
+                  <div className="mb-1 flex justify-end">
                     <span
                       className={[
-                        "text-xs w-6 h-6 flex items-center justify-center rounded-full font-medium",
-                        isToday   ? "bg-brand-600 text-white"
-                          : dow === 0 ? "text-red-500"
-                          : dow === 6 ? "text-brand-500"
-                          : "text-gray-700",
+                        "flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium",
+                        isToday
+                          ? "bg-brand-600 text-white"
+                          : dow === 0
+                            ? "text-red-500"
+                            : dow === 6
+                              ? "text-brand-500"
+                              : "text-gray-700",
                       ].join(" ")}
                     >
                       {day}
                     </span>
                   </div>
-                  <div className="flex flex-col gap-0.5 mt-0.5">
+                  <div className="mt-0.5 flex flex-col gap-0.5">
                     {dayEvents.map((ev) => {
                       const ss = ATTENDANCE_STYLE[ev.myAttendance];
-                      const href = ev.concertId ? getConcertHref(org, ev.concertId, "schedule") : `/${org}/schedule/${ev.id}`;
+                      const href = ev.concertId
+                        ? getConcertHref(org, ev.concertId, "schedule")
+                        : `/${org}/schedule/${ev.id}`;
                       return (
                         <Link
                           key={ev.id}
                           href={href}
                           prefetch={false}
-                          className="flex items-center gap-0.5 font-medium px-1 py-0.5 rounded hover:opacity-80 transition-opacity"
-                          style={{ backgroundColor: `${getCategoryColor(ev.category)}20`, color: getCategoryColor(ev.category) }}
+                          className="flex items-center gap-0.5 rounded px-1 py-0.5 font-medium transition-opacity hover:opacity-80"
+                          style={{
+                            backgroundColor: `${getCategoryColor(ev.category)}20`,
+                            color: getCategoryColor(ev.category),
+                          }}
                         >
-                          <span className="truncate flex-1 text-[8px] sm:text-[10px]">{ev.title}</span>
-                          <span className={`hidden sm:inline shrink-0 font-bold ${ss.text}`}>{ss.symbol}</span>
+                          <span className="flex-1 truncate text-[8px] sm:text-[10px]">
+                            {ev.title}
+                          </span>
+                          <span className={`hidden shrink-0 font-bold sm:inline ${ss.text}`}>
+                            {ss.symbol}
+                          </span>
                         </Link>
                       );
                     })}

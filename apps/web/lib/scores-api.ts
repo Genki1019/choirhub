@@ -114,8 +114,7 @@ export interface ScoreListItem {
 }
 
 export const scoresApi = {
-  grouped: (orgSlug: string) =>
-    apiClient.get<GroupedScores>(`/${orgSlug}/scores/grouped`),
+  grouped: (orgSlug: string) => apiClient.get<GroupedScores>(`/${orgSlug}/scores/grouped`),
 
   getDetail: (orgSlug: string, scoreId: string) =>
     apiClient.get<ScoreDetail>(`/${orgSlug}/scores/${scoreId}`),
@@ -123,8 +122,7 @@ export const scoresApi = {
   updateMeta: (orgSlug: string, scoreId: string, data: UpdateScoreMetaInput) =>
     apiClient.patch<ScoreMetaResponse>(`/${orgSlug}/scores/${scoreId}`, data),
 
-  list: (orgSlug: string) =>
-    apiClient.get<ScoreListItem[]>(`/${orgSlug}/scores`),
+  list: (orgSlug: string) => apiClient.get<ScoreListItem[]>(`/${orgSlug}/scores`),
 
   create: (orgSlug: string, data: CreateScoreInput) =>
     apiClient.post<ScoreSummary>(`/${orgSlug}/scores`, data),
@@ -132,11 +130,17 @@ export const scoresApi = {
   getPurchases: (orgSlug: string, scoreId: string) =>
     apiClient.get<ScorePurchaseRecord[]>(`/${orgSlug}/scores/${scoreId}/purchases`),
 
-  putPurchases: (orgSlug: string, scoreId: string, data: { memberIds: string[]; note?: string | null }) =>
-    apiClient.put<{ updated: number }>(`/${orgSlug}/scores/${scoreId}/purchases`, data),
+  putPurchases: (
+    orgSlug: string,
+    scoreId: string,
+    data: { memberIds: string[]; note?: string | null },
+  ) => apiClient.put<{ updated: number }>(`/${orgSlug}/scores/${scoreId}/purchases`, data),
 
   setPrice: (orgSlug: string, scoreId: string, price: number | null) =>
-    apiClient.patch<{ id: string; distributionPrice: number | null }>(`/${orgSlug}/scores/${scoreId}/price`, { price }),
+    apiClient.patch<{ id: string; distributionPrice: number | null }>(
+      `/${orgSlug}/scores/${scoreId}/price`,
+      { price },
+    ),
 
   uploadFile: async (orgSlug: string, scoreId: string, formData: FormData): Promise<ScoreFile> => {
     const file = formData.get("file") as File | null;
@@ -153,7 +157,7 @@ export const scoresApi = {
         fileName: file.name,
         partId,
         contentType: file.type || "application/octet-stream",
-      }
+      },
     );
 
     if (presignData.presignedUrl) {
@@ -164,14 +168,20 @@ export const scoresApi = {
         headers: { "Content-Type": file.type || "application/octet-stream" },
       });
       if (!uploadRes.ok) {
-        throw new ApiClientError("UPLOAD_FAILED", `R2へのアップロードに失敗しました (${uploadRes.status})`, uploadRes.status);
+        throw new ApiClientError(
+          "UPLOAD_FAILED",
+          `R2へのアップロードに失敗しました (${uploadRes.status})`,
+          uploadRes.status,
+        );
       }
 
       // Step 3: API に DB 登録を依頼
-      return apiClient.post<ScoreFile>(
-        `/${orgSlug}/scores/${scoreId}/files/confirm`,
-        { key: presignData.key, fileType, fileName: file.name, partId }
-      );
+      return apiClient.post<ScoreFile>(`/${orgSlug}/scores/${scoreId}/files/confirm`, {
+        key: presignData.key,
+        fileType,
+        fileName: file.name,
+        partId,
+      });
     }
 
     // R2 未設定（ローカル開発）: 従来のマルチパート方式にフォールバック
@@ -181,14 +191,16 @@ export const scoresApi = {
       body: formData,
     });
     if (!res.ok) {
-      const body = await res.json().catch(() => null) as { error?: { code: string; message: string } } | null;
+      const body = (await res.json().catch(() => null)) as {
+        error?: { code: string; message: string };
+      } | null;
       throw new ApiClientError(
         body?.error?.code ?? "UNKNOWN",
         body?.error?.message ?? res.statusText,
         res.status,
       );
     }
-    const body = await res.json() as { data: ScoreFile };
+    const body = (await res.json()) as { data: ScoreFile };
     return body.data;
   },
 

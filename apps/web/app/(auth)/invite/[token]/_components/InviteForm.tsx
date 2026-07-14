@@ -28,7 +28,7 @@ export function InviteForm({ token, invite }: InviteFormProps) {
     setError,
     formState: { errors, isSubmitting },
   } = useForm<InviteAcceptInput>({
-    resolver:     zodResolver(inviteAcceptSchema),
+    resolver: zodResolver(inviteAcceptSchema),
     defaultValues: { nameJa: invite.nameJa ?? "" },
   });
 
@@ -37,25 +37,27 @@ export function InviteForm({ token, invite }: InviteFormProps) {
       await authApi.acceptInvite(token, { nameJa: data.nameJa, password: data.password });
       setDone(true);
     } catch (err) {
-      const message = err instanceof ApiClientError && err.status === 409
-        ? "このメールアドレスはすでに登録済みです。ログインページからログインしてください。"
-        : "登録に失敗しました。もう一度お試しください。";
+      const message =
+        err instanceof ApiClientError && err.status === 409
+          ? "このメールアドレスはすでに登録済みです。ログインページからログインしてください。"
+          : "登録に失敗しました。もう一度お試しください。";
       setError("root", { message });
     }
   };
 
   if (done) {
     return (
-      <div className="bg-white rounded-2xl border border-gray-200 px-8 py-8 text-center space-y-4">
-        <CheckCircle size={40} className="text-teal-500 mx-auto" />
+      <div className="space-y-4 rounded-2xl border border-gray-200 bg-white px-8 py-8 text-center">
+        <CheckCircle size={40} className="mx-auto text-teal-500" />
         <p className="text-base font-semibold text-gray-800">登録が完了しました</p>
         <p className="text-sm text-gray-500">
-          {invite.orgName} へようこそ！<br />
+          {invite.orgName} へようこそ！
+          <br />
           ログインページからサインインしてください。
         </p>
         <button
           onClick={() => router.push("/login")}
-          className="w-full bg-brand-600 text-white font-medium py-2.5 rounded-lg hover:bg-brand-700 transition text-sm"
+          className="bg-brand-600 hover:bg-brand-700 w-full rounded-lg py-2.5 text-sm font-medium text-white transition"
         >
           ログインページへ
         </button>
@@ -64,14 +66,19 @@ export function InviteForm({ token, invite }: InviteFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-2xl border border-gray-200 px-8 py-8 space-y-5">
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      className="space-y-5 rounded-2xl border border-gray-200 bg-white px-8 py-8"
+    >
       <div>
         <p className="text-sm font-semibold text-gray-800">{invite.orgName} への参加登録</p>
-        <p className="text-xs text-gray-500 mt-0.5">{invite.email}</p>
+        <p className="mt-0.5 text-xs text-gray-500">{invite.email}</p>
       </div>
 
       <div>
-        <label htmlFor="nameJa" className="block text-sm font-medium text-gray-700 mb-1.5">お名前</label>
+        <label htmlFor="nameJa" className="mb-1.5 block text-sm font-medium text-gray-700">
+          お名前
+        </label>
         <input
           id="nameJa"
           type="text"
@@ -83,8 +90,8 @@ export function InviteForm({ token, invite }: InviteFormProps) {
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
-          パスワード <span className="text-xs text-gray-400 font-normal">（8文字以上）</span>
+        <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-700">
+          パスワード <span className="text-xs font-normal text-gray-400">（8文字以上）</span>
         </label>
         <div className="relative">
           <input
@@ -98,7 +105,7 @@ export function InviteForm({ token, invite }: InviteFormProps) {
             type="button"
             onClick={() => setShowPassword((v) => !v)}
             aria-label={showPassword ? "パスワードを隠す" : "パスワードを表示する"}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 hover:text-gray-600"
           >
             {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
@@ -107,7 +114,9 @@ export function InviteForm({ token, invite }: InviteFormProps) {
       </div>
 
       <div>
-        <label htmlFor="passwordConfirm" className="block text-sm font-medium text-gray-700 mb-1.5">パスワード（確認）</label>
+        <label htmlFor="passwordConfirm" className="mb-1.5 block text-sm font-medium text-gray-700">
+          パスワード（確認）
+        </label>
         <input
           id="passwordConfirm"
           type={showPassword ? "text" : "password"}
@@ -119,7 +128,7 @@ export function InviteForm({ token, invite }: InviteFormProps) {
       </div>
 
       {errors.root && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
           {errors.root.message}
         </p>
       )}
@@ -127,7 +136,7 @@ export function InviteForm({ token, invite }: InviteFormProps) {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full bg-brand-600 text-white font-medium py-2.5 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition flex items-center justify-center gap-2"
+        className="bg-brand-600 hover:bg-brand-700 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 font-medium text-white transition disabled:opacity-60"
       >
         {isSubmitting && <Loader2 size={16} className="animate-spin" />}
         登録する

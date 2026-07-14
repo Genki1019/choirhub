@@ -58,6 +58,7 @@ export default function Sidebar({
   const showSettings = isAdmin || financePlus;
   const isSettingsActive = pathname.startsWith(`/${org}/settings`);
   const [settingsOpen, setSettingsOpen] = useState(isSettingsActive);
+  const [prevSettingsActive, setPrevSettingsActive] = useState(isSettingsActive);
 
   useEffect(() => {
     if (!window.matchMedia(DESKTOP_MQ).matches) {
@@ -65,11 +66,10 @@ export default function Sidebar({
     }
   }, [pathname, onClose]);
 
-  useEffect(() => {
-    if (isSettingsActive) {
-      setSettingsOpen(true);
-    }
-  }, [isSettingsActive]);
+  if (isSettingsActive !== prevSettingsActive) {
+    setPrevSettingsActive(isSettingsActive);
+    if (isSettingsActive) setSettingsOpen(true);
+  }
 
   const navItems = [
     ...BASE_NAV_ITEMS.filter((item) => !(isVisitor && VISITOR_HIDDEN_SUFFIXES.has(item.suffix))),

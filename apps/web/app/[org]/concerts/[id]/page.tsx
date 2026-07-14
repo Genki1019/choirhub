@@ -4,8 +4,16 @@ import { useState, useCallback, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, CalendarDays, MapPin, Music, ClipboardList,
-  Users, Loader2, AlertCircle, Pencil, Trash2,
+  ArrowLeft,
+  CalendarDays,
+  MapPin,
+  Music,
+  ClipboardList,
+  Users,
+  Loader2,
+  AlertCircle,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -32,10 +40,10 @@ import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
 
 const STATUS_CONFIG: Record<ConcertStatus, { label: string; badge: string }> = {
-  draft:       { label: "準備中",   badge: "bg-gray-100 text-gray-500" },
-  survey_open: { label: "調査中",   badge: "bg-amber-100 text-amber-700" },
-  confirmed:   { label: "確定済み", badge: "bg-green-100 text-green-700" },
-  past:        { label: "終了",     badge: "bg-gray-100 text-gray-400" },
+  draft: { label: "準備中", badge: "bg-gray-100 text-gray-500" },
+  survey_open: { label: "調査中", badge: "bg-amber-100 text-amber-700" },
+  confirmed: { label: "確定済み", badge: "bg-green-100 text-green-700" },
+  past: { label: "終了", badge: "bg-gray-100 text-gray-400" },
 };
 
 type Tab = "stages" | "survey" | "onstage";
@@ -59,15 +67,25 @@ export default function ConcertDetailPage() {
   const canManageStage = isAdmin || roles.includes("tech");
   const [addProgramStageId, setAddProgramStageId] = useState<string | null>(null);
   const [showAddStageModal, setShowAddStageModal] = useState(false);
-  const [moveCopySource, setMoveCopySource] = useState<{ stageId: string; program: ProgramDetail } | null>(null);
-  const [editProgramTarget, setEditProgramTarget] = useState<{ stageId: string; program: ProgramDetail } | null>(null);
+  const [moveCopySource, setMoveCopySource] = useState<{
+    stageId: string;
+    program: ProgramDetail;
+  } | null>(null);
+  const [editProgramTarget, setEditProgramTarget] = useState<{
+    stageId: string;
+    program: ProgramDetail;
+  } | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const { data: concert, isLoading: loading, error: queryError } = useQuery({
+  const {
+    data: concert,
+    isLoading: loading,
+    error: queryError,
+  } = useQuery({
     queryKey: concertKeys.detail(org, id),
-    queryFn:  () => concertsApi.get(org, id),
+    queryFn: () => concertsApi.get(org, id),
   });
 
   useEffect(() => {
@@ -78,7 +96,7 @@ export default function ConcertDetailPage() {
 
   const handleStageAdded = (stage: StageDetail) => {
     queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) =>
-      prev ? { ...prev, stages: [...prev.stages, stage] } : prev
+      prev ? { ...prev, stages: [...prev.stages, stage] } : prev,
     );
     setShowAddStageModal(false);
   };
@@ -111,12 +129,13 @@ export default function ConcertDetailPage() {
       const nextPrograms = [...stage.programs];
       [nextPrograms[pIdx], nextPrograms[newIdx]] = [nextPrograms[newIdx], nextPrograms[pIdx]];
       const nextStages = prev.stages.map((s, i) =>
-        i === stageIdx ? { ...s, programs: nextPrograms } : s
+        i === stageIdx ? { ...s, programs: nextPrograms } : s,
       );
       orderedIds = nextPrograms.map((p) => p.id);
       return { ...prev, stages: nextStages };
     });
-    if (orderedIds.length > 0) concertsApi.reorderPrograms(org, id, stageId, orderedIds).catch(() => {});
+    if (orderedIds.length > 0)
+      concertsApi.reorderPrograms(org, id, stageId, orderedIds).catch(() => {});
   };
 
   const handleEditStageName = async (stageId: string, name: string) => {
@@ -130,10 +149,13 @@ export default function ConcertDetailPage() {
   const handleMoveCopyComplete = (
     action: "move" | "copy",
     target: MoveCopyTarget,
-    newProgram?: ProgramDetail
+    newProgram?: ProgramDetail,
   ) => {
     if (!moveCopySource) return;
-    const { stageId: sourceStageId, program: { id: sourceProgramId } } = moveCopySource;
+    const {
+      stageId: sourceStageId,
+      program: { id: sourceProgramId },
+    } = moveCopySource;
 
     queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) => {
       if (!prev) return prev;
@@ -143,15 +165,13 @@ export default function ConcertDetailPage() {
         stages = stages.map((s) =>
           s.id === sourceStageId
             ? { ...s, programs: s.programs.filter((p) => p.id !== sourceProgramId) }
-            : s
+            : s,
         );
       }
 
       if (target.type === "stage" && target.concertId === prev.id && newProgram) {
         stages = stages.map((s) =>
-          s.id === target.stageId
-            ? { ...s, programs: [...s.programs, newProgram] }
-            : s
+          s.id === target.stageId ? { ...s, programs: [...s.programs, newProgram] } : s,
         );
       }
 
@@ -161,37 +181,49 @@ export default function ConcertDetailPage() {
     setMoveCopySource(null);
   };
 
-  const handleEditSaved = useCallback((updated: Partial<ConcertDetail>) => {
-    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) =>
-      prev ? { ...prev, ...updated } : prev
-    );
-  }, [org, id, queryClient]);
+  const handleEditSaved = useCallback(
+    (updated: Partial<ConcertDetail>) => {
+      queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) =>
+        prev ? { ...prev, ...updated } : prev,
+      );
+    },
+    [org, id, queryClient],
+  );
 
-  const handleSurveysChanged = useCallback((surveys: SurveySummary[]) => {
-    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) =>
-      prev ? { ...prev, surveys } : prev
-    );
-  }, [org, id, queryClient]);
+  const handleSurveysChanged = useCallback(
+    (surveys: SurveySummary[]) => {
+      queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) =>
+        prev ? { ...prev, surveys } : prev,
+      );
+    },
+    [org, id, queryClient],
+  );
 
   const handleAssignmentsMayChange = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: concertKeys.detail(org, id) });
   }, [org, id, queryClient]);
 
-  const handleConcertStatusChanged = useCallback((status: ConcertStatus) => {
-    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) =>
-      prev ? { ...prev, status } : prev
-    );
-    // confirmed 遷移時はサーバー側でオンステ確定（OnStageAssignment）が生成されるため再取得する
-    if (status === "confirmed") {
-      handleAssignmentsMayChange();
-    }
-  }, [handleAssignmentsMayChange, org, id, queryClient]);
+  const handleConcertStatusChanged = useCallback(
+    (status: ConcertStatus) => {
+      queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) =>
+        prev ? { ...prev, status } : prev,
+      );
+      // confirmed 遷移時はサーバー側でオンステ確定（OnStageAssignment）が生成されるため再取得する
+      if (status === "confirmed") {
+        handleAssignmentsMayChange();
+      }
+    },
+    [handleAssignmentsMayChange, org, id, queryClient],
+  );
 
-  const handleStagesChanged = useCallback((stages: StageDetail[]) => {
-    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) =>
-      prev ? { ...prev, stages } : prev
-    );
-  }, [org, id, queryClient]);
+  const handleStagesChanged = useCallback(
+    (stages: StageDetail[]) => {
+      queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) =>
+        prev ? { ...prev, stages } : prev,
+      );
+    },
+    [org, id, queryClient],
+  );
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -210,7 +242,7 @@ export default function ConcertDetailPage() {
       return {
         ...prev,
         stages: prev.stages.map((s) =>
-          s.id === stageId ? { ...s, programs: [...s.programs, program] } : s
+          s.id === stageId ? { ...s, programs: [...s.programs, program] } : s,
         ),
       };
     });
@@ -225,7 +257,7 @@ export default function ConcertDetailPage() {
         stages: prev.stages.map((s) =>
           s.id === stageId
             ? { ...s, programs: s.programs.map((p) => (p.id === updated.id ? updated : p)) }
-            : s
+            : s,
         ),
       };
     });
@@ -234,7 +266,7 @@ export default function ConcertDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full gap-2 text-gray-400">
+      <div className="flex h-full items-center justify-center gap-2 text-gray-400">
         <Loader2 size={18} className="animate-spin" />
         <span className="text-sm">読み込み中...</span>
       </div>
@@ -243,8 +275,8 @@ export default function ConcertDetailPage() {
 
   if (queryError || !concert) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
+      <div className="flex h-full items-center justify-center">
+        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
           <AlertCircle size={16} />
           <span className="text-sm">{queryError?.message ?? "演奏会が見つかりません"}</span>
         </div>
@@ -258,26 +290,26 @@ export default function ConcertDetailPage() {
   const totalPrograms = concert.stages.reduce((n, st) => n + st.programs.length, 0);
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "stages",  label: "ステージ構成", icon: <Music size={13} /> },
-    { id: "survey",  label: "オンステ調査", icon: <ClipboardList size={13} /> },
+    { id: "stages", label: "ステージ構成", icon: <Music size={13} /> },
+    { id: "survey", label: "オンステ調査", icon: <ClipboardList size={13} /> },
     { id: "onstage", label: "出演メンバー", icon: <Users size={13} /> },
   ];
 
   return (
     <div className="flex flex-col">
-      <header className="bg-white border-b border-gray-200 shrink-0">
+      <header className="shrink-0 border-b border-gray-200 bg-white">
         <PageBleedRow className="flex items-center gap-4 py-4">
-          <Link href={backHref} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <Link href={backHref} className="text-gray-400 transition-colors hover:text-gray-600">
             <ArrowLeft size={18} />
           </Link>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-lg font-semibold text-gray-800">{concert.title}</h1>
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${s.badge}`}>
+              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${s.badge}`}>
                 {s.label}
               </span>
             </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
               <span className="flex items-center gap-1.5 text-sm text-gray-500">
                 <CalendarDays size={13} className="text-gray-400" />
                 {dateStr}
@@ -287,7 +319,7 @@ export default function ConcertDetailPage() {
                   href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(concert.venue)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-sm text-brand-600 hover:underline"
+                  className="text-brand-600 flex items-center gap-1.5 text-sm hover:underline"
                 >
                   <MapPin size={13} className="text-brand-400 shrink-0" />
                   {concert.venue}
@@ -296,17 +328,17 @@ export default function ConcertDetailPage() {
             </div>
           </div>
           {isAdmin && (
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex shrink-0 items-center gap-2">
               <button
                 onClick={() => setShowEditModal(true)}
-                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
               >
                 <Pencil size={13} />
                 編集
               </button>
               <button
                 onClick={() => setShowDeleteConfirm(true)}
-                className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors"
+                className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
               >
                 <Trash2 size={13} />
                 削除
@@ -328,7 +360,7 @@ export default function ConcertDetailPage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={[
-                "flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors",
+                "flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors",
                 activeTab === tab.id
                   ? "border-brand-500 text-brand-600"
                   : "border-transparent text-gray-500 hover:text-gray-700",
@@ -342,7 +374,7 @@ export default function ConcertDetailPage() {
       </header>
 
       <PageMain>
-        {activeTab === "stages"  && (
+        {activeTab === "stages" && (
           <StagesTab
             concert={concert}
             isAdmin={isAdmin}
@@ -429,24 +461,28 @@ export default function ConcertDetailPage() {
 
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowDeleteConfirm(false)} />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-6">
-            <h2 className="font-semibold text-gray-800 mb-2">演奏会を削除しますか？</h2>
-            <p className="text-sm text-gray-500 mb-5">
-              「{concert.title}」を削除します。ステージ・曲目・スケジュール連携も全て削除されます。この操作は取り消せません。
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setShowDeleteConfirm(false)}
+          />
+          <div className="relative w-full max-w-sm rounded-2xl bg-white px-6 py-6 shadow-xl">
+            <h2 className="mb-2 font-semibold text-gray-800">演奏会を削除しますか？</h2>
+            <p className="mb-5 text-sm text-gray-500">
+              「{concert.title}
+              」を削除します。ステージ・曲目・スケジュール連携も全て削除されます。この操作は取り消せません。
             </p>
             <div className="flex gap-2">
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                className="flex items-center gap-1.5 bg-red-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-red-700 disabled:opacity-60 transition-colors"
+                className="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60"
               >
                 {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                 削除する
               </button>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="text-sm text-gray-500 px-4 py-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-500 transition-colors hover:bg-gray-50"
               >
                 キャンセル
               </button>

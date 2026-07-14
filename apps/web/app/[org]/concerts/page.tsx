@@ -15,11 +15,11 @@ import { useMember } from "@/contexts/MemberContext";
 type Filter = "all" | ConcertStatus;
 
 const FILTERS: { value: Filter; label: string }[] = [
-  { value: "all",         label: "すべて" },
+  { value: "all", label: "すべて" },
   { value: "survey_open", label: "調査中" },
-  { value: "confirmed",   label: "確定済み" },
-  { value: "draft",       label: "準備中" },
-  { value: "past",        label: "終了" },
+  { value: "confirmed", label: "確定済み" },
+  { value: "draft", label: "準備中" },
+  { value: "past", label: "終了" },
 ];
 
 export default function ConcertsPage() {
@@ -27,9 +27,13 @@ export default function ConcertsPage() {
   const { roles } = useMember();
   const [filter, setFilter] = useState<Filter>("all");
 
-  const { data: concerts = [], isLoading: loading, error: concertsError } = useQuery({
+  const {
+    data: concerts = [],
+    isLoading: loading,
+    error: concertsError,
+  } = useQuery({
     queryKey: concertKeys.list(org),
-    queryFn:  () => concertsApi.list(org),
+    queryFn: () => concertsApi.list(org),
   });
 
   const sorted = useMemo(() => {
@@ -39,7 +43,7 @@ export default function ConcertsPage() {
 
   return (
     <div className="flex flex-col">
-      <header className="bg-white border-b border-gray-200 shrink-0">
+      <header className="shrink-0 border-b border-gray-200 bg-white">
         <PageBleedRow className="flex items-center justify-between py-4">
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-semibold text-gray-800">本番</h1>
@@ -49,7 +53,7 @@ export default function ConcertsPage() {
             <Link
               href={`/${org}/concerts/new`}
               prefetch={false}
-              className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-brand-700 transition-colors"
+              className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
             >
               <Plus size={14} />
               演奏会を登録
@@ -59,14 +63,14 @@ export default function ConcertsPage() {
       </header>
 
       {/* フィルタ */}
-      <div className="bg-white border-b border-gray-100 shrink-0">
+      <div className="shrink-0 border-b border-gray-100 bg-white">
         <PageBleedRow className="flex gap-1 py-3">
           {FILTERS.map(({ value, label }) => (
             <button
               key={value}
               onClick={() => setFilter(value)}
               className={[
-                "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
                 filter === value ? "bg-brand-600 text-white" : "text-gray-500 hover:bg-gray-100",
               ].join(" ")}
             >
@@ -78,29 +82,29 @@ export default function ConcertsPage() {
 
       <PageMain className="space-y-3">
         {loading && (
-          <div className="flex items-center justify-center py-16 gap-2 text-gray-400">
+          <div className="flex items-center justify-center gap-2 py-16 text-gray-400">
             <Loader2 size={18} className="animate-spin" />
             <span className="text-sm">読み込み中...</span>
           </div>
         )}
 
         {!loading && concertsError && (
-          <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
+          <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
             <AlertCircle size={16} />
             <span className="text-sm">{concertsError.message}</span>
           </div>
         )}
 
         {!loading && !concertsError && sorted.length === 0 && (
-          <div className="text-center py-16 text-gray-400">
+          <div className="py-16 text-center text-gray-400">
             <CalendarDays size={32} className="mx-auto mb-3 opacity-40" />
             <p className="text-sm">演奏会が登録されていません</p>
           </div>
         )}
 
-        {!loading && !concertsError && sorted.map((concert) => (
-          <ConcertCard key={concert.id} concert={concert} org={org} />
-        ))}
+        {!loading &&
+          !concertsError &&
+          sorted.map((concert) => <ConcertCard key={concert.id} concert={concert} org={org} />)}
       </PageMain>
     </div>
   );

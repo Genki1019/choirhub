@@ -20,11 +20,16 @@ interface BatchFormModalProps {
 }
 
 export function BatchFormModal({
-  title, initialValues, submitLabel, onSubmit, onClose, extraFooter,
+  title,
+  initialValues,
+  submitLabel,
+  onSubmit,
+  onClose,
+  extraFooter,
 }: BatchFormModalProps) {
-  const [form,   setForm]   = useState(initialValues);
+  const [form, setForm] = useState(initialValues);
   const [saving, setSaving] = useState(false);
-  const [error,  setError]  = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,24 +45,24 @@ export function BatchFormModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-        <h2 className="text-base font-semibold text-gray-800 mb-4">{title}</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+        <h2 className="mb-4 text-base font-semibold text-gray-800">{title}</h2>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-gray-500 block mb-1">席種名</label>
+            <label className="mb-1 block text-xs font-medium text-gray-500">席種名</label>
             <input
               type="text"
               required
               placeholder="例: 一般"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+              className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:outline-none"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1">一般価格（円）</label>
+              <label className="mb-1 block text-xs font-medium text-gray-500">一般価格（円）</label>
               <input
                 type="number"
                 required
@@ -65,23 +70,25 @@ export function BatchFormModal({
                 placeholder="3000"
                 value={form.price}
                 onChange={(e) => setForm({ ...form, price: e.target.value })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:outline-none"
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1">学生価格（円・任意）</label>
+              <label className="mb-1 block text-xs font-medium text-gray-500">
+                学生価格（円・任意）
+              </label>
               <input
                 type="number"
                 min={0}
                 placeholder="1000"
                 value={form.priceStudent}
                 onChange={(e) => setForm({ ...form, priceStudent: e.target.value })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:outline-none"
               />
             </div>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-500 block mb-1">総枚数</label>
+            <label className="mb-1 block text-xs font-medium text-gray-500">総枚数</label>
             <input
               type="number"
               required
@@ -89,7 +96,7 @@ export function BatchFormModal({
               placeholder="200"
               value={form.totalCount}
               onChange={(e) => setForm({ ...form, totalCount: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+              className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:outline-none"
             />
           </div>
           {error && <p className="text-xs text-red-500">{error}</p>}
@@ -98,14 +105,14 @@ export function BatchFormModal({
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="flex-1 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-60 transition-colors"
+              className="flex-1 rounded-lg border border-gray-200 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-60"
             >
               キャンセル
             </button>
             <button
               type="submit"
               disabled={saving || !form.name || !form.price || !form.totalCount}
-              className="flex-1 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
+              className="bg-brand-600 hover:bg-brand-700 flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
             >
               {saving && <Loader2 size={13} className="animate-spin" />}
               {submitLabel}

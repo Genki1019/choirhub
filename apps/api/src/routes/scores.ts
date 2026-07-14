@@ -43,7 +43,12 @@ function fileErrorPage(status: 403 | 404, message: string): Response {
 
 // ファイル閲覧・購入記録参照（privileged viewer）
 function isScorePrivileged(roles: string[]): boolean {
-  return roles.includes("admin") || roles.includes("score") || roles.includes("tech") || roles.includes("conductor");
+  return (
+    roles.includes("admin") ||
+    roles.includes("score") ||
+    roles.includes("tech") ||
+    roles.includes("conductor")
+  );
 }
 
 // 購入記録の管理
@@ -62,9 +67,19 @@ function canManageScoreMidi(roles: string[]): boolean {
 }
 
 function makeFileFormatter(orgSlug: string, partMap: Map<string, string>) {
-  return (f: { id: string; scoreId: string; fileType: string; fileName: string; partId: string | null; version: number }) => ({
-    id: f.id, fileType: f.fileType, fileName: f.fileName,
-    partId: f.partId, partName: f.partId ? (partMap.get(f.partId) ?? null) : null,
+  return (f: {
+    id: string;
+    scoreId: string;
+    fileType: string;
+    fileName: string;
+    partId: string | null;
+    version: number;
+  }) => ({
+    id: f.id,
+    fileType: f.fileType,
+    fileName: f.fileName,
+    partId: f.partId,
+    partName: f.partId ? (partMap.get(f.partId) ?? null) : null,
     version: f.version,
     downloadUrl: `/api/v1/${orgSlug}/scores/${f.scoreId}/files/${f.id}/download`,
   });
@@ -112,21 +127,28 @@ export const scoresRouter = new Hono<TenantEnv>()
     ]);
 
     const concertData = concerts.map((concert) => ({
-      id: concert.id, title: concert.title,
+      id: concert.id,
+      title: concert.title,
       heldOn: toDateString(concert.heldOn),
       venue: concert.venue,
       stages: concert.stages.map((stage) => ({
-        id: stage.id, name: stage.name, sortOrder: stage.sortOrder,
+        id: stage.id,
+        name: stage.name,
+        sortOrder: stage.sortOrder,
         programs: stage.programs
           .filter((p) => p.score !== null)
           .map((p) => ({
-            id: p.id, title: p.title, sortOrder: p.sortOrder,
+            id: p.id,
+            title: p.title,
+            sortOrder: p.sortOrder,
             score: p.score,
           })),
       })),
     }));
 
-    const assignedScoreIds = new Set(allScores.flatMap((s) => (s.programs.length > 0 ? [s.id] : [])));
+    const assignedScoreIds = new Set(
+      allScores.flatMap((s) => (s.programs.length > 0 ? [s.id] : [])),
+    );
     const unassigned = allScores
       .filter((s) => !assignedScoreIds.has(s.id))
       .map(({ programs: _, ...s }) => s);
@@ -137,45 +159,61 @@ export const scoresRouter = new Hono<TenantEnv>()
   // ── POST /scores ── 曲目を新規登録（admin のみ）
   .post(
     "/scores",
-    zValidator("json", z.object({
-      title:             z.string().min(1),
-      composer:          z.string().optional().nullable(),
-      arranger:          z.string().optional().nullable(),
-      isCommissioned:    z.boolean().optional(),
-      purchaseDate:      z.string().date().optional().nullable(),
-      distributionStart: z.string().date().optional().nullable(),
-      purchasePrice:     z.number().int().min(0).optional().nullable(),
-      notes:             z.string().optional().nullable(),
-    }), (r, c) => {
-      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
-    }),
+    zValidator(
+      "json",
+      z.object({
+        title: z.string().min(1),
+        composer: z.string().optional().nullable(),
+        arranger: z.string().optional().nullable(),
+        isCommissioned: z.boolean().optional(),
+        purchaseDate: z.string().date().optional().nullable(),
+        distributionStart: z.string().date().optional().nullable(),
+        purchasePrice: z.number().int().min(0).optional().nullable(),
+        notes: z.string().optional().nullable(),
+      }),
+      (r, c) => {
+        if (!r.success)
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      },
+    ),
     async (c) => {
       const actingMember = c.get("member");
       const org = c.get("org");
 
       if (!isAdmin(actingMember)) {
-        return c.json({ error: { code: "FORBIDDEN", message: "管理者のみ曲目を追加できます" } }, 403);
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "管理者のみ曲目を追加できます" } },
+          403,
+        );
       }
 
       const body = c.req.valid("json");
       const score = await prisma.score.create({
         data: {
-          orgId:             org.id,
-          title:             body.title,
-          composer:          body.composer          ?? null,
-          arranger:          body.arranger          ?? null,
-          isCommissioned:    body.isCommissioned    ?? false,
-          purchaseDate:      body.purchaseDate      ? new Date(body.purchaseDate)      : null,
+          orgId: org.id,
+          title: body.title,
+          composer: body.composer ?? null,
+          arranger: body.arranger ?? null,
+          isCommissioned: body.isCommissioned ?? false,
+          purchaseDate: body.purchaseDate ? new Date(body.purchaseDate) : null,
           distributionStart: body.distributionStart ? new Date(body.distributionStart) : null,
-          purchasePrice:     body.purchasePrice     ?? null,
-          notes:             body.notes             ?? null,
+          purchasePrice: body.purchasePrice ?? null,
+          notes: body.notes ?? null,
         },
       });
 
-      return c.json({
-        data: { id: score.id, title: score.title, composer: score.composer, arranger: score.arranger },
-      }, 201);
-    }
+      return c.json(
+        {
+          data: {
+            id: score.id,
+            title: score.title,
+            composer: score.composer,
+            arranger: score.arranger,
+          },
+        },
+        201,
+      );
+    },
   )
 
   // ── GET /scores/:scoreId ── 楽譜詳細（単一楽譜）
@@ -199,7 +237,9 @@ export const scoresRouter = new Hono<TenantEnv>()
     if (visitorAccess || privileged) {
       canAccess = true;
     } else if (score.accessLevel !== "secret") {
-      const purchase = await prisma.scorePurchase.findFirst({ where: { scoreId, memberId: actingMember.id } });
+      const purchase = await prisma.scorePurchase.findFirst({
+        where: { scoreId, memberId: actingMember.id },
+      });
       canAccess = !!purchase;
     }
 
@@ -219,8 +259,10 @@ export const scoresRouter = new Hono<TenantEnv>()
 
     return c.json({
       data: {
-        id: score.id, title: score.title,
-        composer: score.composer, arranger: score.arranger,
+        id: score.id,
+        title: score.title,
+        composer: score.composer,
+        arranger: score.arranger,
         isCommissioned: score.isCommissioned,
         accessLevel: score.accessLevel,
         purchaseDate: score.purchaseDate ? toDateString(score.purchaseDate) : null,
@@ -233,9 +275,7 @@ export const scoresRouter = new Hono<TenantEnv>()
         purchaseCount: purchaseCount ?? undefined,
         hasCollection: existingCollection !== null,
         files: canAccess
-          ? score.files
-              .filter((f) => !visitorAccess || f.fileType === "full_score")
-              .map(formatFile)
+          ? score.files.filter((f) => !visitorAccess || f.fileType === "full_score").map(formatFile)
           : [],
       },
     });
@@ -244,25 +284,33 @@ export const scoresRouter = new Hono<TenantEnv>()
   // ── PATCH /scores/:scoreId ── 楽譜メタデータ更新
   .patch(
     "/scores/:scoreId",
-    zValidator("json", z.object({
-      title:             z.string().min(1).optional(),
-      composer:          z.string().nullable().optional(),
-      arranger:          z.string().nullable().optional(),
-      accessLevel:       z.enum(["secret", "restricted", "public"]).optional(),
-      isCommissioned:    z.boolean().optional(),
-      purchaseDate:      z.string().date().nullable().optional(),
-      distributionStart: z.string().date().nullable().optional(),
-      purchasePrice:     z.number().int().min(0).nullable().optional(),
-      notes:             z.string().nullable().optional(),
-    }), (r, c) => {
-      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
-    }),
+    zValidator(
+      "json",
+      z.object({
+        title: z.string().min(1).optional(),
+        composer: z.string().nullable().optional(),
+        arranger: z.string().nullable().optional(),
+        accessLevel: z.enum(["secret", "restricted", "public"]).optional(),
+        isCommissioned: z.boolean().optional(),
+        purchaseDate: z.string().date().nullable().optional(),
+        distributionStart: z.string().date().nullable().optional(),
+        purchasePrice: z.number().int().min(0).nullable().optional(),
+        notes: z.string().nullable().optional(),
+      }),
+      (r, c) => {
+        if (!r.success)
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      },
+    ),
     async (c) => {
       const actingMember = c.get("member");
       const org = c.get("org");
 
       if (!canManagePurchases(actingMember.roles)) {
-        return c.json({ error: { code: "FORBIDDEN", message: "管理者または楽譜がかりのみ操作できます" } }, 403);
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "管理者または楽譜がかりのみ操作できます" } },
+          403,
+        );
       }
 
       const { scoreId } = c.req.param();
@@ -275,16 +323,18 @@ export const scoresRouter = new Hono<TenantEnv>()
       const data: Prisma.ScoreUpdateInput = {};
 
       if (isAdmin(actingMember)) {
-        if (body.title !== undefined)       data.title       = body.title;
-        if (body.composer !== undefined)    data.composer    = body.composer;
-        if (body.arranger !== undefined)    data.arranger    = body.arranger;
+        if (body.title !== undefined) data.title = body.title;
+        if (body.composer !== undefined) data.composer = body.composer;
+        if (body.arranger !== undefined) data.arranger = body.arranger;
         if (body.accessLevel !== undefined) data.accessLevel = body.accessLevel;
       }
-      if (body.isCommissioned !== undefined)    data.isCommissioned    = body.isCommissioned;
-      if (body.purchaseDate !== undefined)      data.purchaseDate      = body.purchaseDate ? new Date(body.purchaseDate) : null;
-      if (body.distributionStart !== undefined) data.distributionStart = body.distributionStart ? new Date(body.distributionStart) : null;
-      if (body.purchasePrice !== undefined)     data.purchasePrice     = body.purchasePrice;
-      if (body.notes !== undefined)             data.notes             = body.notes;
+      if (body.isCommissioned !== undefined) data.isCommissioned = body.isCommissioned;
+      if (body.purchaseDate !== undefined)
+        data.purchaseDate = body.purchaseDate ? new Date(body.purchaseDate) : null;
+      if (body.distributionStart !== undefined)
+        data.distributionStart = body.distributionStart ? new Date(body.distributionStart) : null;
+      if (body.purchasePrice !== undefined) data.purchasePrice = body.purchasePrice;
+      if (body.notes !== undefined) data.notes = body.notes;
 
       if (Object.keys(data).length === 0) {
         return c.json({ data: { id: score.id } });
@@ -294,21 +344,29 @@ export const scoresRouter = new Hono<TenantEnv>()
         where: { id: scoreId },
         data,
         select: {
-          id: true, title: true, composer: true, arranger: true,
-          accessLevel: true, isCommissioned: true,
-          purchaseDate: true, distributionStart: true,
-          purchasePrice: true, notes: true,
+          id: true,
+          title: true,
+          composer: true,
+          arranger: true,
+          accessLevel: true,
+          isCommissioned: true,
+          purchaseDate: true,
+          distributionStart: true,
+          purchasePrice: true,
+          notes: true,
         },
       });
 
       return c.json({
         data: {
           ...updated,
-          purchaseDate:      updated.purchaseDate      ? toDateString(updated.purchaseDate)      : null,
-          distributionStart: updated.distributionStart ? toDateString(updated.distributionStart) : null,
+          purchaseDate: updated.purchaseDate ? toDateString(updated.purchaseDate) : null,
+          distributionStart: updated.distributionStart
+            ? toDateString(updated.distributionStart)
+            : null,
         },
       });
-    }
+    },
   )
 
   // ── GET /scores/:scoreId/purchases ── 購入者一覧（楽譜がかり/admin）
@@ -317,7 +375,10 @@ export const scoresRouter = new Hono<TenantEnv>()
     const org = c.get("org");
 
     if (!canManagePurchases(actingMember.roles)) {
-      return c.json({ error: { code: "FORBIDDEN", message: "楽譜がかりまたは管理者のみ参照できます" } }, 403);
+      return c.json(
+        { error: { code: "FORBIDDEN", message: "楽譜がかりまたは管理者のみ参照できます" } },
+        403,
+      );
     }
 
     const { scoreId } = c.req.param();
@@ -349,19 +410,27 @@ export const scoresRouter = new Hono<TenantEnv>()
   // ── PUT /scores/:scoreId/purchases ── 購入者を一括置換（楽譜がかり/admin）
   .put(
     "/scores/:scoreId/purchases",
-    zValidator("json", z.object({
-      memberIds: z.array(z.string()),
-      purchasedAt: z.string().optional().nullable(),
-      note: z.string().optional().nullable(),
-    }), (r, c) => {
-      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
-    }),
+    zValidator(
+      "json",
+      z.object({
+        memberIds: z.array(z.string()),
+        purchasedAt: z.string().optional().nullable(),
+        note: z.string().optional().nullable(),
+      }),
+      (r, c) => {
+        if (!r.success)
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      },
+    ),
     async (c) => {
       const actingMember = c.get("member");
       const org = c.get("org");
 
       if (!canManagePurchases(actingMember.roles)) {
-        return c.json({ error: { code: "FORBIDDEN", message: "楽譜がかりまたは管理者のみ操作できます" } }, 403);
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "楽譜がかりまたは管理者のみ操作できます" } },
+          403,
+        );
       }
 
       const { scoreId } = c.req.param();
@@ -382,7 +451,15 @@ export const scoresRouter = new Hono<TenantEnv>()
 
       // 送信された ID に無効なものが含まれていれば弾く（サイレント消去防止）
       if (filteredIds.length !== memberIds.length) {
-        return c.json({ error: { code: "BAD_REQUEST", message: "このユーザーに所属しないメンバーIDが含まれています" } }, 400);
+        return c.json(
+          {
+            error: {
+              code: "BAD_REQUEST",
+              message: "このユーザーに所属しないメンバーIDが含まれています",
+            },
+          },
+          400,
+        );
       }
 
       await prisma.$executeRaw`DELETE FROM score_purchases WHERE score_id = ${scoreId}`;
@@ -399,23 +476,31 @@ export const scoresRouter = new Hono<TenantEnv>()
       }
 
       return c.json({ data: { updated: filteredIds.length } });
-    }
+    },
   )
 
   // ── PATCH /scores/:scoreId/price ── 配布価格を設定（楽譜がかり/admin）
   .patch(
     "/scores/:scoreId/price",
-    zValidator("json", z.object({
-      price: z.number().int().min(0).nullable(),
-    }), (r, c) => {
-      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
-    }),
+    zValidator(
+      "json",
+      z.object({
+        price: z.number().int().min(0).nullable(),
+      }),
+      (r, c) => {
+        if (!r.success)
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      },
+    ),
     async (c) => {
       const actingMember = c.get("member");
       const org = c.get("org");
 
       if (!canManagePurchases(actingMember.roles)) {
-        return c.json({ error: { code: "FORBIDDEN", message: "楽譜がかりまたは管理者のみ設定できます" } }, 403);
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "楽譜がかりまたは管理者のみ設定できます" } },
+          403,
+        );
       }
 
       const { scoreId } = c.req.param();
@@ -432,20 +517,25 @@ export const scoresRouter = new Hono<TenantEnv>()
       });
 
       return c.json({ data: updated });
-    }
+    },
   )
 
   // ── POST /scores/:scoreId/files/presign ── R2プレサインドPUT URL発行
   .post(
     "/scores/:scoreId/files/presign",
-    zValidator("json", z.object({
-      fileType:    z.enum(SCORE_FILE_TYPES),
-      fileName:    z.string().min(1),
-      partId:      z.string().nullable().optional(),
-      contentType: z.string().min(1),
-    }), (r, c) => {
-      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
-    }),
+    zValidator(
+      "json",
+      z.object({
+        fileType: z.enum(SCORE_FILE_TYPES),
+        fileName: z.string().min(1),
+        partId: z.string().nullable().optional(),
+        contentType: z.string().min(1),
+      }),
+      (r, c) => {
+        if (!r.success)
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      },
+    ),
     async (c) => {
       const actingMember = c.get("member");
       const org = c.get("org");
@@ -460,36 +550,90 @@ export const scoresRouter = new Hono<TenantEnv>()
 
       if (fileType === "midi") {
         if (!canManageScoreMidi(actingMember.roles)) {
-          return c.json({ error: { code: "FORBIDDEN", message: "MIDIファイルの管理には管理者または技術系の権限が必要です" } }, 403);
+          return c.json(
+            {
+              error: {
+                code: "FORBIDDEN",
+                message: "MIDIファイルの管理には管理者または技術系の権限が必要です",
+              },
+            },
+            403,
+          );
         }
       } else {
         if (!canManageScorePdf(actingMember.roles)) {
-          return c.json({ error: { code: "FORBIDDEN", message: "楽譜ファイルの管理には管理者または楽譜がかりの権限が必要です" } }, 403);
+          return c.json(
+            {
+              error: {
+                code: "FORBIDDEN",
+                message: "楽譜ファイルの管理には管理者または楽譜がかりの権限が必要です",
+              },
+            },
+            403,
+          );
         }
       }
 
       if (partId) {
         const part = await prisma.part.findUnique({ where: { id: partId } });
         if (!part || part.orgId !== org.id) {
-          return c.json({ error: { code: "VALIDATION_ERROR", message: "パートが見つかりません" } }, 400);
+          return c.json(
+            { error: { code: "VALIDATION_ERROR", message: "パートが見つかりません" } },
+            400,
+          );
         }
       }
 
       const ext = extname(fileName).toLowerCase();
       if (fileType === "full_score" && ext !== ".pdf") {
-        return c.json({ error: { code: "VALIDATION_ERROR", message: "楽譜ファイルはPDF形式でアップロードしてください" } }, 400);
+        return c.json(
+          {
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "楽譜ファイルはPDF形式でアップロードしてください",
+            },
+          },
+          400,
+        );
       }
       if (fileType === "midi" && ![".mid", ".midi", ".mp3"].includes(ext)) {
-        return c.json({ error: { code: "VALIDATION_ERROR", message: "MIDIは .mid / .midi / .mp3 形式でアップロードしてください" } }, 400);
+        return c.json(
+          {
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "MIDIは .mid / .midi / .mp3 形式でアップロードしてください",
+            },
+          },
+          400,
+        );
       }
       if (fileType === "other" && ![".pdf", ".mp3", ".wav"].includes(ext)) {
-        return c.json({ error: { code: "VALIDATION_ERROR", message: "その他ファイルは .pdf / .mp3 / .wav 形式でアップロードしてください" } }, 400);
+        return c.json(
+          {
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "その他ファイルは .pdf / .mp3 / .wav 形式でアップロードしてください",
+            },
+          },
+          400,
+        );
       }
 
       if (fileType === "full_score") {
-        const existing = await prisma.scoreFile.findFirst({ where: { scoreId, fileType: "full_score" } });
+        const existing = await prisma.scoreFile.findFirst({
+          where: { scoreId, fileType: "full_score" },
+        });
         if (existing) {
-          return c.json({ error: { code: "CONFLICT", message: "楽譜PDFはすでに登録されています。差し替えるには既存ファイルを削除してから追加してください" } }, 409);
+          return c.json(
+            {
+              error: {
+                code: "CONFLICT",
+                message:
+                  "楽譜PDFはすでに登録されています。差し替えるには既存ファイルを削除してから追加してください",
+              },
+            },
+            409,
+          );
         }
       }
 
@@ -497,20 +641,25 @@ export const scoresRouter = new Hono<TenantEnv>()
       const presignedUrl = await storage.getPresignedPutUrl(key, contentType);
 
       return c.json({ data: { presignedUrl, key } });
-    }
+    },
   )
 
   // ── POST /scores/:scoreId/files/confirm ── R2アップロード後のDB登録
   .post(
     "/scores/:scoreId/files/confirm",
-    zValidator("json", z.object({
-      key:      z.string().regex(/^scores\/[0-9a-f-]+\.[a-z0-9]+$/i),
-      fileType: z.enum(SCORE_FILE_TYPES),
-      fileName: z.string().min(1),
-      partId:   z.string().nullable().optional(),
-    }), (r, c) => {
-      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
-    }),
+    zValidator(
+      "json",
+      z.object({
+        key: z.string().regex(/^scores\/[0-9a-f-]+\.[a-z0-9]+$/i),
+        fileType: z.enum(SCORE_FILE_TYPES),
+        fileName: z.string().min(1),
+        partId: z.string().nullable().optional(),
+      }),
+      (r, c) => {
+        if (!r.success)
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      },
+    ),
     async (c) => {
       const actingMember = c.get("member");
       const org = c.get("org");
@@ -536,13 +685,37 @@ export const scoresRouter = new Hono<TenantEnv>()
 
       const ext = extname(key).toLowerCase();
       if (fileType === "full_score" && ext !== ".pdf") {
-        return c.json({ error: { code: "VALIDATION_ERROR", message: "楽譜ファイルはPDF形式でアップロードしてください" } }, 400);
+        return c.json(
+          {
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "楽譜ファイルはPDF形式でアップロードしてください",
+            },
+          },
+          400,
+        );
       }
       if (fileType === "midi" && ![".mid", ".midi", ".mp3"].includes(ext)) {
-        return c.json({ error: { code: "VALIDATION_ERROR", message: "MIDIは .mid / .midi / .mp3 形式でアップロードしてください" } }, 400);
+        return c.json(
+          {
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "MIDIは .mid / .midi / .mp3 形式でアップロードしてください",
+            },
+          },
+          400,
+        );
       }
       if (fileType === "other" && ![".pdf", ".mp3", ".wav"].includes(ext)) {
-        return c.json({ error: { code: "VALIDATION_ERROR", message: "その他ファイルは .pdf / .mp3 / .wav 形式でアップロードしてください" } }, 400);
+        return c.json(
+          {
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "その他ファイルは .pdf / .mp3 / .wav 形式でアップロードしてください",
+            },
+          },
+          400,
+        );
       }
 
       const maxVer = await prisma.scoreFile.aggregate({
@@ -552,28 +725,49 @@ export const scoresRouter = new Hono<TenantEnv>()
       const version = (maxVer._max.version ?? 0) + 1;
 
       if (fileType === "full_score") {
-        const conflict = await prisma.scoreFile.findFirst({ where: { scoreId, fileType: "full_score" } });
+        const conflict = await prisma.scoreFile.findFirst({
+          where: { scoreId, fileType: "full_score" },
+        });
         if (conflict) {
           await storage.delete(key);
-          return c.json({ error: { code: "CONFLICT", message: "楽譜PDFはすでに登録されています" } }, 409);
+          return c.json(
+            { error: { code: "CONFLICT", message: "楽譜PDFはすでに登録されています" } },
+            409,
+          );
         }
       }
       const created = await prisma.scoreFile.create({
-        data: { scoreId, fileType: fileType as ScoreFileType, partId: resolvedPartId, storageKey: key, fileName, version, uploadedBy: actingMember.id },
+        data: {
+          scoreId,
+          fileType: fileType as ScoreFileType,
+          partId: resolvedPartId,
+          storageKey: key,
+          fileName,
+          version,
+          uploadedBy: actingMember.id,
+        },
       });
 
       const partName = resolvedPartId
-        ? (await prisma.part.findUnique({ where: { id: resolvedPartId }, select: { name: true } }))?.name ?? null
+        ? ((await prisma.part.findUnique({ where: { id: resolvedPartId }, select: { name: true } }))
+            ?.name ?? null)
         : null;
 
-      return c.json({
-        data: {
-          id: created.id, fileType: created.fileType, fileName: created.fileName,
-          partId: created.partId, partName, version: created.version,
-          downloadUrl: `/api/v1/${org.slug}/scores/${scoreId}/files/${created.id}/download`,
+      return c.json(
+        {
+          data: {
+            id: created.id,
+            fileType: created.fileType,
+            fileName: created.fileName,
+            partId: created.partId,
+            partName,
+            version: created.version,
+            downloadUrl: `/api/v1/${org.slug}/scores/${scoreId}/files/${created.id}/download`,
+          },
         },
-      }, 201);
-    }
+        201,
+      );
+    },
   )
 
   // ── POST /scores/:scoreId/files ── ファイルアップロード（ローカル開発用・R2未設定時のフォールバック）
@@ -591,52 +785,120 @@ export const scoresRouter = new Hono<TenantEnv>()
     const file = body["file"];
 
     if (!file || typeof file === "string") {
-      return c.json({ error: { code: "VALIDATION_ERROR", message: "ファイルを選択してください" } }, 400);
+      return c.json(
+        { error: { code: "VALIDATION_ERROR", message: "ファイルを選択してください" } },
+        400,
+      );
     }
     const fileTypeResult = z.enum(SCORE_FILE_TYPES).safeParse(body["fileType"]);
     if (!fileTypeResult.success) {
-      return c.json({ error: { code: "VALIDATION_ERROR", message: "ファイル種別が不正です" } }, 400);
+      return c.json(
+        { error: { code: "VALIDATION_ERROR", message: "ファイル種別が不正です" } },
+        400,
+      );
     }
     const fileType = fileTypeResult.data;
     const partId = typeof body["partId"] === "string" && body["partId"] ? body["partId"] : null;
     if (partId) {
       const part = await prisma.part.findUnique({ where: { id: partId } });
       if (!part || part.orgId !== org.id) {
-        return c.json({ error: { code: "VALIDATION_ERROR", message: "パートが見つかりません" } }, 400);
+        return c.json(
+          { error: { code: "VALIDATION_ERROR", message: "パートが見つかりません" } },
+          400,
+        );
       }
     }
 
     // ファイル種別ごとの権限チェック
     if (fileType === "midi") {
       if (!canManageScoreMidi(actingMember.roles)) {
-        return c.json({ error: { code: "FORBIDDEN", message: "MIDIファイルの管理には管理者または技術系の権限が必要です" } }, 403);
+        return c.json(
+          {
+            error: {
+              code: "FORBIDDEN",
+              message: "MIDIファイルの管理には管理者または技術系の権限が必要です",
+            },
+          },
+          403,
+        );
       }
     } else {
       if (!canManageScorePdf(actingMember.roles)) {
-        return c.json({ error: { code: "FORBIDDEN", message: "楽譜ファイルの管理には管理者または楽譜がかりの権限が必要です" } }, 403);
+        return c.json(
+          {
+            error: {
+              code: "FORBIDDEN",
+              message: "楽譜ファイルの管理には管理者または楽譜がかりの権限が必要です",
+            },
+          },
+          403,
+        );
       }
     }
 
     // 楽譜PDFは1曲につき1ファイルのみ
     if (fileType === "full_score") {
-      const existing = await prisma.scoreFile.findFirst({ where: { scoreId, fileType: "full_score" } });
+      const existing = await prisma.scoreFile.findFirst({
+        where: { scoreId, fileType: "full_score" },
+      });
       if (existing) {
-        return c.json({ error: { code: "CONFLICT", message: "楽譜PDFはすでに登録されています。差し替えるには既存ファイルを削除してから追加してください" } }, 409);
+        return c.json(
+          {
+            error: {
+              code: "CONFLICT",
+              message:
+                "楽譜PDFはすでに登録されています。差し替えるには既存ファイルを削除してから追加してください",
+            },
+          },
+          409,
+        );
       }
     }
 
     const ext = extname(file.name).toLowerCase();
     if (fileType === "full_score" && ext !== ".pdf") {
-      return c.json({ error: { code: "VALIDATION_ERROR", message: "楽譜ファイルはPDF形式でアップロードしてください" } }, 400);
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "楽譜ファイルはPDF形式でアップロードしてください",
+          },
+        },
+        400,
+      );
     }
     if (fileType === "midi" && ![".mid", ".midi", ".mp3"].includes(ext)) {
-      return c.json({ error: { code: "VALIDATION_ERROR", message: "MIDIは .mid / .midi / .mp3 形式でアップロードしてください" } }, 400);
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "MIDIは .mid / .midi / .mp3 形式でアップロードしてください",
+          },
+        },
+        400,
+      );
     }
     if (fileType === "other" && ![".pdf", ".mp3", ".wav"].includes(ext)) {
-      return c.json({ error: { code: "VALIDATION_ERROR", message: "その他ファイルは .pdf / .mp3 / .wav 形式でアップロードしてください" } }, 400);
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "その他ファイルは .pdf / .mp3 / .wav 形式でアップロードしてください",
+          },
+        },
+        400,
+      );
     }
     if (file.size > 20 * 1024 * 1024) {
-      return c.json({ error: { code: "FILE_TOO_LARGE", message: "ファイルサイズが上限を超えています（最大20MB）" } }, 400);
+      return c.json(
+        {
+          error: {
+            code: "FILE_TOO_LARGE",
+            message: "ファイルサイズが上限を超えています（最大20MB）",
+          },
+        },
+        400,
+      );
     }
 
     const maxVer = await prisma.scoreFile.aggregate({
@@ -646,13 +908,28 @@ export const scoresRouter = new Hono<TenantEnv>()
     const version = (maxVer._max.version ?? 0) + 1;
 
     const storageKey = `scores/${randomUUID()}${ext}`;
-    await storage.upload(storageKey, Buffer.from(await file.arrayBuffer()), CONTENT_TYPES[ext] ?? "application/octet-stream");
+    await storage.upload(
+      storageKey,
+      Buffer.from(await file.arrayBuffer()),
+      CONTENT_TYPES[ext] ?? "application/octet-stream",
+    );
 
     if (fileType === "full_score") {
-      const conflict = await prisma.scoreFile.findFirst({ where: { scoreId, fileType: "full_score" } });
+      const conflict = await prisma.scoreFile.findFirst({
+        where: { scoreId, fileType: "full_score" },
+      });
       if (conflict) {
         await storage.delete(storageKey);
-        return c.json({ error: { code: "CONFLICT", message: "楽譜PDFはすでに登録されています。差し替えるには既存ファイルを削除してから追加してください" } }, 409);
+        return c.json(
+          {
+            error: {
+              code: "CONFLICT",
+              message:
+                "楽譜PDFはすでに登録されています。差し替えるには既存ファイルを削除してから追加してください",
+            },
+          },
+          409,
+        );
       }
     }
     const created = await prisma.scoreFile.create({
@@ -668,17 +945,24 @@ export const scoresRouter = new Hono<TenantEnv>()
     });
 
     const partName = partId
-      ? (await prisma.part.findUnique({ where: { id: partId }, select: { name: true } }))?.name ?? null
+      ? ((await prisma.part.findUnique({ where: { id: partId }, select: { name: true } }))?.name ??
+        null)
       : null;
 
-    return c.json({
-      data: {
-        id: created.id, fileType: created.fileType, fileName: created.fileName,
-        partId: created.partId, partName,
-        version: created.version,
-        downloadUrl: `/api/v1/${org.slug}/scores/${scoreId}/files/${created.id}/download`,
+    return c.json(
+      {
+        data: {
+          id: created.id,
+          fileType: created.fileType,
+          fileName: created.fileName,
+          partId: created.partId,
+          partName,
+          version: created.version,
+          downloadUrl: `/api/v1/${org.slug}/scores/${scoreId}/files/${created.id}/download`,
+        },
       },
-    }, 201);
+      201,
+    );
   })
 
   // ── DELETE /scores/:scoreId/files/:fileId ── ファイル削除（admin/tech/score）
@@ -701,11 +985,27 @@ export const scoresRouter = new Hono<TenantEnv>()
     // ファイル種別ごとの権限チェック
     if (scoreFile.fileType === "midi") {
       if (!canManageScoreMidi(actingMember.roles)) {
-        return c.json({ error: { code: "FORBIDDEN", message: "MIDIファイルの管理には管理者または技術系の権限が必要です" } }, 403);
+        return c.json(
+          {
+            error: {
+              code: "FORBIDDEN",
+              message: "MIDIファイルの管理には管理者または技術系の権限が必要です",
+            },
+          },
+          403,
+        );
       }
     } else {
       if (!canManageScorePdf(actingMember.roles)) {
-        return c.json({ error: { code: "FORBIDDEN", message: "楽譜ファイルの管理には管理者または楽譜がかりの権限が必要です" } }, 403);
+        return c.json(
+          {
+            error: {
+              code: "FORBIDDEN",
+              message: "楽譜ファイルの管理には管理者または楽譜がかりの権限が必要です",
+            },
+          },
+          403,
+        );
       }
     }
 
@@ -754,7 +1054,9 @@ export const scoresRouter = new Hono<TenantEnv>()
       }
     }
 
-    const download = await storage.getScoreDownload(scoreFile.storageKey, scoreFile.fileName).catch(() => null);
+    const download = await storage
+      .getScoreDownload(scoreFile.storageKey, scoreFile.fileName)
+      .catch(() => null);
     if (!download) {
       return fileErrorPage(404, "ファイルが見つかりません");
     }

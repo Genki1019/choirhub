@@ -135,15 +135,15 @@ export interface UpdateConcertInput {
 }
 
 export interface CreateConcertInput {
-  title:         string;
-  heldOn:        string;
-  endsAt?:       string;
-  venue?:        string | null;
-  locationUrl?:  string | null;
-  targetRoles?:  string[] | null;
+  title: string;
+  heldOn: string;
+  endsAt?: string;
+  venue?: string | null;
+  locationUrl?: string | null;
+  targetRoles?: string[] | null;
   targetPartIds?: string[] | null;
-  deadline?:     string | null;
-  pageMemo?:     string | null;
+  deadline?: string | null;
+  pageMemo?: string | null;
 }
 
 export interface AddStageInput {
@@ -171,14 +171,12 @@ export interface ConcertStructure {
 }
 
 export const concertsApi = {
-  list: (orgSlug: string) =>
-    apiClient.get<ConcertSummary[]>(`/${orgSlug}/concerts`),
+  list: (orgSlug: string) => apiClient.get<ConcertSummary[]>(`/${orgSlug}/concerts`),
 
   create: (orgSlug: string, data: CreateConcertInput) =>
     apiClient.post<ConcertSummary>(`/${orgSlug}/concerts`, data),
 
-  get: (orgSlug: string, id: string) =>
-    apiClient.get<ConcertDetail>(`/${orgSlug}/concerts/${id}`),
+  get: (orgSlug: string, id: string) => apiClient.get<ConcertDetail>(`/${orgSlug}/concerts/${id}`),
 
   getStructure: (orgSlug: string) =>
     apiClient.get<ConcertStructure[]>(`/${orgSlug}/concerts/structure`),
@@ -187,33 +185,53 @@ export const concertsApi = {
     apiClient.post<StageDetail>(`/${orgSlug}/concerts/${concertId}/stages`, data),
 
   updateStage: (orgSlug: string, concertId: string, stageId: string, data: { name: string }) =>
-    apiClient.patch<{ id: string; name: string; sortOrder: number }>(`/${orgSlug}/concerts/${concertId}/stages/${stageId}`, data),
+    apiClient.patch<{ id: string; name: string; sortOrder: number }>(
+      `/${orgSlug}/concerts/${concertId}/stages/${stageId}`,
+      data,
+    ),
 
   reorderStages: (orgSlug: string, concertId: string, ids: string[]) =>
     apiClient.put<void>(`/${orgSlug}/concerts/${concertId}/stages/order`, { ids }),
 
   reorderPrograms: (orgSlug: string, concertId: string, stageId: string, ids: string[]) =>
-    apiClient.put<void>(`/${orgSlug}/concerts/${concertId}/stages/${stageId}/programs/order`, { ids }),
+    apiClient.put<void>(`/${orgSlug}/concerts/${concertId}/stages/${stageId}/programs/order`, {
+      ids,
+    }),
 
   addProgram: (orgSlug: string, concertId: string, stageId: string, data: AddProgramInput) =>
-    apiClient.post<ProgramDetail>(`/${orgSlug}/concerts/${concertId}/stages/${stageId}/programs`, data),
+    apiClient.post<ProgramDetail>(
+      `/${orgSlug}/concerts/${concertId}/stages/${stageId}/programs`,
+      data,
+    ),
 
   deleteProgram: (orgSlug: string, concertId: string, programId: string) =>
     apiClient.delete(`/${orgSlug}/concerts/${concertId}/programs/${programId}`),
 
-  updateProgram: (orgSlug: string, concertId: string, programId: string, data: UpdateProgramInput) =>
+  updateProgram: (
+    orgSlug: string,
+    concertId: string,
+    programId: string,
+    data: UpdateProgramInput,
+  ) =>
     apiClient.patch<ProgramDetail>(`/${orgSlug}/concerts/${concertId}/programs/${programId}`, data),
 
   update: (orgSlug: string, concertId: string, data: UpdateConcertInput) =>
-    apiClient.patch<{ id: string; title: string; heldOn: string; venue: string | null; status: ConcertStatus }>(
-      `/${orgSlug}/concerts/${concertId}`, data
-    ),
+    apiClient.patch<{
+      id: string;
+      title: string;
+      heldOn: string;
+      venue: string | null;
+      status: ConcertStatus;
+    }>(`/${orgSlug}/concerts/${concertId}`, data),
 
   delete: (orgSlug: string, concertId: string) =>
     apiClient.delete(`/${orgSlug}/concerts/${concertId}`),
 
-  createSurvey: (orgSlug: string, concertId: string, data: { title: string; closeAt?: string | null }) =>
-    apiClient.post<SurveySummary>(`/${orgSlug}/concerts/${concertId}/surveys`, data),
+  createSurvey: (
+    orgSlug: string,
+    concertId: string,
+    data: { title: string; closeAt?: string | null },
+  ) => apiClient.post<SurveySummary>(`/${orgSlug}/concerts/${concertId}/surveys`, data),
 
   getSurveyDetail: (orgSlug: string, concertId: string, surveyId: string) =>
     apiClient.get<SurveyDetail>(`/${orgSlug}/concerts/${concertId}/surveys/${surveyId}`),
@@ -225,7 +243,8 @@ export const concertsApi = {
     data: { isOpen?: boolean; title?: string },
   ) =>
     apiClient.patch<{ id: string; title: string; isOpen: boolean; concertStatus: ConcertStatus }>(
-      `/${orgSlug}/concerts/${concertId}/surveys/${surveyId}`, data
+      `/${orgSlug}/concerts/${concertId}/surveys/${surveyId}`,
+      data,
     ),
 
   respondSurvey: (
@@ -238,15 +257,19 @@ export const concertsApi = {
   ) =>
     apiClient.put<{ ok: boolean }>(
       `/${orgSlug}/concerts/${concertId}/surveys/${surveyId}/respond`,
-      { responses, memo: memo ?? undefined, targetMemberId }
+      { responses, memo: memo ?? undefined, targetMemberId },
     ),
 
   applySurveyToFormation: (orgSlug: string, concertId: string, surveyId: string) =>
-    apiClient.post<{ ok: boolean }>(`/${orgSlug}/concerts/${concertId}/surveys/${surveyId}/apply`, {}),
+    apiClient.post<{ ok: boolean }>(
+      `/${orgSlug}/concerts/${concertId}/surveys/${surveyId}/apply`,
+      {},
+    ),
 
   createFormationPattern: (orgSlug: string, concertId: string, stageId: string, name: string) =>
     apiClient.post<FormationPatternDetail>(
-      `/${orgSlug}/concerts/${concertId}/stages/${stageId}/formation-patterns`, { name }
+      `/${orgSlug}/concerts/${concertId}/stages/${stageId}/formation-patterns`,
+      { name },
     ),
 
   updateFormationPattern: (
@@ -256,15 +279,32 @@ export const concertsApi = {
     patternId: string,
     patch: Partial<{ name: string; isStaggered: boolean; pianoPosition: PianoPosition }>,
   ) =>
-    apiClient.patch<{ id: string; name: string; sortOrder: number; isStaggered: boolean; pianoPosition: PianoPosition }>(
-      `/${orgSlug}/concerts/${concertId}/stages/${stageId}/formation-patterns/${patternId}`, patch
+    apiClient.patch<{
+      id: string;
+      name: string;
+      sortOrder: number;
+      isStaggered: boolean;
+      pianoPosition: PianoPosition;
+    }>(
+      `/${orgSlug}/concerts/${concertId}/stages/${stageId}/formation-patterns/${patternId}`,
+      patch,
     ),
 
-  deleteFormationPattern: (orgSlug: string, concertId: string, stageId: string, patternId: string) =>
-    apiClient.delete(`/${orgSlug}/concerts/${concertId}/stages/${stageId}/formation-patterns/${patternId}`),
+  deleteFormationPattern: (
+    orgSlug: string,
+    concertId: string,
+    stageId: string,
+    patternId: string,
+  ) =>
+    apiClient.delete(
+      `/${orgSlug}/concerts/${concertId}/stages/${stageId}/formation-patterns/${patternId}`,
+    ),
 
   reorderFormationPatterns: (orgSlug: string, concertId: string, stageId: string, ids: string[]) =>
-    apiClient.put<void>(`/${orgSlug}/concerts/${concertId}/stages/${stageId}/formation-patterns/order`, { ids }),
+    apiClient.put<void>(
+      `/${orgSlug}/concerts/${concertId}/stages/${stageId}/formation-patterns/order`,
+      { ids },
+    ),
 
   saveFormationSlots: (
     orgSlug: string,
@@ -273,10 +313,17 @@ export const concertsApi = {
     patternId: string,
     payload: {
       boxes: { clientId: string; kind: FormationBoxKind; title?: string; sortOrder: number }[];
-      slots: { memberId?: string; label?: string; boxClientId?: string; rowNum?: number; positionOrder: number }[];
+      slots: {
+        memberId?: string;
+        label?: string;
+        boxClientId?: string;
+        rowNum?: number;
+        positionOrder: number;
+      }[];
     },
   ) =>
     apiClient.put<void>(
-      `/${orgSlug}/concerts/${concertId}/stages/${stageId}/formation-patterns/${patternId}/slots`, payload
+      `/${orgSlug}/concerts/${concertId}/stages/${stageId}/formation-patterns/${patternId}/slots`,
+      payload,
     ),
 };

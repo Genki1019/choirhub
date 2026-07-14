@@ -20,46 +20,53 @@ export default function ScoresPage() {
   const { roles } = useMember();
   const [showAddModal, setShowAddModal] = useState(false);
 
-  const { data, isLoading: loading, error: scoresError } = useQuery({
+  const {
+    data,
+    isLoading: loading,
+    error: scoresError,
+  } = useQuery({
     queryKey: scoresKeys.grouped(org),
-    queryFn:  () => scoresApi.grouped(org),
+    queryFn: () => scoresApi.grouped(org),
   });
 
-  const existingScores = useMemo(() => [
-    ...(data?.unassigned ?? []),
-    ...(data?.concerts.flatMap((c) => c.stages.flatMap((s) => s.programs.flatMap((p) => p.score ? [p.score] : []))) ?? []),
-  ], [data]);
+  const existingScores = useMemo(
+    () => [
+      ...(data?.unassigned ?? []),
+      ...(data?.concerts.flatMap((c) =>
+        c.stages.flatMap((s) => s.programs.flatMap((p) => (p.score ? [p.score] : []))),
+      ) ?? []),
+    ],
+    [data],
+  );
 
   const handleScoreCreated = (score: ScoreSummary, stageAssigned: boolean) => {
     if (stageAssigned) {
       queryClient.invalidateQueries({ queryKey: scoresKeys.grouped(org) });
     } else {
       queryClient.setQueryData<GroupedScores>(scoresKeys.grouped(org), (prev) =>
-        prev ? { ...prev, unassigned: [...prev.unassigned, score] } : prev
+        prev ? { ...prev, unassigned: [...prev.unassigned, score] } : prev,
       );
     }
     setShowAddModal(false);
   };
 
   const totalScores = data
-    ? data.concerts.reduce((n, c) => n + c.stages.reduce((m, s) => m + s.programs.length, 0), 0)
-      + data.unassigned.length
+    ? data.concerts.reduce((n, c) => n + c.stages.reduce((m, s) => m + s.programs.length, 0), 0) +
+      data.unassigned.length
     : 0;
 
   return (
     <div className="flex flex-col">
-      <header className="bg-white border-b border-gray-200 shrink-0">
+      <header className="shrink-0 border-b border-gray-200 bg-white">
         <PageBleedRow className="flex items-center justify-between py-4">
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-semibold text-gray-800">楽譜</h1>
-            {!loading && data && (
-              <span className="text-sm text-gray-400">{totalScores}曲</span>
-            )}
+            {!loading && data && <span className="text-sm text-gray-400">{totalScores}曲</span>}
           </div>
           {roles.includes("admin") && (
             <button
               onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-1.5 bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-brand-700 transition-colors"
+              className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
             >
               <Plus size={14} />
               曲目を追加
@@ -70,14 +77,14 @@ export default function ScoresPage() {
 
       <PageMain className="space-y-4">
         {loading && (
-          <div className="flex items-center justify-center py-16 gap-2 text-gray-400">
+          <div className="flex items-center justify-center gap-2 py-16 text-gray-400">
             <Loader2 size={18} className="animate-spin" />
             <span className="text-sm">読み込み中...</span>
           </div>
         )}
 
         {!loading && scoresError && (
-          <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
+          <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
             <AlertCircle size={16} />
             <span className="text-sm">{scoresError.message}</span>
           </div>
@@ -86,7 +93,7 @@ export default function ScoresPage() {
         {!loading && data && (
           <>
             {data.concerts.length === 0 && data.unassigned.length === 0 && (
-              <div className="text-center py-16 text-gray-400">
+              <div className="py-16 text-center text-gray-400">
                 <BookOpen size={32} className="mx-auto mb-3 opacity-40" />
                 <p className="text-sm">楽譜が登録されていません</p>
               </div>

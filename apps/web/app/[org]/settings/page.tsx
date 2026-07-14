@@ -14,9 +14,13 @@ export default function SettingsPage() {
   const { org } = useParams<{ org: string }>();
   const { roles } = useMember();
 
-  const { data: settings, isLoading: loading, error } = useQuery({
+  const {
+    data: settings,
+    isLoading: loading,
+    error,
+  } = useQuery({
     queryKey: settingsKeys.org(org),
-    queryFn:  () => settingsApi.get(org),
+    queryFn: () => settingsApi.get(org),
   });
 
   return (
@@ -27,7 +31,11 @@ export default function SettingsPage() {
         </div>
       ) : (
         <>
-          <OrgSettingsForm orgSlug={org} initialName={settings?.name ?? ""} initialSlug={settings?.slug ?? ""} />
+          <OrgSettingsForm
+            orgSlug={org}
+            initialName={settings?.name ?? ""}
+            initialSlug={settings?.slug ?? ""}
+          />
           {roles.includes("admin") && <DangerZone />}
         </>
       )}

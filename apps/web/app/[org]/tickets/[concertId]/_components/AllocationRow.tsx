@@ -14,21 +14,25 @@ interface AllocationRowProps {
 }
 
 export function AllocationRowComponent({
-  row, canEdit, canEditAllocation, isAdmin,
-  orgSlug, onUpdated,
+  row,
+  canEdit,
+  canEditAllocation,
+  isAdmin,
+  orgSlug,
+  onUpdated,
 }: AllocationRowProps) {
-  const [editing,      setEditing]      = useState(false);
+  const [editing, setEditing] = useState(false);
   const [editingAlloc, setEditingAlloc] = useState(false);
   const [form, setForm] = useState({
-    soldAdult:     row.soldAdult,
-    soldStudent:   row.soldStudent,
-    soldOther:     row.soldOther,
+    soldAdult: row.soldAdult,
+    soldStudent: row.soldStudent,
+    soldOther: row.soldOther,
     returnedCount: row.returnedCount,
     isCollected: row.isCollected,
   });
-  const [allocCount,   setAllocCount]   = useState(row.allocatedCount);
-  const [saving,       setSaving]       = useState(false);
-  const [savingAlloc,  setSavingAlloc]  = useState(false);
+  const [allocCount, setAllocCount] = useState(row.allocatedCount);
+  const [saving, setSaving] = useState(false);
+  const [savingAlloc, setSavingAlloc] = useState(false);
 
   const totalSold = row.soldAdult + row.soldStudent + row.soldOther;
   const remaining = row.allocatedCount - totalSold - row.returnedCount;
@@ -56,14 +60,22 @@ export function AllocationRowComponent({
   };
 
   const handleCancel = () => {
-    setForm({ soldAdult: row.soldAdult, soldStudent: row.soldStudent, soldOther: row.soldOther, returnedCount: row.returnedCount, isCollected: row.isCollected });
+    setForm({
+      soldAdult: row.soldAdult,
+      soldStudent: row.soldStudent,
+      soldOther: row.soldOther,
+      returnedCount: row.returnedCount,
+      isCollected: row.isCollected,
+    });
     setEditing(false);
   };
 
   return (
-    <div className={`px-4 py-3 flex items-center gap-3 text-sm ${editing ? "bg-brand-50" : "hover:bg-gray-50"} transition-colors`}>
+    <div
+      className={`flex items-center gap-3 px-4 py-3 text-sm ${editing ? "bg-brand-50" : "hover:bg-gray-50"} transition-colors`}
+    >
       <div className="w-28 shrink-0">
-        <p className="font-medium text-gray-800 text-xs">{row.nameJa}</p>
+        <p className="text-xs font-medium text-gray-800">{row.nameJa}</p>
         <p className="text-xs text-gray-400">{row.partName ?? "—"}</p>
       </div>
 
@@ -75,30 +87,41 @@ export function AllocationRowComponent({
               min={0}
               value={allocCount}
               onChange={(e) => setAllocCount(Number(e.target.value))}
-              className="w-10 text-center text-sm border border-brand-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-brand-400"
+              className="border-brand-300 focus:ring-brand-400 w-10 rounded border px-1 py-0.5 text-center text-sm focus:ring-1 focus:outline-none"
               autoFocus
             />
-            <button onClick={handleSaveAlloc} disabled={savingAlloc}
-              className="p-0.5 text-brand-600 hover:text-brand-700 disabled:opacity-60">
+            <button
+              onClick={handleSaveAlloc}
+              disabled={savingAlloc}
+              className="text-brand-600 hover:text-brand-700 p-0.5 disabled:opacity-60"
+            >
               {savingAlloc ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
             </button>
-            <button onClick={() => { setAllocCount(row.allocatedCount); setEditingAlloc(false); }}
-              className="p-0.5 text-gray-400 hover:text-gray-600">
+            <button
+              onClick={() => {
+                setAllocCount(row.allocatedCount);
+                setEditingAlloc(false);
+              }}
+              className="p-0.5 text-gray-400 hover:text-gray-600"
+            >
               <X size={11} />
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-1 group">
+          <div className="group flex items-center gap-1">
             <span className="text-sm text-gray-700">{row.allocatedCount}</span>
             {row.requestedCount !== null && row.requestedCount !== row.allocatedCount && (
-              <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5 leading-none">
+              <span className="rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs leading-none text-amber-600">
                 申請{row.requestedCount}
               </span>
             )}
             {canEditAllocation && (
               <button
-                onClick={() => { setAllocCount(row.allocatedCount); setEditingAlloc(true); }}
-                className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-400 hover:text-brand-500 transition-opacity"
+                onClick={() => {
+                  setAllocCount(row.allocatedCount);
+                  setEditingAlloc(true);
+                }}
+                className="hover:text-brand-500 p-0.5 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100"
               >
                 <Pencil size={10} />
               </button>
@@ -109,18 +132,34 @@ export function AllocationRowComponent({
 
       {editing ? (
         <>
-          <input type="number" min={0} value={form.soldAdult}
+          <input
+            type="number"
+            min={0}
+            value={form.soldAdult}
             onChange={(e) => setForm({ ...form, soldAdult: Number(e.target.value) })}
-            className="w-12 text-center text-sm border border-brand-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-brand-400" />
-          <input type="number" min={0} value={form.soldStudent}
+            className="border-brand-300 focus:ring-brand-400 w-12 rounded border px-1 py-0.5 text-center text-sm focus:ring-1 focus:outline-none"
+          />
+          <input
+            type="number"
+            min={0}
+            value={form.soldStudent}
             onChange={(e) => setForm({ ...form, soldStudent: Number(e.target.value) })}
-            className="w-12 text-center text-sm border border-brand-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-brand-400" />
-          <input type="number" min={0} value={form.soldOther}
+            className="border-brand-300 focus:ring-brand-400 w-12 rounded border px-1 py-0.5 text-center text-sm focus:ring-1 focus:outline-none"
+          />
+          <input
+            type="number"
+            min={0}
+            value={form.soldOther}
             onChange={(e) => setForm({ ...form, soldOther: Number(e.target.value) })}
-            className="w-12 text-center text-sm border border-brand-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-brand-400" />
-          <input type="number" min={0} value={form.returnedCount}
+            className="border-brand-300 focus:ring-brand-400 w-12 rounded border px-1 py-0.5 text-center text-sm focus:ring-1 focus:outline-none"
+          />
+          <input
+            type="number"
+            min={0}
+            value={form.returnedCount}
             onChange={(e) => setForm({ ...form, returnedCount: Number(e.target.value) })}
-            className="w-12 text-center text-sm border border-brand-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-brand-400" />
+            className="border-brand-300 focus:ring-brand-400 w-12 rounded border px-1 py-0.5 text-center text-sm focus:ring-1 focus:outline-none"
+          />
         </>
       ) : (
         <>
@@ -131,38 +170,50 @@ export function AllocationRowComponent({
         </>
       )}
 
-      <div className={`w-10 text-center text-sm shrink-0 ${remaining < 0 ? "text-red-500 font-medium" : "text-gray-500"}`}>
+      <div
+        className={`w-10 shrink-0 text-center text-sm ${remaining < 0 ? "font-medium text-red-500" : "text-gray-500"}`}
+      >
         {remaining}
       </div>
 
-      <div className="w-10 text-center shrink-0">
+      <div className="w-10 shrink-0 text-center">
         {editing && isAdmin ? (
-          <input type="checkbox" checked={form.isCollected}
+          <input
+            type="checkbox"
+            checked={form.isCollected}
             onChange={(e) => setForm({ ...form, isCollected: e.target.checked })}
-            className="w-4 h-4 accent-brand-600" />
+            className="accent-brand-600 h-4 w-4"
+          />
+        ) : row.isCollected ? (
+          <Check size={14} className="mx-auto text-green-500" />
         ) : (
-          row.isCollected
-            ? <Check size={14} className="text-green-500 mx-auto" />
-            : <span className="text-gray-300 text-xs">—</span>
+          <span className="text-xs text-gray-300">—</span>
         )}
       </div>
 
-      <div className="ml-auto flex items-center gap-1 shrink-0">
+      <div className="ml-auto flex shrink-0 items-center gap-1">
         {!editing && canEdit && (
-          <button onClick={() => setEditing(true)}
-            className="p-1.5 text-gray-400 hover:text-brand-500 hover:bg-brand-50 rounded-lg transition-colors">
+          <button
+            onClick={() => setEditing(true)}
+            className="hover:text-brand-500 hover:bg-brand-50 rounded-lg p-1.5 text-gray-400 transition-colors"
+          >
             <Pencil size={13} />
           </button>
         )}
         {editing && (
           <>
-            <button onClick={handleSave} disabled={saving}
-              className="flex items-center gap-1 text-xs font-medium text-white bg-brand-600 hover:bg-brand-700 px-2.5 py-1.5 rounded-lg disabled:opacity-60 transition-colors">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-60"
+            >
               {saving ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
               保存
             </button>
-            <button onClick={handleCancel}
-              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+            <button
+              onClick={handleCancel}
+              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            >
               <X size={13} />
             </button>
           </>

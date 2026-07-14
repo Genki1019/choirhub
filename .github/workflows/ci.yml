@@ -29,6 +29,9 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @choirhub/api db:generate
 
+      - name: Format check
+        run: pnpm format:check
+
       - name: Lint (web)
         run: pnpm --filter @choirhub/web lint
 

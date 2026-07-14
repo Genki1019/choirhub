@@ -15,8 +15,8 @@ export default function PartsPage() {
 
   const { data: parts = [], isLoading: loading } = useQuery({
     queryKey: memberKeys.parts(org),
-    queryFn:  () => membersApi.parts(org),
-    select:   (data) => [...data].sort((a, b) => a.sortOrder - b.sortOrder),
+    queryFn: () => membersApi.parts(org),
+    select: (data) => [...data].sort((a, b) => a.sortOrder - b.sortOrder),
   });
 
   const showToast = (msg: string) => {
@@ -27,7 +27,7 @@ export default function PartsPage() {
   return (
     <SettingsPageShell title={settingsPageTitle("/parts")} loading={loading}>
       {toast && (
-        <div className="fixed bottom-6 right-6 bg-gray-800 text-white text-xs px-4 py-2.5 rounded-lg shadow-lg z-50">
+        <div className="fixed right-6 bottom-6 z-50 rounded-lg bg-gray-800 px-4 py-2.5 text-xs text-white shadow-lg">
           {toast}
         </div>
       )}

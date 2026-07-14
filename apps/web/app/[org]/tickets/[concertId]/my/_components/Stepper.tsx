@@ -9,14 +9,14 @@ interface StepperProps {
 
 export function Stepper({ label, value, disabled, onChange }: StepperProps) {
   return (
-    <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+    <div className="flex items-center justify-between border-b border-gray-100 py-3 last:border-0">
       <span className="text-sm text-gray-600">{label}</span>
       <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={() => onChange(Math.max(0, value - 1))}
           disabled={disabled}
-          className="w-8 h-8 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 text-xl leading-none flex items-center justify-center transition-colors select-none disabled:opacity-40"
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-xl leading-none text-gray-500 transition-colors select-none hover:bg-gray-100 disabled:opacity-40"
         >
           −
         </button>
@@ -26,13 +26,13 @@ export function Stepper({ label, value, disabled, onChange }: StepperProps) {
           value={value}
           onChange={(e) => onChange(Math.max(0, Number(e.target.value)))}
           disabled={disabled}
-          className="w-14 text-center text-sm font-medium border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-400 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="focus:ring-brand-400 w-14 rounded-lg border border-gray-200 px-2 py-1.5 text-center text-sm font-medium focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
         />
         <button
           type="button"
           onClick={() => onChange(value + 1)}
           disabled={disabled}
-          className="w-8 h-8 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 text-xl leading-none flex items-center justify-center transition-colors select-none disabled:opacity-40"
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-xl leading-none text-gray-500 transition-colors select-none hover:bg-gray-100 disabled:opacity-40"
         >
           ＋
         </button>

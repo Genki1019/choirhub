@@ -24,11 +24,15 @@ export default function MemberDetailPage() {
   const { roles: myRoles, memberId: myMemberId } = useMember();
   const [isEditing, setIsEditing] = useState(false);
 
-  const isSelf       = myMemberId === id;
-  const isAdmin      = myRoles.includes("admin");
-  const isMemberPlus = myRoles.some(r => MEMBER_LEVEL_ROLES.has(r));
+  const isSelf = myMemberId === id;
+  const isAdmin = myRoles.includes("admin");
+  const isMemberPlus = myRoles.some((r) => MEMBER_LEVEL_ROLES.has(r));
 
-  const { data: member, isLoading: memberLoading, error: memberError } = useQuery({
+  const {
+    data: member,
+    isLoading: memberLoading,
+    error: memberError,
+  } = useQuery({
     queryKey: memberKeys.detail(org, id),
     queryFn: () => membersApi.get(org, id),
   });
@@ -68,7 +72,7 @@ export default function MemberDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full gap-2 text-gray-400">
+      <div className="flex h-full items-center justify-center gap-2 text-gray-400">
         <Loader2 size={18} className="animate-spin" />
         <span className="text-sm">読み込み中...</span>
       </div>
@@ -77,8 +81,8 @@ export default function MemberDetailPage() {
 
   if (memberError || !member) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
+      <div className="flex h-full items-center justify-center">
+        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
           <AlertCircle size={16} />
           <span className="text-sm">{memberError?.message ?? "メンバーが見つかりません"}</span>
         </div>
@@ -88,32 +92,33 @@ export default function MemberDetailPage() {
 
   return (
     <div className="flex flex-col">
-      <header className="bg-white border-b border-gray-200 shrink-0">
+      <header className="shrink-0 border-b border-gray-200 bg-white">
         <PageBleedRow className="flex items-center justify-between py-4">
           <div className="flex items-center gap-4">
-            <Link href={`/${org}/members`} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <Link
+              href={`/${org}/members`}
+              className="text-gray-400 transition-colors hover:text-gray-600"
+            >
               <ArrowLeft size={18} />
             </Link>
             <h1 className="text-lg font-semibold text-gray-800">メンバー詳細</h1>
           </div>
           {isSelf && !isEditing && (
-            <button onClick={() => setIsEditing(true)}
-              className="flex items-center gap-1.5 text-sm text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+            <button
+              onClick={() => setIsEditing(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+            >
               <Pencil size={14} /> 編集
             </button>
           )}
         </PageBleedRow>
       </header>
 
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 sm:px-8 py-6 space-y-6">
+      <main className="mx-auto w-full max-w-2xl flex-1 space-y-6 px-4 py-6 sm:px-8">
         <ProfileCard member={member} />
 
         {!isEditing && (
-          <ProfileInfoSection
-            member={member}
-            isMemberPlus={isMemberPlus}
-            isAdmin={isAdmin}
-          />
+          <ProfileInfoSection member={member} isMemberPlus={isMemberPlus} isAdmin={isAdmin} />
         )}
 
         {isEditing && (
@@ -126,7 +131,13 @@ export default function MemberDetailPage() {
         )}
 
         {isAdmin && (
-          <AdminPanel member={member} parts={parts} memberTypes={memberTypes} onUpdate={handleAdminSave} onDelete={handleAdminDelete} />
+          <AdminPanel
+            member={member}
+            parts={parts}
+            memberTypes={memberTypes}
+            onUpdate={handleAdminSave}
+            onDelete={handleAdminDelete}
+          />
         )}
       </main>
     </div>

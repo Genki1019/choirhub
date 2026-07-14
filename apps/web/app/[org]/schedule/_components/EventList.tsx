@@ -11,8 +11,7 @@ interface EventListProps {
 
 function emptyMessage(year: number, month: number, today: Date): string {
   const isFuture =
-    year > today.getFullYear() ||
-    (year === today.getFullYear() && month > today.getMonth() + 1);
+    year > today.getFullYear() || (year === today.getFullYear() && month > today.getMonth() + 1);
 
   return isFuture ? "予定はありません" : "予定はすべて終了しました";
 }
@@ -29,14 +28,12 @@ export function EventList({ events, year, month, org }: EventListProps) {
 
   return (
     <div className="space-y-3">
-      <h2 className="text-sm font-semibold text-gray-600 flex items-center gap-1.5">
+      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-600">
         <CalendarDays size={14} className="text-gray-400" />
         {month}月の予定
       </h2>
       {monthEvents.length === 0 ? (
-        <p className="text-xs text-gray-400 text-center py-6">
-          {emptyMessage(year, month, today)}
-        </p>
+        <p className="py-6 text-center text-xs text-gray-400">{emptyMessage(year, month, today)}</p>
       ) : (
         <div className="space-y-3">
           {monthEvents.map((ev) => (

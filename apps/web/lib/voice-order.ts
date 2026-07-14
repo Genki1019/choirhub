@@ -4,23 +4,23 @@
  */
 const VOICE_TYPE_ORDER: Record<string, number> = {
   // 女声 / 混声上声部
-  soprano:        1,
-  "soprano-1":    1,
-  "soprano-2":    2,
-  "mezzo-soprano":3,
-  mezzo:          3,
-  alto:           4,
-  contralto:      4,
+  soprano: 1,
+  "soprano-1": 1,
+  "soprano-2": 2,
+  "mezzo-soprano": 3,
+  mezzo: 3,
+  alto: 4,
+  contralto: 4,
   // 男声
-  tenor:          5,
-  "tenor-1":      5,
-  "tenor-2":      6,
-  countertenor:   5,
-  baritone:       7,
-  "bass-baritone":8,
-  bass:           9,
+  tenor: 5,
+  "tenor-1": 5,
+  "tenor-2": 6,
+  countertenor: 5,
+  baritone: 7,
+  "bass-baritone": 8,
+  bass: 9,
   // その他
-  other:          99,
+  other: 99,
 };
 
 /**

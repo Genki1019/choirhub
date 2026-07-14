@@ -4,10 +4,10 @@ export type PaymentMethod = "cash" | "paypay" | "bank_transfer" | "other";
 export type CollectionPaymentStatus = "pending" | "paid" | "waived";
 
 export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
-  cash:          "現金",
-  paypay:        "PayPay",
+  cash: "現金",
+  paypay: "PayPay",
   bank_transfer: "振込",
-  other:         "その他",
+  other: "その他",
 };
 
 // ────────────────────────────
@@ -73,7 +73,12 @@ export interface CollectionSummaryItem {
 
 export interface CollectionPaymentItem {
   id: string;
-  member: { id: string; nameJa: string; part: { id: string; name: string; voiceType: string; sortOrder: number } | null; memberTypeFee: number | null };
+  member: {
+    id: string;
+    nameJa: string;
+    part: { id: string; name: string; voiceType: string; sortOrder: number } | null;
+    memberTypeFee: number | null;
+  };
   status: CollectionPaymentStatus;
   amount: number | null;
   paidAt: string | null;
@@ -122,8 +127,8 @@ export const accountingApi = {
   // 支出
   listExpenses: (orgSlug: string, params?: { from?: string; to?: string; categoryId?: string }) => {
     const q = new URLSearchParams();
-    if (params?.from)       q.set("from", params.from);
-    if (params?.to)         q.set("to", params.to);
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
     if (params?.categoryId) q.set("categoryId", params.categoryId);
     const qs = q.toString();
     return apiClient.get<ExpenseItem[]>(`/${orgSlug}/finance/expenses${qs ? `?${qs}` : ""}`);
@@ -142,19 +147,31 @@ export const accountingApi = {
   listCollections: (orgSlug: string, params?: { from?: string; to?: string }) => {
     const q = new URLSearchParams();
     if (params?.from) q.set("from", params.from);
-    if (params?.to)   q.set("to",   params.to);
+    if (params?.to) q.set("to", params.to);
     const qs = q.toString();
-    return apiClient.get<CollectionSummaryItem[]>(`/${orgSlug}/finance/collections${qs ? `?${qs}` : ""}`);
+    return apiClient.get<CollectionSummaryItem[]>(
+      `/${orgSlug}/finance/collections${qs ? `?${qs}` : ""}`,
+    );
   },
 
   createCollection: (orgSlug: string, data: CollectionInput) =>
-    apiClient.post<{ id: string; title: string; amount: number }>(`/${orgSlug}/finance/collections`, data),
+    apiClient.post<{ id: string; title: string; amount: number }>(
+      `/${orgSlug}/finance/collections`,
+      data,
+    ),
 
   getCollection: (orgSlug: string, collectionId: string) =>
     apiClient.get<CollectionDetail>(`/${orgSlug}/finance/collections/${collectionId}`),
 
-  updateCollection: (orgSlug: string, collectionId: string, data: Partial<Omit<CollectionInput, "memberIds">>) =>
-    apiClient.patch<{ id: string; title: string; amount: number }>(`/${orgSlug}/finance/collections/${collectionId}`, data),
+  updateCollection: (
+    orgSlug: string,
+    collectionId: string,
+    data: Partial<Omit<CollectionInput, "memberIds">>,
+  ) =>
+    apiClient.patch<{ id: string; title: string; amount: number }>(
+      `/${orgSlug}/finance/collections/${collectionId}`,
+      data,
+    ),
 
   deleteCollection: (orgSlug: string, collectionId: string) =>
     apiClient.delete(`/${orgSlug}/finance/collections/${collectionId}`),
@@ -164,14 +181,33 @@ export const accountingApi = {
     orgSlug: string,
     collectionId: string,
     memberId: string,
-    data: { status: CollectionPaymentStatus; amount?: number | null; paidAt?: string | null; method?: PaymentMethod | null; note?: string | null },
-  ) => apiClient.patch<CollectionPaymentItem>(`/${orgSlug}/finance/collections/${collectionId}/payments/${memberId}`, data),
+    data: {
+      status: CollectionPaymentStatus;
+      amount?: number | null;
+      paidAt?: string | null;
+      method?: PaymentMethod | null;
+      note?: string | null;
+    },
+  ) =>
+    apiClient.patch<CollectionPaymentItem>(
+      `/${orgSlug}/finance/collections/${collectionId}/payments/${memberId}`,
+      data,
+    ),
 
   bulkRecordPayment: (
     orgSlug: string,
     collectionId: string,
-    data: { memberIds: string[]; status: CollectionPaymentStatus; paidAt?: string | null; method?: PaymentMethod | null },
-  ) => apiClient.post<{ updated: number }>(`/${orgSlug}/finance/collections/${collectionId}/payments/bulk`, data),
+    data: {
+      memberIds: string[];
+      status: CollectionPaymentStatus;
+      paidAt?: string | null;
+      method?: PaymentMethod | null;
+    },
+  ) =>
+    apiClient.post<{ updated: number }>(
+      `/${orgSlug}/finance/collections/${collectionId}/payments/bulk`,
+      data,
+    ),
 
   // カテゴリ
   listCategories: (orgSlug: string) =>

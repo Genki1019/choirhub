@@ -1,4 +1,9 @@
-import type { AssignmentDetail, FormationBoxDetail, FormationPatternDetail, FormationSlotDetail } from "@/lib/concerts-api";
+import type {
+  AssignmentDetail,
+  FormationBoxDetail,
+  FormationPatternDetail,
+  FormationSlotDetail,
+} from "@/lib/concerts-api";
 import { comparePartOrder } from "@/lib/voice-order";
 import type { BoxMeta, Containers, PartColor, SlotItem } from "./types";
 
@@ -28,7 +33,9 @@ export function isRiserRow(key: string): boolean {
 }
 
 export function riserRowKeys(containers: Containers): string[] {
-  return Object.keys(containers).filter(isRiserRow).sort((a, b) => rowNumOf(a) - rowNumOf(b));
+  return Object.keys(containers)
+    .filter(isRiserRow)
+    .sort((a, b) => rowNumOf(a) - rowNumOf(b));
 }
 
 // 配置済みインスタンスのキーは常に `i:` 接頭辞（一意なslot単位）。
@@ -46,11 +53,20 @@ function slotToItem(slot: FormationSlotDetail): SlotItem {
 }
 
 export function assignmentToSlotItem(a: AssignmentDetail, label: string | null = null): SlotItem {
-  return { key: `m:${a.memberId}`, memberId: a.memberId, label, name: a.nameJa, partName: a.partName };
+  return {
+    key: `m:${a.memberId}`,
+    memberId: a.memberId,
+    label,
+    name: a.nameJa,
+    partName: a.partName,
+  };
 }
 
 // パターンの boxes/slots から、配置状況（Containers）と枠メタ情報（BoxMeta[]）を組み立てる
-export function buildPlacedState(pattern: FormationPatternDetail, minRows: number): { placed: Containers; boxes: BoxMeta[] } {
+export function buildPlacedState(
+  pattern: FormationPatternDetail,
+  minRows: number,
+): { placed: Containers; boxes: BoxMeta[] } {
   const boxes: BoxMeta[] = pattern.boxes
     .slice()
     .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -60,7 +76,9 @@ export function buildPlacedState(pattern: FormationPatternDetail, minRows: numbe
   const maxRiser = Math.max(minRows, riserNums.length > 0 ? Math.max(...riserNums) : 0, 1);
 
   const placed: Containers = {};
-  boxes.forEach((b) => { placed[b.key] = []; });
+  boxes.forEach((b) => {
+    placed[b.key] = [];
+  });
   for (let rn = 1; rn <= maxRiser; rn++) placed[rowKey(rn)] = [];
 
   const byContainer = new Map<string, FormationSlotDetail[]>();
@@ -110,7 +128,12 @@ export function flattenPlaced(placed: Containers): FlatSlot[] {
 
 export function buildSlotsPayload(placed: Containers, boxes: BoxMeta[]) {
   return {
-    boxes: boxes.map((b) => ({ clientId: b.key, kind: b.kind, title: b.title ?? undefined, sortOrder: b.sortOrder })),
+    boxes: boxes.map((b) => ({
+      clientId: b.key,
+      kind: b.kind,
+      title: b.title ?? undefined,
+      sortOrder: b.sortOrder,
+    })),
     slots: flattenPlaced(placed).map((s) => ({
       memberId: s.memberId ?? undefined,
       label: s.label ?? undefined,
@@ -122,7 +145,10 @@ export function buildSlotsPayload(placed: Containers, boxes: BoxMeta[]) {
 }
 
 // 保存成功後、楽観的にローカルの ConcertDetail キャッシュへ反映するための形へ変換する
-export function toFormationDetails(placed: Containers, boxes: BoxMeta[]): { boxes: FormationBoxDetail[]; slots: FormationSlotDetail[] } {
+export function toFormationDetails(
+  placed: Containers,
+  boxes: BoxMeta[],
+): { boxes: FormationBoxDetail[]; slots: FormationSlotDetail[] } {
   return {
     boxes: boxes.map((b) => ({ id: b.key, kind: b.kind, title: b.title, sortOrder: b.sortOrder })),
     slots: flattenPlaced(placed).map((s) => ({
@@ -204,6 +230,8 @@ export function buildPartColorMap(assignments: AssignmentDetail[]): Map<string, 
   });
   const sorted = [...orderByPart.entries()].sort((a, b) => comparePartOrder(a[1], b[1]));
   const map = new Map<string, PartColor>();
-  sorted.forEach(([partName], i) => map.set(partName, PART_COLOR_PALETTE[i % PART_COLOR_PALETTE.length]));
+  sorted.forEach(([partName], i) =>
+    map.set(partName, PART_COLOR_PALETTE[i % PART_COLOR_PALETTE.length]),
+  );
   return map;
 }

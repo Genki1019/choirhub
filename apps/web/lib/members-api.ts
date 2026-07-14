@@ -10,8 +10,7 @@ export interface MembersQuery {
 }
 
 export const membersApi = {
-  parts: (orgSlug: string) =>
-    apiClient.get<PartSummary[]>(`/${orgSlug}/parts`),
+  parts: (orgSlug: string) => apiClient.get<PartSummary[]>(`/${orgSlug}/parts`),
 
   list: (orgSlug: string, query?: MembersQuery) => {
     const params = new URLSearchParams();
@@ -22,8 +21,7 @@ export const membersApi = {
     return apiClient.get<MemberProfile[]>(`/${orgSlug}/members${qs ? `?${qs}` : ""}`);
   },
 
-  me: (orgSlug: string) =>
-    apiClient.get<MemberProfile>(`/${orgSlug}/members/me`),
+  me: (orgSlug: string) => apiClient.get<MemberProfile>(`/${orgSlug}/members/me`),
 
   get: (orgSlug: string, memberId: string) =>
     apiClient.get<MemberProfile>(`/${orgSlug}/members/${memberId}`),
@@ -34,8 +32,10 @@ export const membersApi = {
   updateById: (orgSlug: string, memberId: string, data: Record<string, unknown>) =>
     apiClient.patch<MemberProfile>(`/${orgSlug}/members/${memberId}`, data),
 
-  invite: (orgSlug: string, data: { email: string; nameJa?: string; roles: string[]; partId?: string }) =>
-    apiClient.post<InviteResult>(`/${orgSlug}/members/invite`, data),
+  invite: (
+    orgSlug: string,
+    data: { email: string; nameJa?: string; roles: string[]; partId?: string },
+  ) => apiClient.post<InviteResult>(`/${orgSlug}/members/invite`, data),
 
   delete: (orgSlug: string, memberId: string) =>
     apiClient.delete(`/${orgSlug}/members/${memberId}`),

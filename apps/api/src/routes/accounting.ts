@@ -12,13 +12,13 @@ const paymentMethodSchema = z.enum(["cash", "paypay", "bank_transfer", "other"])
 // ────────────────────────────
 
 const expenseBodySchema = z.object({
-  categoryId:    z.string().min(1),
-  title:         z.string().min(1).max(100),
-  amount:        z.number().int().positive(),
+  categoryId: z.string().min(1),
+  title: z.string().min(1).max(100),
+  amount: z.number().int().positive(),
   paymentMethod: paymentMethodSchema.optional().nullable(),
-  paidAt:        z.string().date().optional().nullable(),
-  eventId:       z.string().optional().nullable(),
-  note:          z.string().optional().nullable(),
+  paidAt: z.string().date().optional().nullable(),
+  eventId: z.string().optional().nullable(),
+  note: z.string().optional().nullable(),
 });
 
 // ────────────────────────────
@@ -26,14 +26,18 @@ const expenseBodySchema = z.object({
 // ────────────────────────────
 
 const collectionBodySchema = z.object({
-  title:             z.string().min(1).max(100),
-  amount:            z.number().int().positive(),
-  dueDate:           z.string().date().optional().nullable(),
-  eventId:           z.string().optional().nullable(),
-  scoreId:           z.string().optional().nullable(),
-  yearMonth:         z.string().regex(/^\d{4}-\d{2}$/).optional().nullable(),
-  note:              z.string().optional().nullable(),
-  memberIds:         z.array(z.string()).min(1).optional(),
+  title: z.string().min(1).max(100),
+  amount: z.number().int().positive(),
+  dueDate: z.string().date().optional().nullable(),
+  eventId: z.string().optional().nullable(),
+  scoreId: z.string().optional().nullable(),
+  yearMonth: z
+    .string()
+    .regex(/^\d{4}-\d{2}$/)
+    .optional()
+    .nullable(),
+  note: z.string().optional().nullable(),
+  memberIds: z.array(z.string()).min(1).optional(),
   memberTypeAmounts: z.record(z.string(), z.number().int().positive()).optional(),
 });
 
@@ -49,7 +53,7 @@ export const accountingRouter = new Hono<TenantEnv>()
 
   // GET /finance/summary?year=2026
   .get("/finance/summary", async (c) => {
-    const org    = c.get("org");
+    const org = c.get("org");
     const member = c.get("member");
 
     if (!isFinancePlus(member)) {
@@ -58,7 +62,10 @@ export const accountingRouter = new Hono<TenantEnv>()
 
     const yearRaw = c.req.query("year");
     if (yearRaw !== undefined && !/^\d{4}$/.test(yearRaw)) {
-      return c.json({ error: { code: "VALIDATION_ERROR", message: "year は4桁の数字で指定してください" } }, 400);
+      return c.json(
+        { error: { code: "VALIDATION_ERROR", message: "year は4桁の数字で指定してください" } },
+        400,
+      );
     }
     const targetYear = yearRaw ? parseInt(yearRaw, 10) : new Date().getFullYear();
 
@@ -83,12 +90,16 @@ export const accountingRouter = new Hono<TenantEnv>()
     const totalExpense = expenses.reduce((s, e) => s + e.amount, 0);
 
     const totalCollected = collections.reduce((s, col) => {
-      const paid = col.payments.filter((p) => p.status === "paid").reduce((a, p) => a + (p.amount ?? col.amount), 0);
+      const paid = col.payments
+        .filter((p) => p.status === "paid")
+        .reduce((a, p) => a + (p.amount ?? col.amount), 0);
       return s + paid;
     }, 0);
 
     const totalPending = collections.reduce((s, col) => {
-      const pending = col.payments.filter((p) => p.status === "pending").reduce((a, p) => a + (p.amount ?? col.amount), 0);
+      const pending = col.payments
+        .filter((p) => p.status === "pending")
+        .reduce((a, p) => a + (p.amount ?? col.amount), 0);
       return s + pending;
     }, 0);
 
@@ -119,7 +130,7 @@ export const accountingRouter = new Hono<TenantEnv>()
 
   // GET /finance/expenses
   .get("/finance/expenses", async (c) => {
-    const org    = c.get("org");
+    const org = c.get("org");
     const member = c.get("member");
 
     if (!isFinancePlus(member)) {
@@ -128,19 +139,20 @@ export const accountingRouter = new Hono<TenantEnv>()
 
     const { from, to, categoryId } = c.req.query();
 
-    const paidAtFilter = (from || to)
-      ? {
-          OR: [
-            {
-              paidAt: {
-                ...(from ? { gte: new Date(from) } : {}),
-                ...(to   ? { lte: new Date(to)   } : {}),
+    const paidAtFilter =
+      from || to
+        ? {
+            OR: [
+              {
+                paidAt: {
+                  ...(from ? { gte: new Date(from) } : {}),
+                  ...(to ? { lte: new Date(to) } : {}),
+                },
               },
-            },
-            { paidAt: null },
-          ],
-        }
-      : {};
+              { paidAt: null },
+            ],
+          }
+        : {};
 
     const expenses = await prisma.expense.findMany({
       where: {
@@ -154,15 +166,15 @@ export const accountingRouter = new Hono<TenantEnv>()
 
     return c.json({
       data: expenses.map((e) => ({
-        id:            e.id,
-        category:      { id: e.category.id, name: e.category.name },
-        title:         e.title,
-        amount:        e.amount,
+        id: e.id,
+        category: { id: e.category.id, name: e.category.name },
+        title: e.title,
+        amount: e.amount,
         paymentMethod: e.paymentMethod,
-        paidAt:        e.paidAt?.toISOString() ?? null,
-        eventId:       e.eventId,
-        note:          e.note,
-        createdAt:     e.createdAt.toISOString(),
+        paidAt: e.paidAt?.toISOString() ?? null,
+        eventId: e.eventId,
+        note: e.note,
+        createdAt: e.createdAt.toISOString(),
       })),
     });
   })
@@ -176,7 +188,7 @@ export const accountingRouter = new Hono<TenantEnv>()
       }
     }),
     async (c) => {
-      const org    = c.get("org");
+      const org = c.get("org");
       const member = c.get("member");
 
       if (!isFinancePlus(member)) {
@@ -192,33 +204,36 @@ export const accountingRouter = new Hono<TenantEnv>()
 
       const expense = await prisma.expense.create({
         data: {
-          orgId:         org.id,
-          categoryId:    body.categoryId,
-          title:         body.title,
-          amount:        body.amount,
+          orgId: org.id,
+          categoryId: body.categoryId,
+          title: body.title,
+          amount: body.amount,
           paymentMethod: body.paymentMethod ?? null,
-          paidAt:        body.paidAt ? new Date(body.paidAt) : null,
-          eventId:       body.eventId ?? null,
-          note:          body.note    ?? null,
-          recordedById:    member.id,
+          paidAt: body.paidAt ? new Date(body.paidAt) : null,
+          eventId: body.eventId ?? null,
+          note: body.note ?? null,
+          recordedById: member.id,
         },
         include: { category: { select: { id: true, name: true } } },
       });
 
-      return c.json({
-        data: {
-          id:            expense.id,
-          category:      { id: expense.category.id, name: expense.category.name },
-          title:         expense.title,
-          amount:        expense.amount,
-          paymentMethod: expense.paymentMethod,
-          paidAt:        expense.paidAt?.toISOString() ?? null,
-          eventId:       expense.eventId,
-          note:          expense.note,
-          createdAt:     expense.createdAt.toISOString(),
+      return c.json(
+        {
+          data: {
+            id: expense.id,
+            category: { id: expense.category.id, name: expense.category.name },
+            title: expense.title,
+            amount: expense.amount,
+            paymentMethod: expense.paymentMethod,
+            paidAt: expense.paidAt?.toISOString() ?? null,
+            eventId: expense.eventId,
+            note: expense.note,
+            createdAt: expense.createdAt.toISOString(),
+          },
         },
-      }, 201);
-    }
+        201,
+      );
+    },
   )
 
   // PATCH /finance/expenses/:expenseId
@@ -230,7 +245,7 @@ export const accountingRouter = new Hono<TenantEnv>()
       }
     }),
     async (c) => {
-      const org    = c.get("org");
+      const org = c.get("org");
       const member = c.get("member");
       const { expenseId } = c.req.param();
 
@@ -248,36 +263,36 @@ export const accountingRouter = new Hono<TenantEnv>()
       const updated = await prisma.expense.update({
         where: { id: expenseId, orgId: org.id },
         data: {
-          ...(body.categoryId    !== undefined && { categoryId: body.categoryId }),
-          ...(body.title         !== undefined && { title: body.title }),
-          ...(body.amount        !== undefined && { amount: body.amount }),
+          ...(body.categoryId !== undefined && { categoryId: body.categoryId }),
+          ...(body.title !== undefined && { title: body.title }),
+          ...(body.amount !== undefined && { amount: body.amount }),
           ...(body.paymentMethod !== undefined && { paymentMethod: body.paymentMethod }),
-          ...(body.paidAt        !== undefined && { paidAt: body.paidAt ? new Date(body.paidAt) : null }),
-          ...(body.eventId       !== undefined && { eventId: body.eventId }),
-          ...(body.note          !== undefined && { note: body.note }),
+          ...(body.paidAt !== undefined && { paidAt: body.paidAt ? new Date(body.paidAt) : null }),
+          ...(body.eventId !== undefined && { eventId: body.eventId }),
+          ...(body.note !== undefined && { note: body.note }),
         },
         include: { category: { select: { id: true, name: true } } },
       });
 
       return c.json({
         data: {
-          id:            updated.id,
-          category:      { id: updated.category.id, name: updated.category.name },
-          title:         updated.title,
-          amount:        updated.amount,
+          id: updated.id,
+          category: { id: updated.category.id, name: updated.category.name },
+          title: updated.title,
+          amount: updated.amount,
           paymentMethod: updated.paymentMethod,
-          paidAt:        updated.paidAt?.toISOString() ?? null,
-          eventId:       updated.eventId,
-          note:          updated.note,
-          createdAt:     updated.createdAt.toISOString(),
+          paidAt: updated.paidAt?.toISOString() ?? null,
+          eventId: updated.eventId,
+          note: updated.note,
+          createdAt: updated.createdAt.toISOString(),
         },
       });
-    }
+    },
   )
 
   // DELETE /finance/expenses/:expenseId
   .delete("/finance/expenses/:expenseId", async (c) => {
-    const org    = c.get("org");
+    const org = c.get("org");
     const member = c.get("member");
     const { expenseId } = c.req.param();
 
@@ -300,7 +315,7 @@ export const accountingRouter = new Hono<TenantEnv>()
 
   // GET /finance/collections
   .get("/finance/collections", async (c) => {
-    const org    = c.get("org");
+    const org = c.get("org");
     const member = c.get("member");
 
     if (!isFinancePlus(member)) {
@@ -312,12 +327,14 @@ export const accountingRouter = new Hono<TenantEnv>()
     const collections = await prisma.collection.findMany({
       where: {
         orgId: org.id,
-        ...(from || to ? {
-          createdAt: {
-            ...(from ? { gte: new Date(from) } : {}),
-            ...(to   ? { lte: new Date(to)   } : {}),
-          },
-        } : {}),
+        ...(from || to
+          ? {
+              createdAt: {
+                ...(from ? { gte: new Date(from) } : {}),
+                ...(to ? { lte: new Date(to) } : {}),
+              },
+            }
+          : {}),
       },
       include: {
         payments: { select: { status: true, amount: true } },
@@ -327,20 +344,22 @@ export const accountingRouter = new Hono<TenantEnv>()
 
     return c.json({
       data: collections.map((col) => {
-        const paid    = col.payments.filter((p) => p.status === "paid").length;
+        const paid = col.payments.filter((p) => p.status === "paid").length;
         const pending = col.payments.filter((p) => p.status === "pending").length;
-        const waived  = col.payments.filter((p) => p.status === "waived").length;
-        const paidAmount = col.payments.filter((p) => p.status === "paid").reduce((s, p) => s + (p.amount ?? col.amount), 0);
+        const waived = col.payments.filter((p) => p.status === "waived").length;
+        const paidAmount = col.payments
+          .filter((p) => p.status === "paid")
+          .reduce((s, p) => s + (p.amount ?? col.amount), 0);
         return {
-          id:         col.id,
-          title:      col.title,
-          amount:     col.amount,
-          dueDate:    col.dueDate?.toISOString()  ?? null,
-          eventId:    col.eventId,
-          yearMonth:  col.yearMonth,
-          note:       col.note,
-          createdAt:  col.createdAt.toISOString(),
-          summary:    { total: col.payments.length, paid, pending, waived, paidAmount },
+          id: col.id,
+          title: col.title,
+          amount: col.amount,
+          dueDate: col.dueDate?.toISOString() ?? null,
+          eventId: col.eventId,
+          yearMonth: col.yearMonth,
+          note: col.note,
+          createdAt: col.createdAt.toISOString(),
+          summary: { total: col.payments.length, paid, pending, waived, paidAmount },
         };
       }),
     });
@@ -355,7 +374,7 @@ export const accountingRouter = new Hono<TenantEnv>()
       }
     }),
     async (c) => {
-      const org    = c.get("org");
+      const org = c.get("org");
       const member = c.get("member");
 
       if (!isFinancePlus(member)) {
@@ -366,21 +385,27 @@ export const accountingRouter = new Hono<TenantEnv>()
 
       const col = await prisma.collection.create({
         data: {
-          orgId:       org.id,
-          title:       body.title,
-          amount:      body.amount,
-          dueDate:     body.dueDate   ? new Date(body.dueDate)   : null,
-          eventId:     body.eventId   ?? null,
-          scoreId:     body.scoreId   ?? null,
-          yearMonth:   body.yearMonth ?? null,
-          note:        body.note      ?? null,
+          orgId: org.id,
+          title: body.title,
+          amount: body.amount,
+          dueDate: body.dueDate ? new Date(body.dueDate) : null,
+          eventId: body.eventId ?? null,
+          scoreId: body.scoreId ?? null,
+          yearMonth: body.yearMonth ?? null,
+          note: body.note ?? null,
           createdById: member.id,
         },
       });
 
       const targets = body.memberIds
-        ? await prisma.member.findMany({ where: { id: { in: body.memberIds }, orgId: org.id }, include: { memberType: true } })
-        : await prisma.member.findMany({ where: { orgId: org.id, status: "active", NOT: { roles: { hasSome: ["visitor"] } } }, include: { memberType: true } });
+        ? await prisma.member.findMany({
+            where: { id: { in: body.memberIds }, orgId: org.id },
+            include: { memberType: true },
+          })
+        : await prisma.member.findMany({
+            where: { orgId: org.id, status: "active", NOT: { roles: { hasSome: ["visitor"] } } },
+            include: { memberType: true },
+          });
 
       for (const m of targets) {
         let individualAmount: number | null = null;
@@ -394,20 +419,20 @@ export const accountingRouter = new Hono<TenantEnv>()
         await prisma.collectionPayment.create({
           data: {
             collectionId: col.id,
-            memberId:     m.id,
-            status:       "pending",
-            amount:       individualAmount,
+            memberId: m.id,
+            status: "pending",
+            amount: individualAmount,
           },
         });
       }
 
       return c.json({ data: { id: col.id, title: col.title, amount: col.amount } }, 201);
-    }
+    },
   )
 
   // GET /finance/collections/:collectionId
   .get("/finance/collections/:collectionId", async (c) => {
-    const org    = c.get("org");
+    const org = c.get("org");
     const member = c.get("member");
     const { collectionId } = c.req.param();
 
@@ -422,8 +447,8 @@ export const accountingRouter = new Hono<TenantEnv>()
           include: {
             member: {
               include: {
-                userRef:    { select: { nameJa: true } },
-                part:       { select: { id: true, name: true, voiceType: true, sortOrder: true } },
+                userRef: { select: { nameJa: true } },
+                part: { select: { id: true, name: true, voiceType: true, sortOrder: true } },
                 memberType: { select: { defaultFeeAmount: true } },
               },
             },
@@ -439,27 +464,34 @@ export const accountingRouter = new Hono<TenantEnv>()
 
     return c.json({
       data: {
-        id:        col.id,
-        title:     col.title,
-        amount:    col.amount,
-        dueDate:   col.dueDate?.toISOString()  ?? null,
-        eventId:   col.eventId,
+        id: col.id,
+        title: col.title,
+        amount: col.amount,
+        dueDate: col.dueDate?.toISOString() ?? null,
+        eventId: col.eventId,
         yearMonth: col.yearMonth,
-        note:      col.note,
+        note: col.note,
         createdAt: col.createdAt.toISOString(),
-        payments:  col.payments.map((p) => ({
-          id:        p.id,
-          member:    {
-            id:            p.member.id,
-            nameJa:        p.member.userRef.nameJa,
-            part:          p.member.part ? { id: p.member.part.id, name: p.member.part.name, voiceType: p.member.part.voiceType, sortOrder: p.member.part.sortOrder } : null,
+        payments: col.payments.map((p) => ({
+          id: p.id,
+          member: {
+            id: p.member.id,
+            nameJa: p.member.userRef.nameJa,
+            part: p.member.part
+              ? {
+                  id: p.member.part.id,
+                  name: p.member.part.name,
+                  voiceType: p.member.part.voiceType,
+                  sortOrder: p.member.part.sortOrder,
+                }
+              : null,
             memberTypeFee: p.member.memberType?.defaultFeeAmount ?? null,
           },
-          status:    p.status,
-          amount:    p.amount,
-          paidAt:    p.paidAt?.toISOString() ?? null,
-          method:    p.method,
-          note:      p.note,
+          status: p.status,
+          amount: p.amount,
+          paidAt: p.paidAt?.toISOString() ?? null,
+          method: p.method,
+          note: p.note,
         })),
       },
     });
@@ -474,7 +506,7 @@ export const accountingRouter = new Hono<TenantEnv>()
       }
     }),
     async (c) => {
-      const org    = c.get("org");
+      const org = c.get("org");
       const member = c.get("member");
       const { collectionId } = c.req.param();
 
@@ -482,7 +514,9 @@ export const accountingRouter = new Hono<TenantEnv>()
         return c.json({ error: { code: "FORBIDDEN", message: "会計以上の権限が必要です" } }, 403);
       }
 
-      const target = await prisma.collection.findFirst({ where: { id: collectionId, orgId: org.id } });
+      const target = await prisma.collection.findFirst({
+        where: { id: collectionId, orgId: org.id },
+      });
       if (!target) {
         return c.json({ error: { code: "NOT_FOUND", message: "徴収が見つかりません" } }, 404);
       }
@@ -492,22 +526,24 @@ export const accountingRouter = new Hono<TenantEnv>()
       const updated = await prisma.collection.update({
         where: { id: collectionId, orgId: org.id },
         data: {
-          ...(body.title     !== undefined && { title: body.title }),
-          ...(body.amount    !== undefined && { amount: body.amount }),
-          ...(body.dueDate   !== undefined && { dueDate: body.dueDate ? new Date(body.dueDate) : null }),
-          ...(body.eventId   !== undefined && { eventId: body.eventId }),
+          ...(body.title !== undefined && { title: body.title }),
+          ...(body.amount !== undefined && { amount: body.amount }),
+          ...(body.dueDate !== undefined && {
+            dueDate: body.dueDate ? new Date(body.dueDate) : null,
+          }),
+          ...(body.eventId !== undefined && { eventId: body.eventId }),
           ...(body.yearMonth !== undefined && { yearMonth: body.yearMonth }),
-          ...(body.note      !== undefined && { note: body.note }),
+          ...(body.note !== undefined && { note: body.note }),
         },
       });
 
       return c.json({ data: { id: updated.id, title: updated.title, amount: updated.amount } });
-    }
+    },
   )
 
   // DELETE /finance/collections/:collectionId
   .delete("/finance/collections/:collectionId", async (c) => {
-    const org    = c.get("org");
+    const org = c.get("org");
     const member = c.get("member");
     const { collectionId } = c.req.param();
 
@@ -515,7 +551,9 @@ export const accountingRouter = new Hono<TenantEnv>()
       return c.json({ error: { code: "FORBIDDEN", message: "管理者権限が必要です" } }, 403);
     }
 
-    const target = await prisma.collection.findFirst({ where: { id: collectionId, orgId: org.id } });
+    const target = await prisma.collection.findFirst({
+      where: { id: collectionId, orgId: org.id },
+    });
     if (!target) {
       return c.json({ error: { code: "NOT_FOUND", message: "徴収が見つかりません" } }, 404);
     }
@@ -531,19 +569,23 @@ export const accountingRouter = new Hono<TenantEnv>()
   // PATCH /finance/collections/:collectionId/payments/:memberId
   .patch(
     "/finance/collections/:collectionId/payments/:memberId",
-    zValidator("json", z.object({
-      status: z.enum(["pending", "paid", "waived"]),
-      amount: z.number().int().positive().optional().nullable(),
-      paidAt: z.string().date().optional().nullable(),
-      method: paymentMethodSchema.optional().nullable(),
-      note:   z.string().optional().nullable(),
-    }), (result, c) => {
-      if (!result.success) {
-        return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
-      }
-    }),
+    zValidator(
+      "json",
+      z.object({
+        status: z.enum(["pending", "paid", "waived"]),
+        amount: z.number().int().positive().optional().nullable(),
+        paidAt: z.string().date().optional().nullable(),
+        method: paymentMethodSchema.optional().nullable(),
+        note: z.string().optional().nullable(),
+      }),
+      (result, c) => {
+        if (!result.success) {
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+        }
+      },
+    ),
     async (c) => {
-      const org    = c.get("org");
+      const org = c.get("org");
       const member = c.get("member");
       const { collectionId, memberId } = c.req.param();
 
@@ -572,52 +614,56 @@ export const accountingRouter = new Hono<TenantEnv>()
         create: {
           collectionId,
           memberId,
-          status:     body.status,
-          amount:     body.amount     ?? null,
-          paidAt:     body.paidAt     ? new Date(body.paidAt) : null,
-          method:     body.method     ?? null,
-          note:       body.note       ?? null,
+          status: body.status,
+          amount: body.amount ?? null,
+          paidAt: body.paidAt ? new Date(body.paidAt) : null,
+          method: body.method ?? null,
+          note: body.note ?? null,
           recordedById: member.id,
         },
         update: {
-          status:     body.status,
-          amount:     body.amount     ?? null,
-          paidAt:     body.paidAt     ? new Date(body.paidAt) : null,
-          method:     body.method     ?? null,
-          note:       body.note       ?? null,
+          status: body.status,
+          amount: body.amount ?? null,
+          paidAt: body.paidAt ? new Date(body.paidAt) : null,
+          method: body.method ?? null,
+          note: body.note ?? null,
           recordedById: member.id,
         },
       });
 
       return c.json({
         data: {
-          id:     payment.id,
+          id: payment.id,
           status: payment.status,
           amount: payment.amount,
           paidAt: payment.paidAt?.toISOString() ?? null,
           method: payment.method,
-          note:   payment.note,
+          note: payment.note,
         },
       });
-    }
+    },
   )
 
   // POST /finance/collections/:collectionId/payments/bulk
   // 複数メンバーの支払い状態を一括更新
   .post(
     "/finance/collections/:collectionId/payments/bulk",
-    zValidator("json", z.object({
-      memberIds: z.array(z.string()).min(1),
-      status:    z.enum(["pending", "paid", "waived"]),
-      paidAt:    z.string().datetime({ offset: true }).optional().nullable(),
-      method:    paymentMethodSchema.optional().nullable(),
-    }), (result, c) => {
-      if (!result.success) {
-        return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
-      }
-    }),
+    zValidator(
+      "json",
+      z.object({
+        memberIds: z.array(z.string()).min(1),
+        status: z.enum(["pending", "paid", "waived"]),
+        paidAt: z.string().datetime({ offset: true }).optional().nullable(),
+        method: paymentMethodSchema.optional().nullable(),
+      }),
+      (result, c) => {
+        if (!result.success) {
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+        }
+      },
+    ),
     async (c) => {
-      const org    = c.get("org");
+      const org = c.get("org");
       const member = c.get("member");
       const { collectionId } = c.req.param();
 
@@ -638,7 +684,15 @@ export const accountingRouter = new Hono<TenantEnv>()
         select: { id: true },
       });
       if (validMembers.length !== body.memberIds.length) {
-        return c.json({ error: { code: "BAD_REQUEST", message: "このテナントに存在しないメンバーIDが含まれています" } }, 400);
+        return c.json(
+          {
+            error: {
+              code: "BAD_REQUEST",
+              message: "このテナントに存在しないメンバーIDが含まれています",
+            },
+          },
+          400,
+        );
       }
 
       const paidAt = body.paidAt ? new Date(body.paidAt) : null;
@@ -646,13 +700,25 @@ export const accountingRouter = new Hono<TenantEnv>()
       await Promise.all(
         body.memberIds.map((mid) =>
           prisma.collectionPayment.upsert({
-            where:  { collectionId_memberId: { collectionId, memberId: mid } },
-            create: { collectionId, memberId: mid, status: body.status, paidAt, method: body.method ?? null, recordedById: member.id },
-            update: { status: body.status, paidAt, method: body.method ?? null, recordedById: member.id },
-          })
-        )
+            where: { collectionId_memberId: { collectionId, memberId: mid } },
+            create: {
+              collectionId,
+              memberId: mid,
+              status: body.status,
+              paidAt,
+              method: body.method ?? null,
+              recordedById: member.id,
+            },
+            update: {
+              status: body.status,
+              paidAt,
+              method: body.method ?? null,
+              recordedById: member.id,
+            },
+          }),
+        ),
       );
 
       return c.json({ data: { updated: body.memberIds.length } });
-    }
+    },
   );

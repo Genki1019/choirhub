@@ -4,28 +4,36 @@ import { Users } from "lucide-react";
 import type { PartSummary } from "@/lib/members-api";
 
 const ROLE_OPTIONS: { value: string; label: string }[] = [
-  { value: "admin",   label: "最高管理者" },
-  { value: "tech",    label: "技術系" },
-  { value: "score",   label: "楽譜がかり" },
-  { value: "member",  label: "一般" },
-  { value: "guest",   label: "客演" },
+  { value: "admin", label: "最高管理者" },
+  { value: "tech", label: "技術系" },
+  { value: "score", label: "楽譜がかり" },
+  { value: "member", label: "一般" },
+  { value: "guest", label: "客演" },
   { value: "visitor", label: "体験" },
 ];
 
 function toggleItem(arr: string[], value: string): string[] {
-  return arr.includes(value) ? arr.filter(v => v !== value) : [...arr, value];
+  return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
 
-function ToggleChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function ToggleChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={[
-        "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
+        "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
         active
-          ? "bg-brand-600 text-white border-brand-600"
-          : "bg-white text-gray-600 border-gray-200 hover:border-gray-400",
+          ? "bg-brand-600 border-brand-600 text-white"
+          : "border-gray-200 bg-white text-gray-600 hover:border-gray-400",
       ].join(" ")}
     >
       {label}
@@ -49,19 +57,20 @@ export function TargetAudienceSection({
   onPartIdsChange,
 }: TargetAudienceSectionProps) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 px-5 py-4">
-      <div className="flex items-center gap-2 text-sm font-medium text-gray-600 mb-3">
+    <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
+      <div className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-600">
         <Users size={15} />
         招待対象
       </div>
-      <p className="text-xs text-gray-400 mb-3">
-        未選択の場合は全員が対象になります。両方選択した場合は AND 条件（役職かつパートに該当するメンバー）になります。
+      <p className="mb-3 text-xs text-gray-400">
+        未選択の場合は全員が対象になります。両方選択した場合は AND
+        条件（役職かつパートに該当するメンバー）になります。
       </p>
 
       <div className="mb-4">
-        <p className="text-xs font-medium text-gray-500 mb-2">役職</p>
+        <p className="mb-2 text-xs font-medium text-gray-500">役職</p>
         <div className="flex flex-wrap gap-2">
-          {ROLE_OPTIONS.map(opt => (
+          {ROLE_OPTIONS.map((opt) => (
             <ToggleChip
               key={opt.value}
               label={opt.label}
@@ -73,12 +82,12 @@ export function TargetAudienceSection({
       </div>
 
       <div>
-        <p className="text-xs font-medium text-gray-500 mb-2">パート</p>
+        <p className="mb-2 text-xs font-medium text-gray-500">パート</p>
         {parts.length === 0 ? (
           <p className="text-xs text-gray-400">パートが登録されていません</p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {parts.map(part => (
+            {parts.map((part) => (
               <ToggleChip
                 key={part.id}
                 label={part.name}
@@ -91,18 +100,25 @@ export function TargetAudienceSection({
       </div>
 
       {(targetRoles.length > 0 || targetPartIds.length > 0) && (
-        <div className="mt-3 pt-3 border-t border-gray-100 flex items-start gap-1.5 text-xs text-gray-500">
+        <div className="mt-3 flex items-start gap-1.5 border-t border-gray-100 pt-3 text-xs text-gray-500">
           <span className="shrink-0 font-medium">対象:</span>
           <span>
             {[
-              targetRoles.length   > 0 && `役職（${targetRoles.map(r => ROLE_OPTIONS.find(o => o.value === r)?.label ?? r).join("・")}）`,
-              targetPartIds.length > 0 && `パート（${targetPartIds.map(pid => parts.find(p => p.id === pid)?.name ?? pid).join("・")}）`,
-            ].filter(Boolean).join(" AND ")}
+              targetRoles.length > 0 &&
+                `役職（${targetRoles.map((r) => ROLE_OPTIONS.find((o) => o.value === r)?.label ?? r).join("・")}）`,
+              targetPartIds.length > 0 &&
+                `パート（${targetPartIds.map((pid) => parts.find((p) => p.id === pid)?.name ?? pid).join("・")}）`,
+            ]
+              .filter(Boolean)
+              .join(" AND ")}
           </span>
           <button
             type="button"
-            onClick={() => { onRolesChange([]); onPartIdsChange([]); }}
-            className="ml-auto shrink-0 text-gray-400 hover:text-gray-600 underline"
+            onClick={() => {
+              onRolesChange([]);
+              onPartIdsChange([]);
+            }}
+            className="ml-auto shrink-0 text-gray-400 underline hover:text-gray-600"
           >
             クリア
           </button>

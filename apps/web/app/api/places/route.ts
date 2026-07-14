@@ -78,9 +78,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
-    const results = apiKey
-      ? await searchGoogle(query, apiKey)
-      : await searchNominatim(query);
+    const results = apiKey ? await searchGoogle(query, apiKey) : await searchNominatim(query);
 
     return Response.json({ results });
   } catch {

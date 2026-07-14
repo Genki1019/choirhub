@@ -12,7 +12,7 @@ import { storage } from "../services/storage.js";
 import { logger } from "../lib/logger.js";
 
 const ARGON2_OPTIONS = {
-  type: 2,       // Argon2id
+  type: 2, // Argon2id
   memoryCost: 19456, // 19 MiB (OWASP minimum — serverless 環境でのタイムアウト対策)
   timeCost: 2,
   parallelism: 1,
@@ -34,7 +34,7 @@ function sha256(password: string): string {
 async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
   if (isSha256Hash(storedHash)) {
     const computed = Buffer.from(sha256(password), "hex");
-    const stored   = Buffer.from(storedHash, "hex");
+    const stored = Buffer.from(storedHash, "hex");
     return timingSafeEqual(computed, stored);
   }
   return verify(storedHash, password);
@@ -51,7 +51,11 @@ function getClientIp(c: Context): string {
   }
   // ローカル開発環境フォールバック: XFF 末尾 IP（プロキシ付加分）を信頼
   const forwarded = c.req.header("x-forwarded-for");
-  const ips = forwarded?.split(",").map((s) => s.trim()).filter((ip) => IP_REGEX.test(ip)) ?? [];
+  const ips =
+    forwarded
+      ?.split(",")
+      .map((s) => s.trim())
+      .filter((ip) => IP_REGEX.test(ip)) ?? [];
   return ips[ips.length - 1] ?? c.req.header("x-real-ip") ?? "unknown";
 }
 
@@ -59,13 +63,26 @@ export const authRouter = new Hono()
 
   .post(
     "/auth/login",
-    zValidator("json", z.object({ email: z.string().email(), password: z.string().min(1) }), (r, c) => {
-      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
-    }),
+    zValidator(
+      "json",
+      z.object({ email: z.string().email(), password: z.string().min(1) }),
+      (r, c) => {
+        if (!r.success)
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      },
+    ),
     async (c) => {
       const ip = getClientIp(c);
       if (!(await checkLoginRateLimit(ip))) {
-        return c.json({ error: { code: "TOO_MANY_REQUESTS", message: "しばらく時間をおいてから再試行してください" } }, 429);
+        return c.json(
+          {
+            error: {
+              code: "TOO_MANY_REQUESTS",
+              message: "しばらく時間をおいてから再試行してください",
+            },
+          },
+          429,
+        );
       }
 
       const { email, password } = c.req.valid("json");
@@ -74,11 +91,15 @@ export const authRouter = new Hono()
       // ユーザーが存在しない場合でも argon2id の full computation を実行し
       // タイミング攻撃によるメールアドレス存在確認を防ぐ。
       // ダミーハッシュは base64url として有効なフォーマット（16 byte salt / 32 byte hash）
-      const DUMMY_HASH = "$argon2id$v=19$m=19456,t=2,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+      const DUMMY_HASH =
+        "$argon2id$v=19$m=19456,t=2,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
       const storedHash = user?.passwordHash ?? DUMMY_HASH;
       const passwordOk = await verifyPassword(password, storedHash);
       if (!user || !passwordOk) {
-        return c.json({ error: { code: "UNAUTHORIZED", message: "メールアドレスまたはパスワードが不正です" } }, 401);
+        return c.json(
+          { error: { code: "UNAUTHORIZED", message: "メールアドレスまたはパスワードが不正です" } },
+          401,
+        );
       }
 
       await clearLoginRateLimit(ip);
@@ -109,7 +130,12 @@ export const authRouter = new Hono()
 
       return c.json({
         data: {
-          user: { id: user.id, nameJa: user.nameJa, email: user.email, avatarUrl: storage.resolveAvatarUrl(user.avatarUrl) },
+          user: {
+            id: user.id,
+            nameJa: user.nameJa,
+            email: user.email,
+            avatarUrl: storage.resolveAvatarUrl(user.avatarUrl),
+          },
           orgs: memberships.map((m) => ({
             orgSlug: m.org.slug,
             orgName: m.org.name,
@@ -119,7 +145,7 @@ export const authRouter = new Hono()
           })),
         },
       });
-    }
+    },
   )
 
   .post("/auth/logout", async (c) => {
@@ -140,7 +166,10 @@ export const authRouter = new Hono()
     });
 
     if (!invite || invite.usedAt || invite.expiresAt < new Date()) {
-      return c.json({ error: { code: "INVALID_TOKEN", message: "招待リンクが無効または期限切れです" } }, 404);
+      return c.json(
+        { error: { code: "INVALID_TOKEN", message: "招待リンクが無効または期限切れです" } },
+        404,
+      );
     }
 
     return c.json({
@@ -157,19 +186,27 @@ export const authRouter = new Hono()
   // ── POST /auth/invite/:token ── 招待受け入れ（ユーザー作成 + メンバー登録）
   .post(
     "/auth/invite/:token",
-    zValidator("json", z.object({
-      nameJa:   z.string().min(1),
-      password: z.string().min(8),
-    }), (r, c) => {
-      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
-    }),
+    zValidator(
+      "json",
+      z.object({
+        nameJa: z.string().min(1),
+        password: z.string().min(8),
+      }),
+      (r, c) => {
+        if (!r.success)
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      },
+    ),
     async (c) => {
       const { token } = c.req.param();
       const { nameJa, password } = c.req.valid("json");
 
       const invite = await prisma.inviteToken.findUnique({ where: { token } });
       if (!invite || invite.usedAt || invite.expiresAt < new Date()) {
-        return c.json({ error: { code: "INVALID_TOKEN", message: "招待リンクが無効または期限切れです" } }, 404);
+        return c.json(
+          { error: { code: "INVALID_TOKEN", message: "招待リンクが無効または期限切れです" } },
+          404,
+        );
       }
 
       const existingUser = await prisma.user.findUnique({ where: { email: invite.email } });
@@ -179,22 +216,30 @@ export const authRouter = new Hono()
         });
         if (existingMember) {
           // usedAt を更新せずに 409 を返す（トークンを消費しない）
-          return c.json({ error: { code: "CONFLICT", message: "このメールアドレスはすでに登録済みです" } }, 409);
+          return c.json(
+            { error: { code: "CONFLICT", message: "このメールアドレスはすでに登録済みです" } },
+            409,
+          );
         }
         // 既存ユーザーはアカウントの所有を証明するためパスワード検証を必須とする
         const valid = await verifyPassword(password, existingUser.passwordHash);
         if (!valid) {
-          return c.json({ error: { code: "UNAUTHORIZED", message: "パスワードが正しくありません" } }, 401);
+          return c.json(
+            { error: { code: "UNAUTHORIZED", message: "パスワードが正しくありません" } },
+            401,
+          );
         }
       }
 
-      const user = existingUser ?? await prisma.user.create({
-        data: {
-          email: invite.email,
-          nameJa,
-          passwordHash: await hashPassword(password),
-        },
-      });
+      const user =
+        existingUser ??
+        (await prisma.user.create({
+          data: {
+            email: invite.email,
+            nameJa,
+            passwordHash: await hashPassword(password),
+          },
+        }));
 
       await prisma.member.create({
         data: {
@@ -209,15 +254,17 @@ export const authRouter = new Hono()
       await prisma.inviteToken.update({ where: { token }, data: { usedAt: new Date() } });
 
       return c.json({ data: { message: "登録が完了しました" } }, 201);
-    }
+    },
   )
 
   .get("/auth/me", async (c) => {
     const sessionId = getCookie(c, sessionManager.sessionCookieName);
-    if (!sessionId) return c.json({ error: { code: "UNAUTHORIZED", message: "認証が必要です" } }, 401);
+    if (!sessionId)
+      return c.json({ error: { code: "UNAUTHORIZED", message: "認証が必要です" } }, 401);
 
     const { session, user } = await sessionManager.validateSession(sessionId);
-    if (!session || !user) return c.json({ error: { code: "UNAUTHORIZED", message: "認証が必要です" } }, 401);
+    if (!session || !user)
+      return c.json({ error: { code: "UNAUTHORIZED", message: "認証が必要です" } }, 401);
 
     const memberships = await prisma.member.findMany({
       where: { userId: user.id, deletedAt: null },
@@ -226,7 +273,12 @@ export const authRouter = new Hono()
 
     return c.json({
       data: {
-        user: { id: user.id, nameJa: user.nameJa, email: user.email, avatarUrl: storage.resolveAvatarUrl(user.avatarUrl) },
+        user: {
+          id: user.id,
+          nameJa: user.nameJa,
+          email: user.email,
+          avatarUrl: storage.resolveAvatarUrl(user.avatarUrl),
+        },
         orgs: memberships.map((m) => ({
           orgSlug: m.org.slug,
           orgName: m.org.name,
@@ -243,12 +295,21 @@ export const authRouter = new Hono()
   .post(
     "/auth/password-reset/request",
     zValidator("json", z.object({ email: z.string().email() }), (r, c) => {
-      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      if (!r.success)
+        return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
     }),
     async (c) => {
       const ip = getClientIp(c);
       if (!(await checkResetRateLimit(ip))) {
-        return c.json({ error: { code: "TOO_MANY_REQUESTS", message: "しばらく時間をおいてから再試行してください" } }, 429);
+        return c.json(
+          {
+            error: {
+              code: "TOO_MANY_REQUESTS",
+              message: "しばらく時間をおいてから再試行してください",
+            },
+          },
+          429,
+        );
       }
 
       const { email } = c.req.valid("json");
@@ -260,8 +321,8 @@ export const authRouter = new Hono()
           data: { userId: user.id, expiresAt },
         });
         await sendPasswordResetEmail({
-          to:         user.email,
-          nameJa:     user.nameJa,
+          to: user.email,
+          nameJa: user.nameJa,
           resetToken: resetToken.token,
           expiresAt,
         }).catch((err: unknown) => logger.error("[auth] password reset mail failed:", err));
@@ -269,7 +330,7 @@ export const authRouter = new Hono()
 
       // ユーザー存在確認防止のため成功・失敗とも同じレスポンスを返す
       return c.json({ data: { message: "パスワードリセットメールを送信しました" } });
-    }
+    },
   )
 
   // ── GET /auth/password-reset/:token ── トークン検証（ページ初期表示用）
@@ -278,14 +339,21 @@ export const authRouter = new Hono()
     const resetToken = await prisma.passwordResetToken.findUnique({ where: { token } });
 
     if (!resetToken || resetToken.usedAt || resetToken.expiresAt < new Date()) {
-      return c.json({ error: { code: "INVALID_TOKEN", message: "リンクが無効または期限切れです" } }, 404);
+      return c.json(
+        { error: { code: "INVALID_TOKEN", message: "リンクが無効または期限切れです" } },
+        404,
+      );
     }
 
     const user = await prisma.user.findUnique({
-      where:  { id: resetToken.userId },
+      where: { id: resetToken.userId },
       select: { email: true },
     });
-    if (!user) return c.json({ error: { code: "INVALID_TOKEN", message: "リンクが無効または期限切れです" } }, 404);
+    if (!user)
+      return c.json(
+        { error: { code: "INVALID_TOKEN", message: "リンクが無効または期限切れです" } },
+        404,
+      );
 
     return c.json({ data: { email: user.email } });
   })
@@ -294,7 +362,8 @@ export const authRouter = new Hono()
   .post(
     "/auth/password-reset/:token",
     zValidator("json", z.object({ password: z.string().min(8) }), (r, c) => {
-      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      if (!r.success)
+        return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
     }),
     async (c) => {
       const { token } = c.req.param();
@@ -303,7 +372,10 @@ export const authRouter = new Hono()
       // 存在チェック（userId 取得目的）
       const resetToken = await prisma.passwordResetToken.findUnique({ where: { token } });
       if (!resetToken) {
-        return c.json({ error: { code: "INVALID_TOKEN", message: "リンクが無効または期限切れです" } }, 404);
+        return c.json(
+          { error: { code: "INVALID_TOKEN", message: "リンクが無効または期限切れです" } },
+          404,
+        );
       }
 
       const passwordHash = await hashPassword(password);
@@ -317,37 +389,62 @@ export const authRouter = new Hono()
         WHERE token = ${token} AND used_at IS NULL AND expires_at > (NOW() AT TIME ZONE 'UTC')
       `;
       if (updatedCount === 0) {
-        return c.json({ error: { code: "INVALID_TOKEN", message: "リンクが無効または期限切れです" } }, 404);
+        return c.json(
+          { error: { code: "INVALID_TOKEN", message: "リンクが無効または期限切れです" } },
+          404,
+        );
       }
 
       await prisma.user.update({ where: { id: resetToken.userId }, data: { passwordHash } });
       await prisma.session.deleteMany({ where: { userId: resetToken.userId } });
 
       return c.json({ data: { message: "パスワードをリセットしました" } });
-    }
+    },
   )
 
   // ── POST /auth/orgs ── 団体新規作成
   .post(
     "/auth/orgs",
-    zValidator("json", z.object({
-      name: z.string().min(1).max(100),
-      slug: z.string().min(2).max(50).regex(/^[a-z0-9-]+$/, "英小文字・数字・ハイフンのみ使用できます"),
-    }), (r, c) => {
-      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: r.error.errors[0]?.message ?? "入力値が不正です" } }, 400);
-    }),
+    zValidator(
+      "json",
+      z.object({
+        name: z.string().min(1).max(100),
+        slug: z
+          .string()
+          .min(2)
+          .max(50)
+          .regex(/^[a-z0-9-]+$/, "英小文字・数字・ハイフンのみ使用できます"),
+      }),
+      (r, c) => {
+        if (!r.success)
+          return c.json(
+            {
+              error: {
+                code: "VALIDATION_ERROR",
+                message: r.error.errors[0]?.message ?? "入力値が不正です",
+              },
+            },
+            400,
+          );
+      },
+    ),
     async (c) => {
       const sessionId = getCookie(c, sessionManager.sessionCookieName);
-      if (!sessionId) return c.json({ error: { code: "UNAUTHORIZED", message: "認証が必要です" } }, 401);
+      if (!sessionId)
+        return c.json({ error: { code: "UNAUTHORIZED", message: "認証が必要です" } }, 401);
 
       const { session, user } = await sessionManager.validateSession(sessionId);
-      if (!session || !user) return c.json({ error: { code: "UNAUTHORIZED", message: "認証が必要です" } }, 401);
+      if (!session || !user)
+        return c.json({ error: { code: "UNAUTHORIZED", message: "認証が必要です" } }, 401);
 
       const { name, slug } = c.req.valid("json");
 
       const existing = await prisma.organization.findUnique({ where: { slug } });
       if (existing) {
-        return c.json({ error: { code: "CONFLICT", message: "このスラグはすでに使用されています" } }, 409);
+        return c.json(
+          { error: { code: "CONFLICT", message: "このスラグはすでに使用されています" } },
+          409,
+        );
       }
 
       const org = await prisma.organization.create({
@@ -355,20 +452,20 @@ export const authRouter = new Hono()
       });
 
       const defaultCategories = [
-        { orgId: org.id, name: "練習",   slug: "rehearsal", color: "#3B82F6", sortOrder: 1 },
-        { orgId: org.id, name: "本番",   slug: "concert",   color: "#EF4444", sortOrder: 2 },
-        { orgId: org.id, name: "会議",   slug: "meeting",   color: "#F59E0B", sortOrder: 3 },
-        { orgId: org.id, name: "その他", slug: "other",     color: "#6B7280", sortOrder: 4 },
+        { orgId: org.id, name: "練習", slug: "rehearsal", color: "#3B82F6", sortOrder: 1 },
+        { orgId: org.id, name: "本番", slug: "concert", color: "#EF4444", sortOrder: 2 },
+        { orgId: org.id, name: "会議", slug: "meeting", color: "#F59E0B", sortOrder: 3 },
+        { orgId: org.id, name: "その他", slug: "other", color: "#6B7280", sortOrder: 4 },
       ];
       for (const cat of defaultCategories) {
         await prisma.eventCategory.create({ data: cat });
       }
 
       const defaultParts = [
-        { orgId: org.id, name: "テナー I",  voiceType: "tenor-1",  sortOrder: 1, isCustom: false },
-        { orgId: org.id, name: "テナー II", voiceType: "tenor-2",  sortOrder: 2, isCustom: false },
-        { orgId: org.id, name: "バリトン",  voiceType: "baritone", sortOrder: 3, isCustom: false },
-        { orgId: org.id, name: "バス",      voiceType: "bass",     sortOrder: 4, isCustom: false },
+        { orgId: org.id, name: "テナー I", voiceType: "tenor-1", sortOrder: 1, isCustom: false },
+        { orgId: org.id, name: "テナー II", voiceType: "tenor-2", sortOrder: 2, isCustom: false },
+        { orgId: org.id, name: "バリトン", voiceType: "baritone", sortOrder: 3, isCustom: false },
+        { orgId: org.id, name: "バス", voiceType: "bass", sortOrder: 4, isCustom: false },
       ];
       for (const part of defaultParts) {
         await prisma.part.create({ data: part });
@@ -379,5 +476,5 @@ export const authRouter = new Hono()
       });
 
       return c.json({ data: { orgSlug: slug, orgName: name } }, 201);
-    }
+    },
   );

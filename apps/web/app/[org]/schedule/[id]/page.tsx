@@ -30,23 +30,27 @@ export default function ScheduleDetailPage() {
   const { roles, memberId: selfId } = useMember();
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleting,          setDeleting]          = useState(false);
-  const [deleteError,       setDeleteError]       = useState<string | null>(null);
-  const [attendances,       setAttendances]       = useState<Record<string, LocalAttendance>>({});
-  const [saving,            setSaving]            = useState(false);
-  const [expandedId,        setExpandedId]        = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [attendances, setAttendances] = useState<Record<string, LocalAttendance>>({});
+  const [saving, setSaving] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const { data: event, isLoading: eventLoading, error: eventError } = useQuery({
+  const {
+    data: event,
+    isLoading: eventLoading,
+    error: eventError,
+  } = useQuery({
     queryKey: eventKeys.detail(org, id),
-    queryFn:  () => eventsApi.get(org, id),
+    queryFn: () => eventsApi.get(org, id),
   });
   const { data: members = [], isLoading: membersLoading } = useQuery({
     queryKey: memberKeys.activeList(org),
-    queryFn:  () => membersApi.list(org, { status: "active" }),
+    queryFn: () => membersApi.list(org, { status: "active" }),
   });
   const { data: parts = [], isLoading: partsLoading } = useQuery({
     queryKey: memberKeys.parts(org),
-    queryFn:  () => membersApi.parts(org),
+    queryFn: () => membersApi.parts(org),
   });
 
   const loading = eventLoading || membersLoading || partsLoading;
@@ -55,15 +59,15 @@ export default function ScheduleDetailPage() {
   const initializedForRef = useRef<string | null>(null);
   useEffect(() => {
     if (!event || !members.length || initializedForRef.current === id) return;
-    const attMap = new Map(event.attendances.map(a => [a.member.id, a]));
+    const attMap = new Map(event.attendances.map((a) => [a.member.id, a]));
     const map: Record<string, LocalAttendance> = {};
-    members.forEach(m => {
+    members.forEach((m) => {
       const rec = attMap.get(m.id);
       map[m.id] = {
-        status:     rec?.status     ?? "undecided",
+        status: rec?.status ?? "undecided",
         arriveTime: rec?.arriveTime ?? null,
-        leaveTime:  rec?.leaveTime  ?? null,
-        dayMemo:    rec?.dayMemo    ?? null,
+        leaveTime: rec?.leaveTime ?? null,
+        dayMemo: rec?.dayMemo ?? null,
       };
     });
     setAttendances(map);
@@ -72,48 +76,56 @@ export default function ScheduleDetailPage() {
 
   const isLocked = event?.isLocked ?? false;
 
-  const cycleStatus = useCallback((memberId: string) => {
-    if (isLocked || memberId !== selfId) return;
-    setAttendances(prev => {
-      const cur     = prev[memberId]?.status ?? "undecided";
-      const next    = STATUS_CYCLE[(STATUS_CYCLE.indexOf(cur) + 1) % STATUS_CYCLE.length];
-      const updated = { ...prev[memberId], status: next };
-      if (next === "maybe") setExpandedId(memberId);
-      else setExpandedId(null);
+  const cycleStatus = useCallback(
+    (memberId: string) => {
+      if (isLocked || memberId !== selfId) return;
+      setAttendances((prev) => {
+        const cur = prev[memberId]?.status ?? "undecided";
+        const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(cur) + 1) % STATUS_CYCLE.length];
+        const updated = { ...prev[memberId], status: next };
+        if (next === "maybe") setExpandedId(memberId);
+        else setExpandedId(null);
 
-      eventsApi.updateAttendance(org, id, {
-        status:     next,
-        arriveTime: updated.arriveTime,
-        leaveTime:  updated.leaveTime,
-        dayMemo:    updated.dayMemo,
-      }).catch(() => {
-        setAttendances(p => ({ ...p, [memberId]: prev[memberId] }));
+        eventsApi
+          .updateAttendance(org, id, {
+            status: next,
+            arriveTime: updated.arriveTime,
+            leaveTime: updated.leaveTime,
+            dayMemo: updated.dayMemo,
+          })
+          .catch(() => {
+            setAttendances((p) => ({ ...p, [memberId]: prev[memberId] }));
+          });
+
+        return { ...prev, [memberId]: updated };
       });
+    },
+    [isLocked, selfId, org, id],
+  );
 
-      return { ...prev, [memberId]: updated };
-    });
-  }, [isLocked, selfId, org, id]);
-
-  const saveMemo = useCallback(async (memberId: string, data: Partial<LocalAttendance>) => {
-    if (memberId !== selfId) return;
-    setSaving(true);
-    const prev = attendances[memberId];
-    const next = { ...prev, ...data };
-    setAttendances(p => ({ ...p, [memberId]: next }));
-    try {
-      await eventsApi.updateAttendance(org, id, {
-        status:     next.status,
-        arriveTime: next.arriveTime,
-        leaveTime:  next.leaveTime,
-        dayMemo:    next.dayMemo,
-      });
-      setExpandedId(null);
-    } catch {
-      setAttendances(p => ({ ...p, [memberId]: prev }));
-    } finally {
-      setSaving(false);
-    }
-  }, [selfId, attendances, org, id]);
+  const saveMemo = useCallback(
+    async (memberId: string, data: Partial<LocalAttendance>) => {
+      if (memberId !== selfId) return;
+      setSaving(true);
+      const prev = attendances[memberId];
+      const next = { ...prev, ...data };
+      setAttendances((p) => ({ ...p, [memberId]: next }));
+      try {
+        await eventsApi.updateAttendance(org, id, {
+          status: next.status,
+          arriveTime: next.arriveTime,
+          leaveTime: next.leaveTime,
+          dayMemo: next.dayMemo,
+        });
+        setExpandedId(null);
+      } catch {
+        setAttendances((p) => ({ ...p, [memberId]: prev }));
+      } finally {
+        setSaving(false);
+      }
+    },
+    [selfId, attendances, org, id],
+  );
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -131,15 +143,15 @@ export default function ScheduleDetailPage() {
     const sorted = [...parts].sort(comparePartOrder);
     return {
       partGroups: sorted
-        .map(part => ({ part, members: members.filter(m => m.part?.id === part.id) }))
-        .filter(g => g.members.length > 0),
-      unassigned: members.filter(m => !m.part),
+        .map((part) => ({ part, members: members.filter((m) => m.part?.id === part.id) }))
+        .filter((g) => g.members.length > 0),
+      unassigned: members.filter((m) => !m.part),
     };
   }, [parts, members]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full gap-2 text-gray-400">
+      <div className="flex h-full items-center justify-center gap-2 text-gray-400">
         <Loader2 size={18} className="animate-spin" />
         <span className="text-sm">読み込み中...</span>
       </div>
@@ -148,16 +160,19 @@ export default function ScheduleDetailPage() {
 
   if (eventError || !event) {
     return (
-      <div className="flex flex-col h-full">
-        <header className="bg-white border-b border-gray-200">
+      <div className="flex h-full flex-col">
+        <header className="border-b border-gray-200 bg-white">
           <PageBleedRow className="flex items-center gap-4 py-4">
-            <Link href={`/${org}/schedule`} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <Link
+              href={`/${org}/schedule`}
+              className="text-gray-400 transition-colors hover:text-gray-600"
+            >
               <ArrowLeft size={18} />
             </Link>
             <h1 className="text-lg font-semibold text-gray-800">イベント詳細</h1>
           </PageBleedRow>
         </header>
-        <div className="m-8 flex items-center gap-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
+        <div className="m-8 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
           <AlertCircle size={16} />
           <span className="text-sm">{eventError?.message ?? "イベントが見つかりません"}</span>
         </div>
@@ -169,37 +184,44 @@ export default function ScheduleDetailPage() {
 
   return (
     <div className="flex flex-col">
-      <header className="bg-white border-b border-gray-200 shrink-0">
+      <header className="shrink-0 border-b border-gray-200 bg-white">
         <PageBleedRow className="flex items-center justify-between py-4">
-          <div className="flex items-center gap-4 flex-1 min-w-0">
-            <Link href={`/${org}/schedule`} className="text-gray-400 hover:text-gray-600 transition-colors shrink-0">
+          <div className="flex min-w-0 flex-1 items-center gap-4">
+            <Link
+              href={`/${org}/schedule`}
+              className="shrink-0 text-gray-400 transition-colors hover:text-gray-600"
+            >
               <ArrowLeft size={18} />
             </Link>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-lg font-semibold text-gray-800">{event.title}</h1>
                 {isLocked && (
-                  <span className="flex items-center gap-1 text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+                  <span className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
                     <Lock size={10} /> 締切済み
                   </span>
                 )}
                 {!isLocked && selfAnswered && (
-                  <span className="text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-medium">
+                  <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs font-medium text-teal-700">
                     回答済み
                   </span>
                 )}
               </div>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-gray-500">
+              <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
                 <span className="flex items-center gap-1.5">
                   <Clock size={13} className="text-gray-400" />
-                  {formatDatetime(event.startsAt)}〜{new Date(event.endsAt).getHours()}:{String(new Date(event.endsAt).getMinutes()).padStart(2, "0")}
+                  {formatDatetime(event.startsAt)}〜{new Date(event.endsAt).getHours()}:
+                  {String(new Date(event.endsAt).getMinutes()).padStart(2, "0")}
                 </span>
                 {event.location && (
                   <a
-                    href={event.locationUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                    href={
+                      event.locationUrl ??
+                      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-brand-600 hover:underline"
+                    className="text-brand-600 flex items-center gap-1.5 hover:underline"
                   >
                     <MapPin size={13} className="text-brand-400 shrink-0" />
                     {event.location}
@@ -215,18 +237,21 @@ export default function ScheduleDetailPage() {
           </div>
 
           {roles.includes("admin") && (
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex shrink-0 items-center gap-2">
               <Link
                 href={`/${org}/schedule/${id}/edit`}
                 prefetch={false}
-                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
               >
                 <Pencil size={13} />
                 編集
               </Link>
               <button
-                onClick={() => { setShowDeleteConfirm(true); setDeleteError(null); }}
-                className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors"
+                onClick={() => {
+                  setShowDeleteConfirm(true);
+                  setDeleteError(null);
+                }}
+                className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
               >
                 <Trash2 size={13} />
                 削除
@@ -248,9 +273,9 @@ export default function ScheduleDetailPage() {
 
       <PageMain className="space-y-4">
         {event.pageMemo && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3">
-            <p className="text-xs font-semibold text-amber-700 mb-1">全体備考</p>
-            <p className="text-sm text-gray-700 leading-relaxed">{event.pageMemo}</p>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-3">
+            <p className="mb-1 text-xs font-semibold text-amber-700">全体備考</p>
+            <p className="text-sm leading-relaxed text-gray-700">{event.pageMemo}</p>
           </div>
         )}
 
@@ -268,8 +293,9 @@ export default function ScheduleDetailPage() {
         />
 
         {!isLocked && (
-          <p className="text-xs text-gray-400 text-center">
-            自分の行（青色）をクリックして出欠を回答してください。○ → ✕ → △ → — の順に切り替わります。
+          <p className="text-center text-xs text-gray-400">
+            自分の行（青色）をクリックして出欠を回答してください。○ → ✕ → △ → —
+            の順に切り替わります。
           </p>
         )}
       </PageMain>

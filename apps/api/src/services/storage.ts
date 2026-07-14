@@ -1,20 +1,25 @@
 import { writeFile, mkdir, unlink, readFile } from "fs/promises";
 import { extname, resolve } from "path";
-import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { logger } from "../lib/logger.js";
 
 export const CONTENT_TYPES: Record<string, string> = {
-  ".pdf":  "application/pdf",
-  ".mid":  "audio/midi",
+  ".pdf": "application/pdf",
+  ".mid": "audio/midi",
   ".midi": "audio/midi",
-  ".mp3":  "audio/mpeg",
-  ".wav":  "audio/wav",
-  ".jpg":  "image/jpeg",
+  ".mp3": "audio/mpeg",
+  ".wav": "audio/wav",
+  ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
-  ".png":  "image/png",
+  ".png": "image/png",
   ".webp": "image/webp",
-  ".gif":  "image/gif",
+  ".gif": "image/gif",
 };
 
 type R2Config = {
@@ -29,11 +34,11 @@ function getR2Config(): R2Config | null {
   const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME } = process.env;
   if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET_NAME) return null;
   return {
-    accountId:       R2_ACCOUNT_ID,
-    accessKeyId:     R2_ACCESS_KEY_ID,
+    accountId: R2_ACCOUNT_ID,
+    accessKeyId: R2_ACCESS_KEY_ID,
     secretAccessKey: R2_SECRET_ACCESS_KEY,
-    bucket:          R2_BUCKET_NAME,
-    publicUrl:       process.env.R2_PUBLIC_URL ?? null,
+    bucket: R2_BUCKET_NAME,
+    publicUrl: process.env.R2_PUBLIC_URL ?? null,
   };
 }
 
@@ -86,10 +91,9 @@ export const storage = {
    * アバター画像を配信する（R2: 署名URL経由でフェッチしてプロキシ / ローカル: Buffer 返却）
    * リダイレクトではなくプロキシにすることで Next.js <Image> の外部ドメイン制限を回避する。
    */
-  async serveAvatar(key: string): Promise<
-    | { type: "buffer"; data: Buffer; contentType: string }
-    | { type: "notfound" }
-  > {
+  async serveAvatar(
+    key: string,
+  ): Promise<{ type: "buffer"; data: Buffer; contentType: string } | { type: "notfound" }> {
     const cfg = getR2Config();
     if (cfg) {
       try {
@@ -101,9 +105,10 @@ export const storage = {
         const res = await fetch(presignedUrl);
         if (!res.ok) return { type: "notfound" };
         const data = Buffer.from(await res.arrayBuffer());
-        const contentType = res.headers.get("content-type")
-          ?? CONTENT_TYPES[extname(key).toLowerCase()]
-          ?? "image/jpeg";
+        const contentType =
+          res.headers.get("content-type") ??
+          CONTENT_TYPES[extname(key).toLowerCase()] ??
+          "image/jpeg";
         return { type: "buffer", data, contentType };
       } catch {
         return { type: "notfound" };
@@ -121,9 +126,14 @@ export const storage = {
   async upload(key: string, buffer: Buffer, contentType: string): Promise<void> {
     const cfg = getR2Config();
     if (cfg) {
-      await getS3(cfg).send(new PutObjectCommand({
-        Bucket: cfg.bucket, Key: key, Body: buffer, ContentType: contentType,
-      }));
+      await getS3(cfg).send(
+        new PutObjectCommand({
+          Bucket: cfg.bucket,
+          Key: key,
+          Body: buffer,
+          ContentType: contentType,
+        }),
+      );
     } else {
       const filePath = localPath(key);
       await mkdir(filePath.substring(0, filePath.lastIndexOf("/")), { recursive: true });
@@ -137,9 +147,11 @@ export const storage = {
     const key = normalizeKey(keyOrUrl);
     const cfg = getR2Config();
     if (cfg) {
-      await getS3(cfg).send(new DeleteObjectCommand({ Bucket: cfg.bucket, Key: key })).catch((err: unknown) => {
-        logger.warn(`[storage] R2 delete failed: ${key}`, err);
-      });
+      await getS3(cfg)
+        .send(new DeleteObjectCommand({ Bucket: cfg.bucket, Key: key }))
+        .catch((err: unknown) => {
+          logger.warn(`[storage] R2 delete failed: ${key}`, err);
+        });
     } else {
       await unlink(localPath(key)).catch((err: unknown) => {
         logger.warn(`[storage] local delete failed: ${key}`, err);
@@ -166,15 +178,19 @@ export const storage = {
    * - ローカル: ファイルを読み込んでバッファを返す
    * - R2: Presigned URL（5分有効）へのリダイレクトを返す
    */
-  async getScoreDownload(key: string, filename: string): Promise<
+  async getScoreDownload(
+    key: string,
+    filename: string,
+  ): Promise<
     | { type: "buffer"; data: Buffer; contentType: string; disposition: string }
     | { type: "redirect"; url: string }
   > {
     const cfg = getR2Config();
     const ext = extname(key).toLowerCase();
-    const disposition = ext === ".pdf"
-      ? `inline; filename*=UTF-8''${encodeURIComponent(filename)}`
-      : `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`;
+    const disposition =
+      ext === ".pdf"
+        ? `inline; filename*=UTF-8''${encodeURIComponent(filename)}`
+        : `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`;
 
     if (cfg) {
       const url = await getSignedUrl(
@@ -190,6 +206,11 @@ export const storage = {
     }
 
     const data = await readFile(localPath(key));
-    return { type: "buffer", data, contentType: CONTENT_TYPES[ext] ?? "application/octet-stream", disposition };
+    return {
+      type: "buffer",
+      data,
+      contentType: CONTENT_TYPES[ext] ?? "application/octet-stream",
+      disposition,
+    };
   },
 };

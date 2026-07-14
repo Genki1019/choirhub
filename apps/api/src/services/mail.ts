@@ -2,14 +2,18 @@ import { Resend } from "resend";
 import { logger } from "../lib/logger.js";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
-const FRONTEND_URL   = process.env.FRONTEND_URL   ?? "http://localhost:3000";
-const FROM_ADDRESS   = process.env.MAIL_FROM      ?? "ChoirHub <onboarding@resend.dev>";
+const FRONTEND_URL = process.env.FRONTEND_URL ?? "http://localhost:3000";
+const FROM_ADDRESS = process.env.MAIL_FROM ?? "ChoirHub <onboarding@resend.dev>";
 
 // DEV_MAIL_TO が設定されている場合、すべてのメールをそのアドレスに転送する（開発用）
 const DEV_MAIL_TO = process.env.DEV_MAIL_TO ?? "";
 
 function isResendConfigured(): boolean {
-  return RESEND_API_KEY.startsWith("re_") && RESEND_API_KEY.length > 10 && !RESEND_API_KEY.includes("xxx");
+  return (
+    RESEND_API_KEY.startsWith("re_") &&
+    RESEND_API_KEY.length > 10 &&
+    !RESEND_API_KEY.includes("xxx")
+  );
 }
 
 function buildInviteHtml(params: {
@@ -42,13 +46,17 @@ function buildInviteHtml(params: {
             </td>
           </tr>
 
-          ${devNotice ? `
+          ${
+            devNotice
+              ? `
           <!-- 開発用注記 -->
           <tr>
             <td style="background:#fef3c7;padding:12px 40px;border-bottom:1px solid #fde68a;">
               <p style="margin:0;font-size:12px;color:#92400e;">🔧 開発環境テスト送信 — ${devNotice}</p>
             </td>
-          </tr>` : ""}
+          </tr>`
+              : ""
+          }
 
           <!-- 本文 -->
           <tr>
@@ -219,8 +227,14 @@ export async function sendPasswordResetEmail(params: {
 }): Promise<void> {
   const { to, nameJa, resetToken, expiresAt } = params;
 
-  const resetUrl    = `${FRONTEND_URL}/password-reset/${resetToken}`;
-  const expiresLabel = expiresAt.toLocaleString("ja-JP", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  const resetUrl = `${FRONTEND_URL}/password-reset/${resetToken}`;
+  const expiresLabel = expiresAt.toLocaleString("ja-JP", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   if (!isResendConfigured()) {
     logger.info("─────────────────────────────────────────────");
@@ -232,15 +246,15 @@ export async function sendPasswordResetEmail(params: {
     return;
   }
 
-  const actualTo  = DEV_MAIL_TO || to;
-  const devNotice = (DEV_MAIL_TO && DEV_MAIL_TO !== to) ? `本来の宛先: ${to}` : undefined;
+  const actualTo = DEV_MAIL_TO || to;
+  const devNotice = DEV_MAIL_TO && DEV_MAIL_TO !== to ? `本来の宛先: ${to}` : undefined;
 
   const html = buildPasswordResetHtml({ nameJa, resetUrl, expiresLabel, devNotice });
 
   const resend = new Resend(RESEND_API_KEY);
   const { error } = await resend.emails.send({
-    from:    FROM_ADDRESS,
-    to:      actualTo,
+    from: FROM_ADDRESS,
+    to: actualTo,
     subject: "【ChoirHub】パスワードのリセット",
     html,
   });
@@ -287,7 +301,9 @@ export async function sendBulkMail(params: {
 
   if (error) {
     logger.error("[mail] Resend batch error:", error);
-    throw new Error(`メール送信に失敗しました: ${(error as { message?: string }).message ?? String(error)}`);
+    throw new Error(
+      `メール送信に失敗しました: ${(error as { message?: string }).message ?? String(error)}`,
+    );
   }
 
   const ids = data?.data?.map((d) => d.id) ?? [];
@@ -331,9 +347,13 @@ export async function sendInviteEmail(params: {
 }): Promise<void> {
   const { to, nameJa, orgName, inviteToken, expiresAt } = params;
 
-  const inviteUrl    = `${FRONTEND_URL}/invite/${inviteToken}`;
-  const expiresLabel = expiresAt.toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
-  const greeting     = nameJa ? `${nameJa} さん` : "はじめまして";
+  const inviteUrl = `${FRONTEND_URL}/invite/${inviteToken}`;
+  const expiresLabel = expiresAt.toLocaleDateString("ja-JP", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const greeting = nameJa ? `${nameJa} さん` : "はじめまして";
 
   if (!isResendConfigured()) {
     logger.info("─────────────────────────────────────────────");
@@ -345,15 +365,15 @@ export async function sendInviteEmail(params: {
     return;
   }
 
-  const actualTo  = DEV_MAIL_TO || to;
-  const devNotice = (DEV_MAIL_TO && DEV_MAIL_TO !== to) ? `本来の宛先: ${to}` : undefined;
+  const actualTo = DEV_MAIL_TO || to;
+  const devNotice = DEV_MAIL_TO && DEV_MAIL_TO !== to ? `本来の宛先: ${to}` : undefined;
 
   const html = buildInviteHtml({ greeting, orgName, inviteUrl, expiresLabel, devNotice });
 
   const resend = new Resend(RESEND_API_KEY);
   const { error } = await resend.emails.send({
     from: FROM_ADDRESS,
-    to:   actualTo,
+    to: actualTo,
     subject: `【ChoirHub】${orgName} への招待`,
     html,
   });

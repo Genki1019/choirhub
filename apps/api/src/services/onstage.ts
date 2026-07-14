@@ -4,8 +4,8 @@ export type SurveyAtt = "attending" | "absent" | "maybe" | "undecided";
 
 const RESPONSE_TO_ONSTAGE: Record<SurveyAtt, "on" | "off" | "undecided"> = {
   attending: "on",
-  absent:    "off",
-  maybe:     "undecided",
+  absent: "off",
+  maybe: "undecided",
   undecided: "undecided",
 };
 
@@ -21,18 +21,22 @@ export async function syncOnStageFromResponses(
     responses.map((r) => {
       const status = RESPONSE_TO_ONSTAGE[r.status];
       return prisma.onStageAssignment.upsert({
-        where: { concertId_memberId_stageId: { concertId, memberId: r.memberId, stageId: r.stageId } },
+        where: {
+          concertId_memberId_stageId: { concertId, memberId: r.memberId, stageId: r.stageId },
+        },
         create: { concertId, memberId: r.memberId, stageId: r.stageId, status },
         update: { status },
       });
-    })
+    }),
   );
 
   // on でなくなったメンバーは、フォーメーションの配置枠からも削除する
   const droppedFromOn = responses.filter((r) => RESPONSE_TO_ONSTAGE[r.status] !== "on");
   if (droppedFromOn.length > 0) {
     await prisma.formationSlot.deleteMany({
-      where: { OR: droppedFromOn.map((r) => ({ memberId: r.memberId, pattern: { stageId: r.stageId } })) },
+      where: {
+        OR: droppedFromOn.map((r) => ({ memberId: r.memberId, pattern: { stageId: r.stageId } })),
+      },
     });
   }
 }

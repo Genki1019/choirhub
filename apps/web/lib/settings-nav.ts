@@ -1,7 +1,7 @@
 export const SETTINGS_NAV_ITEMS = [
-  { label: "団体情報",     suffix: "" },
-  { label: "パート管理",   suffix: "/parts" },
-  { label: "会費設定",     suffix: "/fee" },
+  { label: "団体情報", suffix: "" },
+  { label: "パート管理", suffix: "/parts" },
+  { label: "会費設定", suffix: "/fee" },
   { label: "支出カテゴリ", suffix: "/expense-categories" },
   { label: "メンバー区分", suffix: "/member-types" },
   { label: "イベント区分", suffix: "/event-categories" },

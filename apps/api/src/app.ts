@@ -27,13 +27,18 @@ if (!frontendUrl && process.env.NODE_ENV === "production") {
 const allowedOrigins = new Set([
   "http://localhost:3000",
   ...(frontendUrl ? [frontendUrl] : []),
-  ...(process.env.CORS_EXTRA_ORIGINS?.split(",").map((s) => s.trim()).filter(Boolean) ?? []),
+  ...(process.env.CORS_EXTRA_ORIGINS?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean) ?? []),
 ]);
 
-app.use("*", cors({
-  origin: (origin) => (allowedOrigins.has(origin) ? origin : undefined),
-  credentials: true,
-}));
+app.use(
+  "*",
+  cors({
+    origin: (origin) => (allowedOrigins.has(origin) ? origin : undefined),
+    credentials: true,
+  }),
+);
 
 const v1 = new Hono();
 
@@ -61,7 +66,8 @@ app.get("/api/v1/files/avatar", async (c) => {
     return c.json({ error: { code: "BAD_REQUEST", message: "無効なキーです" } }, 400);
   }
   const result = await storage.serveAvatar(key);
-  if (result.type === "notfound") return c.json({ error: { code: "NOT_FOUND", message: "画像が見つかりません" } }, 404);
+  if (result.type === "notfound")
+    return c.json({ error: { code: "NOT_FOUND", message: "画像が見つかりません" } }, 404);
   return new Response(result.data, {
     headers: {
       "Content-Type": result.contentType,
@@ -75,8 +81,15 @@ app.route("/api/v1", v1);
 app.get("/health", (c) => c.json({ ok: true }));
 
 app.onError((err, c) => {
-  logger.error("[Hono] Unhandled error:", err instanceof Error ? err.message : String(err), err instanceof Error ? err.stack : "");
-  return c.json({ error: { code: "INTERNAL_ERROR", message: "サーバーエラーが発生しました" } }, 500);
+  logger.error(
+    "[Hono] Unhandled error:",
+    err instanceof Error ? err.message : String(err),
+    err instanceof Error ? err.stack : "",
+  );
+  return c.json(
+    { error: { code: "INTERNAL_ERROR", message: "サーバーエラーが発生しました" } },
+    500,
+  );
 });
 
 export { app };

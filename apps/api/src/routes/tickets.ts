@@ -13,7 +13,10 @@ export const ticketsRouter = new Hono<TenantEnv>()
     const org = c.get("org");
 
     if (!isTicketManager(actingMember)) {
-      return c.json({ error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみアクセスできます" } }, 403);
+      return c.json(
+        { error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみアクセスできます" } },
+        403,
+      );
     }
 
     const concerts = await prisma.concert.findMany({
@@ -22,7 +25,15 @@ export const ticketsRouter = new Hono<TenantEnv>()
       include: {
         ticketBatches: {
           include: {
-            allocations: { select: { allocatedCount: true, soldAdult: true, soldStudent: true, soldOther: true, isCollected: true } },
+            allocations: {
+              select: {
+                allocatedCount: true,
+                soldAdult: true,
+                soldStudent: true,
+                soldOther: true,
+                isCollected: true,
+              },
+            },
           },
         },
       },
@@ -31,9 +42,15 @@ export const ticketsRouter = new Hono<TenantEnv>()
     return c.json({
       data: concerts.map((concert) => {
         const batches = concert.ticketBatches;
-        const totalAllocated = batches.flatMap((b) => b.allocations).reduce((s, a) => s + a.allocatedCount, 0);
-        const totalSold = batches.flatMap((b) => b.allocations).reduce((s, a) => s + a.soldAdult + a.soldStudent + a.soldOther, 0);
-        const totalCollected = batches.flatMap((b) => b.allocations).filter((a) => a.isCollected).length;
+        const totalAllocated = batches
+          .flatMap((b) => b.allocations)
+          .reduce((s, a) => s + a.allocatedCount, 0);
+        const totalSold = batches
+          .flatMap((b) => b.allocations)
+          .reduce((s, a) => s + a.soldAdult + a.soldStudent + a.soldOther, 0);
+        const totalCollected = batches
+          .flatMap((b) => b.allocations)
+          .filter((a) => a.isCollected).length;
         const totalMembers = batches.flatMap((b) => b.allocations).length;
 
         return {
@@ -68,28 +85,31 @@ export const ticketsRouter = new Hono<TenantEnv>()
     });
 
     // 演奏会ごとにグループ化
-    const concertMap = new Map<string, {
-      concertId: string;
-      title: string;
-      heldOn: string;
-      racePublishedAt: string | null;
-      ticketInputClosedAt: string | null;
-      batches: {
-        allocationId: string;
-        batchId: string;
-        batchName: string;
-        price: number;
-        priceStudent: number | null;
-        allocatedCount: number;
-        requestedCount: number | null;
-        soldAdult: number;
-        soldStudent: number;
-        soldOther: number;
-        returnedCount: number;
-        outreachCount: number;
-        reportedAt: string | null;
-      }[];
-    }>();
+    const concertMap = new Map<
+      string,
+      {
+        concertId: string;
+        title: string;
+        heldOn: string;
+        racePublishedAt: string | null;
+        ticketInputClosedAt: string | null;
+        batches: {
+          allocationId: string;
+          batchId: string;
+          batchName: string;
+          price: number;
+          priceStudent: number | null;
+          allocatedCount: number;
+          requestedCount: number | null;
+          soldAdult: number;
+          soldStudent: number;
+          soldOther: number;
+          returnedCount: number;
+          outreachCount: number;
+          reportedAt: string | null;
+        }[];
+      }
+    >();
 
     for (const a of allocations) {
       if (a.batch.concert.orgId !== org.id) continue;
@@ -131,7 +151,10 @@ export const ticketsRouter = new Hono<TenantEnv>()
     const { concertId } = c.req.param();
 
     if (!isTicketManager(actingMember)) {
-      return c.json({ error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみアクセスできます" } }, 403);
+      return c.json(
+        { error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみアクセスできます" } },
+        403,
+      );
     }
 
     const concert = await prisma.concert.findUnique({ where: { id: concertId } });
@@ -158,18 +181,23 @@ export const ticketsRouter = new Hono<TenantEnv>()
       },
     });
 
-    const parts = await prisma.part.findMany({ where: { orgId: org.id }, orderBy: { sortOrder: "asc" } });
+    const parts = await prisma.part.findMany({
+      where: { orgId: org.id },
+      orderBy: { sortOrder: "asc" },
+    });
 
     // パート別集計
-    const partSummary = parts.map((part) => {
-      const allocations = batches.flatMap((b) =>
-        b.allocations.filter((a) => a.member.part?.id === part.id)
-      );
-      const allocated = allocations.reduce((s, a) => s + a.allocatedCount, 0);
-      const sold = allocations.reduce((s, a) => s + a.soldAdult + a.soldStudent + a.soldOther, 0);
-      if (allocated === 0) return null;
-      return { partId: part.id, partName: part.name, allocated, sold, rate: sold / allocated };
-    }).filter(Boolean);
+    const partSummary = parts
+      .map((part) => {
+        const allocations = batches.flatMap((b) =>
+          b.allocations.filter((a) => a.member.part?.id === part.id),
+        );
+        const allocated = allocations.reduce((s, a) => s + a.allocatedCount, 0);
+        const sold = allocations.reduce((s, a) => s + a.soldAdult + a.soldStudent + a.soldOther, 0);
+        if (allocated === 0) return null;
+        return { partId: part.id, partName: part.name, allocated, sold, rate: sold / allocated };
+      })
+      .filter(Boolean);
 
     return c.json({
       data: {
@@ -220,18 +248,23 @@ export const ticketsRouter = new Hono<TenantEnv>()
   // ── PATCH /tickets/allocations/:id ── 販売・回収報告を更新
   .patch(
     "/tickets/allocations/:id",
-    zValidator("json", z.object({
-      allocatedCount:      z.number().int().min(0).optional(),
-      soldAdult:           z.number().int().min(0).optional(),
-      soldStudent:         z.number().int().min(0).optional(),
-      soldOther:           z.number().int().min(0).optional(),
-      returnedCount:       z.number().int().min(0).optional(),
-      outreachCount:       z.number().int().min(0).optional(),
-      isOutreachExpensePaid: z.boolean().optional(),
-      isCollected:         z.boolean().optional(),
-    }), (r, c) => {
-      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
-    }),
+    zValidator(
+      "json",
+      z.object({
+        allocatedCount: z.number().int().min(0).optional(),
+        soldAdult: z.number().int().min(0).optional(),
+        soldStudent: z.number().int().min(0).optional(),
+        soldOther: z.number().int().min(0).optional(),
+        returnedCount: z.number().int().min(0).optional(),
+        outreachCount: z.number().int().min(0).optional(),
+        isOutreachExpensePaid: z.boolean().optional(),
+        isCollected: z.boolean().optional(),
+      }),
+      (r, c) => {
+        if (!r.success)
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      },
+    ),
     async (c) => {
       const actingMember = c.get("member");
       const { id } = c.req.param();
@@ -246,14 +279,24 @@ export const ticketsRouter = new Hono<TenantEnv>()
       }
 
       const isSelf = allocation.memberId === actingMember.id;
-      const isMgr  = isTicketManager(actingMember);
+      const isMgr = isTicketManager(actingMember);
 
       if (!isMgr && !isSelf) {
-        return c.json({ error: { code: "FORBIDDEN", message: "自分の配布記録のみ編集できます" } }, 403);
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "自分の配布記録のみ編集できます" } },
+          403,
+        );
       }
 
-      if (!isMgr && allocation.batch.concert.ticketInputClosedAt && new Date() > allocation.batch.concert.ticketInputClosedAt) {
-        return c.json({ error: { code: "INPUT_CLOSED", message: "チケット入力は締め切られています" } }, 403);
+      if (
+        !isMgr &&
+        allocation.batch.concert.ticketInputClosedAt &&
+        new Date() > allocation.batch.concert.ticketInputClosedAt
+      ) {
+        return c.json(
+          { error: { code: "INPUT_CLOSED", message: "チケット入力は締め切られています" } },
+          403,
+        );
       }
 
       const body = c.req.valid("json");
@@ -267,11 +310,17 @@ export const ticketsRouter = new Hono<TenantEnv>()
 
       // allocatedCount 変更は管理者のみ。承認として requestedCount をクリア
       if (allocatedCount !== undefined && !isMgr) {
-        return c.json({ error: { code: "FORBIDDEN", message: "配布枚数の変更はチケット担当者のみ可能です" } }, 403);
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "配布枚数の変更はチケット担当者のみ可能です" } },
+          403,
+        );
       }
       // 交通費支払い記録は管理者のみ
       if (isOutreachExpensePaid !== undefined && !isMgr) {
-        return c.json({ error: { code: "FORBIDDEN", message: "情宣交通費の記録はチケット担当者のみ可能です" } }, 403);
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "情宣交通費の記録はチケット担当者のみ可能です" } },
+          403,
+        );
       }
 
       const updated = await prisma.ticketAllocation.update({
@@ -279,46 +328,56 @@ export const ticketsRouter = new Hono<TenantEnv>()
         data: {
           ...salesBody,
           ...(allocatedCount !== undefined ? { allocatedCount, requestedCount: null } : {}),
-          ...(isOutreachExpensePaid !== undefined ? {
-            isOutreachExpensePaid,
-            outreachExpensePaidAt: isOutreachExpensePaid ? new Date() : null,
-          } : {}),
+          ...(isOutreachExpensePaid !== undefined
+            ? {
+                isOutreachExpensePaid,
+                outreachExpensePaidAt: isOutreachExpensePaid ? new Date() : null,
+              }
+            : {}),
           ...(hasSalesChange ? { reportedAt: new Date() } : {}),
         },
       });
 
       return c.json({
         data: {
-          id:             updated.id,
+          id: updated.id,
           allocatedCount: updated.allocatedCount,
           requestedCount: updated.requestedCount,
-          soldAdult:      updated.soldAdult,
-          soldStudent:    updated.soldStudent,
-          soldOther:      updated.soldOther,
-          returnedCount:  updated.returnedCount,
+          soldAdult: updated.soldAdult,
+          soldStudent: updated.soldStudent,
+          soldOther: updated.soldOther,
+          returnedCount: updated.returnedCount,
           isCollected: updated.isCollected,
-          reportedAt:     updated.reportedAt?.toISOString() ?? null,
+          reportedAt: updated.reportedAt?.toISOString() ?? null,
         },
       });
-    }
+    },
   )
 
   // ── POST /tickets/:concertId/outreach-expenses/bulk ── 情宣交通費 一括支払い記録（ticket/admin）
   .post(
     "/tickets/:concertId/outreach-expenses/bulk",
-    zValidator("json", z.object({
-      allocationIds: z.array(z.string()).min(1),
-      paid:          z.boolean(),
-    }), (r, c) => {
-      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
-    }),
+    zValidator(
+      "json",
+      z.object({
+        allocationIds: z.array(z.string()).min(1),
+        paid: z.boolean(),
+      }),
+      (r, c) => {
+        if (!r.success)
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      },
+    ),
     async (c) => {
       const actingMember = c.get("member");
       const org = c.get("org");
       const { concertId } = c.req.param();
 
       if (!isTicketManager(actingMember)) {
-        return c.json({ error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } }, 403);
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } },
+          403,
+        );
       }
 
       const concert = await prisma.concert.findUnique({ where: { id: concertId } });
@@ -333,12 +392,15 @@ export const ticketsRouter = new Hono<TenantEnv>()
         select: { id: true },
       });
       if (validAllocations.length !== allocationIds.length) {
-        return c.json({ error: { code: "BAD_REQUEST", message: "一部の配布記録が見つかりません" } }, 400);
+        return c.json(
+          { error: { code: "BAD_REQUEST", message: "一部の配布記録が見つかりません" } },
+          400,
+        );
       }
 
       const { count } = await prisma.ticketAllocation.updateMany({
         where: {
-          id:    { in: allocationIds },
+          id: { in: allocationIds },
           batch: { concertId, concert: { orgId: org.id } },
         },
         data: {
@@ -354,18 +416,26 @@ export const ticketsRouter = new Hono<TenantEnv>()
   // ── PATCH /concerts/:concertId/outreach-expense-rate ── 単価設定（ticket/admin）
   .patch(
     "/tickets/:concertId/outreach-expense-rate",
-    zValidator("json", z.object({
-      outreachExpensePerTrip: z.number().int().min(0).nullable(),
-    }), (r, c) => {
-      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
-    }),
+    zValidator(
+      "json",
+      z.object({
+        outreachExpensePerTrip: z.number().int().min(0).nullable(),
+      }),
+      (r, c) => {
+        if (!r.success)
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      },
+    ),
     async (c) => {
       const actingMember = c.get("member");
       const org = c.get("org");
       const { concertId } = c.req.param();
 
       if (!isTicketManager(actingMember)) {
-        return c.json({ error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } }, 403);
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } },
+          403,
+        );
       }
 
       const concert = await prisma.concert.findUnique({ where: { id: concertId } });
@@ -382,23 +452,31 @@ export const ticketsRouter = new Hono<TenantEnv>()
   // ── POST /tickets/:concertId/batches ── 席種作成（T-5）
   .post(
     "/tickets/:concertId/batches",
-    zValidator("json", z.object({
-      name:         z.string().min(1),
-      price:        z.number().int().min(0),
-      priceStudent: z.number().int().min(0).optional().nullable(),
-      totalCount:   z.number().int().min(1),
-      saleStart:    z.string().datetime({ offset: true }).optional().nullable(),
-      saleEnd:      z.string().datetime({ offset: true }).optional().nullable(),
-    }), (r, c) => {
-      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
-    }),
+    zValidator(
+      "json",
+      z.object({
+        name: z.string().min(1),
+        price: z.number().int().min(0),
+        priceStudent: z.number().int().min(0).optional().nullable(),
+        totalCount: z.number().int().min(1),
+        saleStart: z.string().datetime({ offset: true }).optional().nullable(),
+        saleEnd: z.string().datetime({ offset: true }).optional().nullable(),
+      }),
+      (r, c) => {
+        if (!r.success)
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      },
+    ),
     async (c) => {
       const actingMember = c.get("member");
       const org = c.get("org");
       const { concertId } = c.req.param();
 
       if (!isTicketManager(actingMember)) {
-        return c.json({ error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } }, 403);
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } },
+          403,
+        );
       }
 
       const concert = await prisma.concert.findUnique({ where: { id: concertId } });
@@ -416,35 +494,43 @@ export const ticketsRouter = new Hono<TenantEnv>()
           priceStudent: priceStudent ?? null,
           totalCount,
           saleStart: saleStart ? new Date(saleStart) : null,
-          saleEnd:   saleEnd   ? new Date(saleEnd)   : null,
+          saleEnd: saleEnd ? new Date(saleEnd) : null,
         },
       });
 
-      return c.json({
-        data: {
-          id:           batch.id,
-          name:         batch.name,
-          price:        batch.price,
-          priceStudent: batch.priceStudent,
-          totalCount:   batch.totalCount,
-          saleStart:    batch.saleStart?.toISOString() ?? null,
-          saleEnd:      batch.saleEnd?.toISOString()   ?? null,
-          allocations:  [],
+      return c.json(
+        {
+          data: {
+            id: batch.id,
+            name: batch.name,
+            price: batch.price,
+            priceStudent: batch.priceStudent,
+            totalCount: batch.totalCount,
+            saleStart: batch.saleStart?.toISOString() ?? null,
+            saleEnd: batch.saleEnd?.toISOString() ?? null,
+            allocations: [],
+          },
         },
-      }, 201);
-    }
+        201,
+      );
+    },
   )
 
   // ── POST /tickets/:concertId/allocate ── 配布登録（T-6）
   .post(
     "/tickets/:concertId/allocate",
-    zValidator("json", z.object({
-      batchId:        z.string(),
-      memberId:       z.string().optional(),
-      allocatedCount: z.number().int().min(0),
-    }), (r, c) => {
-      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
-    }),
+    zValidator(
+      "json",
+      z.object({
+        batchId: z.string(),
+        memberId: z.string().optional(),
+        allocatedCount: z.number().int().min(0),
+      }),
+      (r, c) => {
+        if (!r.success)
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      },
+    ),
     async (c) => {
       const actingMember = c.get("member");
       const org = c.get("org");
@@ -455,7 +541,15 @@ export const ticketsRouter = new Hono<TenantEnv>()
       const isSelf = targetMemberId === actingMember.id;
 
       if (!isSelf && !isTicketManager(actingMember)) {
-        return c.json({ error: { code: "FORBIDDEN", message: "他のメンバーへの配布登録はチケット担当者または管理者のみ可能です" } }, 403);
+        return c.json(
+          {
+            error: {
+              code: "FORBIDDEN",
+              message: "他のメンバーへの配布登録はチケット担当者または管理者のみ可能です",
+            },
+          },
+          403,
+        );
       }
 
       const batch = await prisma.ticketBatch.findUnique({
@@ -467,7 +561,10 @@ export const ticketsRouter = new Hono<TenantEnv>()
       }
 
       if (isSelf && !isTicketManager(actingMember) && batch.concert.ticketInputClosedAt) {
-        return c.json({ error: { code: "INPUT_CLOSED", message: "チケット入力は締め切られています" } }, 403);
+        return c.json(
+          { error: { code: "INPUT_CLOSED", message: "チケット入力は締め切られています" } },
+          403,
+        );
       }
 
       const isMgr = isTicketManager(actingMember);
@@ -482,38 +579,49 @@ export const ticketsRouter = new Hono<TenantEnv>()
           : { requestedCount: allocatedCount },
       });
 
-      return c.json({
-        data: {
-          id:             allocation.id,
-          batchId:        allocation.batchId,
-          memberId:       allocation.memberId,
-          allocatedCount: allocation.allocatedCount,
-          requestedCount: allocation.requestedCount,
+      return c.json(
+        {
+          data: {
+            id: allocation.id,
+            batchId: allocation.batchId,
+            memberId: allocation.memberId,
+            allocatedCount: allocation.allocatedCount,
+            requestedCount: allocation.requestedCount,
+          },
         },
-      }, 201);
-    }
+        201,
+      );
+    },
   )
 
   // ── PATCH /tickets/:concertId/batches/:batchId ── 席種情報更新
   .patch(
     "/tickets/:concertId/batches/:batchId",
-    zValidator("json", z.object({
-      name:         z.string().min(1).optional(),
-      price:        z.number().int().min(0).optional(),
-      priceStudent: z.number().int().min(0).nullable().optional(),
-      totalCount:   z.number().int().min(1).optional(),
-      saleStart:    z.string().datetime({ offset: true }).nullable().optional(),
-      saleEnd:      z.string().datetime({ offset: true }).nullable().optional(),
-    }), (r, c) => {
-      if (!r.success) return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
-    }),
+    zValidator(
+      "json",
+      z.object({
+        name: z.string().min(1).optional(),
+        price: z.number().int().min(0).optional(),
+        priceStudent: z.number().int().min(0).nullable().optional(),
+        totalCount: z.number().int().min(1).optional(),
+        saleStart: z.string().datetime({ offset: true }).nullable().optional(),
+        saleEnd: z.string().datetime({ offset: true }).nullable().optional(),
+      }),
+      (r, c) => {
+        if (!r.success)
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      },
+    ),
     async (c) => {
       const actingMember = c.get("member");
       const org = c.get("org");
       const { concertId, batchId } = c.req.param();
 
       if (!isTicketManager(actingMember)) {
-        return c.json({ error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } }, 403);
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } },
+          403,
+        );
       }
 
       const batch = await prisma.ticketBatch.findUnique({
@@ -529,27 +637,27 @@ export const ticketsRouter = new Hono<TenantEnv>()
       const updated = await prisma.ticketBatch.update({
         where: { id: batchId },
         data: {
-          ...(name         !== undefined ? { name }         : {}),
-          ...(price        !== undefined ? { price }        : {}),
+          ...(name !== undefined ? { name } : {}),
+          ...(price !== undefined ? { price } : {}),
           ...(priceStudent !== undefined ? { priceStudent } : {}),
-          ...(totalCount   !== undefined ? { totalCount }   : {}),
-          ...(saleStart    !== undefined ? { saleStart: saleStart ? new Date(saleStart) : null } : {}),
-          ...(saleEnd      !== undefined ? { saleEnd:   saleEnd   ? new Date(saleEnd)   : null } : {}),
+          ...(totalCount !== undefined ? { totalCount } : {}),
+          ...(saleStart !== undefined ? { saleStart: saleStart ? new Date(saleStart) : null } : {}),
+          ...(saleEnd !== undefined ? { saleEnd: saleEnd ? new Date(saleEnd) : null } : {}),
         },
       });
 
       return c.json({
         data: {
-          id:           updated.id,
-          name:         updated.name,
-          price:        updated.price,
+          id: updated.id,
+          name: updated.name,
+          price: updated.price,
           priceStudent: updated.priceStudent,
-          totalCount:   updated.totalCount,
-          saleStart:    updated.saleStart?.toISOString() ?? null,
-          saleEnd:      updated.saleEnd?.toISOString()   ?? null,
+          totalCount: updated.totalCount,
+          saleStart: updated.saleStart?.toISOString() ?? null,
+          saleEnd: updated.saleEnd?.toISOString() ?? null,
         },
       });
-    }
+    },
   )
 
   // ── DELETE /tickets/:concertId/batches/:batchId ── 席種削除
@@ -559,7 +667,10 @@ export const ticketsRouter = new Hono<TenantEnv>()
     const { concertId, batchId } = c.req.param();
 
     if (!isTicketManager(actingMember)) {
-      return c.json({ error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } }, 403);
+      return c.json(
+        { error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } },
+        403,
+      );
     }
 
     const batch = await prisma.ticketBatch.findUnique({
@@ -587,16 +698,19 @@ export const ticketsRouter = new Hono<TenantEnv>()
 
     // 公開済みなら全員閲覧可、未公開はチケット担当のみ
     if (!concert.racePublishedAt && !isTicketManager(actingMember)) {
-      return c.json({ error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみアクセスできます" } }, 403);
+      return c.json(
+        { error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみアクセスできます" } },
+        403,
+      );
     }
 
     // ── スコアリング設定（可変） ──
     const SCORING = {
-      avgSales:  { label: "平均販売枚数",       points: [10, 8, 6, 4] },
-      speed5:    { label: "速さ（5枚×3名）",    threshold: 5,  minCount: 3, points: [5, 4, 3, 2] },
-      speed10:   { label: "速さ（10枚×3名）",   threshold: 10, minCount: 3, points: [5, 4, 3, 2] },
+      avgSales: { label: "平均販売枚数", points: [10, 8, 6, 4] },
+      speed5: { label: "速さ（5枚×3名）", threshold: 5, minCount: 3, points: [5, 4, 3, 2] },
+      speed10: { label: "速さ（10枚×3名）", threshold: 10, minCount: 3, points: [5, 4, 3, 2] },
       zeroRatio: { label: "ゼロ販売割合（少順）", points: [4, 3, 2, 1] },
-      outreach:  { label: "情宣回数",           points: [5, 4, 3, 2] },
+      outreach: { label: "情宣回数", points: [5, 4, 3, 2] },
     };
 
     // ランクに基づきポイント付与（同率タイ対応）
@@ -729,7 +843,8 @@ export const ticketsRouter = new Hono<TenantEnv>()
     const avgSalesMap = assignRankedPoints(
       parts.map((p) => ({
         key: p.partId,
-        value: p.members.length > 0 ? p.members.reduce((s, m) => s + m.sold, 0) / p.members.length : 0,
+        value:
+          p.members.length > 0 ? p.members.reduce((s, m) => s + m.sold, 0) / p.members.length : 0,
       })),
       SCORING.avgSales.points,
     );
@@ -744,7 +859,9 @@ export const ticketsRouter = new Hono<TenantEnv>()
       SCORING.speed5.points,
       false, // 早い（小さい）順が上位
     );
-    parts.forEach((p) => { if (!speed5Map.has(p.partId)) speed5Map.set(p.partId, 0); });
+    parts.forEach((p) => {
+      if (!speed5Map.has(p.partId)) speed5Map.set(p.partId, 0);
+    });
 
     // 3. 速さ（10枚×3名）
     const speed10Timestamps = parts.map((p) => ({
@@ -756,15 +873,18 @@ export const ticketsRouter = new Hono<TenantEnv>()
       SCORING.speed10.points,
       false,
     );
-    parts.forEach((p) => { if (!speed10Map.has(p.partId)) speed10Map.set(p.partId, 0); });
+    parts.forEach((p) => {
+      if (!speed10Map.has(p.partId)) speed10Map.set(p.partId, 0);
+    });
 
     // 4. ゼロ販売割合（小さい順が上位）
     const zeroRatioMap = assignRankedPoints(
       parts.map((p) => ({
         key: p.partId,
-        value: p.members.length > 0
-          ? p.members.filter((m) => m.sold === 0).length / p.members.length
-          : 1,
+        value:
+          p.members.length > 0
+            ? p.members.filter((m) => m.sold === 0).length / p.members.length
+            : 1,
       })),
       SCORING.zeroRatio.points,
       false,
@@ -780,49 +900,61 @@ export const ticketsRouter = new Hono<TenantEnv>()
     );
 
     // ── パート最終スコア組み立て ──
-    const scoredParts = parts.map((p) => {
-      const allocated = p.members.reduce((s, m) => s + m.allocated, 0);
-      const sold = p.members.reduce((s, m) => s + m.sold, 0);
-      const avgSalesPoints  = avgSalesMap.get(p.partId)  ?? 0;
-      const speed5Points    = speed5Map.get(p.partId)    ?? 0;
-      const speed10Points   = speed10Map.get(p.partId)   ?? 0;
-      const zeroRatioPoints = zeroRatioMap.get(p.partId) ?? 0;
-      const outreachPoints  = outreachMap.get(p.partId)  ?? 0;
-      const totalPoints = avgSalesPoints + speed5Points + speed10Points + zeroRatioPoints + outreachPoints;
-      const speed5AchievedAt = speed5Timestamps.find((x) => x.key === p.partId)?.value ?? null;
-      const speed10AchievedAt = speed10Timestamps.find((x) => x.key === p.partId)?.value ?? null;
-      return {
-        partId:   p.partId,
-        partName: p.partName,
-        totalPoints,
-        breakdown: { avgSalesPoints, speed5Points, speed10Points, zeroRatioPoints, outreachPoints },
-        stats: {
-          avgSold: p.members.length > 0 ? sold / p.members.length : 0,
-          speed5AchievedAt:  speed5AchievedAt  ? new Date(speed5AchievedAt).toISOString()  : null,
-          speed10AchievedAt: speed10AchievedAt ? new Date(speed10AchievedAt).toISOString() : null,
-          zeroSellerRatio: p.members.length > 0 ? p.members.filter((m) => m.sold === 0).length / p.members.length : 1,
-          totalOutreach: p.members.reduce((s, m) => s + m.outreachCount, 0),
-          memberCount: p.members.length,
-          allocated,
-          sold,
-        },
-      };
-    }).sort((a, b) => b.totalPoints - a.totalPoints)
+    const scoredParts = parts
+      .map((p) => {
+        const allocated = p.members.reduce((s, m) => s + m.allocated, 0);
+        const sold = p.members.reduce((s, m) => s + m.sold, 0);
+        const avgSalesPoints = avgSalesMap.get(p.partId) ?? 0;
+        const speed5Points = speed5Map.get(p.partId) ?? 0;
+        const speed10Points = speed10Map.get(p.partId) ?? 0;
+        const zeroRatioPoints = zeroRatioMap.get(p.partId) ?? 0;
+        const outreachPoints = outreachMap.get(p.partId) ?? 0;
+        const totalPoints =
+          avgSalesPoints + speed5Points + speed10Points + zeroRatioPoints + outreachPoints;
+        const speed5AchievedAt = speed5Timestamps.find((x) => x.key === p.partId)?.value ?? null;
+        const speed10AchievedAt = speed10Timestamps.find((x) => x.key === p.partId)?.value ?? null;
+        return {
+          partId: p.partId,
+          partName: p.partName,
+          totalPoints,
+          breakdown: {
+            avgSalesPoints,
+            speed5Points,
+            speed10Points,
+            zeroRatioPoints,
+            outreachPoints,
+          },
+          stats: {
+            avgSold: p.members.length > 0 ? sold / p.members.length : 0,
+            speed5AchievedAt: speed5AchievedAt ? new Date(speed5AchievedAt).toISOString() : null,
+            speed10AchievedAt: speed10AchievedAt ? new Date(speed10AchievedAt).toISOString() : null,
+            zeroSellerRatio:
+              p.members.length > 0
+                ? p.members.filter((m) => m.sold === 0).length / p.members.length
+                : 1,
+            totalOutreach: p.members.reduce((s, m) => s + m.outreachCount, 0),
+            memberCount: p.members.length,
+            allocated,
+            sold,
+          },
+        };
+      })
+      .sort((a, b) => b.totalPoints - a.totalPoints)
       .map((p, i) => ({ ...p, rank: i + 1 }));
 
     // ── 個人ランキング（販売枚数順 → 情宣回数順） ──
     const individuals = members
       .sort((a, b) => b.sold - a.sold || b.outreachCount - a.outreachCount)
       .map((m, i) => ({
-        memberId:     m.memberId,
-        nameJa:       m.nameJa,
-        partId:       m.partId,
-        partName:     m.partName,
-        allocated:    m.allocated,
-        sold:         m.sold,
+        memberId: m.memberId,
+        nameJa: m.nameJa,
+        partId: m.partId,
+        partName: m.partName,
+        allocated: m.allocated,
+        sold: m.sold,
         outreachCount: m.outreachCount,
-        rate:         m.allocated > 0 ? m.sold / m.allocated : 0,
-        rank:         i + 1,
+        rate: m.allocated > 0 ? m.sold / m.allocated : 0,
+        rank: i + 1,
       }));
 
     return c.json({
@@ -844,7 +976,10 @@ export const ticketsRouter = new Hono<TenantEnv>()
     const { concertId } = c.req.param();
 
     if (!isTicketManager(actingMember)) {
-      return c.json({ error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } }, 403);
+      return c.json(
+        { error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } },
+        403,
+      );
     }
 
     const concert = await prisma.concert.findUnique({ where: { id: concertId } });
@@ -867,7 +1002,10 @@ export const ticketsRouter = new Hono<TenantEnv>()
     const { concertId } = c.req.param();
 
     if (!isTicketManager(actingMember)) {
-      return c.json({ error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } }, 403);
+      return c.json(
+        { error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } },
+        403,
+      );
     }
 
     const concert = await prisma.concert.findUnique({ where: { id: concertId } });
@@ -890,7 +1028,10 @@ export const ticketsRouter = new Hono<TenantEnv>()
     const { concertId } = c.req.param();
 
     if (!isTicketManager(actingMember)) {
-      return c.json({ error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } }, 403);
+      return c.json(
+        { error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } },
+        403,
+      );
     }
 
     const concert = await prisma.concert.findUnique({ where: { id: concertId } });
@@ -903,7 +1044,9 @@ export const ticketsRouter = new Hono<TenantEnv>()
       data: { ticketInputClosedAt: new Date() },
     });
 
-    return c.json({ data: { ticketInputClosedAt: updated.ticketInputClosedAt?.toISOString() ?? null } });
+    return c.json({
+      data: { ticketInputClosedAt: updated.ticketInputClosedAt?.toISOString() ?? null },
+    });
   })
 
   // ── DELETE /tickets/:concertId/close ── チケット入力再開
@@ -913,7 +1056,10 @@ export const ticketsRouter = new Hono<TenantEnv>()
     const { concertId } = c.req.param();
 
     if (!isTicketManager(actingMember)) {
-      return c.json({ error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } }, 403);
+      return c.json(
+        { error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } },
+        403,
+      );
     }
 
     const concert = await prisma.concert.findUnique({ where: { id: concertId } });

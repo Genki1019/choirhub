@@ -85,7 +85,7 @@ export interface SaveTemplateInput {
 export const mailingApi = {
   list: (orgSlug: string, params: MailListParams = {}): Promise<MailListResponse> => {
     const qs = new URLSearchParams();
-    if (params.page)    qs.set("page", String(params.page));
+    if (params.page) qs.set("page", String(params.page));
     if (params.perPage) qs.set("perPage", String(params.perPage));
     const query = qs.toString();
     return fetch(`/api/v1/${orgSlug}/mailing${query ? `?${query}` : ""}`, {
@@ -97,15 +97,13 @@ export const mailingApi = {
     });
   },
 
-  get: (orgSlug: string, id: string) =>
-    apiClient.get<MailDetail>(`/${orgSlug}/mailing/${id}`),
+  get: (orgSlug: string, id: string) => apiClient.get<MailDetail>(`/${orgSlug}/mailing/${id}`),
 
   send: (orgSlug: string, data: SendMailInput) =>
     apiClient.post<SendMailResult>(`/${orgSlug}/mailing/send`, data),
 
   templates: {
-    list: (orgSlug: string) =>
-      apiClient.get<MailTemplate[]>(`/${orgSlug}/mailing/templates`),
+    list: (orgSlug: string) => apiClient.get<MailTemplate[]>(`/${orgSlug}/mailing/templates`),
     save: (orgSlug: string, data: SaveTemplateInput) =>
       apiClient.post<MailTemplate>(`/${orgSlug}/mailing/templates`, data),
     update: (orgSlug: string, id: string, data: Partial<SaveTemplateInput>) =>
@@ -116,11 +114,11 @@ export const mailingApi = {
 };
 
 export const LAST_EVENT_LABEL: Record<string, { label: string; color: string }> = {
-  sent:        { label: "送信済み",   color: "text-blue-600 bg-blue-50" },
-  delivered:   { label: "配信完了",   color: "text-green-600 bg-green-50" },
-  opened:      { label: "開封済み",   color: "text-green-700 bg-green-100" },
-  clicked:     { label: "リンク押下", color: "text-purple-600 bg-purple-50" },
-  bounced:     { label: "バウンス",   color: "text-red-600 bg-red-50" },
-  complained:  { label: "スパム報告", color: "text-red-700 bg-red-100" },
-  unsubscribed:{ label: "配信停止",   color: "text-gray-600 bg-gray-100" },
+  sent: { label: "送信済み", color: "text-blue-600 bg-blue-50" },
+  delivered: { label: "配信完了", color: "text-green-600 bg-green-50" },
+  opened: { label: "開封済み", color: "text-green-700 bg-green-100" },
+  clicked: { label: "リンク押下", color: "text-purple-600 bg-purple-50" },
+  bounced: { label: "バウンス", color: "text-red-600 bg-red-50" },
+  complained: { label: "スパム報告", color: "text-red-700 bg-red-100" },
+  unsubscribed: { label: "配信停止", color: "text-gray-600 bg-gray-100" },
 };

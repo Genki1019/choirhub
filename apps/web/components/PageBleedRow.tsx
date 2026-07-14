@@ -4,9 +4,5 @@ interface PageBleedRowProps {
 }
 
 export function PageBleedRow({ children, className = "" }: PageBleedRowProps) {
-  return (
-    <div className={`max-w-7xl mx-auto w-full px-4 sm:px-8 ${className}`}>
-      {children}
-    </div>
-  );
+  return <div className={`mx-auto w-full max-w-7xl px-4 sm:px-8 ${className}`}>{children}</div>;
 }

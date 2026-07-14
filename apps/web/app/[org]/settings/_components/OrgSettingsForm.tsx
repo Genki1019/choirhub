@@ -12,9 +12,9 @@ interface OrgSettingsFormProps {
 
 export function OrgSettingsForm({ orgSlug, initialName, initialSlug }: OrgSettingsFormProps) {
   const [orgName, setOrgName] = useState(initialName);
-  const [saving, setSaving]   = useState(false);
-  const [saved, setSaved]     = useState(false);
-  const [error, setError]     = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
@@ -32,39 +32,46 @@ export function OrgSettingsForm({ orgSlug, initialName, initialSlug }: OrgSettin
   };
 
   return (
-    <form onSubmit={handleSave} className="bg-white rounded-xl border border-gray-200 px-6 py-5 space-y-5">
+    <form
+      onSubmit={handleSave}
+      className="space-y-5 rounded-xl border border-gray-200 bg-white px-6 py-5"
+    >
       <h2 className="text-sm font-semibold text-gray-700">基本情報</h2>
 
       <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1.5">団体名</label>
+        <label className="mb-1.5 block text-xs font-medium text-gray-500">団体名</label>
         <input
           type="text"
           value={orgName}
           onChange={(e) => setOrgName(e.target.value)}
           required
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400"
+          className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1.5">スラッグ（URL）</label>
+        <label className="mb-1.5 block text-xs font-medium text-gray-500">スラッグ（URL）</label>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400 shrink-0">choirhub.app/</span>
+          <span className="shrink-0 text-xs text-gray-400">choirhub.app/</span>
           <input
             type="text"
             value={initialSlug}
             readOnly
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-400 cursor-default"
+            className="flex-1 cursor-default rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-400"
           />
         </div>
-        <p className="text-xs text-gray-400 mt-1">スラッグの変更はサポートへお問い合わせください。</p>
+        <p className="mt-1 text-xs text-gray-400">
+          スラッグの変更はサポートへお問い合わせください。
+        </p>
       </div>
 
       {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+          {error}
+        </p>
       )}
 
-      <div className="flex items-center justify-end gap-3 pt-2 border-t border-gray-100">
+      <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-2">
         {saved && (
           <span className="flex items-center gap-1 text-xs text-teal-600">
             <CheckCircle size={12} />
@@ -74,7 +81,7 @@ export function OrgSettingsForm({ orgSlug, initialName, initialSlug }: OrgSettin
         <button
           type="submit"
           disabled={saving}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors"
+          className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
         >
           {saving && <Loader2 size={13} className="animate-spin" />}
           保存する

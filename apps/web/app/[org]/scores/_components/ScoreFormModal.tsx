@@ -71,9 +71,11 @@ export function ScoreFormModal(props: ScoreFormModalProps) {
   const concerts = props.mode === "add" ? props.concerts : [];
   const stages = concerts.find((c) => c.id === selectedConcertId)?.stages ?? [];
 
-  useEffect(() => {
+  const [prevConcertId, setPrevConcertId] = useState(selectedConcertId);
+  if (selectedConcertId !== prevConcertId) {
+    setPrevConcertId(selectedConcertId);
     setSelectedStageId(stages.length === 1 ? stages[0].id : "");
-  }, [selectedConcertId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
   useEffect(() => {
     const handle = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };

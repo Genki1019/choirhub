@@ -535,6 +535,16 @@ export const scoresRouter = new Hono<TenantEnv>()
       }
 
       const ext = extname(key).toLowerCase();
+      if (fileType === "full_score" && ext !== ".pdf") {
+        return c.json({ error: { code: "VALIDATION_ERROR", message: "楽譜ファイルはPDF形式でアップロードしてください" } }, 400);
+      }
+      if (fileType === "midi" && ![".mid", ".midi", ".mp3"].includes(ext)) {
+        return c.json({ error: { code: "VALIDATION_ERROR", message: "MIDIは .mid / .midi / .mp3 形式でアップロードしてください" } }, 400);
+      }
+      if (fileType === "other" && ![".pdf", ".mp3", ".wav"].includes(ext)) {
+        return c.json({ error: { code: "VALIDATION_ERROR", message: "その他ファイルは .pdf / .mp3 / .wav 形式でアップロードしてください" } }, 400);
+      }
+
       const maxVer = await prisma.scoreFile.aggregate({
         where: { scoreId, fileType: fileType as ScoreFileType, partId: resolvedPartId },
         _max: { version: true },

@@ -11,6 +11,6 @@ closes #
 ## テスト
 
 - [ ] ローカルで動作確認済み
-- [ ] `tsc --noEmit` 通過
+- [ ] CI（lint / typecheck / test）がgreenであることを確認
 
 ## スクリーンショット（UI変更がある場合）

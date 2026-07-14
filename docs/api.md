@@ -1,8 +1,8 @@
 # ChoirHub API設計書
 
-**バージョン**: 1.3  
+**バージョン**: 1.4  
 **作成日**: 2026-06-04  
-**更新日**: 2026-06-14  
+**更新日**: 2026-07-14  
 **ベースURL**: `/api/v1`
 
 ---
@@ -108,6 +108,12 @@
 | [調査詳細取得](#surveys-id-get) | GET | `/:orgSlug/concerts/:concertId/surveys/:surveyId` | member+ |
 | [調査更新（開閉・タイトル）](#surveys-id-patch) | PATCH | `/:orgSlug/concerts/:concertId/surveys/:surveyId` | tech+ |
 | [オンステ調査回答](#surveys-respond) | PUT | `/:orgSlug/concerts/:concertId/surveys/:surveyId/respond` | member+ |
+| [調査回答をオンステ確定に反映](#survey-apply) | POST | `/:orgSlug/concerts/:concertId/surveys/:surveyId/apply` | tech+ |
+| [フォーメーションパターン作成](#formation-patterns-create) | POST | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns` | tech+ |
+| [フォーメーションパターン更新](#formation-patterns-patch) | PATCH | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId` | tech+ |
+| [フォーメーションパターン削除](#formation-patterns-delete) | DELETE | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId` | tech+ |
+| [フォーメーションパターン並び替え](#formation-patterns-order) | PUT | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/order` | tech+ |
+| [枠・スロット一括保存](#formation-slots-save) | PUT | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId/slots` | tech+ |
 
 ### メール
 
@@ -1509,7 +1515,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 ### GET `/api/v1/:orgSlug/concerts/:id`
 
-演奏会詳細（ステージ・演目・オンステ確定情報）を取得する。オンステ調査データはこのレスポンスに統合されている。
+演奏会詳細（ステージ・演目・オンステ確定・フォーメーション情報）を取得する。調査自体の回答マトリクスは含まない（[GET .../surveys/:surveyId](#surveys-id-get) で別途取得）。
 
 **権限**: `member+`
 
@@ -1523,6 +1529,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
     "heldOn": "2026-11-23T00:00:00.000Z",
     "venue": "○○ホール",
     "status": "confirmed",
+    "linkedEventId": "cuid",
     "stages": [
       {
         "id": "cuid",
@@ -1535,25 +1542,56 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
             "sortOrder": 1,
             "score": { "id": "cuid", "composer": "△△", "arranger": null }
           }
+        ],
+        "formationPatterns": [
+          {
+            "id": "cuid",
+            "name": "パターン1",
+            "sortOrder": 1,
+            "isStaggered": true,
+            "pianoPosition": "center",
+            "boxes": [
+              { "id": "cuid_box1", "kind": "conductor", "title": null, "sortOrder": 1 },
+              { "id": "cuid_box2", "kind": "piano", "title": null, "sortOrder": 2 }
+            ],
+            "slots": [
+              {
+                "id": "cuid",
+                "memberId": "cuid",
+                "nameJa": "山田 太郎",
+                "partName": "Tenor I",
+                "label": null,
+                "boxId": null,
+                "rowNum": 1,
+                "positionOrder": 1
+              },
+              {
+                "id": "cuid",
+                "memberId": null,
+                "nameJa": null,
+                "partName": null,
+                "label": "指揮者名",
+                "boxId": "cuid_box1",
+                "rowNum": null,
+                "positionOrder": 1
+              }
+            ]
+          }
         ]
       }
     ],
-    "survey": null,
-    "assignments": []
-  }
-}
-```
-
-**`survey` フィールドの構造**（調査が存在する場合）
-
-```json
-{
-  "survey": {
-    "id": "cuid",
-    "title": "第20回定演 出演調査",
-    "isOpen": true,
-    "closeAt": "2026-08-31T23:59:59+09:00",
-    "rows": [
+    "surveys": [
+      {
+        "id": "cuid",
+        "title": "第20回定演 出演調査",
+        "isOpen": false,
+        "openAt": "2026-08-01T00:00:00+09:00",
+        "closeAt": "2026-08-31T23:59:59+09:00",
+        "responseCount": 42
+      }
+    ],
+    "appliedSurveyId": "cuid",
+    "assignments": [
       {
         "memberId": "cuid",
         "nameJa": "山田 太郎",
@@ -1561,24 +1599,15 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
         "partName": "Tenor I",
         "partSortOrder": 1,
         "partVoiceType": "tenor",
-        "stages": [
-          { "stageId": "cuid_st1", "status": "attending" },
-          { "stageId": "cuid_st2", "status": "undecided" }
-        ],
-        "memo": null
-      }
-    ],
-    "stageSummaries": [
-      {
-        "stageId": "cuid_st1",
-        "summary": { "attending": 18, "absent": 3, "maybe": 1, "undecided": 8 }
+        "stageId": "cuid",
+        "status": "on"
       }
     ]
   }
 }
 ```
 
-> `rows` は全アクティブメンバーを含む。`survey` が `null` の場合は調査未開設。
+> `visitor` ロールはステージ構成（`stages[].programs`）のみを取得でき、`stages[].formationPatterns` は含まれず（キー自体が省略される）、`surveys` / `assignments` は空配列になる。`guest` / `visitor` は `assignments` / `formationPatterns[].slots` の対象メンバーから除外される。`surveys` の回答マトリクス自体（`rows`）は [GET .../surveys/:surveyId](#surveys-id-get) で取得する。
 
 ---
 
@@ -1821,7 +1850,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
     "stageSummaries": [
       {
         "stageId": "cuid_st1",
-        "summary": { "attending": 18, "absent": 3, "maybe": 2, "undecided": 5 }
+        "summary": { "attending": 18, "absent": 3, "undecided": 5 }
       }
     ],
     "rows": [
@@ -1887,6 +1916,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 }
 ```
 
+> `status` は `attending` / `absent` / `undecided` の3択（`Attendance`（スケジュール出欠）と共有する enum だが、オンステ調査では `maybe` は受け付けない）。  
 > `targetMemberId` は admin のみ指定可。省略時は自分の回答として保存。  
 > `memo` はステージ横断で共有（全ステージの SurveyResponse に同じ値を書き込む）。  
 > 調査が `isOpen: false` かつ admin 以外の場合は `403 LOCKED`。
@@ -1896,6 +1926,158 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 ```json
 { "data": { "ok": true } }
 ```
+
+---
+
+<a id="survey-apply"></a>
+
+### POST `/api/v1/:orgSlug/concerts/:concertId/surveys/:surveyId/apply`
+
+指定した調査の回答内容を `OnStageAssignment`（オンステ確定）に反映する。調査が複数（一次・二次など）ある場合に、どの調査を反映するかを明示的に選べるようにするための操作。開閉状態にかかわらず呼び出せる（締切時の自動反映とは独立）。
+
+**権限**: `tech+`
+
+**Response** `200`
+
+```json
+{ "data": { "ok": true } }
+```
+
+> 反映すると `Concert.appliedSurveyId` がこの調査の ID になる。`off` になったメンバーは、既存のフォーメーション配置（`FormationSlot`）からも削除される。
+
+---
+
+### フォーメーション管理 API
+
+<a id="formation-patterns-create"></a>
+
+#### POST `/api/v1/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns`
+
+フォーメーションパターンを新規作成する。
+
+**権限**: `tech+`
+
+**Request Body:**
+
+| フィールド | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| name | string | ✓ | パターン名 |
+
+**Response** `201`
+
+```json
+{
+  "data": {
+    "id": "cuid",
+    "name": "パターン1",
+    "sortOrder": 1,
+    "isStaggered": false,
+    "pianoPosition": "center",
+    "boxes": [
+      { "id": "cuid_box1", "kind": "conductor", "title": null, "sortOrder": 1 },
+      { "id": "cuid_box2", "kind": "piano", "title": null, "sortOrder": 2 }
+    ],
+    "slots": []
+  }
+}
+```
+
+> 作成と同時に `conductor` / `piano` の `FormationBox` を1件ずつ自動作成する。
+
+---
+
+<a id="formation-patterns-patch"></a>
+
+#### PATCH `/api/v1/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId`
+
+パターンの名称・段の千鳥配置・ピアノ位置を更新する（いずれも省略可・部分更新）。
+
+**権限**: `tech+`
+
+**Request Body:**
+
+| フィールド | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| name | string | | パターン名 |
+| isStaggered | boolean | | 山台の段を半人分ずつずらすか |
+| pianoPosition | string | | `center` \| `kamite` |
+
+**Response** `200` → 更新後のパターン基本情報（`boxes` / `slots` は含まない）
+
+---
+
+<a id="formation-patterns-delete"></a>
+
+#### DELETE `/api/v1/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId`
+
+パターンを削除する（紐づく `FormationBox` / `FormationSlot` もカスケード削除）。
+
+**権限**: `tech+`
+
+**Response** `204`
+
+---
+
+<a id="formation-patterns-order"></a>
+
+#### PUT `/api/v1/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/order`
+
+パターンの表示順を並び替える。
+
+**権限**: `tech+`
+
+**Request Body:**
+
+```json
+{ "ids": ["cuid_p1", "cuid_p2"] }
+```
+
+**Response** `204`
+
+---
+
+<a id="formation-slots-save"></a>
+
+#### PUT `/api/v1/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId/slots`
+
+枠（`boxes`）とスロット（`slots`）をまとめて保存する。既存の枠・スロットを全て削除してから作り直す（フォーメーション編集画面が編集操作のたびに全体を送信する）。
+
+**権限**: `tech+`
+
+**Request Body:**
+
+| フィールド | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| boxes | array | ✓ | 枠一覧（最大50件） |
+| boxes[].clientId | string | ✓ | クライアント側で発行した仮ID（`slots[].boxClientId` から参照） |
+| boxes[].kind | string | ✓ | `conductor` \| `piano` \| `custom` |
+| boxes[].title | string | | 枠名（custom のみ） |
+| boxes[].sortOrder | number | ✓ | 表示順 |
+| slots | array | ✓ | スロット一覧（最大300件） |
+| slots[].memberId | string | | 団員として配置する場合の Member ID |
+| slots[].label | string | | 表示名の上書き、または客演・指揮者名（memberId と label はどちらか必須） |
+| slots[].boxClientId | string | | 枠に配置する場合、対応する `boxes[].clientId`（rowNum とは排他） |
+| slots[].rowNum | number | | 山台の段番号（1始まり）。boxClientId とは排他 |
+| slots[].positionOrder | number | ✓ | 枠内での並び順、または山台グリッドの列番号 |
+
+```json
+{
+  "boxes": [
+    { "clientId": "box:1", "kind": "conductor", "sortOrder": 1 },
+    { "clientId": "box:2", "kind": "piano", "sortOrder": 2 },
+    { "clientId": "box:3", "kind": "custom", "title": "ソロ", "sortOrder": 3 }
+  ],
+  "slots": [
+    { "memberId": "cuid", "boxClientId": "box:1", "positionOrder": 1 },
+    { "label": "指揮者名", "boxClientId": "box:1", "positionOrder": 1 },
+    { "memberId": "cuid", "rowNum": 1, "positionOrder": 1 }
+  ]
+}
+```
+
+> `memberId` を指定する場合、そのメンバーが同一団体に属していること（IDOR 防止）に加え、当該ステージで `OnStageAssignment.status: "on"`（オンステ確定済み）であることを検証する。いずれかを満たさない場合は `400 BAD_REQUEST`。`boxClientId` は同リクエスト内の `boxes[].clientId` に存在するものだけを許可する。
+
+**Response** `204`
 
 ---
 

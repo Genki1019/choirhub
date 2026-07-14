@@ -41,5 +41,8 @@ jobs:
       - name: Typecheck (api)
         run: pnpm --filter @choirhub/api exec tsc --noEmit
 
+      - name: Test (web)
+        run: pnpm --filter @choirhub/web test
+
       - name: Test (api)
         run: pnpm --filter @choirhub/api test

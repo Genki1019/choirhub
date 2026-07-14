@@ -1,7 +1,6 @@
 import { Hono, type Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { createHash, timingSafeEqual } from "crypto";
 import { hash, verify } from "argon2";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { prisma } from "../lib/prisma.js";
@@ -22,21 +21,7 @@ async function hashPassword(password: string): Promise<string> {
   return hash(password, ARGON2_OPTIONS);
 }
 
-// SHA-256 ハッシュかどうか判定（移行期間中の後方互換）
-function isSha256Hash(h: string): boolean {
-  return /^[0-9a-f]{64}$/.test(h);
-}
-
-function sha256(password: string): string {
-  return createHash("sha256").update(password).digest("hex");
-}
-
 async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
-  if (isSha256Hash(storedHash)) {
-    const computed = Buffer.from(sha256(password), "hex");
-    const stored = Buffer.from(storedHash, "hex");
-    return timingSafeEqual(computed, stored);
-  }
   return verify(storedHash, password);
 }
 
@@ -103,14 +88,6 @@ export const authRouter = new Hono()
       }
 
       await clearLoginRateLimit(ip);
-
-      // SHA-256 ハッシュでログイン成功した場合は Argon2id に移行
-      if (isSha256Hash(user.passwordHash)) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { passwordHash: await hashPassword(password) },
-        });
-      }
 
       const sessionData = sessionManager.createSession(user.id);
       await prisma.session.create({ data: sessionData });

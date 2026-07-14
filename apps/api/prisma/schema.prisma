@@ -52,6 +52,17 @@ enum OnStageStatus {
   undecided
 }
 
+enum PianoPosition {
+  center
+  kamite
+}
+
+enum FormationBoxKind {
+  conductor
+  piano
+  custom
+}
+
 enum OutreachStatus {
   pending
   paid
@@ -188,6 +199,7 @@ model Member {
   attendances               Attendance[]
   surveyResponses           SurveyResponse[]
   onStageAssignments        OnStageAssignment[]
+  formationSlots            FormationSlot[]
   ticketAllocations         TicketAllocation[]
   mailLogs                  MailLog[]
   mailTemplates             MailTemplate[]
@@ -352,12 +364,14 @@ model Concert {
   racePublishedAt        DateTime?     @map("race_published_at")
   ticketInputClosedAt    DateTime?     @map("ticket_input_closed_at")
   outreachExpensePerTrip Int?          @map("outreach_expense_per_trip")
+  appliedSurveyId        String?       @map("applied_survey_id")
   createdAt              DateTime      @default(now()) @map("created_at")
 
   org                Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
   stages             Stage[]
   onStageAssignments OnStageAssignment[]
   concertSurveys     ConcertSurvey[]
+  appliedSurvey      ConcertSurvey?      @relation("ConcertAppliedSurvey", fields: [appliedSurveyId], references: [id], onDelete: SetNull)
   ticketBatches      TicketBatch[]
   outreachActivities OutreachActivity[]
   linkedEvent        Event?              @relation("EventConcert")
@@ -372,9 +386,11 @@ model Stage {
   name      String
   sortOrder Int    @map("sort_order")
 
-  concert         Concert          @relation(fields: [concertId], references: [id], onDelete: Cascade)
-  programs        Program[]
-  surveyResponses SurveyResponse[]
+  concert            Concert             @relation(fields: [concertId], references: [id], onDelete: Cascade)
+  programs           Program[]
+  surveyResponses    SurveyResponse[]
+  onStageAssignments OnStageAssignment[]
+  formationPatterns  FormationPattern[]
 
   @@map("stages")
 }
@@ -386,9 +402,8 @@ model Program {
   title     String
   sortOrder Int     @map("sort_order")
 
-  stage              Stage               @relation(fields: [stageId], references: [id], onDelete: Cascade)
-  score              Score?              @relation(fields: [scoreId], references: [id])
-  onStageAssignments OnStageAssignment[]
+  stage Stage  @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  score Score? @relation(fields: [scoreId], references: [id])
 
   @@index([stageId, sortOrder])
   @@map("programs")
@@ -402,8 +417,9 @@ model ConcertSurvey {
   closeAt   DateTime? @map("close_at")
   isOpen    Boolean   @default(true) @map("is_open")
 
-  concert         Concert          @relation(fields: [concertId], references: [id], onDelete: Cascade)
-  surveyResponses SurveyResponse[]
+  concert           Concert          @relation(fields: [concertId], references: [id], onDelete: Cascade)
+  surveyResponses   SurveyResponse[]
+  appliedByConcerts Concert[]        @relation("ConcertAppliedSurvey")
 
   @@map("concert_surveys")
 }
@@ -428,16 +444,65 @@ model OnStageAssignment {
   id        String        @id @default(cuid())
   concertId String        @map("concert_id")
   memberId  String        @map("member_id")
-  programId String?       @map("program_id")
+  stageId   String        @map("stage_id")
   status    OnStageStatus @default(undecided)
-  sortOrder Int?          @map("sort_order")
 
-  concert Concert  @relation(fields: [concertId], references: [id], onDelete: Cascade)
-  member  Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  program Program? @relation(fields: [programId], references: [id])
+  concert Concert @relation(fields: [concertId], references: [id], onDelete: Cascade)
+  member  Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  stage   Stage   @relation(fields: [stageId], references: [id], onDelete: Cascade)
 
-  @@unique([concertId, memberId, programId])
+  @@unique([concertId, memberId, stageId])
   @@map("on_stage_assignments")
+}
+
+model FormationPattern {
+  id            String        @id @default(cuid())
+  stageId       String        @map("stage_id")
+  name          String
+  sortOrder     Int           @map("sort_order")
+  isStaggered   Boolean       @default(false) @map("is_staggered")
+  pianoPosition PianoPosition @default(center) @map("piano_position")
+
+  stage Stage           @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  boxes FormationBox[]
+  slots FormationSlot[]
+
+  @@index([stageId, sortOrder])
+  @@map("formation_patterns")
+}
+
+// 指揮・ピアノ・カスタム枠（ソロ・楽器など）。conductor/piano はパターン作成時に自動で1件ずつ
+// 作られる固定枠、custom は管理者が任意に追加する枠で title を持つ
+model FormationBox {
+  id        String           @id @default(cuid())
+  patternId String           @map("pattern_id")
+  kind      FormationBoxKind
+  title     String?
+  sortOrder Int              @map("sort_order")
+
+  pattern FormationPattern @relation(fields: [patternId], references: [id], onDelete: Cascade)
+  slots   FormationSlot[]
+
+  @@index([patternId, sortOrder])
+  @@map("formation_boxes")
+}
+
+model FormationSlot {
+  id            String  @id @default(cuid())
+  patternId     String  @map("pattern_id")
+  memberId      String? @map("member_id")
+  label         String?
+  boxId         String? @map("box_id")
+  rowNum        Int?    @map("row_num")
+  positionOrder Int     @map("position_order")
+
+  pattern FormationPattern @relation(fields: [patternId], references: [id], onDelete: Cascade)
+  member  Member?          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  box     FormationBox?    @relation(fields: [boxId], references: [id], onDelete: Cascade)
+
+  @@index([patternId])
+  @@index([boxId])
+  @@map("formation_slots")
 }
 
 // ────────────────────────────

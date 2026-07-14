@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @choirhub/api db:generate
+
+      - name: Lint (web)
+        run: pnpm --filter @choirhub/web lint
+
+      - name: Typecheck (web)
+        run: pnpm --filter @choirhub/web exec tsc --noEmit
+
+      - name: Typecheck (api)
+        run: pnpm --filter @choirhub/api exec tsc --noEmit
+
+      - name: Test (api)
+        run: pnpm --filter @choirhub/api test

@@ -21,29 +21,29 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1066.0",
-    "@aws-sdk/s3-request-presigner": "^3.1066.0",
-    "@hono/node-server": "^1.13.7",
-    "@hono/zod-validator": "^0.4.3",
+    "@aws-sdk/client-s3": "^3.1086.0",
+    "@aws-sdk/s3-request-presigner": "^3.1086.0",
+    "@hono/node-server": "^2.0.8",
+    "@hono/zod-validator": "^0.8.0",
     "@neondatabase/serverless": "^1.1.0",
-    "@prisma/adapter-neon": "^6.19.3",
-    "@prisma/client": "^6.3.1",
+    "@prisma/adapter-neon": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "@upstash/redis": "^1.34.9",
     "argon2": "^0.44.0",
-    "hono": "^4.12.25",
-    "resend": "^6.12.4",
-    "zod": "^3.24.1"
+    "hono": "^4.12.30",
+    "resend": "^6.17.2",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^22.15.21",
-    "@vitest/coverage-v8": "^3.2.2",
-    "eslint": "^9.39.4",
+    "@types/node": "^26.1.1",
+    "@vitest/coverage-v8": "^4.1.10",
+    "eslint": "^10.7.0",
     "eslint-config-prettier": "^10.1.8",
-    "prisma": "^6.3.1",
-    "tsx": "^4.19.4",
-    "typescript": "^5.8.3",
-    "typescript-eslint": "^8.63.0",
-    "vitest": "^3.2.2"
+    "prisma": "^7.8.0",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2",
+    "typescript-eslint": "^8.64.0",
+    "vitest": "^4.1.10"
   }
 }

@@ -331,7 +331,7 @@ Cookie: session=<session_token>
 
 Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
-**Errors:**: `401` メールアドレスまたはパスワードが不正
+**Errors:**: `400` バリデーションエラー / `401` メールアドレスまたはパスワードが不正 / `429` レート制限超過
 
 ---
 

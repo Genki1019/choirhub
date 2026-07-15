@@ -723,3 +723,109 @@ describe("GET /finance/collections/:collectionId", () => {
     });
   });
 });
+
+describe("PATCH /finance/collections/:collectionId", () => {
+  it("バリデーションエラー: amountが0以下は400を返す", async () => {
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/collection-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: 0 }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("会計担当者未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/finance/collections/collection-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "改題" }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("徴収が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.collection.findFirst).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/nonexistent", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "改題" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: 部分更新される", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.collection.findFirst).mockResolvedValue({ id: "collection-1" } as any);
+    vi.mocked(prisma.collection.update).mockResolvedValue({
+      id: "collection-1",
+      title: "6月合宿費（改）",
+      amount: 16000,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/collection-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "6月合宿費（改）", amount: 16000 }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ id: "collection-1", title: "6月合宿費（改）", amount: 16000 });
+    expect(prisma.collection.update).toHaveBeenCalledWith({
+      where: { id: "collection-1", orgId: testOrg.id },
+      data: { title: "6月合宿費（改）", amount: 16000 },
+    });
+  });
+});
+
+describe("DELETE /finance/collections/:collectionId", () => {
+  it("会計担当者未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/finance/collections/collection-1", { method: "DELETE" });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("徴収が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.collection.findFirst).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/nonexistent", { method: "DELETE" });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常（financeロールでも削除できる）: 204を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.collection.findFirst).mockResolvedValue({ id: "collection-1" } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.collection.delete).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/collection-1", { method: "DELETE" });
+
+    expect(res.status).toBe(204);
+    expect(prisma.collection.delete).toHaveBeenCalledWith({
+      where: { id: "collection-1", orgId: testOrg.id },
+    });
+  });
+});

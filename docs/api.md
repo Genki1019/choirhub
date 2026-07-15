@@ -106,6 +106,7 @@
 | [演目追加](#program-create)                                   | POST   | `/:orgSlug/concerts/:concertId/stages/:stageId/programs`                            | admin    |
 | [演目並び替え](#programs-order)                               | PUT    | `/:orgSlug/concerts/:concertId/stages/:stageId/programs/order`                      | admin    |
 | [演目削除](#program-delete)                                   | DELETE | `/:orgSlug/concerts/:concertId/programs/:programId`                                 | admin    |
+| [演目編集](#program-patch)                                    | PATCH  | `/:orgSlug/concerts/:concertId/programs/:programId`                                 | admin    |
 | [調査作成（複数回対応）](#surveys-create)                     | POST   | `/:orgSlug/concerts/:concertId/surveys`                                             | tech+    |
 | [調査詳細取得](#surveys-id-get)                               | GET    | `/:orgSlug/concerts/:concertId/surveys/:surveyId`                                   | member+  |
 | [調査更新（開閉・タイトル）](#surveys-id-patch)               | PATCH  | `/:orgSlug/concerts/:concertId/surveys/:surveyId`                                   | tech+    |
@@ -813,7 +814,8 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 **権限**: `member+`
 
-> サーバーはリクエストユーザーのロール・パートを参照し、`targetRoles` / `targetPartIds` に一致しないイベントを結果から除外する。
+> - サーバーはリクエストユーザーのロール・パートを参照し、`targetRoles` / `targetPartIds` に一致しないイベントを結果から除外する（adminは全件表示）。
+> - `type`未指定または`type=concert`の場合、スケジュールと連携していない演奏会（`Concert`のうち`linkedEvent`が無いもの）も`concertId`付きの疑似イベントとしてマージされる。その場合の`myAttendance`はオンステ確定（`OnStageAssignment`）の有無から`attending`/`undecided`のいずれかになる（出欠回答由来ではない）。
 
 **Query Parameters:**
 
@@ -858,15 +860,17 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
+**Errors:**: `400` `VALIDATION_ERROR` `from`/`to`の日付形式が不正
+
 ---
 
 <a id="events-create"></a>
 
 ### POST `/api/v1/:orgSlug/events`
 
-イベントを作成する。
+イベントを作成する。`categoryId`のスラグが`concert`の場合、`Concert`も同時に自動作成しリンクする。`rehearsal`区分かつ団体の`feeType`が`per_rehearsal`の場合、アクティブメンバー（`guest`/`visitor`除く）全員分の場所代徴収（`Collection`/`CollectionPayment`）を自動生成する。
 
-**権限**: `tech+`（admin / tech / conductor）
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Request Body:**
 
@@ -899,6 +903,8 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 ```
 
 **Response** `201` → 作成したイベント情報（招待フィルタ含む）
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` イベント区分が存在しない
 
 ---
 
@@ -955,12 +961,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
-**Errors:**
-
-| コード            | 説明                 |
-| ----------------- | -------------------- |
-| `403 NOT_INVITED` | 招待対象外のイベント |
-| `404 NOT_FOUND`   | イベントが存在しない |
+**Errors:**: `403` `NOT_INVITED` 招待対象外のイベント / `404` `NOT_FOUND` イベントが存在しない
 
 ---
 
@@ -970,13 +971,16 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 イベント情報を更新する。
 
-**権限**: `tech+`（admin / tech / conductor）
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Request Body:**: POST と同じ形式（すべて省略可）。`targetRoles` / `targetPartIds` も更新可能。
 
-> `targetPartIds` を変更した場合、新たに招待対象から外れたメンバーの出欠レコードは保持されるが、そのメンバーは以降 GET で当該イベントを参照できなくなる。
+> - `targetPartIds` を変更した場合、新たに招待対象から外れたメンバーの出欠レコードは保持されるが、そのメンバーは以降 GET で当該イベントを参照できなくなる。
+> - `event.concertId`（`Concert`とリンクしているイベント）の場合、`title`/`startsAt`/`location`の変更が`Concert`（`title`/`heldOn`/`venue`）にも同期反映される。
 
 **Response** `200` → 更新後のイベント情報
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` イベントが存在しない
 
 ---
 
@@ -984,11 +988,13 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 ### DELETE `/api/v1/:orgSlug/events/:id`
 
-イベントを削除する。
+イベントを削除する。`concertId`でリンクされた`Concert`があれば同時に削除する。
 
-**権限**: `tech+`（admin / tech / conductor）
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Response** `204` No Content
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` イベントが存在しない
 
 ---
 
@@ -1030,12 +1036,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
-**Errors:**
-
-| コード            | 説明                 |
-| ----------------- | -------------------- |
-| `403 NOT_INVITED` | 招待対象外のイベント |
-| `403 LOCKED`      | 締切後ロック済み     |
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `NOT_INVITED` 招待対象外のイベント / `403` `LOCKED` 締切後ロック済み / `404` `NOT_FOUND` イベントが存在しない
 
 ---
 
@@ -1047,11 +1048,13 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 **権限**: `admin`
 
-> 対象メンバーが招待対象でない場合も `admin` は更新可能（手動補正用途）。
+> 対象メンバーが招待対象でない場合も `admin` は更新可能（手動補正用途）。締切（`isLocked`）の影響も受けない。
 
 **Request Body:**: PUT /me と同じ形式
 
 **Response** `200` → 更新後の出欠情報
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` イベントが存在しない / `404` `NOT_FOUND` メンバーが存在しない・別テナント
 
 ---
 
@@ -1591,33 +1594,60 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
+**Errors:**: `403` `FORBIDDEN` 権限不足
+
 ---
 
 <a id="concerts-create"></a>
 
 ### POST `/api/v1/:orgSlug/concerts`
 
-演奏会を作成する。
+演奏会を作成する。あわせてスケジュールと連携するため、`concert`スラグ（無ければ「本番」という名前）のイベント区分を自動で探す／作成し、その区分の`Event`も同時に作成する。
 
 **権限**: `admin`
 
 **Request Body:**
 
-| フィールド | 型             | 必須 | 説明                   |
-| ---------- | -------------- | ---- | ---------------------- |
-| title      | string         | ✓    | 演奏会名               |
-| heldOn     | string         | ✓    | 開催日（ISO8601 date） |
-| venue      | string \| null |      | 会場名                 |
+| フィールド    | 型               | 必須 | 説明                                         |
+| ------------- | ---------------- | ---- | -------------------------------------------- |
+| title         | string           | ✓    | 演奏会名                                     |
+| heldOn        | string           | ✓    | 開催日時（ISO8601 datetime、オフセット必須） |
+| endsAt        | string           |      | 終了日時（ISO8601 datetime、オフセット必須） |
+| venue         | string \| null   |      | 会場名                                       |
+| locationUrl   | string \| null   |      | 会場URL（連携Eventに使用）                   |
+| targetRoles   | string[] \| null |      | 対象ロール（連携Eventに使用）                |
+| targetPartIds | string[] \| null |      | 対象パートID（連携Eventに使用）              |
+| deadline      | string \| null   |      | 出欠回答締切（ISO8601 datetime）             |
+| pageMemo      | string \| null   |      | 連携Eventのページメモ                        |
 
 ```json
 {
   "title": "第20回定期演奏会",
-  "heldOn": "2026-11-23",
+  "heldOn": "2026-11-23T00:00:00+09:00",
   "venue": "○○ホール"
 }
 ```
 
-**Response** `201` → 作成した演奏会情報（`stageCount: 0`, `programCount: 0`）
+**Response** `201`
+
+```json
+{
+  "data": {
+    "id": "cuid",
+    "title": "第20回定期演奏会",
+    "heldOn": "2026-11-23T00:00:00.000Z",
+    "venue": "○○ホール",
+    "status": "planning",
+    "stageCount": 0,
+    "programCount": 0,
+    "hasSurvey": false,
+    "surveyOpen": false,
+    "linkedEventId": "cuid"
+  }
+}
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足
 
 ---
 
@@ -1645,6 +1675,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
   ]
 }
 ```
+
+**Errors:**: `403` `FORBIDDEN` 権限不足
 
 ---
 
@@ -1746,28 +1778,40 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 > `visitor` ロールはステージ構成（`stages[].programs`）のみを取得でき、`stages[].formationPatterns` は含まれず（キー自体が省略される）、`surveys` / `assignments` は空配列になる。`guest` / `visitor` は `assignments` / `formationPatterns[].slots` の対象メンバーから除外される。`surveys` の回答マトリクス自体（`rows`）は [GET .../surveys/:surveyId](#surveys-id-get) で取得する。
 
+**Errors:**: `404` `NOT_FOUND` 演奏会が存在しない
+
 ---
 
 <a id="concerts-id-patch"></a>
 
 ### PATCH `/api/v1/:orgSlug/concerts/:id`
 
-演奏会の基本情報を更新する。
+演奏会の基本情報を更新する。連携する`Event`（title・heldOn・venue）があれば同時に更新される。
 
 **権限**: `admin`
 
 **Request Body:**（すべて省略可）
 
+| フィールド             | 型             | 説明                                                             |
+| ---------------------- | -------------- | ---------------------------------------------------------------- |
+| title                  | string         | 演奏会名                                                         |
+| heldOn                 | string         | 開催日（ISO8601 date、`YYYY-MM-DD`。時刻・オフセットは付けない） |
+| venue                  | string \| null | 会場名                                                           |
+| status                 | string         | `draft` / `survey_open` / `confirmed` / `past`                   |
+| outreachExpensePerTrip | number \| null | 情宣活動1回あたりの実費                                          |
+
 ```json
 {
   "title": "第20回定期演奏会",
-  "heldOn": "2026-11-23T00:00:00+09:00",
+  "heldOn": "2026-11-23",
   "venue": "○○ホール",
   "status": "survey_open"
 }
 ```
 
-**Response** `200` → 更新後の演奏会情報
+**Response** `200` → 更新後の演奏会情報（`id`/`title`/`heldOn`/`venue`/`status`）
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 
@@ -1780,6 +1824,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 **権限**: `admin`
 
 **Response** `204` No Content
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 
@@ -1810,6 +1856,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
+**Errors:**: `400` `VALIDATION_ERROR` name未入力 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
 ---
 
 <a id="stage-patch"></a>
@@ -1832,6 +1880,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 { "data": { "id": "cuid", "name": "第2ステージ（委嘱作品）", "sortOrder": 2 } }
 ```
 
+**Errors:**: `400` `VALIDATION_ERROR` name未入力 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` ステージが存在しない・この演奏会に属さない
+
 ---
 
 <a id="stages-order"></a>
@@ -1848,9 +1898,11 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 { "ids": ["cuid_stage2", "cuid_stage1", "cuid_stage3"] }
 ```
 
-> `ids` に指定した順番が `sortOrder` になる（index 0 → sortOrder 1）
+> `ids` に指定した順番が `sortOrder` になる（index 0 → sortOrder 1）。この演奏会の全ステージを網羅している必要はなく、指定されたステージのみ並び替えられる。
 
 **Response** `204` No Content
+
+**Errors:**: `400` `VALIDATION_ERROR` idsが空 / `400` `BAD_REQUEST` この演奏会に属さないステージIDが含まれる / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 
@@ -1897,7 +1949,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
-**Errors:**: `400` `scoreId` も `title` も指定されていない
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正・`scoreId`も`title`も指定されていない / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` ステージが存在しない・この演奏会に属さない / `404` `NOT_FOUND` `scoreId`指定時、楽譜が存在しない・別テナント
 
 ---
 
@@ -1917,6 +1969,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Response** `204` No Content
 
+**Errors:**: `400` `VALIDATION_ERROR` idsが空 / `400` `BAD_REQUEST` このステージに属さない演目IDが含まれる / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` ステージが存在しない・この演奏会に属さない
+
 ---
 
 <a id="program-delete"></a>
@@ -1929,7 +1983,44 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Response** `204` No Content
 
-**Errors:**: `404` 演目が指定の演奏会に属していない
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 演目が存在しない・指定の演奏会に属していない
+
+---
+
+<a id="program-patch"></a>
+
+### PATCH `/api/v1/:orgSlug/concerts/:concertId/programs/:programId`
+
+演目のタイトル・作曲者・編曲者を編集する。`composer`/`arranger`は紐づく楽譜（Score）本体を更新する。
+
+**権限**: `admin`
+
+**Request Body:**
+
+| フィールド | 型             | 必須 | 説明   |
+| ---------- | -------------- | ---- | ------ |
+| title      | string         |      | 演目名 |
+| composer   | string \| null |      | 作曲者 |
+| arranger   | string \| null |      | 編曲者 |
+
+```json
+{ "title": "男声合唱のための〇〇（改訂版）" }
+```
+
+**Response** `200`
+
+```json
+{
+  "data": {
+    "id": "cuid",
+    "title": "男声合唱のための〇〇（改訂版）",
+    "sortOrder": 3,
+    "score": { "id": "cuid", "composer": "△△ △△", "arranger": null }
+  }
+}
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 演目が存在しない・指定の演奏会に属していない
 
 ---
 
@@ -1960,10 +2051,14 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
     "id": "cuid",
     "title": "第20回定演 出演調査",
     "isOpen": true,
-    "closeAt": "2026-08-31T23:59:59+09:00"
+    "openAt": "2026-08-01T00:00:00+09:00",
+    "closeAt": "2026-08-31T23:59:59+09:00",
+    "responseCount": 0
   }
 }
 ```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 
@@ -2006,13 +2101,15 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
+**Errors:**: `403` `FORBIDDEN` visitorはアクセス不可 / `404` `NOT_FOUND` 調査が存在しない・指定の演奏会に属していない
+
 ---
 
 <a id="surveys-id-patch"></a>
 
 ### PATCH `/api/v1/:orgSlug/concerts/:concertId/surveys/:surveyId`
 
-調査の開閉を切り替える。
+調査の開閉・タイトルを変更する。`isOpen: true`にすると同じ演奏会の他の開放中調査は自動クローズされ、演奏会の`status`が`survey_open`になる。`isOpen: false`にした結果、開放中の調査が他に無くなった場合は`status`が`confirmed`になり、この調査の回答がオンステ確定へ自動反映される（[POST .../apply](#survey-apply)と同じ処理）。
 
 **権限**: `tech+`（admin / tech / conductor / score）
 
@@ -2025,8 +2122,19 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 **Response** `200`
 
 ```json
-{ "data": { "id": "cuid", "isOpen": false } }
+{
+  "data": {
+    "id": "cuid",
+    "title": "第20回定演 出演調査",
+    "isOpen": false,
+    "concertStatus": "confirmed"
+  }
+}
 ```
+
+> `concertStatus`は更新後の演奏会の`status`（`isOpen`未指定でtitleのみ変更した場合は変化しない現在の値）。
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 調査が存在しない・指定の演奏会に属していない
 
 ---
 
@@ -2062,6 +2170,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 { "data": { "ok": true } }
 ```
 
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `LOCKED` 調査が締め切られている（admin以外） / `403` `FORBIDDEN` admin以外が他メンバーの回答を変更しようとした / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 調査が存在しない / `404` `NOT_FOUND` `targetMemberId`のメンバーが存在しない・別テナント / `404` `NOT_FOUND` 無効なステージIDが含まれる
+
 ---
 
 <a id="survey-apply"></a>
@@ -2070,7 +2180,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 指定した調査の回答内容を `OnStageAssignment`（オンステ確定）に反映する。調査が複数（一次・二次など）ある場合に、どの調査を反映するかを明示的に選べるようにするための操作。開閉状態にかかわらず呼び出せる（締切時の自動反映とは独立）。
 
-**権限**: `tech+`
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Response** `200`
 
@@ -2079,6 +2189,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 ```
 
 > 反映すると `Concert.appliedSurveyId` がこの調査の ID になる。`off` になったメンバーは、既存のフォーメーション配置（`FormationSlot`）からも削除される。
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 調査が存在しない・指定の演奏会に属していない
 
 ---
 
@@ -2090,7 +2202,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 フォーメーションパターンを新規作成する。
 
-**権限**: `tech+`
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Request Body:**
 
@@ -2119,6 +2231,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 > 作成と同時に `conductor` / `piano` の `FormationBox` を1件ずつ自動作成する。
 
+**Errors:**: `400` `VALIDATION_ERROR` name未入力 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` ステージが存在しない・この演奏会に属さない
+
 ---
 
 <a id="formation-patterns-patch"></a>
@@ -2127,7 +2241,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 パターンの名称・段の千鳥配置・ピアノ位置を更新する（いずれも省略可・部分更新）。
 
-**権限**: `tech+`
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Request Body:**
 
@@ -2139,6 +2253,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Response** `200` → 更新後のパターン基本情報（`boxes` / `slots` は含まない）
 
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` パターンが存在しない・指定のステージに属さない
+
 ---
 
 <a id="formation-patterns-delete"></a>
@@ -2147,9 +2263,11 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 パターンを削除する（紐づく `FormationBox` / `FormationSlot` もカスケード削除）。
 
-**権限**: `tech+`
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Response** `204`
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` パターンが存在しない・指定のステージに属さない
 
 ---
 
@@ -2159,7 +2277,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 パターンの表示順を並び替える。
 
-**権限**: `tech+`
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Request Body:**
 
@@ -2169,6 +2287,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Response** `204`
 
+**Errors:**: `400` `VALIDATION_ERROR` idsが空 / `400` `BAD_REQUEST` このステージに属さないパターンIDが含まれる / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
 ---
 
 <a id="formation-slots-save"></a>
@@ -2177,7 +2297,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 枠（`boxes`）とスロット（`slots`）をまとめて保存する。既存の枠・スロットを全て削除してから作り直す（フォーメーション編集画面が編集操作のたびに全体を送信する）。
 
-**権限**: `tech+`
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Request Body:**
 
@@ -2213,6 +2333,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 > `memberId` を指定する場合、そのメンバーが同一団体に属していること（IDOR 防止）に加え、当該ステージで `OnStageAssignment.status: "on"`（オンステ確定済み）であることを検証する。いずれかを満たさない場合は `400 BAD_REQUEST`。`boxClientId` は同リクエスト内の `boxes[].clientId` に存在するものだけを許可する。
 
 **Response** `204`
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `400` `BAD_REQUEST` 別テナントのメンバーが含まれる / `400` `BAD_REQUEST` オンステ確定していないメンバーが含まれる / `400` `BAD_REQUEST` 存在しない枠を参照している / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` パターンが存在しない・指定のステージに属さない
 
 ---
 

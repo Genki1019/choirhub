@@ -2049,10 +2049,14 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
     "id": "cuid",
     "title": "第20回定演 出演調査",
     "isOpen": true,
-    "closeAt": "2026-08-31T23:59:59+09:00"
+    "openAt": "2026-08-01T00:00:00+09:00",
+    "closeAt": "2026-08-31T23:59:59+09:00",
+    "responseCount": 0
   }
 }
 ```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 
@@ -2095,13 +2099,15 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
+**Errors:**: `403` `FORBIDDEN` visitorはアクセス不可 / `404` `NOT_FOUND` 調査が存在しない・指定の演奏会に属していない
+
 ---
 
 <a id="surveys-id-patch"></a>
 
 ### PATCH `/api/v1/:orgSlug/concerts/:concertId/surveys/:surveyId`
 
-調査の開閉を切り替える。
+調査の開閉・タイトルを変更する。`isOpen: true`にすると同じ演奏会の他の開放中調査は自動クローズされ、演奏会の`status`が`survey_open`になる。`isOpen: false`にした結果、開放中の調査が他に無くなった場合は`status`が`confirmed`になり、この調査の回答がオンステ確定へ自動反映される（[POST .../apply](#survey-apply)と同じ処理）。
 
 **権限**: `tech+`（admin / tech / conductor / score）
 
@@ -2114,8 +2120,19 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 **Response** `200`
 
 ```json
-{ "data": { "id": "cuid", "isOpen": false } }
+{
+  "data": {
+    "id": "cuid",
+    "title": "第20回定演 出演調査",
+    "isOpen": false,
+    "concertStatus": "confirmed"
+  }
+}
 ```
+
+> `concertStatus`は更新後の演奏会の`status`（`isOpen`未指定でtitleのみ変更した場合は変化しない現在の値）。
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 調査が存在しない・指定の演奏会に属していない
 
 ---
 
@@ -2150,6 +2167,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 ```json
 { "data": { "ok": true } }
 ```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `LOCKED` 調査が締め切られている（admin以外） / `403` `FORBIDDEN` admin以外が他メンバーの回答を変更しようとした / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 調査が存在しない / `404` `NOT_FOUND` `targetMemberId`のメンバーが存在しない・別テナント / `404` `NOT_FOUND` 無効なステージIDが含まれる
 
 ---
 

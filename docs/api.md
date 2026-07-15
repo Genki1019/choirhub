@@ -1239,7 +1239,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 > `visitor` は `accessLevel` を問わず全楽譜の PDF を閲覧可（`canDownload: false`）。`canAccessFiles: false` の場合は閲覧不可。
 
-**Errors:** `404` 楽譜が存在しない、または別テナントの楽譜
+**Errors:**: `404` `NOT_FOUND` 楽譜が存在しない、または別テナントの楽譜
 
 ---
 

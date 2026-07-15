@@ -2383,6 +2383,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 > `subject`・`bodyPreview` は送信時に DB へ保存済みのため Resend API 呼び出しなし。`avatarUrl` は送信者の User.avatarUrl。  
 > `Cache-Control: no-store` ヘッダーを付与する（ブラウザキャッシュ防止）。
 
+**Errors:**: `400` `VALIDATION_ERROR` page・perPageが正の整数でない
+
 ---
 
 <a id="mailing-id-get"></a>
@@ -2422,6 +2424,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 > `recipients` は `resendIds` 各要素に対し Resend API を並列呼び出しして取得。  
 > DEV 環境は全員分が `DEV_MAIL_TO` 1件に集約されるため `recipients` は1件のみ。
 
+**Errors:**: `404` `NOT_FOUND` メールが存在しない・別テナント / `404` `NOT_FOUND` 送信者でも受信者でもない（権限なしを知らせないため404で統一）
+
 ---
 
 <a id="mailing-send"></a>
@@ -2452,6 +2456,9 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 | `role`        | `{ "roles": ["tech", "score"] }`         |
 | `custom`      | `{ "memberIds": ["..."] }` （最大500件） |
 
+> - `part`/`role`/`custom`を指定した場合、対応するフィルタ配列が空・未指定だと意図しない全員送信を防ぐため`400 VALIDATION_ERROR`を返す（フォールバックしない）。
+> - `all`・`part`は`guest`/`visitor`ロールの団員を自動で除外する。`role`・`custom`は明示的な指定のため除外しない（`role`で`guest`/`visitor`自体を指定した場合や、`custom`で個別に選んだ場合はそのまま送信対象になる）。
+
 **Response** `201`
 
 ```json
@@ -2463,6 +2470,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
   }
 }
 ```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `400` `VALIDATION_ERROR` `part`/`role`/`custom`指定時、対応するフィルタが空・未指定 / `403` `FORBIDDEN` guest/visitorが送信しようとした
 
 ---
 
@@ -2490,6 +2499,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
   ]
 }
 ```
+
+**Errors:**: `403` `FORBIDDEN` 権限不足
 
 ---
 
@@ -2525,6 +2536,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` guest/visitorが作成しようとした
+
 ---
 
 <a id="mailing-templates-update"></a>
@@ -2543,6 +2556,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Response** `200` — 更新後のテンプレートオブジェクト
 
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 作成者でも管理者でもない / `404` `NOT_FOUND` テンプレートが存在しない・別テナント
+
 ---
 
 <a id="mailing-templates-delete"></a>
@@ -2554,6 +2569,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 **権限**: 作成者 or `admin`
 
 **Response** `204`
+
+**Errors:**: `403` `FORBIDDEN` 作成者でも管理者でもない / `404` `NOT_FOUND` テンプレートが存在しない・別テナント
 
 ---
 

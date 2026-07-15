@@ -1776,6 +1776,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 > `visitor` ロールはステージ構成（`stages[].programs`）のみを取得でき、`stages[].formationPatterns` は含まれず（キー自体が省略される）、`surveys` / `assignments` は空配列になる。`guest` / `visitor` は `assignments` / `formationPatterns[].slots` の対象メンバーから除外される。`surveys` の回答マトリクス自体（`rows`）は [GET .../surveys/:surveyId](#surveys-id-get) で取得する。
 
+**Errors:**: `404` `NOT_FOUND` 演奏会が存在しない
+
 ---
 
 <a id="concerts-id-patch"></a>

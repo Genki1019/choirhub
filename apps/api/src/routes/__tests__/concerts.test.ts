@@ -1146,3 +1146,182 @@ describe("PATCH /concerts/:concertId/programs/:programId", () => {
     expect(prisma.program.update).not.toHaveBeenCalled();
   });
 });
+
+describe("GET /concerts/:id", () => {
+  const makeAssignment = (memberId: string, roles: string[]) => ({
+    memberId,
+    stageId: "stage-1",
+    status: "on",
+    member: {
+      roles,
+      userRef: { nameJa: `メンバー${memberId}` },
+      part: { id: "part-1", name: "Tenor I", sortOrder: 1, voiceType: "tenor" },
+    },
+  });
+
+  const makeSlot = (memberId: string | null, roles?: string[]) => ({
+    id: `slot-${memberId ?? "empty"}`,
+    memberId,
+    label: memberId ? null : "指揮者名",
+    boxId: memberId ? null : "box-1",
+    rowNum: memberId ? 1 : null,
+    positionOrder: 1,
+    member: memberId
+      ? {
+          roles: roles ?? ["member"],
+          userRef: { nameJa: `メンバー${memberId}` },
+          part: { name: "Tenor I" },
+        }
+      : null,
+  });
+
+  const fullConcert = {
+    id: "concert-1",
+    orgId: "org-1",
+    title: "第20回定期演奏会",
+    heldOn: new Date("2026-11-23T00:00:00Z"),
+    venue: "○○ホール",
+    status: "confirmed",
+    appliedSurveyId: "survey-1",
+    linkedEvent: { id: "event-1" },
+    stages: [
+      {
+        id: "stage-1",
+        name: "第1ステージ",
+        sortOrder: 1,
+        programs: [
+          {
+            id: "program-1",
+            title: "曲A",
+            sortOrder: 1,
+            score: { id: "score-1", composer: "作曲家A", arranger: null },
+          },
+        ],
+        formationPatterns: [
+          {
+            id: "pattern-1",
+            name: "パターン1",
+            sortOrder: 1,
+            isStaggered: false,
+            pianoPosition: "center",
+            boxes: [{ id: "box-1", kind: "conductor", title: null, sortOrder: 1 }],
+            slots: [makeSlot("member-1"), makeSlot("member-hidden", ["guest"]), makeSlot(null)],
+          },
+        ],
+      },
+    ],
+    concertSurveys: [
+      {
+        id: "survey-1",
+        title: "第20回定演 出演調査",
+        isOpen: false,
+        openAt: new Date("2026-08-01T00:00:00Z"),
+        closeAt: new Date("2026-08-31T23:59:59Z"),
+        _count: { surveyResponses: 42 },
+      },
+    ],
+    onStageAssignments: [
+      makeAssignment("member-1", ["member"]),
+      makeAssignment("member-hidden", ["visitor"]),
+    ],
+  };
+
+  it("演奏会が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/concerts/nonexistent");
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("visitor: 限定データ（formationPatterns省略・surveys/assignmentsは空）を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(fullConcert as any);
+
+    const app = createTestApp(makeMember(["visitor"]));
+    const res = await app.request(`/concerts/${fullConcert.id}`);
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.stages[0].programs).toHaveLength(1);
+    expect(body.data.stages[0].formationPatterns).toBeUndefined();
+    expect(body.data.surveys).toEqual([]);
+    expect(body.data.assignments).toEqual([]);
+  });
+
+  it("member: フル情報（formationPatterns・surveys・assignments含む）を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(fullConcert as any);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/concerts/${fullConcert.id}`);
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.linkedEventId).toBe("event-1");
+    expect(body.data.appliedSurveyId).toBe("survey-1");
+    expect(body.data.surveys).toEqual([
+      {
+        id: "survey-1",
+        title: "第20回定演 出演調査",
+        isOpen: false,
+        openAt: "2026-08-01T00:00:00.000Z",
+        closeAt: "2026-08-31T23:59:59.000Z",
+        responseCount: 42,
+      },
+    ]);
+    expect(body.data.stages[0].formationPatterns[0].boxes).toEqual([
+      { id: "box-1", kind: "conductor", title: null, sortOrder: 1 },
+    ]);
+  });
+
+  it("guest/visitorロールのメンバーはassignments・slotsから除外される", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(fullConcert as any);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/concerts/${fullConcert.id}`);
+
+    const body = await json(res);
+    expect(body.data.assignments).toHaveLength(1);
+    expect(body.data.assignments[0].memberId).toBe("member-1");
+
+    const slots = body.data.stages[0].formationPatterns[0].slots;
+    expect(slots.map((s: { memberId: string | null }) => s.memberId)).toEqual(["member-1", null]);
+  });
+
+  it("linkedEventが無い演奏会: linkedEventIdはnull", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue({
+      ...fullConcert,
+      linkedEvent: null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/concerts/${fullConcert.id}`);
+
+    const body = await json(res);
+    expect(body.data.linkedEventId).toBeNull();
+  });
+
+  it("ステージ・調査・オンステ確定が0件: 空配列で返る", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue({
+      ...fullConcert,
+      stages: [],
+      concertSurveys: [],
+      onStageAssignments: [],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/concerts/${fullConcert.id}`);
+
+    const body = await json(res);
+    expect(body.data.stages).toEqual([]);
+    expect(body.data.surveys).toEqual([]);
+    expect(body.data.assignments).toEqual([]);
+  });
+});

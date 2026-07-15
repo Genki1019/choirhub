@@ -425,3 +425,301 @@ describe("DELETE /finance/expenses/:expenseId", () => {
     });
   });
 });
+
+describe("GET /finance/collections", () => {
+  it("会計担当者未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/finance/collections");
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("正常: summaryが集計される", async () => {
+    vi.mocked(prisma.collection.findMany).mockResolvedValue([
+      {
+        id: "collection-1",
+        title: "6月合宿費",
+        amount: 1000,
+        dueDate: null,
+        eventId: null,
+        yearMonth: null,
+        note: null,
+        createdAt: new Date("2026-06-01T00:00:00Z"),
+        payments: [
+          { status: "paid", amount: 1000 },
+          { status: "paid", amount: null },
+          { status: "pending", amount: null },
+          { status: "waived", amount: null },
+        ],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections");
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data[0].summary).toEqual({
+      total: 4,
+      paid: 2,
+      pending: 1,
+      waived: 1,
+      paidAmount: 2000,
+    });
+  });
+
+  it("正常: from/toで絞り込みされる", async () => {
+    vi.mocked(prisma.collection.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["finance"]));
+    await app.request("/finance/collections?from=2026-01-01&to=2026-12-31");
+
+    expect(prisma.collection.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          orgId: testOrg.id,
+          createdAt: { gte: new Date("2026-01-01"), lte: new Date("2026-12-31") },
+        }),
+      }),
+    );
+  });
+
+  it("徴収が0件: 空配列を返す", async () => {
+    vi.mocked(prisma.collection.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections");
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual([]);
+  });
+});
+
+describe("POST /finance/collections", () => {
+  const validBody = { title: "6月合宿費", amount: 15000 };
+
+  it("バリデーションエラー: amountが0以下は400を返す", async () => {
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...validBody, amount: 0 }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("会計担当者未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/finance/collections", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validBody),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("正常（memberIds未指定）: アクティブかつguest/visitor除くメンバー全員にpendingが作成される", async () => {
+    vi.mocked(prisma.collection.create).mockResolvedValue({
+      id: "collection-1",
+      title: "6月合宿費",
+      amount: 15000,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.member.findMany).mockResolvedValue([
+      { id: "member-1", memberTypeId: null },
+      { id: "member-2", memberTypeId: null },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.collectionPayment.create).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validBody),
+    });
+
+    expect(res.status).toBe(201);
+    expect(prisma.member.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          orgId: testOrg.id,
+          status: "active",
+          NOT: { roles: { hasSome: ["guest", "visitor"] } },
+        }),
+      }),
+    );
+    expect(prisma.collectionPayment.create).toHaveBeenCalledTimes(2);
+    expect(prisma.collectionPayment.create).toHaveBeenCalledWith({
+      data: { collectionId: "collection-1", memberId: "member-1", status: "pending", amount: null },
+    });
+  });
+
+  it("正常（memberIds指定）: 指定メンバーのみに作成される", async () => {
+    vi.mocked(prisma.collection.create).mockResolvedValue({
+      id: "collection-1",
+      title: "6月合宿費",
+      amount: 15000,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.member.findMany).mockResolvedValue([
+      { id: "member-1", memberTypeId: null },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.collectionPayment.create).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...validBody, memberIds: ["member-1"] }),
+    });
+
+    expect(res.status).toBe(201);
+    expect(prisma.member.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ["member-1"] }, orgId: testOrg.id },
+      }),
+    );
+    expect(prisma.collectionPayment.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("正常（memberTypeAmounts指定）: 該当パート種別のみ個別金額が設定される", async () => {
+    vi.mocked(prisma.collection.create).mockResolvedValue({
+      id: "collection-1",
+      title: "6月合宿費",
+      amount: 15000,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.member.findMany).mockResolvedValue([
+      { id: "member-1", memberTypeId: "type-student" },
+      { id: "member-2", memberTypeId: null },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.collectionPayment.create).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...validBody,
+        memberIds: ["member-1", "member-2"],
+        memberTypeAmounts: { "type-student": 8000 },
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    expect(prisma.collectionPayment.create).toHaveBeenCalledWith({
+      data: { collectionId: "collection-1", memberId: "member-1", status: "pending", amount: 8000 },
+    });
+    expect(prisma.collectionPayment.create).toHaveBeenCalledWith({
+      data: { collectionId: "collection-1", memberId: "member-2", status: "pending", amount: null },
+    });
+  });
+
+  it("正常: レスポンスは{id, title, amount}のみ", async () => {
+    vi.mocked(prisma.collection.create).mockResolvedValue({
+      id: "collection-1",
+      title: "6月合宿費",
+      amount: 15000,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.member.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validBody),
+    });
+
+    const body = await json(res);
+    expect(body.data).toEqual({ id: "collection-1", title: "6月合宿費", amount: 15000 });
+  });
+});
+
+describe("GET /finance/collections/:collectionId", () => {
+  it("会計担当者未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/finance/collections/collection-1");
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("徴収が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.collection.findFirst).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/nonexistent");
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: paymentsがmember情報込みで返る", async () => {
+    vi.mocked(prisma.collection.findFirst).mockResolvedValue({
+      id: "collection-1",
+      title: "6月合宿費",
+      amount: 15000,
+      dueDate: null,
+      eventId: null,
+      yearMonth: null,
+      note: null,
+      createdAt: new Date("2026-06-01T00:00:00Z"),
+      payments: [
+        {
+          id: "payment-1",
+          status: "paid",
+          amount: 15000,
+          paidAt: new Date("2026-06-10T00:00:00Z"),
+          method: "cash",
+          note: null,
+          member: {
+            id: "member-1",
+            userRef: { nameJa: "山田 太郎" },
+            part: { id: "part-1", name: "Tenor I", voiceType: "tenor", sortOrder: 1 },
+            memberType: { defaultFeeAmount: 5000 },
+          },
+        },
+      ],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/collection-1");
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.payments[0]).toEqual({
+      id: "payment-1",
+      member: {
+        id: "member-1",
+        nameJa: "山田 太郎",
+        part: { id: "part-1", name: "Tenor I", voiceType: "tenor", sortOrder: 1 },
+        memberTypeFee: 5000,
+      },
+      status: "paid",
+      amount: 15000,
+      paidAt: "2026-06-10T00:00:00.000Z",
+      method: "cash",
+      note: null,
+    });
+  });
+});

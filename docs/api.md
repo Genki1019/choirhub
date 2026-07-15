@@ -43,9 +43,10 @@
 
 ### ホーム
 
-| API名                         | Method | Path             | 権限    |
-| ----------------------------- | ------ | ---------------- | ------- |
-| [ホームデータ取得](#home-get) | GET    | `/:orgSlug/home` | member+ |
+| API名                                             | Method | Path                               | 権限         |
+| ------------------------------------------------- | ------ | ---------------------------------- | ------------ |
+| [ホームデータ取得](#home-get)                     | GET    | `/:orgSlug/home`                   | -            |
+| [月当番パート更新](#home-monthly-organizer-patch) | PATCH  | `/:orgSlug/home/monthly-organizer` | ticket/admin |
 
 ### メンバー管理
 
@@ -556,9 +557,9 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 ### GET `/api/v1/:orgSlug/home`
 
-ホーム画面に必要なデータを一括取得する。
+ホーム画面に必要なデータを一括取得する。表示対象イベントは`admin`は全件、それ以外は`targetRoles`/`targetPartIds`（両方空なら全員対象）でフィルタされる。`recentMails`は`visitor`ロールの場合は取得せず空配列を返す。
 
-**権限**: `member+`
+**権限**: 権限チェック無し（認証済みメンバーなら誰でも取得可）
 
 **Response** `200`
 
@@ -599,14 +600,45 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
       {
         "id": "cuid",
         "subject": "6月練習のご案内",
-        "sentAt": "2026-05-30T12:00:00+09:00"
+        "sentAt": "2026-05-30T12:00:00+09:00",
+        "senderName": "山田太郎",
+        "senderAvatarUrl": "https://example.com/avatar.png"
       }
     ],
     "canViewTickets": false,
-    "ticketRaceWinner": null
+    "monthlyOrganizer": "Tenor I",
+    "isTicketManager": false
   }
 }
 ```
+
+> `nextConcert`は該当イベントが見つからない場合、直近の`Concert`レコードから疑似イベント（`category.id`は空文字、`myAttendance`は`"undecided"`固定）を合成して返す。
+
+---
+
+<a id="home-monthly-organizer-patch"></a>
+
+### PATCH `/api/v1/:orgSlug/home/monthly-organizer`
+
+月当番パートを更新する。
+
+**権限**: `ticket` or `admin`
+
+**Request Body:**
+
+```json
+{ "partName": "Tenor I" }
+```
+
+`partName`は`null`指定で解除できる（最大50文字）。
+
+**Response** `200`
+
+```json
+{ "data": { "monthlyOrganizer": "Tenor I" } }
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` チケット担当または管理者のみ操作可能
 
 ---
 

@@ -12,6 +12,14 @@ async function json(res: Response): Promise<Record<string, any>> {
 vi.mock("../../lib/prisma.js", () => ({
   prisma: {
     organization: { update: vi.fn() },
+    part: {
+      aggregate: vi.fn(),
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    },
+    member: { count: vi.fn() },
   },
 }));
 
@@ -260,5 +268,256 @@ describe("PATCH /settings/fee", () => {
       body: JSON.stringify({ defaultFeeAmount: -100 }),
     });
     expect(res.status).toBe(400);
+  });
+});
+
+// ────────────────────────────
+// POST /parts
+// ────────────────────────────
+
+describe("POST /parts", () => {
+  it("admin未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request("/parts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Baritone", voiceType: "baritone" }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("admin: 201でパートを作成する（sortOrderは既存最大値+1）", async () => {
+    vi.mocked(prisma.part.aggregate).mockResolvedValue({ _max: { sortOrder: 3 } } as never);
+    vi.mocked(prisma.part.create).mockResolvedValue({
+      id: "part-1",
+      orgId: "org-1",
+      name: "Baritone",
+      voiceType: "baritone",
+      sortOrder: 4,
+      isCustom: true,
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/parts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Baritone", voiceType: "baritone" }),
+    });
+    expect(res.status).toBe(201);
+    const body = await json(res);
+    expect(body.data).toEqual({
+      id: "part-1",
+      name: "Baritone",
+      voiceType: "baritone",
+      sortOrder: 4,
+    });
+    expect(prisma.part.create).toHaveBeenCalledWith({
+      data: {
+        orgId: "org-1",
+        name: "Baritone",
+        voiceType: "baritone",
+        sortOrder: 4,
+        isCustom: true,
+      },
+    });
+  });
+
+  it("voiceType省略時: デフォルト値otherで作成される", async () => {
+    vi.mocked(prisma.part.aggregate).mockResolvedValue({ _max: { sortOrder: null } } as never);
+    vi.mocked(prisma.part.create).mockResolvedValue({
+      id: "part-1",
+      orgId: "org-1",
+      name: "混声",
+      voiceType: "other",
+      sortOrder: 1,
+      isCustom: true,
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    await app.request("/parts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "混声" }),
+    });
+    expect(prisma.part.create).toHaveBeenCalledWith({
+      data: { orgId: "org-1", name: "混声", voiceType: "other", sortOrder: 1, isCustom: true },
+    });
+  });
+
+  it("nameが空文字: 400を返す", async () => {
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/parts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "" }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+// ────────────────────────────
+// PATCH /parts/:partId
+// ────────────────────────────
+
+describe("PATCH /parts/:partId", () => {
+  it("admin未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request("/parts/part-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Tenor II" }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("存在しないpartId: 404を返す", async () => {
+    vi.mocked(prisma.part.findUnique).mockResolvedValue(null);
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/parts/no-such-part", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Tenor II" }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("他テナントのpartId: 404を返す", async () => {
+    vi.mocked(prisma.part.findUnique).mockResolvedValue({
+      id: "part-other",
+      orgId: "org-2",
+      name: "Alto",
+      voiceType: "alto",
+      sortOrder: 1,
+      isCustom: true,
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/parts/part-other", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Tenor II" }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("admin: 200でname・sortOrderを部分更新できる", async () => {
+    vi.mocked(prisma.part.findUnique).mockResolvedValue({
+      id: "part-1",
+      orgId: "org-1",
+      name: "Tenor I",
+      voiceType: "tenor",
+      sortOrder: 1,
+      isCustom: true,
+    });
+    vi.mocked(prisma.part.update).mockResolvedValue({
+      id: "part-1",
+      orgId: "org-1",
+      name: "Tenor II",
+      voiceType: "tenor",
+      sortOrder: 2,
+      isCustom: true,
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/parts/part-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Tenor II", sortOrder: 2 }),
+    });
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({
+      id: "part-1",
+      name: "Tenor II",
+      voiceType: "tenor",
+      sortOrder: 2,
+    });
+    expect(prisma.part.update).toHaveBeenCalledWith({
+      where: { id: "part-1" },
+      data: { name: "Tenor II", sortOrder: 2 },
+    });
+  });
+});
+
+// ────────────────────────────
+// DELETE /parts/:partId
+// ────────────────────────────
+
+describe("DELETE /parts/:partId", () => {
+  it("admin未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request("/parts/part-1", { method: "DELETE" });
+    expect(res.status).toBe(403);
+  });
+
+  it("存在しないpartId: 404を返す", async () => {
+    vi.mocked(prisma.part.findUnique).mockResolvedValue(null);
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/parts/no-such-part", { method: "DELETE" });
+    expect(res.status).toBe(404);
+  });
+
+  it("他テナントのpartId: 404を返す", async () => {
+    vi.mocked(prisma.part.findUnique).mockResolvedValue({
+      id: "part-other",
+      orgId: "org-2",
+      name: "Alto",
+      voiceType: "alto",
+      sortOrder: 1,
+      isCustom: true,
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/parts/part-other", { method: "DELETE" });
+    expect(res.status).toBe(404);
+  });
+
+  it("デフォルトパート(isCustom: false): 409を返す", async () => {
+    vi.mocked(prisma.part.findUnique).mockResolvedValue({
+      id: "part-1",
+      orgId: "org-1",
+      name: "Tenor I",
+      voiceType: "tenor",
+      sortOrder: 1,
+      isCustom: false,
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/parts/part-1", { method: "DELETE" });
+    expect(res.status).toBe(409);
+    expect(prisma.member.count).not.toHaveBeenCalled();
+  });
+
+  it("在団メンバーが所属している: 409を返す", async () => {
+    vi.mocked(prisma.part.findUnique).mockResolvedValue({
+      id: "part-1",
+      orgId: "org-1",
+      name: "Baritone",
+      voiceType: "baritone",
+      sortOrder: 2,
+      isCustom: true,
+    });
+    vi.mocked(prisma.member.count).mockResolvedValue(2);
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/parts/part-1", { method: "DELETE" });
+    expect(res.status).toBe(409);
+  });
+
+  it("カスタムパートかつ在団メンバー0人: 204で削除できる", async () => {
+    vi.mocked(prisma.part.findUnique).mockResolvedValue({
+      id: "part-1",
+      orgId: "org-1",
+      name: "Baritone",
+      voiceType: "baritone",
+      sortOrder: 2,
+      isCustom: true,
+    });
+    vi.mocked(prisma.member.count).mockResolvedValue(0);
+    vi.mocked(prisma.part.delete).mockResolvedValue({
+      id: "part-1",
+      orgId: "org-1",
+      name: "Baritone",
+      voiceType: "baritone",
+      sortOrder: 2,
+      isCustom: true,
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/parts/part-1", { method: "DELETE" });
+    expect(res.status).toBe(204);
+    expect(prisma.part.delete).toHaveBeenCalledWith({ where: { id: "part-1" } });
   });
 });

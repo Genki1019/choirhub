@@ -132,25 +132,25 @@
 
 ### チケット管理
 
-| API名                                       | Method | Path                                                    | 権限                       |
-| ------------------------------------------- | ------ | ------------------------------------------------------- | -------------------------- |
-| [チケット管理一覧](#tickets-list)           | GET    | `/:orgSlug/tickets`                                     | ticket or admin            |
-| [チケット一覧（自分）](#tickets-my-get)     | GET    | `/:orgSlug/tickets/my`                                  | member+                    |
-| [チケット集計取得](#tickets-id-get)         | GET    | `/:orgSlug/tickets/:concertId`                          | ticket or admin            |
-| [席種作成](#tickets-batches-create)         | POST   | `/:orgSlug/tickets/:concertId/batches`                  | ticket or admin            |
-| [席種更新](#tickets-batches-patch)          | PATCH  | `/:orgSlug/tickets/:concertId/batches/:batchId`         | ticket or admin            |
-| [席種削除](#tickets-batches-delete)         | DELETE | `/:orgSlug/tickets/:concertId/batches/:batchId`         | ticket or admin            |
-| [チケット配布記録](#tickets-allocate)       | POST   | `/:orgSlug/tickets/:concertId/allocate`                 | admin / member（自分のみ） |
-| [販売・回収報告](#tickets-allocation-patch) | PATCH  | `/:orgSlug/tickets/allocations/:id`                     | member（自分）/ admin      |
-| [パートレース取得](#tickets-race)           | GET    | `/:orgSlug/tickets/:concertId/race`                     | ticket or admin            |
-| [レース公開](#tickets-race-publish)         | POST   | `/:orgSlug/tickets/:concertId/race/publish`             | ticket or admin            |
-| [レース非公開](#tickets-race-unpublish)     | DELETE | `/:orgSlug/tickets/:concertId/race/publish`             | ticket or admin            |
-| [入力締め切り](#tickets-close)              | POST   | `/:orgSlug/tickets/:concertId/close`                    | ticket or admin            |
-| [入力再開](#tickets-reopen)                 | DELETE | `/:orgSlug/tickets/:concertId/close`                    | ticket or admin            |
-| [情宣活動一覧取得](#outreach-list)          | GET    | `/:orgSlug/tickets/:concertId/outreach`                 | member+                    |
-| [情宣活動申請](#outreach-create)            | POST   | `/:orgSlug/tickets/:concertId/outreach`                 | member+                    |
-| [交通費支払い承認](#outreach-pay)           | PATCH  | `/:orgSlug/tickets/:concertId/outreach/:activityId/pay` | ticket or admin            |
-| [情宣活動削除](#outreach-delete)            | DELETE | `/:orgSlug/tickets/:concertId/outreach/:activityId`     | 申請者 or ticket or admin  |
+| API名                                       | Method | Path                                                    | 権限                                  |
+| ------------------------------------------- | ------ | ------------------------------------------------------- | ------------------------------------- |
+| [チケット管理一覧](#tickets-list)           | GET    | `/:orgSlug/tickets`                                     | ticket or admin                       |
+| [チケット一覧（自分）](#tickets-my-get)     | GET    | `/:orgSlug/tickets/my`                                  | member+                               |
+| [チケット集計取得](#tickets-id-get)         | GET    | `/:orgSlug/tickets/:concertId`                          | ticket or admin                       |
+| [席種作成](#tickets-batches-create)         | POST   | `/:orgSlug/tickets/:concertId/batches`                  | ticket or admin                       |
+| [席種更新](#tickets-batches-patch)          | PATCH  | `/:orgSlug/tickets/:concertId/batches/:batchId`         | ticket or admin                       |
+| [席種削除](#tickets-batches-delete)         | DELETE | `/:orgSlug/tickets/:concertId/batches/:batchId`         | ticket or admin                       |
+| [チケット配布記録](#tickets-allocate)       | POST   | `/:orgSlug/tickets/:concertId/allocate`                 | ticket or admin / member+（自分のみ） |
+| [販売・回収報告](#tickets-allocation-patch) | PATCH  | `/:orgSlug/tickets/allocations/:id`                     | member（自分）/ ticket or admin       |
+| [パートレース取得](#tickets-race)           | GET    | `/:orgSlug/tickets/:concertId/race`                     | ticket or admin                       |
+| [レース公開](#tickets-race-publish)         | POST   | `/:orgSlug/tickets/:concertId/race/publish`             | ticket or admin                       |
+| [レース非公開](#tickets-race-unpublish)     | DELETE | `/:orgSlug/tickets/:concertId/race/publish`             | ticket or admin                       |
+| [入力締め切り](#tickets-close)              | POST   | `/:orgSlug/tickets/:concertId/close`                    | ticket or admin                       |
+| [入力再開](#tickets-reopen)                 | DELETE | `/:orgSlug/tickets/:concertId/close`                    | ticket or admin                       |
+| [情宣活動一覧取得](#outreach-list)          | GET    | `/:orgSlug/tickets/:concertId/outreach`                 | member+                               |
+| [情宣活動申請](#outreach-create)            | POST   | `/:orgSlug/tickets/:concertId/outreach`                 | member+                               |
+| [交通費支払い承認](#outreach-pay)           | PATCH  | `/:orgSlug/tickets/:concertId/outreach/:activityId/pay` | ticket or admin                       |
+| [情宣活動削除](#outreach-delete)            | DELETE | `/:orgSlug/tickets/:concertId/outreach/:activityId`     | 申請者 or ticket or admin             |
 
 ### 設定
 
@@ -2772,27 +2772,39 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 ### POST `/api/v1/:orgSlug/tickets/:concertId/allocate`
 
-団員へのチケット配布を記録する。
+チケット配布・希望枚数申請を1件登録・更新する（`batchId`+`memberId`の組で upsert）。
 
-**権限**: `admin`
+**権限**: `ticket or admin`（他メンバーへの登録） / `member+`（`memberId`省略時、自分の希望枚数申請のみ）
 
 **Request Body:**
 
+| フィールド     | 型     | 必須 | 説明                                                                            |
+| -------------- | ------ | ---- | ------------------------------------------------------------------------------- |
+| batchId        | string | ✓    | 対象の席種ID                                                                    |
+| memberId       | string |      | 対象メンバーID（省略時は自分）                                                  |
+| allocatedCount | number | ✓    | `ticket or admin`が指定した場合は配布枚数、自分の場合は希望枚数として登録される |
+
 ```json
-{
-  "batchId": "cuid",
-  "allocations": [
-    { "memberId": "cuid", "allocatedCount": 10 },
-    { "memberId": "cuid", "allocatedCount": 8 }
-  ]
-}
+{ "batchId": "cuid", "memberId": "cuid", "allocatedCount": 10 }
 ```
+
+> `ticket or admin`が登録・更新すると`allocatedCount`（配布枚数）が確定し、`requestedCount`はクリアされる。一般団員が自分の分を登録・更新すると`requestedCount`（希望枚数）として保存され、`allocatedCount`は変更されない（`ticket or admin`による確定待ち）。
 
 **Response** `201`
 
 ```json
-{ "data": { "created": 28 } }
+{
+  "data": {
+    "id": "cuid",
+    "batchId": "cuid",
+    "memberId": "cuid",
+    "allocatedCount": 0,
+    "requestedCount": 10
+  }
+}
 ```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 他メンバーへの登録を一般団員が行おうとした / `403` `INPUT_CLOSED` 入力締切後に非担当者が自分の申請をしようとした / `404` `NOT_FOUND` 席種が存在しない・指定の演奏会に属していない
 
 ---
 
@@ -2800,9 +2812,9 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 ### PATCH `/api/v1/:orgSlug/tickets/allocations/:id`
 
-販売・回収報告を更新する（自分の配布分の報告、または管理者による全員分の更新）。
+販売・回収報告を更新する（自分の配布分の報告、またはticket担当者/adminによる全員分の更新）。
 
-**権限**: `member`（自分の記録のみ）/ `admin`（全員）
+**権限**: `member`（自分の記録のみ）/ `ticket or admin`（全員）
 
 **Request Body:**（すべて省略可）
 
@@ -2819,9 +2831,13 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
-> `allocatedCount` は `ticket or admin` のみ更新可能。一般団員が指定した場合は無視される。
+> - `allocatedCount`（配布枚数）・`isOutreachExpensePaid`（情宣交通費支払い記録）は`ticket or admin`のみ更新可能。一般団員が自分の記録に対して指定した場合は無視されず`403 FORBIDDEN`を返す。
+> - `ticketInputClosedAt`（入力締切）を過ぎている場合、`ticket or admin`以外は編集不可（`403 INPUT_CLOSED`）。
+> - `soldAdult`/`soldStudent`/`soldOther`/`returnedCount`のいずれかを更新すると`reportedAt`が現在時刻に更新される（`outreachCount`単独の変更では更新されない）。
 
 **Response** `200` → 更新後の配布情報
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 自分以外の記録を編集しようとした / `403` `FORBIDDEN` 一般団員が`allocatedCount`・`isOutreachExpensePaid`を指定した / `403` `INPUT_CLOSED` 入力締切後に非担当者が編集しようとした / `404` `NOT_FOUND` 配布記録が存在しない
 
 ---
 

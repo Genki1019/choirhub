@@ -223,3 +223,205 @@ describe("GET /finance/expenses", () => {
     expect(body.data).toEqual([]);
   });
 });
+
+describe("POST /finance/expenses", () => {
+  const validBody = { categoryId: "cat-1", title: "会場費", amount: 8000 };
+
+  it("バリデーションエラー: amountが0以下は400を返す", async () => {
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/expenses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...validBody, amount: 0 }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("会計担当者未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/finance/expenses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validBody),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("カテゴリが存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.expenseCategory.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/expenses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validBody),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: 201を返す", async () => {
+    vi.mocked(prisma.expenseCategory.findUnique).mockResolvedValue({
+      id: "cat-1",
+      orgId: "org-1",
+      name: "会場費",
+      sortOrder: 0,
+      createdAt: new Date("2024-01-01"),
+    });
+    vi.mocked(prisma.expense.create).mockResolvedValue({
+      id: "expense-1",
+      title: "会場費",
+      amount: 8000,
+      paymentMethod: null,
+      paidAt: null,
+      eventId: null,
+      note: null,
+      createdAt: new Date("2026-06-01T00:00:00Z"),
+      category: { id: "cat-1", name: "会場費" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["finance"], "member-recorder"));
+    const res = await app.request("/finance/expenses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validBody),
+    });
+
+    expect(res.status).toBe(201);
+    const body = await json(res);
+    expect(body.data.id).toBe("expense-1");
+    expect(prisma.expense.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          orgId: testOrg.id,
+          categoryId: "cat-1",
+          recordedById: "member-recorder",
+        }),
+      }),
+    );
+  });
+});
+
+describe("PATCH /finance/expenses/:expenseId", () => {
+  it("バリデーションエラー: amountが0以下は400を返す", async () => {
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/expenses/expense-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: 0 }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("会計担当者未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/finance/expenses/expense-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: 5000 }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("支出が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.expense.findFirst).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/expenses/nonexistent", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: 5000 }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: 部分更新される", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.expense.findFirst).mockResolvedValue({ id: "expense-1" } as any);
+    vi.mocked(prisma.expense.update).mockResolvedValue({
+      id: "expense-1",
+      title: "会場費（改）",
+      amount: 9000,
+      paymentMethod: null,
+      paidAt: null,
+      eventId: null,
+      note: null,
+      createdAt: new Date("2026-06-01T00:00:00Z"),
+      category: { id: "cat-1", name: "会場費" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/expenses/expense-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "会場費（改）", amount: 9000 }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.title).toBe("会場費（改）");
+    expect(body.data.amount).toBe(9000);
+    expect(prisma.expense.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "expense-1", orgId: testOrg.id },
+        data: { title: "会場費（改）", amount: 9000 },
+      }),
+    );
+  });
+});
+
+describe("DELETE /finance/expenses/:expenseId", () => {
+  it("会計担当者未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/finance/expenses/expense-1", { method: "DELETE" });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("支出が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.expense.findFirst).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/expenses/nonexistent", { method: "DELETE" });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: 204を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.expense.findFirst).mockResolvedValue({ id: "expense-1" } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.expense.delete).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/expenses/expense-1", { method: "DELETE" });
+
+    expect(res.status).toBe(204);
+    expect(prisma.expense.delete).toHaveBeenCalledWith({
+      where: { id: "expense-1", orgId: testOrg.id },
+    });
+  });
+});

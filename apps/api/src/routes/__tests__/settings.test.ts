@@ -20,6 +20,15 @@ vi.mock("../../lib/prisma.js", () => ({
       delete: vi.fn(),
     },
     member: { count: vi.fn() },
+    expenseCategory: {
+      findMany: vi.fn(),
+      aggregate: vi.fn(),
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    },
+    expense: { count: vi.fn() },
   },
 }));
 
@@ -519,5 +528,276 @@ describe("DELETE /parts/:partId", () => {
     const res = await app.request("/parts/part-1", { method: "DELETE" });
     expect(res.status).toBe(204);
     expect(prisma.part.delete).toHaveBeenCalledWith({ where: { id: "part-1" } });
+  });
+});
+
+// ────────────────────────────
+// GET /settings/expense-categories
+// ────────────────────────────
+
+describe("GET /settings/expense-categories", () => {
+  it("finance未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/settings/expense-categories");
+    expect(res.status).toBe(403);
+  });
+
+  it("finance: 200で一覧を取得できる", async () => {
+    vi.mocked(prisma.expenseCategory.findMany).mockResolvedValue([
+      {
+        id: "cat-1",
+        orgId: "org-1",
+        name: "会場費",
+        sortOrder: 0,
+        createdAt: new Date("2024-01-01"),
+      },
+      {
+        id: "cat-2",
+        orgId: "org-1",
+        name: "指導者謝礼",
+        sortOrder: 1,
+        createdAt: new Date("2024-01-01"),
+      },
+    ]);
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/settings/expense-categories");
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual([
+      { id: "cat-1", name: "会場費", sortOrder: 0 },
+      { id: "cat-2", name: "指導者謝礼", sortOrder: 1 },
+    ]);
+    expect(prisma.expenseCategory.findMany).toHaveBeenCalledWith({
+      where: { orgId: "org-1" },
+      orderBy: { sortOrder: "asc" },
+    });
+  });
+});
+
+// ────────────────────────────
+// POST /settings/expense-categories
+// ────────────────────────────
+
+describe("POST /settings/expense-categories", () => {
+  it("finance未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/settings/expense-categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "合宿費" }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("finance: 201で作成する（sortOrder省略時は既存最大値+1）", async () => {
+    vi.mocked(prisma.expenseCategory.aggregate).mockResolvedValue({
+      _max: { sortOrder: 2 },
+    } as never);
+    vi.mocked(prisma.expenseCategory.create).mockResolvedValue({
+      id: "cat-3",
+      orgId: "org-1",
+      name: "合宿費",
+      sortOrder: 3,
+      createdAt: new Date("2024-01-01"),
+    });
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/settings/expense-categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "合宿費" }),
+    });
+    expect(res.status).toBe(201);
+    const body = await json(res);
+    expect(body.data).toEqual({ id: "cat-3", name: "合宿費", sortOrder: 3 });
+    expect(prisma.expenseCategory.create).toHaveBeenCalledWith({
+      data: { orgId: "org-1", name: "合宿費", sortOrder: 3 },
+    });
+  });
+
+  it("sortOrder明示指定時: 既存最大値を無視して指定値をそのまま使う", async () => {
+    vi.mocked(prisma.expenseCategory.aggregate).mockResolvedValue({
+      _max: { sortOrder: 99 },
+    } as never);
+    vi.mocked(prisma.expenseCategory.create).mockResolvedValue({
+      id: "cat-3",
+      orgId: "org-1",
+      name: "合宿費",
+      sortOrder: 10,
+      createdAt: new Date("2024-01-01"),
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    await app.request("/settings/expense-categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "合宿費", sortOrder: 10 }),
+    });
+    expect(prisma.expenseCategory.create).toHaveBeenCalledWith({
+      data: { orgId: "org-1", name: "合宿費", sortOrder: 10 },
+    });
+  });
+
+  it("nameが空文字: 400を返す", async () => {
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/settings/expense-categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("nameが51文字以上: 400を返す", async () => {
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/settings/expense-categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "あ".repeat(51) }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+// ────────────────────────────
+// PATCH /settings/expense-categories/:categoryId
+// ────────────────────────────
+
+describe("PATCH /settings/expense-categories/:categoryId", () => {
+  it("finance未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/settings/expense-categories/cat-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "会場・設営費" }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("存在しないcategoryId: 404を返す", async () => {
+    vi.mocked(prisma.expenseCategory.findUnique).mockResolvedValue(null);
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/settings/expense-categories/no-such-cat", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "会場・設営費" }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("他テナントのcategoryId: 404を返す", async () => {
+    vi.mocked(prisma.expenseCategory.findUnique).mockResolvedValue({
+      id: "cat-other",
+      orgId: "org-2",
+      name: "他団体費",
+      sortOrder: 0,
+      createdAt: new Date("2024-01-01"),
+    });
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/settings/expense-categories/cat-other", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "会場・設営費" }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("finance: 200でname・sortOrderを部分更新できる", async () => {
+    vi.mocked(prisma.expenseCategory.findUnique).mockResolvedValue({
+      id: "cat-1",
+      orgId: "org-1",
+      name: "会場費",
+      sortOrder: 0,
+      createdAt: new Date("2024-01-01"),
+    });
+    vi.mocked(prisma.expenseCategory.update).mockResolvedValue({
+      id: "cat-1",
+      orgId: "org-1",
+      name: "会場・設営費",
+      sortOrder: 3,
+      createdAt: new Date("2024-01-01"),
+    });
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/settings/expense-categories/cat-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "会場・設営費", sortOrder: 3 }),
+    });
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ id: "cat-1", name: "会場・設営費", sortOrder: 3 });
+    expect(prisma.expenseCategory.update).toHaveBeenCalledWith({
+      where: { id: "cat-1" },
+      data: { name: "会場・設営費", sortOrder: 3 },
+    });
+  });
+});
+
+// ────────────────────────────
+// DELETE /settings/expense-categories/:categoryId
+// ────────────────────────────
+
+describe("DELETE /settings/expense-categories/:categoryId", () => {
+  it("finance未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/settings/expense-categories/cat-1", { method: "DELETE" });
+    expect(res.status).toBe(403);
+  });
+
+  it("存在しないcategoryId: 404を返す", async () => {
+    vi.mocked(prisma.expenseCategory.findUnique).mockResolvedValue(null);
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/settings/expense-categories/no-such-cat", {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("他テナントのcategoryId: 404を返す", async () => {
+    vi.mocked(prisma.expenseCategory.findUnique).mockResolvedValue({
+      id: "cat-other",
+      orgId: "org-2",
+      name: "他団体費",
+      sortOrder: 0,
+      createdAt: new Date("2024-01-01"),
+    });
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/settings/expense-categories/cat-other", { method: "DELETE" });
+    expect(res.status).toBe(404);
+  });
+
+  it("紐付くExpenseが存在する: 409を返す", async () => {
+    vi.mocked(prisma.expenseCategory.findUnique).mockResolvedValue({
+      id: "cat-1",
+      orgId: "org-1",
+      name: "会場費",
+      sortOrder: 0,
+      createdAt: new Date("2024-01-01"),
+    });
+    vi.mocked(prisma.expense.count).mockResolvedValue(3);
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/settings/expense-categories/cat-1", { method: "DELETE" });
+    expect(res.status).toBe(409);
+    expect(prisma.expenseCategory.delete).not.toHaveBeenCalled();
+  });
+
+  it("紐付くExpenseが0件: 204で削除できる", async () => {
+    vi.mocked(prisma.expenseCategory.findUnique).mockResolvedValue({
+      id: "cat-1",
+      orgId: "org-1",
+      name: "会場費",
+      sortOrder: 0,
+      createdAt: new Date("2024-01-01"),
+    });
+    vi.mocked(prisma.expense.count).mockResolvedValue(0);
+    vi.mocked(prisma.expenseCategory.delete).mockResolvedValue({
+      id: "cat-1",
+      orgId: "org-1",
+      name: "会場費",
+      sortOrder: 0,
+      createdAt: new Date("2024-01-01"),
+    });
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/settings/expense-categories/cat-1", { method: "DELETE" });
+    expect(res.status).toBe(204);
+    expect(prisma.expenseCategory.delete).toHaveBeenCalledWith({ where: { id: "cat-1" } });
   });
 });

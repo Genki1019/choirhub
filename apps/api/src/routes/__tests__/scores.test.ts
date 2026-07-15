@@ -17,7 +17,13 @@ vi.mock("../../lib/prisma.js", () => ({
     member: { findMany: vi.fn() },
     scorePurchase: { findFirst: vi.fn(), count: vi.fn(), findMany: vi.fn(), create: vi.fn() },
     collection: { findFirst: vi.fn() },
-    scoreFile: { findFirst: vi.fn(), aggregate: vi.fn(), create: vi.fn() },
+    scoreFile: {
+      findFirst: vi.fn(),
+      findUnique: vi.fn(),
+      aggregate: vi.fn(),
+      create: vi.fn(),
+      delete: vi.fn(),
+    },
     $executeRaw: vi.fn(),
   },
 }));
@@ -27,6 +33,7 @@ vi.mock("../../services/storage.js", () => ({
     getPresignedPutUrl: vi.fn(),
     upload: vi.fn(),
     delete: vi.fn(),
+    getScoreDownload: vi.fn(),
   },
   CONTENT_TYPES: { ".pdf": "application/pdf", ".mid": "audio/midi", ".mp3": "audio/mpeg" },
 }));
@@ -84,6 +91,20 @@ const testScore: Score = {
   notes: null,
   createdAt: new Date("2024-01-01"),
 };
+
+const makeScoreFile = (overrides: Partial<Record<string, unknown>> = {}) => ({
+  id: "file-1",
+  scoreId: "score-1",
+  fileType: "full_score",
+  partId: null,
+  storageKey: "org-1/score-1/full_score/file-1.pdf",
+  fileName: "楽譜.pdf",
+  accessLevel: null,
+  version: 1,
+  uploadedBy: "member-1",
+  uploadedAt: new Date("2024-01-01"),
+  ...overrides,
+});
 
 function createTestApp(actingMember: Member) {
   const app = new Hono<TenantEnv>();
@@ -1505,5 +1526,290 @@ describe("POST /scores/:scoreId/files（フォールバックアップロード�
     expect(storage.upload).toHaveBeenCalled();
     expect(storage.delete).toHaveBeenCalled();
     expect(prisma.scoreFile.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("DELETE /scores/:scoreId/files/:fileId", () => {
+  it("楽譜が存在しない: 404を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1`, { method: "DELETE" });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("ファイルが存在しない: 404を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1`, { method: "DELETE" });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("MIDIファイル: MIDI権限なし（member）は403を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      makeScoreFile({ fileType: "midi" }) as any,
+    );
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1`, { method: "DELETE" });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("MIDIファイル: PDF権限のみ（score）は403を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      makeScoreFile({ fileType: "midi" }) as any,
+    );
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1`, { method: "DELETE" });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("MIDIファイル: MIDI権限あり（tech）は204を返しファイルが削除される", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    const file = makeScoreFile({ fileType: "midi" });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(file as any);
+    vi.mocked(storage.delete).mockResolvedValue(undefined);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.delete).mockResolvedValue(file as any);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1`, { method: "DELETE" });
+
+    expect(res.status).toBe(204);
+    expect(storage.delete).toHaveBeenCalledWith(file.storageKey);
+    expect(prisma.scoreFile.delete).toHaveBeenCalledWith({
+      where: { id: "file-1", scoreId: testScore.id },
+    });
+  });
+
+  it("PDF等ファイル: PDF権限なし（tech）は403を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(makeScoreFile() as any);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1`, { method: "DELETE" });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("PDF等ファイル: PDF権限あり（score）は204を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    const file = makeScoreFile();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(file as any);
+    vi.mocked(storage.delete).mockResolvedValue(undefined);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.delete).mockResolvedValue(file as any);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1`, { method: "DELETE" });
+
+    expect(res.status).toBe(204);
+  });
+});
+
+describe("GET /scores/:scoreId/files/:fileId/download", () => {
+  it("楽譜が存在しない: 404のHTMLを返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1/download`);
+
+    expect(res.status).toBe(404);
+    expect(res.headers.get("content-type")).toContain("text/html");
+  });
+
+  it("ファイルが存在しない: 404のHTMLを返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1/download`);
+
+    expect(res.status).toBe(404);
+    expect(res.headers.get("content-type")).toContain("text/html");
+  });
+
+  it("visitor: full_scoreは200を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    const file = makeScoreFile();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(file as any);
+    vi.mocked(storage.getScoreDownload).mockResolvedValue({
+      type: "buffer",
+      data: Buffer.from("dummy"),
+      contentType: "application/pdf",
+      disposition: "inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf",
+    });
+
+    const app = createTestApp(makeMember(["visitor"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1/download`);
+
+    expect(res.status).toBe(200);
+  });
+
+  it("visitor: full_score以外（midi）は403のHTMLを返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      makeScoreFile({ fileType: "midi" }) as any,
+    );
+
+    const app = createTestApp(makeMember(["visitor"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1/download`);
+
+    expect(res.status).toBe(403);
+    expect(res.headers.get("content-type")).toContain("text/html");
+  });
+
+  it("非特権メンバー: secretは購入記録を確認せず403を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue({ ...testScore, accessLevel: "secret" });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(makeScoreFile() as any);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1/download`);
+
+    expect(res.status).toBe(403);
+    expect(prisma.scorePurchase.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("非特権メンバー: public/restrictedで購入記録なしは403を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(makeScoreFile() as any);
+    vi.mocked(prisma.scorePurchase.findFirst).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1/download`);
+
+    expect(res.status).toBe(403);
+    expect(res.headers.get("content-type")).toContain("text/html");
+  });
+
+  it("非特権メンバー: public/restrictedで購入記録ありは200を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    const file = makeScoreFile();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(file as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scorePurchase.findFirst).mockResolvedValue({ id: "purchase-1" } as any);
+    vi.mocked(storage.getScoreDownload).mockResolvedValue({
+      type: "buffer",
+      data: Buffer.from("dummy"),
+      contentType: "application/pdf",
+      disposition: "inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf",
+    });
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1/download`);
+
+    expect(res.status).toBe(200);
+  });
+
+  it("特権メンバー（tech）: secretでも購入記録を確認せず200を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue({ ...testScore, accessLevel: "secret" });
+    const file = makeScoreFile();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(file as any);
+    vi.mocked(storage.getScoreDownload).mockResolvedValue({
+      type: "buffer",
+      data: Buffer.from("dummy"),
+      contentType: "application/pdf",
+      disposition: "inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf",
+    });
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1/download`);
+
+    expect(res.status).toBe(200);
+    expect(prisma.scorePurchase.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("ストレージ上にファイルが存在しない: 404のHTMLを返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    const file = makeScoreFile();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(file as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scorePurchase.findFirst).mockResolvedValue({ id: "purchase-1" } as any);
+    vi.mocked(storage.getScoreDownload).mockRejectedValue(new Error("not found"));
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1/download`);
+
+    expect(res.status).toBe(404);
+    expect(res.headers.get("content-type")).toContain("text/html");
+  });
+
+  it("R2設定時: 302リダイレクトを返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    const file = makeScoreFile();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(file as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scorePurchase.findFirst).mockResolvedValue({ id: "purchase-1" } as any);
+    vi.mocked(storage.getScoreDownload).mockResolvedValue({
+      type: "redirect",
+      url: "https://r2.example.com/signed-url",
+    });
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1/download`, {
+      redirect: "manual",
+    });
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("https://r2.example.com/signed-url");
+  });
+
+  it("正常: バイナリを200で返しヘッダーが正しく設定される", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    const file = makeScoreFile();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(file as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scorePurchase.findFirst).mockResolvedValue({ id: "purchase-1" } as any);
+    const data = Buffer.from("dummy-pdf-content");
+    vi.mocked(storage.getScoreDownload).mockResolvedValue({
+      type: "buffer",
+      data,
+      contentType: "application/pdf",
+      disposition: "inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf",
+    });
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1/download`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("application/pdf");
+    expect(res.headers.get("content-disposition")).toBe(
+      "inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf",
+    );
+    expect(res.headers.get("content-length")).toBe(String(data.length));
+    expect(res.headers.get("cache-control")).toBe("private, max-age=3600");
   });
 });

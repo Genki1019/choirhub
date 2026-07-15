@@ -1537,6 +1537,14 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 > 日本語ファイル名は RFC 5987 の `filename*=UTF-8''...` 形式でエンコードする。
 
+**Response** `302`
+
+R2設定時（本番環境）は署名付きURLへのリダイレクトを返す（ファイルはサーバーを経由しない）。
+
+> エラー時のレスポンスは他のAPIと異なり、JSONではなく**HTMLエラーページ**を返す（ブラウザの直接遷移・埋め込み表示を想定した設計のため）。
+
+**Errors:**: `403` 体験アカウントがPDF以外にアクセス / `403` 非特権メンバーが`secret`楽譜にアクセス / `403` 非特権メンバーが未購入の楽譜ファイルにアクセス / `404` 楽譜が存在しない / `404` ファイルが存在しない / `404` ストレージ上にファイルが存在しない
+
 ---
 
 <a id="scores-file-delete"></a>
@@ -1545,9 +1553,11 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 ファイルを削除する。
 
-**権限**: `score+`（PDFなど）/ `tech+`（MIDI）
+**権限**: `admin` / `score`（PDFなど）・`admin` / `tech` / `conductor`（MIDI）
 
 **Response** `204` No Content
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 楽譜が存在しない / `404` `NOT_FOUND` ファイルが存在しない
 
 ---
 

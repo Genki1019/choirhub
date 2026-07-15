@@ -22,12 +22,13 @@ vi.mock("../../lib/prisma.js", () => ({
     collection: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
     },
     collectionPayment: { create: vi.fn(), upsert: vi.fn() },
-    member: { findMany: vi.fn() },
+    member: { findMany: vi.fn(), findUnique: vi.fn() },
   },
 }));
 
@@ -826,6 +827,254 @@ describe("DELETE /finance/collections/:collectionId", () => {
     expect(res.status).toBe(204);
     expect(prisma.collection.delete).toHaveBeenCalledWith({
       where: { id: "collection-1", orgId: testOrg.id },
+    });
+  });
+});
+
+describe("PATCH /finance/collections/:collectionId/payments/:memberId", () => {
+  const testCollection = { id: "collection-1", orgId: "org-1", amount: 300 };
+
+  it("バリデーションエラー: statusが不正な値は400を返す", async () => {
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/collection-1/payments/member-2", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "invalid" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("会計担当者未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/finance/collections/collection-1/payments/member-2", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "paid" }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("徴収が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.collection.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/nonexistent/payments/member-2", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "paid" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("メンバーが存在しない/別テナント: 404を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.collection.findUnique).mockResolvedValue(testCollection as any);
+    vi.mocked(prisma.member.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/collection-1/payments/nonexistent", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "paid" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常（新規作成）: upsertのcreateが呼ばれる", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.collection.findUnique).mockResolvedValue(testCollection as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.member.findUnique).mockResolvedValue({ orgId: "org-1" } as any);
+    vi.mocked(prisma.collectionPayment.upsert).mockResolvedValue({
+      id: "payment-1",
+      status: "paid",
+      amount: 300,
+      paidAt: new Date("2026-06-14T00:00:00Z"),
+      method: "cash",
+      note: null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const actingMember = makeMember(["finance"], "recorder-1");
+    const app = createTestApp(actingMember);
+    const res = await app.request("/finance/collections/collection-1/payments/member-2", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "paid", amount: 300, paidAt: "2026-06-14", method: "cash" }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.status).toBe("paid");
+    expect(prisma.collectionPayment.upsert).toHaveBeenCalledWith({
+      where: { collectionId_memberId: { collectionId: "collection-1", memberId: "member-2" } },
+      create: {
+        collectionId: "collection-1",
+        memberId: "member-2",
+        status: "paid",
+        amount: 300,
+        paidAt: new Date("2026-06-14"),
+        method: "cash",
+        note: null,
+        recordedById: actingMember.id,
+      },
+      update: {
+        status: "paid",
+        amount: 300,
+        paidAt: new Date("2026-06-14"),
+        method: "cash",
+        note: null,
+        recordedById: actingMember.id,
+      },
+    });
+  });
+
+  it("正常（既存更新）: statusのみ変更してもupsertが呼ばれる", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.collection.findUnique).mockResolvedValue(testCollection as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.member.findUnique).mockResolvedValue({ orgId: "org-1" } as any);
+    vi.mocked(prisma.collectionPayment.upsert).mockResolvedValue({
+      id: "payment-1",
+      status: "waived",
+      amount: null,
+      paidAt: null,
+      method: null,
+      note: null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["finance"], "recorder-1"));
+    const res = await app.request("/finance/collections/collection-1/payments/member-2", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "waived" }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.status).toBe("waived");
+    expect(body.data.amount).toBeNull();
+  });
+});
+
+describe("POST /finance/collections/:collectionId/payments/bulk", () => {
+  const testCollection = { id: "collection-1", orgId: "org-1", amount: 300 };
+
+  it("バリデーションエラー: memberIdsが空配列は400を返す", async () => {
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/collection-1/payments/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberIds: [], status: "paid" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("会計担当者未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/finance/collections/collection-1/payments/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberIds: ["member-2"], status: "paid" }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("徴収が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.collection.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/nonexistent/payments/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberIds: ["member-2"], status: "paid" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("別テナントのメンバーIDが含まれる: 400 BAD_REQUESTを返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.collection.findUnique).mockResolvedValue(testCollection as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.member.findMany).mockResolvedValue([{ id: "member-2" }] as any);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/collection-1/payments/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberIds: ["member-2", "other-org-member"], status: "paid" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("BAD_REQUEST");
+  });
+
+  it("正常: 複数メンバーが一括更新されamountは更新対象外", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.collection.findUnique).mockResolvedValue(testCollection as any);
+    vi.mocked(prisma.member.findMany).mockResolvedValue([
+      { id: "member-2" },
+      { id: "member-3" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.collectionPayment.upsert).mockResolvedValue({} as any);
+
+    const actingMember = makeMember(["finance"], "recorder-1");
+    const app = createTestApp(actingMember);
+    const res = await app.request("/finance/collections/collection-1/payments/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        memberIds: ["member-2", "member-3"],
+        status: "paid",
+        paidAt: "2026-06-14T00:00:00+09:00",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ updated: 2 });
+    expect(prisma.collectionPayment.upsert).toHaveBeenCalledTimes(2);
+    expect(prisma.collectionPayment.upsert).toHaveBeenCalledWith({
+      where: { collectionId_memberId: { collectionId: "collection-1", memberId: "member-2" } },
+      create: {
+        collectionId: "collection-1",
+        memberId: "member-2",
+        status: "paid",
+        paidAt: new Date("2026-06-14T00:00:00+09:00"),
+        method: null,
+        recordedById: actingMember.id,
+      },
+      update: {
+        status: "paid",
+        paidAt: new Date("2026-06-14T00:00:00+09:00"),
+        method: null,
+        recordedById: actingMember.id,
+      },
     });
   });
 });

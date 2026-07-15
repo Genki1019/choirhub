@@ -37,6 +37,15 @@ vi.mock("../../lib/prisma.js", () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
+    eventCategory: {
+      findMany: vi.fn(),
+      aggregate: vi.fn(),
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    },
+    event: { count: vi.fn() },
   },
 }));
 
@@ -1088,5 +1097,336 @@ describe("DELETE /settings/member-types/:typeId", () => {
     const res = await app.request("/settings/member-types/type-1", { method: "DELETE" });
     expect(res.status).toBe(204);
     expect(prisma.memberType.delete).toHaveBeenCalledWith({ where: { id: "type-1" } });
+  });
+});
+
+// ────────────────────────────
+// GET /settings/event-categories
+// ────────────────────────────
+
+describe("GET /settings/event-categories", () => {
+  it("member未満(guest): 403を返す", async () => {
+    const app = createTestApp(makeMember(["guest"]));
+    const res = await app.request("/settings/event-categories");
+    expect(res.status).toBe(403);
+  });
+
+  it("member: 200で一覧を取得できる", async () => {
+    vi.mocked(prisma.eventCategory.findMany).mockResolvedValue([
+      {
+        id: "cat-1",
+        orgId: "org-1",
+        name: "練習",
+        slug: "rehearsal",
+        color: "#3B82F6",
+        sortOrder: 0,
+        createdAt: new Date("2024-01-01"),
+      },
+    ]);
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/settings/event-categories");
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual([
+      { id: "cat-1", name: "練習", slug: "rehearsal", color: "#3B82F6", sortOrder: 0 },
+    ]);
+    expect(prisma.eventCategory.findMany).toHaveBeenCalledWith({
+      where: { orgId: "org-1" },
+      orderBy: { sortOrder: "asc" },
+    });
+  });
+});
+
+// ────────────────────────────
+// POST /settings/event-categories
+// ────────────────────────────
+
+describe("POST /settings/event-categories", () => {
+  it("admin未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/settings/event-categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "合宿" }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("admin: 201で作成する（sortOrder省略時は既存最大値+1）", async () => {
+    vi.mocked(prisma.eventCategory.aggregate).mockResolvedValue({
+      _max: { sortOrder: 3 },
+    } as never);
+    vi.mocked(prisma.eventCategory.create).mockResolvedValue({
+      id: "cat-4",
+      orgId: "org-1",
+      name: "合宿",
+      slug: null,
+      color: "#10B981",
+      sortOrder: 4,
+      createdAt: new Date("2024-01-01"),
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/event-categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "合宿", color: "#10B981" }),
+    });
+    expect(res.status).toBe(201);
+    const body = await json(res);
+    expect(body.data).toEqual({
+      id: "cat-4",
+      name: "合宿",
+      slug: null,
+      color: "#10B981",
+      sortOrder: 4,
+    });
+    expect(prisma.eventCategory.create).toHaveBeenCalledWith({
+      data: { orgId: "org-1", name: "合宿", color: "#10B981", sortOrder: 4 },
+    });
+  });
+
+  it("color省略時: デフォルト値#6B7280で作成される", async () => {
+    vi.mocked(prisma.eventCategory.aggregate).mockResolvedValue({
+      _max: { sortOrder: null },
+    } as never);
+    vi.mocked(prisma.eventCategory.create).mockResolvedValue({
+      id: "cat-4",
+      orgId: "org-1",
+      name: "合宿",
+      slug: null,
+      color: "#6B7280",
+      sortOrder: 1,
+      createdAt: new Date("2024-01-01"),
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    await app.request("/settings/event-categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "合宿" }),
+    });
+    expect(prisma.eventCategory.create).toHaveBeenCalledWith({
+      data: { orgId: "org-1", name: "合宿", color: "#6B7280", sortOrder: 1 },
+    });
+  });
+
+  it("colorが#RRGGBB形式でない: 400を返す", async () => {
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/event-categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "合宿", color: "green" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("nameが空文字: 400を返す", async () => {
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/event-categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("nameが51文字以上: 400を返す", async () => {
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/event-categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "あ".repeat(51) }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+// ────────────────────────────
+// PATCH /settings/event-categories/:categoryId
+// ────────────────────────────
+
+describe("PATCH /settings/event-categories/:categoryId", () => {
+  it("admin未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/settings/event-categories/cat-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "合宿・研修" }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("存在しないcategoryId: 404を返す", async () => {
+    vi.mocked(prisma.eventCategory.findUnique).mockResolvedValue(null);
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/event-categories/no-such-cat", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "合宿・研修" }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("他テナントのcategoryId: 404を返す", async () => {
+    vi.mocked(prisma.eventCategory.findUnique).mockResolvedValue({
+      id: "cat-other",
+      orgId: "org-2",
+      name: "他団体区分",
+      slug: null,
+      color: "#6B7280",
+      sortOrder: 0,
+      createdAt: new Date("2024-01-01"),
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/event-categories/cat-other", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "合宿・研修" }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("admin: 200でname・color・sortOrderを部分更新できる", async () => {
+    vi.mocked(prisma.eventCategory.findUnique).mockResolvedValue({
+      id: "cat-4",
+      orgId: "org-1",
+      name: "合宿",
+      slug: null,
+      color: "#10B981",
+      sortOrder: 4,
+      createdAt: new Date("2024-01-01"),
+    });
+    vi.mocked(prisma.eventCategory.update).mockResolvedValue({
+      id: "cat-4",
+      orgId: "org-1",
+      name: "合宿・研修",
+      slug: null,
+      color: "#6366F1",
+      sortOrder: 4,
+      createdAt: new Date("2024-01-01"),
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/event-categories/cat-4", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "合宿・研修", color: "#6366F1" }),
+    });
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({
+      id: "cat-4",
+      name: "合宿・研修",
+      slug: null,
+      color: "#6366F1",
+      sortOrder: 4,
+    });
+    expect(prisma.eventCategory.update).toHaveBeenCalledWith({
+      where: { id: "cat-4" },
+      data: { name: "合宿・研修", color: "#6366F1" },
+    });
+  });
+
+  it("colorが不正な形式: 400を返す", async () => {
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/event-categories/cat-4", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ color: "#GGG" }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+// ────────────────────────────
+// DELETE /settings/event-categories/:categoryId
+// ────────────────────────────
+
+describe("DELETE /settings/event-categories/:categoryId", () => {
+  it("admin未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/settings/event-categories/cat-1", { method: "DELETE" });
+    expect(res.status).toBe(403);
+  });
+
+  it("存在しないcategoryId: 404を返す", async () => {
+    vi.mocked(prisma.eventCategory.findUnique).mockResolvedValue(null);
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/event-categories/no-such-cat", { method: "DELETE" });
+    expect(res.status).toBe(404);
+  });
+
+  it("他テナントのcategoryId: 404を返す", async () => {
+    vi.mocked(prisma.eventCategory.findUnique).mockResolvedValue({
+      id: "cat-other",
+      orgId: "org-2",
+      name: "他団体区分",
+      slug: null,
+      color: "#6B7280",
+      sortOrder: 0,
+      createdAt: new Date("2024-01-01"),
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/event-categories/cat-other", { method: "DELETE" });
+    expect(res.status).toBe(404);
+  });
+
+  it("システム標準区分(slugが非null): 409を返す", async () => {
+    vi.mocked(prisma.eventCategory.findUnique).mockResolvedValue({
+      id: "cat-1",
+      orgId: "org-1",
+      name: "練習",
+      slug: "rehearsal",
+      color: "#3B82F6",
+      sortOrder: 0,
+      createdAt: new Date("2024-01-01"),
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/event-categories/cat-1", { method: "DELETE" });
+    expect(res.status).toBe(409);
+    expect(prisma.event.count).not.toHaveBeenCalled();
+  });
+
+  it("使用中のイベントが存在する: 409を返す（件数を含むメッセージ）", async () => {
+    vi.mocked(prisma.eventCategory.findUnique).mockResolvedValue({
+      id: "cat-4",
+      orgId: "org-1",
+      name: "合宿",
+      slug: null,
+      color: "#10B981",
+      sortOrder: 4,
+      createdAt: new Date("2024-01-01"),
+    });
+    vi.mocked(prisma.event.count).mockResolvedValue(7);
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/event-categories/cat-4", { method: "DELETE" });
+    expect(res.status).toBe(409);
+    const body = await json(res);
+    expect(body.error.message).toContain("7");
+    expect(prisma.eventCategory.delete).not.toHaveBeenCalled();
+  });
+
+  it("ユーザー作成区分かつ使用中イベント0件: 204で削除できる", async () => {
+    vi.mocked(prisma.eventCategory.findUnique).mockResolvedValue({
+      id: "cat-4",
+      orgId: "org-1",
+      name: "合宿",
+      slug: null,
+      color: "#10B981",
+      sortOrder: 4,
+      createdAt: new Date("2024-01-01"),
+    });
+    vi.mocked(prisma.event.count).mockResolvedValue(0);
+    vi.mocked(prisma.eventCategory.delete).mockResolvedValue({
+      id: "cat-4",
+      orgId: "org-1",
+      name: "合宿",
+      slug: null,
+      color: "#10B981",
+      sortOrder: 4,
+      createdAt: new Date("2024-01-01"),
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/event-categories/cat-4", { method: "DELETE" });
+    expect(res.status).toBe(204);
+    expect(prisma.eventCategory.delete).toHaveBeenCalledWith({ where: { id: "cat-4" } });
   });
 });

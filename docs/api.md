@@ -1591,33 +1591,60 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
+**Errors:**: `403` `FORBIDDEN` 権限不足
+
 ---
 
 <a id="concerts-create"></a>
 
 ### POST `/api/v1/:orgSlug/concerts`
 
-演奏会を作成する。
+演奏会を作成する。あわせてスケジュールと連携するため、`concert`スラグ（無ければ「本番」という名前）のイベント区分を自動で探す／作成し、その区分の`Event`も同時に作成する。
 
 **権限**: `admin`
 
 **Request Body:**
 
-| フィールド | 型             | 必須 | 説明                   |
-| ---------- | -------------- | ---- | ---------------------- |
-| title      | string         | ✓    | 演奏会名               |
-| heldOn     | string         | ✓    | 開催日（ISO8601 date） |
-| venue      | string \| null |      | 会場名                 |
+| フィールド    | 型               | 必須 | 説明                                         |
+| ------------- | ---------------- | ---- | -------------------------------------------- |
+| title         | string           | ✓    | 演奏会名                                     |
+| heldOn        | string           | ✓    | 開催日時（ISO8601 datetime、オフセット必須） |
+| endsAt        | string           |      | 終了日時（ISO8601 datetime、オフセット必須） |
+| venue         | string \| null   |      | 会場名                                       |
+| locationUrl   | string \| null   |      | 会場URL（連携Eventに使用）                   |
+| targetRoles   | string[] \| null |      | 対象ロール（連携Eventに使用）                |
+| targetPartIds | string[] \| null |      | 対象パートID（連携Eventに使用）              |
+| deadline      | string \| null   |      | 出欠回答締切（ISO8601 datetime）             |
+| pageMemo      | string \| null   |      | 連携Eventのページメモ                        |
 
 ```json
 {
   "title": "第20回定期演奏会",
-  "heldOn": "2026-11-23",
+  "heldOn": "2026-11-23T00:00:00+09:00",
   "venue": "○○ホール"
 }
 ```
 
-**Response** `201` → 作成した演奏会情報（`stageCount: 0`, `programCount: 0`）
+**Response** `201`
+
+```json
+{
+  "data": {
+    "id": "cuid",
+    "title": "第20回定期演奏会",
+    "heldOn": "2026-11-23T00:00:00.000Z",
+    "venue": "○○ホール",
+    "status": "planning",
+    "stageCount": 0,
+    "programCount": 0,
+    "hasSurvey": false,
+    "surveyOpen": false,
+    "linkedEventId": "cuid"
+  }
+}
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足
 
 ---
 
@@ -1645,6 +1672,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
   ]
 }
 ```
+
+**Errors:**: `403` `FORBIDDEN` 権限不足
 
 ---
 

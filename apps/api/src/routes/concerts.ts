@@ -14,7 +14,7 @@ import type { TenantEnv } from "../middleware/tenant.js";
 
 export const concertsRouter = new Hono<TenantEnv>()
 
-  // ── POST /concerts ── 演奏会を新規作成（tech 以上）
+  // ── POST /concerts ── 演奏会を新規作成（admin のみ）
   // スケジュールと連携するため、"concert" スラグのイベント区分を自動で探して Event も作成する
   .post(
     "/concerts",
@@ -40,8 +40,11 @@ export const concertsRouter = new Hono<TenantEnv>()
       const actingMember = c.get("member");
       const org = c.get("org");
 
-      if (!hasRole(actingMember, "tech")) {
-        return c.json({ error: { code: "FORBIDDEN", message: "技術系以上の権限が必要です" } }, 403);
+      if (!isAdmin(actingMember)) {
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "管理者のみ演奏会を作成できます" } },
+          403,
+        );
       }
 
       const {

@@ -11,7 +11,7 @@ async function json(res: Response): Promise<Record<string, any>> {
 
 vi.mock("../../lib/prisma.js", () => ({
   prisma: {
-    score: { findMany: vi.fn(), findUnique: vi.fn() },
+    score: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     concert: { findMany: vi.fn() },
     part: { findMany: vi.fn() },
     scorePurchase: { findFirst: vi.fn(), count: vi.fn() },
@@ -464,5 +464,216 @@ describe("GET /scores/:scoreId", () => {
     const body = await json(res);
     expect(body.data.files[0].partId).toBe("part-1");
     expect(body.data.files[0].partName).toBe("Tenor I");
+  });
+});
+
+describe("POST /scores", () => {
+  it("バリデーションエラー: title空は400を返す", async () => {
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/scores", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("admin以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request("/scores", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "新曲" }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("正常（admin）: 201を返し楽譜が作成される", async () => {
+    vi.mocked(prisma.score.create).mockResolvedValue({
+      ...testScore,
+      id: "score-new",
+      title: "新曲",
+      composer: null,
+      arranger: null,
+    });
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/scores", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "新曲" }),
+    });
+
+    expect(res.status).toBe(201);
+    const body = await json(res);
+    expect(body.data).toEqual({
+      id: "score-new",
+      title: "新曲",
+      composer: null,
+      arranger: null,
+    });
+    expect(prisma.score.create).toHaveBeenCalledWith({
+      data: {
+        orgId: testOrg.id,
+        title: "新曲",
+        composer: null,
+        arranger: null,
+        isCommissioned: false,
+        purchaseDate: null,
+        distributionStart: null,
+        purchasePrice: null,
+        notes: null,
+      },
+    });
+  });
+});
+
+describe("PATCH /scores/:scoreId", () => {
+  it("バリデーションエラー: titleが空文字は400を返す", async () => {
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/scores/${testScore.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("score+以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/scores/${testScore.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notes: "メモ" }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/scores/nonexistent", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notes: "メモ" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("scoreロール: admin限定フィールド（title等）を送っても無視され、他フィールドは反映される", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.score.update).mockResolvedValue({
+      id: testScore.id,
+      title: testScore.title,
+      composer: testScore.composer,
+      arranger: testScore.arranger,
+      accessLevel: testScore.accessLevel,
+      isCommissioned: testScore.isCommissioned,
+      purchaseDate: null,
+      distributionStart: null,
+      purchasePrice: 999,
+      notes: testScore.notes,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "不正な変更", purchasePrice: 999 }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(prisma.score.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: testScore.id },
+        data: { purchasePrice: 999 },
+      }),
+    );
+  });
+
+  it("admin: 全フィールドが反映される", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.score.update).mockResolvedValue({
+      id: testScore.id,
+      title: "改訂版",
+      composer: "新作曲家",
+      arranger: "新編曲家",
+      accessLevel: "public",
+      isCommissioned: true,
+      purchaseDate: new Date("2026-10-01"),
+      distributionStart: null,
+      purchasePrice: 1500,
+      notes: "改訂",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/scores/${testScore.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "改訂版",
+        composer: "新作曲家",
+        arranger: "新編曲家",
+        accessLevel: "public",
+        isCommissioned: true,
+        purchaseDate: "2026-10-01",
+        purchasePrice: 1500,
+        notes: "改訂",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.title).toBe("改訂版");
+    expect(body.data.accessLevel).toBe("public");
+    expect(body.data.purchaseDate).toBe("2026-10-01");
+    expect(prisma.score.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: testScore.id },
+        data: expect.objectContaining({
+          title: "改訂版",
+          composer: "新作曲家",
+          arranger: "新編曲家",
+          accessLevel: "public",
+          isCommissioned: true,
+          purchasePrice: 1500,
+          notes: "改訂",
+        }),
+      }),
+    );
+  });
+
+  it("scoreロール: admin限定フィールドのみ送信すると更新自体が呼ばれず{id}のみ返る", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "不正な変更", accessLevel: "public" }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ id: testScore.id });
+    expect(prisma.score.update).not.toHaveBeenCalled();
   });
 });

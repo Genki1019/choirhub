@@ -1184,6 +1184,8 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 管理者以外
+
 ---
 
 <a id="scores-detail"></a>
@@ -1293,7 +1295,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
-**Errors:** `403` score+ 以外 / `404` 楽譜が存在しない
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` score+ 以外 / `404` `NOT_FOUND` 楽譜が存在しない
 
 ---
 

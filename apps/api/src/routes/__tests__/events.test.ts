@@ -774,3 +774,238 @@ describe("DELETE /events/:id", () => {
     expect(prisma.concert.delete).not.toHaveBeenCalled();
   });
 });
+
+describe("PUT /events/:id/attendance/me", () => {
+  it("バリデーションエラー: statusが不正な値は400を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/events/event-1/attendance/me", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "invalid" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/events/nonexistent/attendance/me", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "attending" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("招待対象外（非admin）: 403 NOT_INVITEDを返す", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({
+      ...testEvent,
+      targetRoles: ["tech"],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/events/event-1/attendance/me", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "attending" }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_INVITED");
+  });
+
+  it("締切済み（isLocked:true）: 403 LOCKEDを返す", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({
+      ...testEvent,
+      isLocked: true,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/events/event-1/attendance/me", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "attending" }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("LOCKED");
+  });
+
+  it("正常: 自分の出欠を登録・更新する", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.event.findUnique).mockResolvedValue(testEvent as any);
+    vi.mocked(prisma.attendance.upsert).mockResolvedValue({
+      status: "maybe",
+      arriveTime: "19:00",
+      leaveTime: null,
+      dayMemo: "少し遅れます",
+      updatedAt: new Date("2026-06-05T10:00:00Z"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const actingMember = makeMember(["member"], "member-1");
+    const app = createTestApp(actingMember);
+    const res = await app.request("/events/event-1/attendance/me", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "maybe", arriveTime: "19:00", dayMemo: "少し遅れます" }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({
+      status: "maybe",
+      arriveTime: "19:00",
+      leaveTime: null,
+      dayMemo: "少し遅れます",
+      updatedAt: "2026-06-05T10:00:00.000Z",
+    });
+    expect(prisma.attendance.upsert).toHaveBeenCalledWith({
+      where: { eventId_memberId: { eventId: "event-1", memberId: actingMember.id } },
+      create: {
+        eventId: "event-1",
+        memberId: actingMember.id,
+        status: "maybe",
+        arriveTime: "19:00",
+        dayMemo: "少し遅れます",
+      },
+      update: { status: "maybe", arriveTime: "19:00", dayMemo: "少し遅れます" },
+    });
+  });
+});
+
+describe("PATCH /events/:id/attendance/:memberId", () => {
+  it("バリデーションエラー: statusが不正な値は400を返す", async () => {
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/events/event-1/attendance/member-2", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "invalid" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("admin以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/events/event-1/attendance/member-2", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "attending" }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/events/nonexistent/attendance/member-2", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "attending" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("対象メンバーが存在しない/別テナント: 404を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.event.findUnique).mockResolvedValue(testEvent as any);
+    vi.mocked(prisma.member.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/events/event-1/attendance/nonexistent", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "attending" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: 招待対象外のメンバーでも更新できる", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({
+      ...testEvent,
+      targetRoles: ["tech"],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.member.findUnique).mockResolvedValue(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      makeMember(["member"], "member-2") as any,
+    );
+    vi.mocked(prisma.attendance.upsert).mockResolvedValue({
+      status: "attending",
+      arriveTime: null,
+      leaveTime: null,
+      dayMemo: null,
+      updatedAt: new Date("2026-06-05T10:00:00Z"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["admin"], "admin-1"));
+    const res = await app.request("/events/event-1/attendance/member-2", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "attending" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(prisma.attendance.upsert).toHaveBeenCalledWith({
+      where: { eventId_memberId: { eventId: "event-1", memberId: "member-2" } },
+      create: { eventId: "event-1", memberId: "member-2", status: "attending" },
+      update: { status: "attending" },
+    });
+  });
+
+  it("正常: isLocked:trueでも更新できる（締切の影響を受けない）", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({
+      ...testEvent,
+      isLocked: true,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.member.findUnique).mockResolvedValue(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      makeMember(["member"], "member-2") as any,
+    );
+    vi.mocked(prisma.attendance.upsert).mockResolvedValue({
+      status: "absent",
+      arriveTime: null,
+      leaveTime: null,
+      dayMemo: null,
+      updatedAt: new Date("2026-06-05T10:00:00Z"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/events/event-1/attendance/member-2", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "absent" }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.status).toBe("absent");
+  });
+});

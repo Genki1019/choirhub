@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { isAdmin, isFinancePlus } from "../services/access.js";
+import { isFinancePlus, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 const paymentMethodSchema = z.enum(["cash", "paypay", "bank_transfer", "other"]);
@@ -403,7 +403,7 @@ export const accountingRouter = new Hono<TenantEnv>()
             include: { memberType: true },
           })
         : await prisma.member.findMany({
-            where: { orgId: org.id, status: "active", NOT: { roles: { hasSome: ["visitor"] } } },
+            where: { orgId: org.id, status: "active", ...EXCLUDE_HIDDEN_ROLES },
             include: { memberType: true },
           });
 
@@ -547,8 +547,8 @@ export const accountingRouter = new Hono<TenantEnv>()
     const member = c.get("member");
     const { collectionId } = c.req.param();
 
-    if (!isAdmin(member)) {
-      return c.json({ error: { code: "FORBIDDEN", message: "管理者権限が必要です" } }, 403);
+    if (!isFinancePlus(member)) {
+      return c.json({ error: { code: "FORBIDDEN", message: "会計以上の権限が必要です" } }, 403);
     }
 
     const target = await prisma.collection.findFirst({

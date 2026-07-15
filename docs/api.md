@@ -2180,7 +2180,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 指定した調査の回答内容を `OnStageAssignment`（オンステ確定）に反映する。調査が複数（一次・二次など）ある場合に、どの調査を反映するかを明示的に選べるようにするための操作。開閉状態にかかわらず呼び出せる（締切時の自動反映とは独立）。
 
-**権限**: `tech+`
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Response** `200`
 
@@ -2189,6 +2189,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 ```
 
 > 反映すると `Concert.appliedSurveyId` がこの調査の ID になる。`off` になったメンバーは、既存のフォーメーション配置（`FormationSlot`）からも削除される。
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 調査が存在しない・指定の演奏会に属していない
 
 ---
 
@@ -2200,7 +2202,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 フォーメーションパターンを新規作成する。
 
-**権限**: `tech+`
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Request Body:**
 
@@ -2229,6 +2231,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 > 作成と同時に `conductor` / `piano` の `FormationBox` を1件ずつ自動作成する。
 
+**Errors:**: `400` `VALIDATION_ERROR` name未入力 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` ステージが存在しない・この演奏会に属さない
+
 ---
 
 <a id="formation-patterns-patch"></a>
@@ -2237,7 +2241,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 パターンの名称・段の千鳥配置・ピアノ位置を更新する（いずれも省略可・部分更新）。
 
-**権限**: `tech+`
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Request Body:**
 
@@ -2249,6 +2253,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Response** `200` → 更新後のパターン基本情報（`boxes` / `slots` は含まない）
 
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` パターンが存在しない・指定のステージに属さない
+
 ---
 
 <a id="formation-patterns-delete"></a>
@@ -2257,9 +2263,11 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 パターンを削除する（紐づく `FormationBox` / `FormationSlot` もカスケード削除）。
 
-**権限**: `tech+`
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Response** `204`
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` パターンが存在しない・指定のステージに属さない
 
 ---
 
@@ -2269,7 +2277,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 パターンの表示順を並び替える。
 
-**権限**: `tech+`
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Request Body:**
 
@@ -2279,6 +2287,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Response** `204`
 
+**Errors:**: `400` `VALIDATION_ERROR` idsが空 / `400` `BAD_REQUEST` このステージに属さないパターンIDが含まれる / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
 ---
 
 <a id="formation-slots-save"></a>
@@ -2287,7 +2297,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 枠（`boxes`）とスロット（`slots`）をまとめて保存する。既存の枠・スロットを全て削除してから作り直す（フォーメーション編集画面が編集操作のたびに全体を送信する）。
 
-**権限**: `tech+`
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Request Body:**
 
@@ -2323,6 +2333,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 > `memberId` を指定する場合、そのメンバーが同一団体に属していること（IDOR 防止）に加え、当該ステージで `OnStageAssignment.status: "on"`（オンステ確定済み）であることを検証する。いずれかを満たさない場合は `400 BAD_REQUEST`。`boxClientId` は同リクエスト内の `boxes[].clientId` に存在するものだけを許可する。
 
 **Response** `204`
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `400` `BAD_REQUEST` 別テナントのメンバーが含まれる / `400` `BAD_REQUEST` オンステ確定していないメンバーが含まれる / `400` `BAD_REQUEST` 存在しない枠を参照している / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` パターンが存在しない・指定のステージに属さない
 
 ---
 

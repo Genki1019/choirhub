@@ -1784,22 +1784,32 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 ### PATCH `/api/v1/:orgSlug/concerts/:id`
 
-演奏会の基本情報を更新する。
+演奏会の基本情報を更新する。連携する`Event`（title・heldOn・venue）があれば同時に更新される。
 
 **権限**: `admin`
 
 **Request Body:**（すべて省略可）
 
+| フィールド             | 型             | 説明                                                             |
+| ---------------------- | -------------- | ---------------------------------------------------------------- |
+| title                  | string         | 演奏会名                                                         |
+| heldOn                 | string         | 開催日（ISO8601 date、`YYYY-MM-DD`。時刻・オフセットは付けない） |
+| venue                  | string \| null | 会場名                                                           |
+| status                 | string         | `draft` / `survey_open` / `confirmed` / `past`                   |
+| outreachExpensePerTrip | number \| null | 情宣活動1回あたりの実費                                          |
+
 ```json
 {
   "title": "第20回定期演奏会",
-  "heldOn": "2026-11-23T00:00:00+09:00",
+  "heldOn": "2026-11-23",
   "venue": "○○ホール",
   "status": "survey_open"
 }
 ```
 
-**Response** `200` → 更新後の演奏会情報
+**Response** `200` → 更新後の演奏会情報（`id`/`title`/`heldOn`/`venue`/`status`）
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 
@@ -1812,6 +1822,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 **権限**: `admin`
 
 **Response** `204` No Content
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 

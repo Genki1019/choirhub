@@ -14,8 +14,10 @@ vi.mock("../../lib/prisma.js", () => ({
     score: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     concert: { findMany: vi.fn() },
     part: { findMany: vi.fn() },
-    scorePurchase: { findFirst: vi.fn(), count: vi.fn() },
+    member: { findMany: vi.fn() },
+    scorePurchase: { findFirst: vi.fn(), count: vi.fn(), findMany: vi.fn(), create: vi.fn() },
     collection: { findFirst: vi.fn() },
+    $executeRaw: vi.fn(),
   },
 }));
 
@@ -675,5 +677,271 @@ describe("PATCH /scores/:scoreId", () => {
     const body = await json(res);
     expect(body.data).toEqual({ id: testScore.id });
     expect(prisma.score.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /scores/:scoreId/purchases", () => {
+  it("score+以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/scores/${testScore.id}/purchases`);
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request("/scores/nonexistent/purchases");
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: 購入者一覧を返し、guest/visitorを除外するクエリになっている", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.scorePurchase.findMany).mockResolvedValue([
+      {
+        memberId: "member-2",
+        purchasedAt: new Date("2025-10-20"),
+        note: null,
+        createdAt: new Date("2025-10-20T10:00:00Z"),
+        member: { userRef: { nameJa: "山田 太郎" }, part: { name: "Tenor I" } },
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/purchases`);
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual([
+      {
+        memberId: "member-2",
+        nameJa: "山田 太郎",
+        partName: "Tenor I",
+        purchasedAt: "2025-10-20",
+        note: null,
+        createdAt: "2025-10-20T10:00:00.000Z",
+      },
+    ]);
+    expect(prisma.scorePurchase.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          scoreId: testScore.id,
+          member: { NOT: { roles: { hasSome: ["guest", "visitor"] } } },
+        }),
+      }),
+    );
+  });
+});
+
+describe("PUT /scores/:scoreId/purchases", () => {
+  it("バリデーションエラー: memberIdsが配列でない場合は400を返す", async () => {
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/purchases`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberIds: "not-an-array" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("score+以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/scores/${testScore.id}/purchases`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberIds: [] }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request("/scores/nonexistent/purchases", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberIds: [] }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("他団体のメンバーIDが含まれる: 400 BAD_REQUESTを返し作成処理は走らない", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.member.findMany).mockResolvedValue([{ id: "member-2" }] as any);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/purchases`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberIds: ["member-2", "other-org-member"] }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("BAD_REQUEST");
+    expect(prisma.$executeRaw).not.toHaveBeenCalled();
+    expect(prisma.scorePurchase.create).not.toHaveBeenCalled();
+  });
+
+  it("正常: 全置換される", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.member.findMany).mockResolvedValue([
+      { id: "member-2" },
+      { id: "member-3" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scorePurchase.create).mockResolvedValue({} as any);
+
+    const actingMember = makeMember(["score"], "member-recorder");
+    const app = createTestApp(actingMember);
+    const res = await app.request(`/scores/${testScore.id}/purchases`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        memberIds: ["member-2", "member-3"],
+        purchasedAt: "2026-10-01",
+        note: "10月配布分",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ updated: 2 });
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.scorePurchase.create).toHaveBeenCalledTimes(2);
+    expect(prisma.scorePurchase.create).toHaveBeenCalledWith({
+      data: {
+        scoreId: testScore.id,
+        memberId: "member-2",
+        purchasedAt: new Date("2026-10-01"),
+        note: "10月配布分",
+        recordedById: actingMember.id,
+      },
+    });
+  });
+
+  it("memberIds空配列: 既存の購入記録が全削除されupdated:0を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.member.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/purchases`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberIds: [] }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ updated: 0 });
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.scorePurchase.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("PATCH /scores/:scoreId/price", () => {
+  it("バリデーションエラー: 負の数は400を返す", async () => {
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/price`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ price: -100 }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("score+以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/scores/${testScore.id}/price`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ price: 500 }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request("/scores/nonexistent/price", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ price: 500 }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: 価格を設定する", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.score.update).mockResolvedValue({
+      id: testScore.id,
+      distributionPrice: 500,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/price`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ price: 500 }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ id: testScore.id, distributionPrice: 500 });
+    expect(prisma.score.update).toHaveBeenCalledWith({
+      where: { id: testScore.id },
+      data: { distributionPrice: 500 },
+      select: { id: true, distributionPrice: true },
+    });
+  });
+
+  it("正常: nullで未設定に戻す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.score.update).mockResolvedValue({
+      id: testScore.id,
+      distributionPrice: null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/scores/${testScore.id}/price`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ price: null }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ id: testScore.id, distributionPrice: null });
   });
 });

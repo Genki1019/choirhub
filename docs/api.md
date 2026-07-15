@@ -1328,7 +1328,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
-**Errors:**: `403` 楽譜がかり・管理者以外
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` score+ 以外 / `404` `NOT_FOUND` 楽譜が存在しない
 
 ---
 
@@ -1357,6 +1357,10 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
+> `guest`・`visitor` ロールのメンバーは購入記録の対象外（一覧に含まれない）。
+
+**Errors:**: `403` `FORBIDDEN` score+ 以外 / `404` `NOT_FOUND` 楽譜が存在しない
+
 ---
 
 <a id="scores-purchases-put"></a>
@@ -1372,6 +1376,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 ```json
 {
   "memberIds": ["cuid1", "cuid2"],
+  "purchasedAt": "2026-10-01",
   "note": "10月配布分"
 }
 ```
@@ -1381,6 +1386,10 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 ```json
 { "data": { "updated": 2 } }
 ```
+
+> `memberIds` に他団体のメンバーIDが1件でも含まれる場合、全体を拒否する（サイレント消去防止）。
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `400` `BAD_REQUEST` 他団体のメンバーIDが含まれている / `403` `FORBIDDEN` score+ 以外 / `404` `NOT_FOUND` 楽譜が存在しない
 
 ---
 

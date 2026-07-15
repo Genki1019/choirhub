@@ -2383,6 +2383,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 > `subject`・`bodyPreview` は送信時に DB へ保存済みのため Resend API 呼び出しなし。`avatarUrl` は送信者の User.avatarUrl。  
 > `Cache-Control: no-store` ヘッダーを付与する（ブラウザキャッシュ防止）。
 
+**Errors:**: `400` `VALIDATION_ERROR` page・perPageが正の整数でない
+
 ---
 
 <a id="mailing-id-get"></a>
@@ -2421,6 +2423,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 > `recipients` は `resendIds` 各要素に対し Resend API を並列呼び出しして取得。  
 > DEV 環境は全員分が `DEV_MAIL_TO` 1件に集約されるため `recipients` は1件のみ。
+
+**Errors:**: `404` `NOT_FOUND` メールが存在しない・別テナント / `404` `NOT_FOUND` 送信者でも受信者でもない（権限なしを知らせないため404で統一）
 
 ---
 
@@ -2464,6 +2468,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` guest/visitorが送信しようとした
+
 ---
 
 <a id="mailing-templates-list"></a>
@@ -2490,6 +2496,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
   ]
 }
 ```
+
+**Errors:**: `403` `FORBIDDEN` 権限不足
 
 ---
 
@@ -2525,6 +2533,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` guest/visitorが作成しようとした
+
 ---
 
 <a id="mailing-templates-update"></a>
@@ -2543,6 +2553,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Response** `200` — 更新後のテンプレートオブジェクト
 
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 作成者でも管理者でもない / `404` `NOT_FOUND` テンプレートが存在しない・別テナント
+
 ---
 
 <a id="mailing-templates-delete"></a>
@@ -2554,6 +2566,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 **権限**: 作成者 or `admin`
 
 **Response** `204`
+
+**Errors:**: `403` `FORBIDDEN` 作成者でも管理者でもない / `404` `NOT_FOUND` テンプレートが存在しない・別テナント
 
 ---
 

@@ -16,8 +16,22 @@ export const mailingRouter = new Hono<TenantEnv>()
   .get("/mailing", async (c) => {
     const org = c.get("org");
     const member = c.get("member");
-    const page = Math.max(1, Number(c.req.query("page") ?? 1));
-    const perPage = Math.min(50, Math.max(1, Number(c.req.query("perPage") ?? 20)));
+
+    const pageRaw = c.req.query("page");
+    const perPageRaw = c.req.query("perPage");
+    if (
+      (pageRaw !== undefined && !/^\d+$/.test(pageRaw)) ||
+      (perPageRaw !== undefined && !/^\d+$/.test(perPageRaw))
+    ) {
+      return c.json(
+        {
+          error: { code: "VALIDATION_ERROR", message: "page・perPageは正の整数で指定してください" },
+        },
+        400,
+      );
+    }
+    const page = Math.max(1, Number(pageRaw ?? 1));
+    const perPage = Math.min(50, Math.max(1, Number(perPageRaw ?? 20)));
 
     // 全員「送信者 or 受信者」に限定（admin も例外なし）
     const where = {

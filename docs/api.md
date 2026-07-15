@@ -179,18 +179,20 @@
 
 ### 会計
 
-| API名                                       | Method | Path                                                   | 権限     |
-| ------------------------------------------- | ------ | ------------------------------------------------------ | -------- |
-| [収支サマリー取得](#accounting-summary)     | GET    | `/:orgSlug/finance/summary`                            | finance+ |
-| [徴収一覧取得](#collections-list)           | GET    | `/:orgSlug/finance/collections`                        | finance+ |
-| [徴収作成](#collections-create)             | POST   | `/:orgSlug/finance/collections`                        | finance+ |
-| [徴収詳細取得](#collections-id-get)         | GET    | `/:orgSlug/finance/collections/:id`                    | finance+ |
-| [徴収削除](#collections-id-delete)          | DELETE | `/:orgSlug/finance/collections/:id`                    | admin    |
-| [支払い記録更新](#collection-payment-patch) | PATCH  | `/:orgSlug/finance/collections/:id/payments/:memberId` | finance+ |
-| [支出一覧取得](#expenses-list)              | GET    | `/:orgSlug/finance/expenses`                           | finance+ |
-| [支出登録](#expenses-create)                | POST   | `/:orgSlug/finance/expenses`                           | finance+ |
-| [支出更新](#expenses-patch)                 | PATCH  | `/:orgSlug/finance/expenses/:id`                       | finance+ |
-| [支出削除](#expenses-delete)                | DELETE | `/:orgSlug/finance/expenses/:id`                       | finance+ |
+| API名                                           | Method | Path                                                   | 権限     |
+| ----------------------------------------------- | ------ | ------------------------------------------------------ | -------- |
+| [収支サマリー取得](#accounting-summary)         | GET    | `/:orgSlug/finance/summary`                            | finance+ |
+| [徴収一覧取得](#collections-list)               | GET    | `/:orgSlug/finance/collections`                        | finance+ |
+| [徴収作成](#collections-create)                 | POST   | `/:orgSlug/finance/collections`                        | finance+ |
+| [徴収詳細取得](#collections-id-get)             | GET    | `/:orgSlug/finance/collections/:id`                    | finance+ |
+| [徴収更新](#collections-patch)                  | PATCH  | `/:orgSlug/finance/collections/:id`                    | finance+ |
+| [徴収削除](#collections-id-delete)              | DELETE | `/:orgSlug/finance/collections/:id`                    | finance+ |
+| [支払い記録更新](#collection-payment-patch)     | PATCH  | `/:orgSlug/finance/collections/:id/payments/:memberId` | finance+ |
+| [支払い記録一括更新](#collection-payments-bulk) | POST   | `/:orgSlug/finance/collections/:id/payments/bulk`      | finance+ |
+| [支出一覧取得](#expenses-list)                  | GET    | `/:orgSlug/finance/expenses`                           | finance+ |
+| [支出登録](#expenses-create)                    | POST   | `/:orgSlug/finance/expenses`                           | finance+ |
+| [支出更新](#expenses-patch)                     | PATCH  | `/:orgSlug/finance/expenses/:id`                       | finance+ |
+| [支出削除](#expenses-delete)                    | DELETE | `/:orgSlug/finance/expenses/:id`                       | finance+ |
 
 ---
 
@@ -3474,6 +3476,10 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
+> `waived`（免除）扱いの支払いは`totalCollected`・`totalPending`いずれにも含まれない。
+
+**Errors:**: `400` `VALIDATION_ERROR` yearが4桁の数字でない / `403` `FORBIDDEN` 権限不足
+
 ---
 
 ### 11.3 徴収
@@ -3488,10 +3494,10 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Query Parameters:**
 
-| パラメータ | 型     | 説明                        |
-| ---------- | ------ | --------------------------- |
-| yearMonth  | string | 月フィルタ（例: `2026-06`） |
-| eventId    | string | イベントフィルタ            |
+| パラメータ | 型     | 説明                                   |
+| ---------- | ------ | -------------------------------------- |
+| from       | string | `createdAt`の開始日フィルタ（ISO8601） |
+| to         | string | `createdAt`の終了日フィルタ（ISO8601） |
 
 **Response** `200`
 
@@ -3502,17 +3508,20 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
       "id": "cuid",
       "title": "6/14練習 場所代",
       "amount": 300,
-      "dueDate": "2026-06-14",
+      "dueDate": "2026-06-14T00:00:00.000Z",
       "eventId": "cuid",
       "yearMonth": null,
-      "paidCount": 22,
-      "waivedCount": 2,
-      "totalCount": 28,
-      "createdAt": "2026-06-14T14:00:00+09:00"
+      "note": null,
+      "createdAt": "2026-06-14T14:00:00.000Z",
+      "summary": { "total": 28, "paid": 22, "pending": 4, "waived": 2, "paidAmount": 6600 }
     }
   ]
 }
 ```
+
+> `summary.paidAmount`は`paid`ステータスの支払いの合計額（個別金額が未設定の場合は`Collection.amount`を使用）。
+
+**Errors:**: `403` `FORBIDDEN` 権限不足
 
 ---
 
@@ -3520,11 +3529,23 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 ### POST `/api/v1/:orgSlug/finance/collections`
 
-徴収を手動作成する。作成と同時に全アクティブ団員の CollectionPayment（`pending`）が自動生成される。
+徴収を作成する。同時に対象団員分の`CollectionPayment`（`pending`）が自動生成される。
 
 **権限**: `finance+`
 
 **Request Body:**
+
+| フィールド        | 型                     | 必須 | 説明                                                                                                             |
+| ----------------- | ---------------------- | ---- | ---------------------------------------------------------------------------------------------------------------- |
+| title             | string                 | ✓    | 徴収タイトル                                                                                                     |
+| amount            | number                 | ✓    | 基本金額                                                                                                         |
+| dueDate           | string \| null         |      | 支払期限（ISO8601 date）                                                                                         |
+| eventId           | string \| null         |      | 紐づくイベントID                                                                                                 |
+| scoreId           | string \| null         |      | 紐づく楽譜ID。指定すると楽譜詳細画面から「徴収作成済み」と判定できる（楽譜詳細画面から作成した場合は自動セット） |
+| yearMonth         | string \| null         |      | `YYYY-MM`形式（月謝等）                                                                                          |
+| note              | string \| null         |      | 備考                                                                                                             |
+| memberIds         | string[]               |      | 対象団員IDを個別指定（省略時はアクティブな全団員。guest/visitorは除く）                                          |
+| memberTypeAmounts | Record<string, number> |      | `memberTypeId`ごとの個別金額（`amount`と異なる場合のみ`CollectionPayment.amount`に設定される）                   |
 
 ```json
 {
@@ -3538,9 +3559,13 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
-> `scoreId` を指定すると楽譜詳細画面から「徴収作成済み」と判定できる。楽譜詳細画面から作成した場合は自動でセットされる。
+**Response** `201`
 
-**Response** `201` → 作成した Collection（payments の件数含む）
+```json
+{ "data": { "id": "cuid", "title": "6月合宿費", "amount": 15000 } }
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` `eventId`指定時、イベントが存在しない・別テナント / `404` `NOT_FOUND` `scoreId`指定時、楽譜が存在しない・別テナント
 
 ---
 
@@ -3560,22 +3585,34 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
     "id": "cuid",
     "title": "6/14練習 場所代",
     "amount": 300,
-    "dueDate": "2026-06-14",
+    "dueDate": "2026-06-14T00:00:00.000Z",
+    "eventId": null,
+    "yearMonth": null,
+    "note": null,
+    "createdAt": "2026-06-01T00:00:00.000Z",
     "payments": [
       {
-        "memberId": "cuid",
-        "memberName": "山田 太郎",
-        "partName": "Tenor I",
+        "id": "cuid",
+        "member": {
+          "id": "cuid",
+          "nameJa": "山田 太郎",
+          "part": { "id": "cuid", "name": "Tenor I", "voiceType": "tenor", "sortOrder": 1 },
+          "memberTypeFee": null
+        },
         "status": "paid",
         "amount": 300,
-        "paidAt": "2026-06-14",
+        "paidAt": "2026-06-14T00:00:00.000Z",
         "method": "paypay",
         "note": null
       },
       {
-        "memberId": "cuid",
-        "memberName": "鈴木 花子",
-        "partName": "Tenor II",
+        "id": "cuid",
+        "member": {
+          "id": "cuid",
+          "nameJa": "鈴木 花子",
+          "part": { "id": "cuid", "name": "Tenor II", "voiceType": "tenor", "sortOrder": 2 },
+          "memberTypeFee": null
+        },
         "status": "pending",
         "amount": null,
         "paidAt": null,
@@ -3586,6 +3623,32 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
   }
 }
 ```
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 徴収が存在しない
+
+---
+
+<a id="collections-patch"></a>
+
+### PATCH `/api/v1/:orgSlug/finance/collections/:id`
+
+徴収の基本情報を更新する（`memberIds`・`scoreId`は指定不可・すべて省略可）。
+
+**権限**: `finance+`
+
+**Request Body:**
+
+```json
+{ "title": "6月合宿費（改）", "amount": 16000 }
+```
+
+**Response** `200`
+
+```json
+{ "data": { "id": "cuid", "title": "6月合宿費（改）", "amount": 16000 } }
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 徴収が存在しない / `404` `NOT_FOUND` `eventId`指定時、イベントが存在しない・別テナント
 
 ---
 
@@ -3599,13 +3662,15 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Response** `204` No Content
 
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 徴収が存在しない
+
 ---
 
 <a id="collection-payment-patch"></a>
 
 ### PATCH `/api/v1/:orgSlug/finance/collections/:id/payments/:memberId`
 
-団員の支払い状況を更新する。
+団員の支払い状況を更新する（`CollectionPayment`が無ければ新規作成、あれば更新する upsert）。
 
 **権限**: `finance+`
 
@@ -3621,15 +3686,63 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
-| フィールド | 型     | 必須 | 説明                                          |
-| ---------- | ------ | ---- | --------------------------------------------- |
-| status     | string | ✓    | `pending` / `paid` / `waived`                 |
-| amount     | number |      | `paid` 時に設定（省略時 Collection.amount）   |
-| paidAt     | string |      | `paid` 時に設定（省略時 今日）                |
-| method     | string |      | `cash` / `paypay` / `bank_transfer` / `other` |
-| note       | string |      | 備考                                          |
+| フィールド | 型             | 必須 | 説明                                                                          |
+| ---------- | -------------- | ---- | ----------------------------------------------------------------------------- |
+| status     | string         | ✓    | `pending` / `paid` / `waived`                                                 |
+| amount     | number \| null |      | 個別金額。省略・null時は`null`（一覧・集計では`Collection.amount`が使われる） |
+| paidAt     | string \| null |      | 支払日（ISO8601 date）。省略・null時は`null`                                  |
+| method     | string \| null |      | `cash` / `paypay` / `bank_transfer` / `other`                                 |
+| note       | string \| null |      | 備考                                                                          |
 
-**Response** `200` → 更新後の CollectionPayment
+**Response** `200`
+
+```json
+{
+  "data": {
+    "id": "cuid",
+    "status": "paid",
+    "amount": 300,
+    "paidAt": "2026-06-14T00:00:00.000Z",
+    "method": "cash",
+    "note": null
+  }
+}
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 徴収が存在しない / `404` `NOT_FOUND` メンバーが存在しない・別テナント
+
+---
+
+<a id="collection-payments-bulk"></a>
+
+### POST `/api/v1/:orgSlug/finance/collections/:id/payments/bulk`
+
+複数団員の支払い状況を一括更新する（upsert）。
+
+**権限**: `finance+`
+
+**Request Body:**
+
+| フィールド | 型             | 必須 | 説明                                          |
+| ---------- | -------------- | ---- | --------------------------------------------- |
+| memberIds  | string[]       | ✓    | 対象団員ID（1件以上）                         |
+| status     | string         | ✓    | `pending` / `paid` / `waived`                 |
+| paidAt     | string \| null |      | 支払日時（ISO8601 datetime）                  |
+| method     | string \| null |      | `cash` / `paypay` / `bank_transfer` / `other` |
+
+```json
+{ "memberIds": ["cuid1", "cuid2"], "status": "paid", "paidAt": "2026-06-14T00:00:00+09:00" }
+```
+
+> 個別金額（`amount`）は一括更新の対象外（既存値を保持）。
+
+**Response** `200`
+
+```json
+{ "data": { "updated": 2 } }
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `400` `BAD_REQUEST` 別テナントのメンバーIDが含まれる / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 徴収が存在しない
 
 ---
 
@@ -3671,6 +3784,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
+**Errors:**: `403` `FORBIDDEN` 権限不足
+
 ---
 
 <a id="expenses-create"></a>
@@ -3697,6 +3812,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Response** `201` → 作成した Expense
 
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` カテゴリが存在しない・別テナント / `404` `NOT_FOUND` `eventId`指定時、イベントが存在しない・別テナント
+
 ---
 
 <a id="expenses-patch"></a>
@@ -3709,6 +3826,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Response** `200` → 更新後の Expense
 
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 支出が存在しない・別テナント / `404` `NOT_FOUND` `categoryId`指定時、カテゴリが存在しない・別テナント / `404` `NOT_FOUND` `eventId`指定時、イベントが存在しない・別テナント
+
 ---
 
 <a id="expenses-delete"></a>
@@ -3720,6 +3839,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 **権限**: `finance+`
 
 **Response** `204` No Content
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 支出が存在しない・別テナント
 
 ---
 

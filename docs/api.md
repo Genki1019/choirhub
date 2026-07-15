@@ -2554,6 +2554,84 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 ## 9. チケット管理 API
 
+<a id="tickets-list"></a>
+
+### GET `/api/v1/:orgSlug/tickets`
+
+演奏会ごとのチケット配布状況一覧を取得する。
+
+**権限**: `ticket or admin`
+
+**Response** `200`
+
+```json
+{
+  "data": [
+    {
+      "concertId": "cuid",
+      "title": "第20回定期演奏会",
+      "heldOn": "2026-11-23T00:00:00.000Z",
+      "status": "confirmed",
+      "batchCount": 2,
+      "totalAllocated": 400,
+      "totalSold": 280,
+      "soldRate": 0.7,
+      "collectedCount": 30,
+      "memberCount": 32
+    }
+  ]
+}
+```
+
+> `soldRate`は`totalAllocated`が0の場合`0`になる。
+
+**Errors:**: `403` `FORBIDDEN` 権限不足
+
+---
+
+<a id="tickets-my-get"></a>
+
+### GET `/api/v1/:orgSlug/tickets/my`
+
+自分のチケット配布状況を演奏会ごとにまとめて取得する（全団員アクセス可）。
+
+**権限**: `member+`
+
+**Response** `200`
+
+```json
+{
+  "data": [
+    {
+      "concertId": "cuid",
+      "title": "第20回定期演奏会",
+      "heldOn": "2026-11-23T00:00:00.000Z",
+      "racePublishedAt": null,
+      "ticketInputClosedAt": null,
+      "batches": [
+        {
+          "allocationId": "cuid",
+          "batchId": "cuid",
+          "batchName": "一般",
+          "price": 2000,
+          "priceStudent": 1000,
+          "allocatedCount": 10,
+          "requestedCount": null,
+          "soldAdult": 6,
+          "soldStudent": 1,
+          "soldOther": 0,
+          "returnedCount": 0,
+          "outreachCount": 3,
+          "reportedAt": null
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
 <a id="tickets-id-get"></a>
 
 ### GET `/api/v1/:orgSlug/tickets/:concertId`
@@ -2567,38 +2645,60 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 ```json
 {
   "data": {
-    "concert": { "id": "cuid", "title": "第20回定期演奏会" },
+    "concert": {
+      "id": "cuid",
+      "title": "第20回定期演奏会",
+      "heldOn": "2026-11-23T00:00:00.000Z",
+      "ticketInputClosedAt": null,
+      "outreachExpensePerTrip": 500
+    },
+    "isAdmin": true,
+    "myMemberId": "cuid",
     "batches": [
       {
         "id": "cuid",
         "name": "一般",
         "price": 2000,
+        "priceStudent": 1000,
         "totalCount": 200,
+        "saleStart": "2026-09-01T00:00:00.000Z",
+        "saleEnd": "2026-11-20T23:59:59.000Z",
         "allocations": [
           {
-            "member": { "id": "cuid", "nameJa": "山田 太郎", "part": { "name": "Tenor I" } },
+            "id": "cuid",
+            "batchId": "cuid",
+            "memberId": "cuid",
+            "nameJa": "山田 太郎",
+            "partId": "cuid",
+            "partName": "Tenor I",
+            "partSortOrder": 1,
+            "partVoiceType": "tenor",
             "allocatedCount": 10,
+            "requestedCount": null,
             "soldAdult": 6,
             "soldStudent": 1,
             "soldOther": 0,
             "returnedCount": 0,
-            "isCollected": false,
+            "outreachCount": 3,
+            "isOutreachExpensePaid": false,
+            "outreachExpensePaidAt": null,
+            "collected": false,
             "reportedAt": null
           }
         ]
       }
     ],
     "partSummary": [
-      {
-        "part": { "name": "Tenor I" },
-        "allocated": 40,
-        "sold": 28,
-        "rate": 0.7
-      }
+      { "partId": "cuid", "partName": "Tenor I", "allocated": 40, "sold": 28, "rate": 0.7 }
     ]
   }
 }
 ```
+
+> - `allocations`はguest/visitorロールのメンバーを除外して返す。`partSummary`は割当0件のパートを除外する。
+> - `isAdmin`はフィールド名によらず`ticket or admin`（`isTicketManager`）の判定結果。このエンドポイント自体`ticket or admin`のみアクセス可能なため、200が返る時点で常に`true`になる。
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { isAdmin, isTicketManager } from "../services/access.js";
+import { isTicketManager } from "../services/access.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 export const ticketsRouter = new Hono<TenantEnv>()
@@ -208,7 +208,7 @@ export const ticketsRouter = new Hono<TenantEnv>()
           ticketInputClosedAt: concert.ticketInputClosedAt?.toISOString() ?? null,
           outreachExpensePerTrip: concert.outreachExpensePerTrip ?? null,
         },
-        isAdmin: isAdmin(actingMember),
+        isAdmin: isTicketManager(actingMember),
         myMemberId: actingMember.id,
         batches: batches.map((batch) => ({
           id: batch.id,

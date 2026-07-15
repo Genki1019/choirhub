@@ -2456,6 +2456,9 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 | `role`        | `{ "roles": ["tech", "score"] }`         |
 | `custom`      | `{ "memberIds": ["..."] }` （最大500件） |
 
+> - `part`/`role`/`custom`を指定した場合、対応するフィルタ配列が空・未指定だと意図しない全員送信を防ぐため`400 VALIDATION_ERROR`を返す（フォールバックしない）。
+> - `all`・`part`は`guest`/`visitor`ロールの団員を自動で除外する。`role`・`custom`は明示的な指定のため除外しない（`role`で`guest`/`visitor`自体を指定した場合や、`custom`で個別に選んだ場合はそのまま送信対象になる）。
+
 **Response** `201`
 
 ```json
@@ -2468,7 +2471,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
-**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` guest/visitorが送信しようとした
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `400` `VALIDATION_ERROR` `part`/`role`/`custom`指定時、対応するフィルタが空・未指定 / `403` `FORBIDDEN` guest/visitorが送信しようとした
 
 ---
 

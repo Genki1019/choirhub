@@ -4,7 +4,7 @@ import { z } from "zod";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "../lib/prisma.js";
 import { sendBulkMail, getResendEmail } from "../services/mail.js";
-import { isMemberPlus, isAdmin } from "../services/access.js";
+import { isMemberPlus, isAdmin, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
 import { storage } from "../services/storage.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
@@ -285,13 +285,39 @@ export const mailingRouter = new Hono<TenantEnv>()
 
       const { subject, body, recipientType, recipientFilter } = c.req.valid("json");
 
+      // recipientType が絞り込み指定なのにフィルタが空だと「全員」にフォールバックしてしまうため、
+      // 意図しない全員送信を防ぐために明示的に拒否する（"all" のみフィルタ不要）
+      if (recipientType === "part" && !recipientFilter?.partIds?.length) {
+        return c.json(
+          { error: { code: "VALIDATION_ERROR", message: "パートを選択してください" } },
+          400,
+        );
+      }
+      if (recipientType === "role" && !recipientFilter?.roles?.length) {
+        return c.json(
+          { error: { code: "VALIDATION_ERROR", message: "ロールを選択してください" } },
+          400,
+        );
+      }
+      if (recipientType === "custom" && !recipientFilter?.memberIds?.length) {
+        return c.json(
+          { error: { code: "VALIDATION_ERROR", message: "送信先を選択してください" } },
+          400,
+        );
+      }
+
       const baseWhere: Prisma.MemberWhereInput = { orgId: org.id, status: "active" };
-      if (recipientType === "part" && recipientFilter?.partIds?.length)
+      // all/part は guest・visitor を除外する。role/custom は明示的な指定なので除外しない
+      if (recipientType === "part" && recipientFilter?.partIds?.length) {
         baseWhere.partId = { in: recipientFilter.partIds };
-      else if (recipientType === "role" && recipientFilter?.roles?.length)
+        Object.assign(baseWhere, EXCLUDE_HIDDEN_ROLES);
+      } else if (recipientType === "role" && recipientFilter?.roles?.length) {
         baseWhere.roles = { hasSome: recipientFilter.roles };
-      else if (recipientType === "custom" && recipientFilter?.memberIds?.length)
+      } else if (recipientType === "custom" && recipientFilter?.memberIds?.length) {
         baseWhere.id = { in: recipientFilter.memberIds };
+      } else {
+        Object.assign(baseWhere, EXCLUDE_HIDDEN_ROLES);
+      }
 
       const members = await prisma.member.findMany({
         where: baseWhere,

@@ -11,8 +11,14 @@ async function json(res: Response): Promise<Record<string, any>> {
 
 vi.mock("../../lib/prisma.js", () => ({
   prisma: {
-    concert: { findMany: vi.fn(), findUnique: vi.fn() },
-    ticketAllocation: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), upsert: vi.fn() },
+    concert: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+    ticketAllocation: {
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      upsert: vi.fn(),
+      updateMany: vi.fn(),
+    },
     ticketBatch: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
@@ -970,5 +976,204 @@ describe("PATCH /tickets/allocations/:id", () => {
         data: { outreachCount: 3 },
       }),
     );
+  });
+});
+
+describe("POST /tickets/:concertId/outreach-expenses/bulk", () => {
+  it("バリデーションエラー: allocationIdsが空配列は400を返す", async () => {
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/outreach-expenses/bulk`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ allocationIds: [], paid: true }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("ticket担当者/admin以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/tickets/${testConcert.id}/outreach-expenses/bulk`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ allocationIds: ["allocation-1"], paid: true }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("演奏会が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request("/tickets/nonexistent/outreach-expenses/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ allocationIds: ["allocation-1"], paid: true }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("一部の配布記録が別演奏会/別テナント: 400 BAD_REQUESTを返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.ticketAllocation.findMany).mockResolvedValue([{ id: "allocation-1" }] as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/outreach-expenses/bulk`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        allocationIds: ["allocation-1", "other-concert-allocation"],
+        paid: true,
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("BAD_REQUEST");
+    expect(prisma.ticketAllocation.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("正常: paid:trueで一括更新される", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.ticketAllocation.findMany).mockResolvedValue([
+      { id: "allocation-1" },
+      { id: "allocation-2" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+    vi.mocked(prisma.ticketAllocation.updateMany).mockResolvedValue({ count: 2 });
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/outreach-expenses/bulk`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ allocationIds: ["allocation-1", "allocation-2"], paid: true }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ updatedCount: 2 });
+    expect(prisma.ticketAllocation.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["allocation-1", "allocation-2"] },
+        batch: { concertId: testConcert.id, concert: { orgId: testOrg.id } },
+      },
+      data: { isOutreachExpensePaid: true, outreachExpensePaidAt: expect.any(Date) },
+    });
+  });
+
+  it("正常: paid:falseでoutreachExpensePaidAtがnullに戻る", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.ticketAllocation.findMany).mockResolvedValue([{ id: "allocation-1" }] as any);
+    vi.mocked(prisma.ticketAllocation.updateMany).mockResolvedValue({ count: 1 });
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/outreach-expenses/bulk`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ allocationIds: ["allocation-1"], paid: false }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(prisma.ticketAllocation.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { isOutreachExpensePaid: false, outreachExpensePaidAt: null },
+      }),
+    );
+  });
+});
+
+describe("PATCH /tickets/:concertId/outreach-expense-rate", () => {
+  it("バリデーションエラー: 負の数は400を返す", async () => {
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/outreach-expense-rate`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ outreachExpensePerTrip: -100 }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("ticket担当者/admin以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/tickets/${testConcert.id}/outreach-expense-rate`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ outreachExpensePerTrip: 500 }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("演奏会が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request("/tickets/nonexistent/outreach-expense-rate", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ outreachExpensePerTrip: 500 }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: 単価を設定する", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.update).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/outreach-expense-rate`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ outreachExpensePerTrip: 500 }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ outreachExpensePerTrip: 500 });
+    expect(prisma.concert.update).toHaveBeenCalledWith({
+      where: { id: testConcert.id },
+      data: { outreachExpensePerTrip: 500 },
+    });
+  });
+
+  it("正常: nullで未設定に戻す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.update).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/tickets/${testConcert.id}/outreach-expense-rate`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ outreachExpensePerTrip: null }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ outreachExpensePerTrip: null });
   });
 });

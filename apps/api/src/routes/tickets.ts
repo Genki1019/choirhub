@@ -413,7 +413,7 @@ export const ticketsRouter = new Hono<TenantEnv>()
     },
   )
 
-  // ── PATCH /concerts/:concertId/outreach-expense-rate ── 単価設定（ticket/admin）
+  // ── PATCH /tickets/:concertId/outreach-expense-rate ── 単価設定（ticket/admin）
   .patch(
     "/tickets/:concertId/outreach-expense-rate",
     zValidator(

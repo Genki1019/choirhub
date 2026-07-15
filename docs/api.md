@@ -132,24 +132,27 @@
 
 ### チケット管理
 
-| API名                                       | Method | Path                                                    | 権限                       |
-| ------------------------------------------- | ------ | ------------------------------------------------------- | -------------------------- |
-| [チケット管理一覧](#tickets-list)           | GET    | `/:orgSlug/tickets`                                     | ticket or admin            |
-| [チケット一覧（自分）](#tickets-my-get)     | GET    | `/:orgSlug/tickets/my`                                  | member+                    |
-| [チケット集計取得](#tickets-id-get)         | GET    | `/:orgSlug/tickets/:concertId`                          | ticket or admin            |
-| [席種作成](#tickets-batches-create)         | POST   | `/:orgSlug/tickets/:concertId/batches`                  | ticket or admin            |
-| [席種削除](#tickets-batches-delete)         | DELETE | `/:orgSlug/tickets/:concertId/batches/:batchId`         | admin                      |
-| [チケット配布記録](#tickets-allocate)       | POST   | `/:orgSlug/tickets/:concertId/allocate`                 | admin / member（自分のみ） |
-| [販売・回収報告](#tickets-allocation-patch) | PATCH  | `/:orgSlug/tickets/allocations/:id`                     | member（自分）/ admin      |
-| [パートレース取得](#tickets-race)           | GET    | `/:orgSlug/tickets/:concertId/race`                     | ticket or admin            |
-| [レース公開](#tickets-race-publish)         | POST   | `/:orgSlug/tickets/:concertId/race/publish`             | ticket or admin            |
-| [レース非公開](#tickets-race-unpublish)     | DELETE | `/:orgSlug/tickets/:concertId/race/publish`             | ticket or admin            |
-| [入力締め切り](#tickets-close)              | POST   | `/:orgSlug/tickets/:concertId/close`                    | ticket or admin            |
-| [入力再開](#tickets-reopen)                 | DELETE | `/:orgSlug/tickets/:concertId/close`                    | ticket or admin            |
-| [情宣活動一覧取得](#outreach-list)          | GET    | `/:orgSlug/tickets/:concertId/outreach`                 | member+                    |
-| [情宣活動申請](#outreach-create)            | POST   | `/:orgSlug/tickets/:concertId/outreach`                 | member+                    |
-| [交通費支払い承認](#outreach-pay)           | PATCH  | `/:orgSlug/tickets/:concertId/outreach/:activityId/pay` | ticket or admin            |
-| [情宣活動削除](#outreach-delete)            | DELETE | `/:orgSlug/tickets/:concertId/outreach/:activityId`     | 申請者 or ticket or admin  |
+| API名                                                       | Method | Path                                                    | 権限                                  |
+| ----------------------------------------------------------- | ------ | ------------------------------------------------------- | ------------------------------------- |
+| [チケット管理一覧](#tickets-list)                           | GET    | `/:orgSlug/tickets`                                     | ticket or admin                       |
+| [チケット一覧（自分）](#tickets-my-get)                     | GET    | `/:orgSlug/tickets/my`                                  | member+                               |
+| [チケット集計取得](#tickets-id-get)                         | GET    | `/:orgSlug/tickets/:concertId`                          | ticket or admin                       |
+| [席種作成](#tickets-batches-create)                         | POST   | `/:orgSlug/tickets/:concertId/batches`                  | ticket or admin                       |
+| [席種更新](#tickets-batches-patch)                          | PATCH  | `/:orgSlug/tickets/:concertId/batches/:batchId`         | ticket or admin                       |
+| [席種削除](#tickets-batches-delete)                         | DELETE | `/:orgSlug/tickets/:concertId/batches/:batchId`         | ticket or admin                       |
+| [チケット配布記録](#tickets-allocate)                       | POST   | `/:orgSlug/tickets/:concertId/allocate`                 | ticket or admin / member+（自分のみ） |
+| [販売・回収報告](#tickets-allocation-patch)                 | PATCH  | `/:orgSlug/tickets/allocations/:id`                     | member（自分）/ ticket or admin       |
+| [情宣交通費一括支払い記録](#tickets-outreach-expenses-bulk) | POST   | `/:orgSlug/tickets/:concertId/outreach-expenses/bulk`   | ticket or admin                       |
+| [情宣交通費単価設定](#tickets-outreach-expense-rate)        | PATCH  | `/:orgSlug/tickets/:concertId/outreach-expense-rate`    | ticket or admin                       |
+| [パートレース取得](#tickets-race)                           | GET    | `/:orgSlug/tickets/:concertId/race`                     | ticket or admin                       |
+| [レース公開](#tickets-race-publish)                         | POST   | `/:orgSlug/tickets/:concertId/race/publish`             | ticket or admin                       |
+| [レース非公開](#tickets-race-unpublish)                     | DELETE | `/:orgSlug/tickets/:concertId/race/publish`             | ticket or admin                       |
+| [入力締め切り](#tickets-close)                              | POST   | `/:orgSlug/tickets/:concertId/close`                    | ticket or admin                       |
+| [入力再開](#tickets-reopen)                                 | DELETE | `/:orgSlug/tickets/:concertId/close`                    | ticket or admin                       |
+| [情宣活動一覧取得](#outreach-list)                          | GET    | `/:orgSlug/tickets/:concertId/outreach`                 | member+                               |
+| [情宣活動申請](#outreach-create)                            | POST   | `/:orgSlug/tickets/:concertId/outreach`                 | member+                               |
+| [交通費支払い承認](#outreach-pay)                           | PATCH  | `/:orgSlug/tickets/:concertId/outreach/:activityId/pay` | ticket or admin                       |
+| [情宣活動削除](#outreach-delete)                            | DELETE | `/:orgSlug/tickets/:concertId/outreach/:activityId`     | 申請者 or ticket or admin             |
 
 ### 設定
 
@@ -2554,6 +2557,84 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 ## 9. チケット管理 API
 
+<a id="tickets-list"></a>
+
+### GET `/api/v1/:orgSlug/tickets`
+
+演奏会ごとのチケット配布状況一覧を取得する。
+
+**権限**: `ticket or admin`
+
+**Response** `200`
+
+```json
+{
+  "data": [
+    {
+      "concertId": "cuid",
+      "title": "第20回定期演奏会",
+      "heldOn": "2026-11-23T00:00:00.000Z",
+      "status": "confirmed",
+      "batchCount": 2,
+      "totalAllocated": 400,
+      "totalSold": 280,
+      "soldRate": 0.7,
+      "collectedCount": 30,
+      "memberCount": 32
+    }
+  ]
+}
+```
+
+> `soldRate`は`totalAllocated`が0の場合`0`になる。
+
+**Errors:**: `403` `FORBIDDEN` 権限不足
+
+---
+
+<a id="tickets-my-get"></a>
+
+### GET `/api/v1/:orgSlug/tickets/my`
+
+自分のチケット配布状況を演奏会ごとにまとめて取得する（全団員アクセス可）。
+
+**権限**: `member+`
+
+**Response** `200`
+
+```json
+{
+  "data": [
+    {
+      "concertId": "cuid",
+      "title": "第20回定期演奏会",
+      "heldOn": "2026-11-23T00:00:00.000Z",
+      "racePublishedAt": null,
+      "ticketInputClosedAt": null,
+      "batches": [
+        {
+          "allocationId": "cuid",
+          "batchId": "cuid",
+          "batchName": "一般",
+          "price": 2000,
+          "priceStudent": 1000,
+          "allocatedCount": 10,
+          "requestedCount": null,
+          "soldAdult": 6,
+          "soldStudent": 1,
+          "soldOther": 0,
+          "returnedCount": 0,
+          "outreachCount": 3,
+          "reportedAt": null
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
 <a id="tickets-id-get"></a>
 
 ### GET `/api/v1/:orgSlug/tickets/:concertId`
@@ -2567,38 +2648,60 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 ```json
 {
   "data": {
-    "concert": { "id": "cuid", "title": "第20回定期演奏会" },
+    "concert": {
+      "id": "cuid",
+      "title": "第20回定期演奏会",
+      "heldOn": "2026-11-23T00:00:00.000Z",
+      "ticketInputClosedAt": null,
+      "outreachExpensePerTrip": 500
+    },
+    "isAdmin": true,
+    "myMemberId": "cuid",
     "batches": [
       {
         "id": "cuid",
         "name": "一般",
         "price": 2000,
+        "priceStudent": 1000,
         "totalCount": 200,
+        "saleStart": "2026-09-01T00:00:00.000Z",
+        "saleEnd": "2026-11-20T23:59:59.000Z",
         "allocations": [
           {
-            "member": { "id": "cuid", "nameJa": "山田 太郎", "part": { "name": "Tenor I" } },
+            "id": "cuid",
+            "batchId": "cuid",
+            "memberId": "cuid",
+            "nameJa": "山田 太郎",
+            "partId": "cuid",
+            "partName": "Tenor I",
+            "partSortOrder": 1,
+            "partVoiceType": "tenor",
             "allocatedCount": 10,
+            "requestedCount": null,
             "soldAdult": 6,
             "soldStudent": 1,
             "soldOther": 0,
             "returnedCount": 0,
-            "isCollected": false,
+            "outreachCount": 3,
+            "isOutreachExpensePaid": false,
+            "outreachExpensePaidAt": null,
+            "collected": false,
             "reportedAt": null
           }
         ]
       }
     ],
     "partSummary": [
-      {
-        "part": { "name": "Tenor I" },
-        "allocated": 40,
-        "sold": 28,
-        "rate": 0.7
-      }
+      { "partId": "cuid", "partName": "Tenor I", "allocated": 40, "sold": 28, "rate": 0.7 }
     ]
   }
 }
 ```
+
+> - `allocations`はguest/visitorロールのメンバーを除外して返す。`partSummary`は割当0件のパートを除外する。
+> - `isAdmin`はフィールド名によらず`ticket or admin`（`isTicketManager`）の判定結果。このエンドポイント自体`ticket or admin`のみアクセス可能なため、200が返る時点で常に`true`になる。
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 
@@ -2622,7 +2725,48 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
-**Response** `201` → 作成した席種情報
+**Response** `201` → 作成した席種情報（`allocations: []`）
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="tickets-batches-patch"></a>
+
+### PATCH `/api/v1/:orgSlug/tickets/:concertId/batches/:batchId`
+
+チケット席種情報を更新する（すべて省略可・部分更新）。
+
+**権限**: `ticket or admin`
+
+**Request Body:**
+
+| フィールド   | 型             | 説明                             |
+| ------------ | -------------- | -------------------------------- |
+| name         | string         | 席種名                           |
+| price        | number         | 一般価格                         |
+| priceStudent | number \| null | 学生価格                         |
+| totalCount   | number         | 総数                             |
+| saleStart    | string \| null | 販売開始日時（ISO8601 datetime） |
+| saleEnd      | string \| null | 販売終了日時（ISO8601 datetime） |
+
+**Response** `200` → 更新後の席種情報
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 席種が存在しない・指定の演奏会に属していない
+
+---
+
+<a id="tickets-batches-delete"></a>
+
+### DELETE `/api/v1/:orgSlug/tickets/:concertId/batches/:batchId`
+
+チケット席種を削除する。
+
+**権限**: `ticket or admin`
+
+**Response** `204` No Content
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 席種が存在しない・指定の演奏会に属していない
 
 ---
 
@@ -2630,27 +2774,39 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 ### POST `/api/v1/:orgSlug/tickets/:concertId/allocate`
 
-団員へのチケット配布を記録する。
+チケット配布・希望枚数申請を1件登録・更新する（`batchId`+`memberId`の組で upsert）。
 
-**権限**: `admin`
+**権限**: `ticket or admin`（他メンバーへの登録） / `member+`（`memberId`省略時、自分の希望枚数申請のみ）
 
 **Request Body:**
 
+| フィールド     | 型     | 必須 | 説明                                                                            |
+| -------------- | ------ | ---- | ------------------------------------------------------------------------------- |
+| batchId        | string | ✓    | 対象の席種ID                                                                    |
+| memberId       | string |      | 対象メンバーID（省略時は自分）                                                  |
+| allocatedCount | number | ✓    | `ticket or admin`が指定した場合は配布枚数、自分の場合は希望枚数として登録される |
+
 ```json
-{
-  "batchId": "cuid",
-  "allocations": [
-    { "memberId": "cuid", "allocatedCount": 10 },
-    { "memberId": "cuid", "allocatedCount": 8 }
-  ]
-}
+{ "batchId": "cuid", "memberId": "cuid", "allocatedCount": 10 }
 ```
+
+> `ticket or admin`が登録・更新すると`allocatedCount`（配布枚数）が確定し、`requestedCount`はクリアされる。一般団員が自分の分を登録・更新すると`requestedCount`（希望枚数）として保存され、`allocatedCount`は変更されない（`ticket or admin`による確定待ち）。
 
 **Response** `201`
 
 ```json
-{ "data": { "created": 28 } }
+{
+  "data": {
+    "id": "cuid",
+    "batchId": "cuid",
+    "memberId": "cuid",
+    "allocatedCount": 0,
+    "requestedCount": 10
+  }
+}
 ```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 他メンバーへの登録を一般団員が行おうとした / `403` `INPUT_CLOSED` 入力締切後に非担当者が自分の申請をしようとした / `404` `NOT_FOUND` 席種が存在しない・指定の演奏会に属していない
 
 ---
 
@@ -2658,9 +2814,9 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 ### PATCH `/api/v1/:orgSlug/tickets/allocations/:id`
 
-販売・回収報告を更新する（自分の配布分の報告、または管理者による全員分の更新）。
+販売・回収報告を更新する（自分の配布分の報告、またはticket担当者/adminによる全員分の更新）。
 
-**権限**: `member`（自分の記録のみ）/ `admin`（全員）
+**権限**: `member`（自分の記録のみ）/ `ticket or admin`（全員）
 
 **Request Body:**（すべて省略可）
 
@@ -2677,9 +2833,72 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
-> `allocatedCount` は `ticket or admin` のみ更新可能。一般団員が指定した場合は無視される。
+> - `allocatedCount`（配布枚数）・`isOutreachExpensePaid`（情宣交通費支払い記録）は`ticket or admin`のみ更新可能。一般団員が自分の記録に対して指定した場合は無視されず`403 FORBIDDEN`を返す。
+> - `ticketInputClosedAt`（入力締切）を過ぎている場合、`ticket or admin`以外は編集不可（`403 INPUT_CLOSED`）。
+> - `soldAdult`/`soldStudent`/`soldOther`/`returnedCount`のいずれかを更新すると`reportedAt`が現在時刻に更新される（`outreachCount`単独の変更では更新されない）。
 
 **Response** `200` → 更新後の配布情報
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 自分以外の記録を編集しようとした / `403` `FORBIDDEN` 一般団員が`allocatedCount`・`isOutreachExpensePaid`を指定した / `403` `INPUT_CLOSED` 入力締切後に非担当者が編集しようとした / `404` `NOT_FOUND` 配布記録が存在しない
+
+---
+
+<a id="tickets-outreach-expenses-bulk"></a>
+
+### POST `/api/v1/:orgSlug/tickets/:concertId/outreach-expenses/bulk`
+
+複数の配布記録の情宣交通費支払い状態を一括で記録する。
+
+**権限**: `ticket or admin`
+
+**Request Body:**
+
+| フィールド    | 型       | 必須 | 説明                                          |
+| ------------- | -------- | ---- | --------------------------------------------- |
+| allocationIds | string[] | ✓    | 対象の配布記録ID（1件以上）                   |
+| paid          | boolean  | ✓    | `true`=支払い済みにする・`false`=未払いに戻す |
+
+```json
+{ "allocationIds": ["cuid1", "cuid2"], "paid": true }
+```
+
+> `allocationIds`が全て指定した演奏会・団体に属する配布記録であることを検証する（1件でも一致しなければ`400 BAD_REQUEST`）。`paid: true`の場合`outreachExpensePaidAt`が現在時刻になり、`false`の場合`null`に戻る。
+
+**Response** `200`
+
+```json
+{ "data": { "updatedCount": 2 } }
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `400` `BAD_REQUEST` 一部の配布記録が見つからない・別演奏会/別テナント / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="tickets-outreach-expense-rate"></a>
+
+### PATCH `/api/v1/:orgSlug/tickets/:concertId/outreach-expense-rate`
+
+情宣活動1回あたりの交通費単価を設定する（`Concert.outreachExpensePerTrip`）。
+
+**権限**: `ticket or admin`
+
+**Request Body:**
+
+| フィールド             | 型             | 必須 | 説明                                      |
+| ---------------------- | -------------- | ---- | ----------------------------------------- |
+| outreachExpensePerTrip | number \| null | ✓    | 1回あたりの実費（未設定に戻す場合はnull） |
+
+```json
+{ "outreachExpensePerTrip": 500 }
+```
+
+**Response** `200`
+
+```json
+{ "data": { "outreachExpensePerTrip": 500 } }
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 
@@ -2687,31 +2906,155 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 ### GET `/api/v1/:orgSlug/tickets/:concertId/race`
 
-パートセールスレースの集計データを取得する。
+パート対抗チケットレース（販売枚数・速さ・情宣回数を得点化した順位表）の集計データを取得する。
 
-**権限**: `ticket or admin`
+**権限**: 公開済み（`racePublishedAt`あり）なら`member+`全員 / 未公開は`ticket or admin`のみ
 
 **Response** `200`
 
 ```json
 {
   "data": {
-    "isFinalized": false,
+    "concert": { "id": "cuid", "title": "第20回定期演奏会" },
+    "isTicketManager": true,
+    "racePublishedAt": null,
+    "scoring": {
+      "avgSales": { "label": "平均販売枚数", "points": [10, 8, 6, 4] },
+      "speed5": {
+        "label": "速さ（5枚×3名）",
+        "threshold": 5,
+        "minCount": 3,
+        "points": [5, 4, 3, 2]
+      },
+      "speed10": {
+        "label": "速さ（10枚×3名）",
+        "threshold": 10,
+        "minCount": 3,
+        "points": [5, 4, 3, 2]
+      },
+      "zeroRatio": { "label": "ゼロ販売割合（少順）", "points": [4, 3, 2, 1] },
+      "outreach": { "label": "情宣回数", "points": [5, 4, 3, 2] }
+    },
     "parts": [
       {
+        "partId": "cuid",
         "partName": "Tenor I",
-        "sold": 28,
-        "allocated": 40,
-        "rate": 0.7,
-        "timeline": [
-          { "date": "2026-10-01", "cumulativeSold": 5 },
-          { "date": "2026-10-15", "cumulativeSold": 18 }
-        ]
+        "totalPoints": 22,
+        "rank": 1,
+        "breakdown": {
+          "avgSalesPoints": 10,
+          "speed5Points": 5,
+          "speed10Points": 3,
+          "zeroRatioPoints": 4,
+          "outreachPoints": 0
+        },
+        "stats": {
+          "avgSold": 7,
+          "speed5AchievedAt": "2026-10-05T12:00:00.000Z",
+          "speed10AchievedAt": null,
+          "zeroSellerRatio": 0,
+          "totalOutreach": 3,
+          "memberCount": 4,
+          "allocated": 40,
+          "sold": 28
+        }
+      }
+    ],
+    "individuals": [
+      {
+        "memberId": "cuid",
+        "nameJa": "山田 太郎",
+        "partId": "cuid",
+        "partName": "Tenor I",
+        "allocated": 10,
+        "sold": 9,
+        "outreachCount": 3,
+        "rate": 0.9,
+        "rank": 1
       }
     ]
   }
 }
 ```
+
+> - `allocated`が0の団員は`individuals`・パート集計から除外される。guest/visitorロールの団員は最初から集計対象外。
+> - 同率タイの場合、該当順位の得点の平均（四捨五入）が全員に付与される。
+> - 情宣回数はメンバーが複数席種に配布記録を持つ場合、合計ではなく最大値を採用する（重複計上防止）。
+> - `speed5`/`speed10`はパート内で該当枚数以上を売った団員が`minCount`人に達した時点の`reportedAt`（3人目の報告日時）。未達の場合`null`で得点0。
+
+**Errors:**: `403` `FORBIDDEN` 未公開のレースに非担当者がアクセスしようとした / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="tickets-race-publish"></a>
+
+### POST `/api/v1/:orgSlug/tickets/:concertId/race/publish`
+
+チケットレースを公開する（`Concert.racePublishedAt`に現在時刻を設定）。
+
+**権限**: `ticket or admin`
+
+**Response** `200`
+
+```json
+{ "data": { "racePublishedAt": "2026-11-01T00:00:00.000Z" } }
+```
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="tickets-race-unpublish"></a>
+
+### DELETE `/api/v1/:orgSlug/tickets/:concertId/race/publish`
+
+チケットレースの公開を取り消す（`racePublishedAt`を`null`に戻す）。
+
+**権限**: `ticket or admin`
+
+**Response** `200`
+
+```json
+{ "data": { "racePublishedAt": null } }
+```
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="tickets-close"></a>
+
+### POST `/api/v1/:orgSlug/tickets/:concertId/close`
+
+チケット入力を締め切る（`Concert.ticketInputClosedAt`に現在時刻を設定）。締切後は`ticket or admin`以外の入力・編集ができなくなる（[PATCH allocations/:id](#tickets-allocation-patch)・[POST allocate](#tickets-allocate)参照）。
+
+**権限**: `ticket or admin`
+
+**Response** `200`
+
+```json
+{ "data": { "ticketInputClosedAt": "2026-11-20T23:59:59.000Z" } }
+```
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="tickets-reopen"></a>
+
+### DELETE `/api/v1/:orgSlug/tickets/:concertId/close`
+
+チケット入力を再開する（`ticketInputClosedAt`を`null`に戻す）。
+
+**権限**: `ticket or admin`
+
+**Response** `200`
+
+```json
+{ "data": { "ticketInputClosedAt": null } }
+```
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 
@@ -3422,6 +3765,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
+**Errors:**: `404` `NOT_FOUND` 演奏会が存在しない
+
 ---
 
 <a id="outreach-create"></a>
@@ -3449,7 +3794,11 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
+> `ticket or admin`以外（一般団員）が申請する場合、`participants`に自分自身を含める必要がある（含まれていなければ`403 FORBIDDEN`）。`ticket or admin`は自分を含めずに他メンバーのみで申請できる。
+
 **Response** `201` 作成した活動オブジェクト
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `400` `INVALID_MEMBER` 参加者にこの団体に属さないメンバーが含まれる / `403` `FORBIDDEN` guest/visitorが申請しようとした / `403` `FORBIDDEN` 一般団員が自分を参加者に含めなかった / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 
@@ -3463,6 +3812,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Response** `200` 更新後の活動オブジェクト
 
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 情宣活動が存在しない・指定の演奏会に属していない
+
 ---
 
 <a id="outreach-delete"></a>
@@ -3474,5 +3825,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 **権限**: 申請者本人または `ticket+` / `admin`
 
 **Response** `204` No Content
+
+**Errors:**: `403` `FORBIDDEN` 申請者本人でも担当者でもない / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 情宣活動が存在しない・指定の演奏会に属していない
 
 ---

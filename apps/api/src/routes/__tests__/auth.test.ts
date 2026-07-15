@@ -14,6 +14,8 @@ vi.mock("../../lib/prisma.js", () => ({
     session: { create: vi.fn(), findUnique: vi.fn(), deleteMany: vi.fn() },
     member: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
     inviteToken: { findUnique: vi.fn(), update: vi.fn() },
+    passwordResetToken: { findUnique: vi.fn(), create: vi.fn() },
+    $executeRaw: vi.fn(),
   },
 }));
 
@@ -33,8 +35,9 @@ vi.mock("../../services/mail.js", () => ({
 }));
 
 import { prisma } from "../../lib/prisma.js";
-import { checkLoginRateLimit } from "../../lib/redis.js";
+import { checkLoginRateLimit, checkResetRateLimit } from "../../lib/redis.js";
 import { verify, hash } from "argon2";
+import { sendPasswordResetEmail } from "../../services/mail.js";
 import { authRouter } from "../auth.js";
 
 function createTestApp() {
@@ -74,6 +77,13 @@ const testInvite = {
   partId: "part-1",
   usedAt: null as Date | null,
   expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+};
+
+const testResetToken = {
+  token: "reset-token-abc",
+  userId: testUser.id,
+  usedAt: null as Date | null,
+  expiresAt: new Date(Date.now() + 1000 * 60 * 60),
 };
 
 beforeEach(() => {
@@ -465,6 +475,224 @@ describe("POST /auth/invite/:token", () => {
         partId: testInvite.partId,
         joinedAt: expect.any(Date),
       },
+    });
+  });
+});
+
+describe("POST /auth/password-reset/request", () => {
+  it("バリデーションエラー: 不正なemailは400を返す", async () => {
+    const app = createTestApp();
+    const res = await app.request("/auth/password-reset/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "不正な値" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("レート制限中: 429を返す", async () => {
+    vi.mocked(checkResetRateLimit).mockResolvedValue(false);
+
+    const app = createTestApp();
+    const res = await app.request("/auth/password-reset/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: testUser.email }),
+    });
+
+    expect(res.status).toBe(429);
+    const body = await json(res);
+    expect(body.error.code).toBe("TOO_MANY_REQUESTS");
+  });
+
+  it("存在しないメール: 200を返す（存在するメールと同一レスポンス、DB書き込み・メール送信は行わない）", async () => {
+    vi.mocked(checkResetRateLimit).mockResolvedValue(true);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp();
+    const res = await app.request("/auth/password-reset/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "notfound@example.com" }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.message).toBe("パスワードリセットメールを送信しました");
+    expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
+    expect(sendPasswordResetEmail).not.toHaveBeenCalled();
+  });
+
+  it("存在するメール: 200を返しトークン作成・メール送信が呼ばれる", async () => {
+    vi.mocked(checkResetRateLimit).mockResolvedValue(true);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.passwordResetToken.create).mockResolvedValue(testResetToken as any);
+    vi.mocked(sendPasswordResetEmail).mockResolvedValue(undefined);
+
+    const app = createTestApp();
+    const res = await app.request("/auth/password-reset/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: testUser.email }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(prisma.passwordResetToken.create).toHaveBeenCalledWith({
+      data: { userId: testUser.id, expiresAt: expect.any(Date) },
+    });
+    expect(sendPasswordResetEmail).toHaveBeenCalledWith({
+      to: testUser.email,
+      nameJa: testUser.nameJa,
+      resetToken: testResetToken.token,
+      expiresAt: expect.any(Date),
+    });
+  });
+});
+
+describe("GET /auth/password-reset/:token", () => {
+  it("トークンが存在しない: 404 INVALID_TOKENを返す", async () => {
+    vi.mocked(prisma.passwordResetToken.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp();
+    const res = await app.request("/auth/password-reset/nonexistent");
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("INVALID_TOKEN");
+  });
+
+  it("使用済み: 404 TOKEN_USEDを返す", async () => {
+    vi.mocked(prisma.passwordResetToken.findUnique).mockResolvedValue({
+      ...testResetToken,
+      usedAt: new Date("2022-01-01"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/password-reset/${testResetToken.token}`);
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("TOKEN_USED");
+  });
+
+  it("期限切れ: 404 TOKEN_EXPIREDを返す", async () => {
+    vi.mocked(prisma.passwordResetToken.findUnique).mockResolvedValue({
+      ...testResetToken,
+      expiresAt: new Date("2022-01-01"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/password-reset/${testResetToken.token}`);
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("TOKEN_EXPIRED");
+  });
+
+  it("トークンに紐づくユーザーが見つからない: 404 INVALID_TOKENを返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.passwordResetToken.findUnique).mockResolvedValue(testResetToken as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/password-reset/${testResetToken.token}`);
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("INVALID_TOKEN");
+  });
+
+  it("正常: 200を返しメールアドレスを返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.passwordResetToken.findUnique).mockResolvedValue(testResetToken as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/password-reset/${testResetToken.token}`);
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ email: testUser.email });
+  });
+});
+
+describe("POST /auth/password-reset/:token", () => {
+  it("バリデーションエラー: 8文字未満のpasswordは400を返す", async () => {
+    const app = createTestApp();
+    const res = await app.request(`/auth/password-reset/${testResetToken.token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "short" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("トークンが存在しない: 404を返す", async () => {
+    vi.mocked(prisma.passwordResetToken.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp();
+    const res = await app.request("/auth/password-reset/nonexistent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "newpassword123" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("INVALID_TOKEN");
+  });
+
+  it("使用済み・期限切れ・競合（原子的更新が0件）: 404を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.passwordResetToken.findUnique).mockResolvedValue(testResetToken as any);
+    vi.mocked(hash).mockResolvedValue("new-hashed-password");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.$executeRaw).mockResolvedValue(0 as any);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/password-reset/${testResetToken.token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "newpassword123" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("INVALID_TOKEN");
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("正常: 200を返しパスワード更新・全セッション削除される", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.passwordResetToken.findUnique).mockResolvedValue(testResetToken as any);
+    vi.mocked(hash).mockResolvedValue("new-hashed-password");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.$executeRaw).mockResolvedValue(1 as any);
+    vi.mocked(prisma.user.update).mockResolvedValue(testUser);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/password-reset/${testResetToken.token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "newpassword123" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: testResetToken.userId },
+      data: { passwordHash: "new-hashed-password" },
+    });
+    expect(prisma.session.deleteMany).toHaveBeenCalledWith({
+      where: { userId: testResetToken.userId },
     });
   });
 });

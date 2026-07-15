@@ -56,6 +56,18 @@ function usedOrExpiredInviteError(invite: {
   return null;
 }
 
+const RESET_INVALID_TOKEN_ERROR = { code: "INVALID_TOKEN", message: "リンクが無効です" } as const;
+
+function usedOrExpiredResetTokenError(resetToken: {
+  usedAt: Date | null;
+  expiresAt: Date;
+}): { code: string; message: string } | null {
+  if (resetToken.usedAt) return { code: "TOKEN_USED", message: "このリンクは既に使用されています" };
+  if (resetToken.expiresAt < new Date())
+    return { code: "TOKEN_EXPIRED", message: "リンクの有効期限が切れています" };
+  return null;
+}
+
 export const authRouter = new Hono()
 
   .post(
@@ -311,6 +323,9 @@ export const authRouter = new Hono()
           resetToken: resetToken.token,
           expiresAt,
         }).catch((err: unknown) => logger.error("[auth] password reset mail failed:", err));
+      } else {
+        // ユーザー存在確認防止のため、DB書き込み・メール送信相当の待機時間を確保する
+        await new Promise((resolve) => setTimeout(resolve, 300));
       }
 
       // ユーザー存在確認防止のため成功・失敗とも同じレスポンスを返す
@@ -323,22 +338,15 @@ export const authRouter = new Hono()
     const { token } = c.req.param();
     const resetToken = await prisma.passwordResetToken.findUnique({ where: { token } });
 
-    if (!resetToken || resetToken.usedAt || resetToken.expiresAt < new Date()) {
-      return c.json(
-        { error: { code: "INVALID_TOKEN", message: "リンクが無効または期限切れです" } },
-        404,
-      );
-    }
+    if (!resetToken) return c.json({ error: RESET_INVALID_TOKEN_ERROR }, 404);
+    const tokenErr = usedOrExpiredResetTokenError(resetToken);
+    if (tokenErr) return c.json({ error: tokenErr }, 404);
 
     const user = await prisma.user.findUnique({
       where: { id: resetToken.userId },
       select: { email: true },
     });
-    if (!user)
-      return c.json(
-        { error: { code: "INVALID_TOKEN", message: "リンクが無効または期限切れです" } },
-        404,
-      );
+    if (!user) return c.json({ error: RESET_INVALID_TOKEN_ERROR }, 404);
 
     return c.json({ data: { email: user.email } });
   })

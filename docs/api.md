@@ -466,7 +466,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 { "data": { "message": "パスワードリセットメールを送信しました" } }
 ```
 
-**Errors:**: `400` バリデーションエラー
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `429` `TOO_MANY_REQUESTS` レート制限超過
 
 ---
 
@@ -484,7 +484,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 { "data": { "email": "member@example.com" } }
 ```
 
-**Errors:**: `404` トークン無効・期限切れ・使用済み
+**Errors:**: `404` `INVALID_TOKEN` トークンが存在しない / `404` `TOKEN_USED` 使用済み / `404` `TOKEN_EXPIRED` 期限切れ
 
 ---
 
@@ -508,7 +508,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 { "data": { "message": "パスワードをリセットしました" } }
 ```
 
-**Errors:**: `400` バリデーションエラー / `404` トークン無効・期限切れ・使用済み
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `404` `INVALID_TOKEN` トークンが無効・期限切れ・使用済み（原子的な更新のため詳細な理由は区別しない）
 
 ---
 

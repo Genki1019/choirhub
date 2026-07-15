@@ -29,6 +29,8 @@ vi.mock("../../lib/prisma.js", () => ({
     },
     collectionPayment: { create: vi.fn(), upsert: vi.fn() },
     member: { findMany: vi.fn(), findUnique: vi.fn() },
+    event: { findUnique: vi.fn() },
+    score: { findUnique: vi.fn() },
   },
 }));
 
@@ -169,6 +171,30 @@ describe("GET /finance/summary", () => {
     const body = await json(res);
     expect(body.data.year).toBe(new Date().getFullYear());
   });
+
+  it("正常: yearに応じたsince/until範囲でクエリされる", async () => {
+    vi.mocked(prisma.expense.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.collection.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["finance"]));
+    await app.request("/finance/summary?year=2025");
+
+    const since = new Date("2025-01-01T00:00:00Z");
+    const until = new Date("2026-01-01T00:00:00Z");
+    expect(prisma.expense.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          orgId: testOrg.id,
+          OR: [{ paidAt: { gte: since, lt: until } }, { paidAt: null }],
+        },
+      }),
+    );
+    expect(prisma.collection.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { orgId: testOrg.id, createdAt: { gte: since, lt: until } },
+      }),
+    );
+  });
 });
 
 describe("GET /finance/expenses", () => {
@@ -269,6 +295,28 @@ describe("POST /finance/expenses", () => {
     expect(body.error.code).toBe("NOT_FOUND");
   });
 
+  it("eventIdが存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.expenseCategory.findUnique).mockResolvedValue({
+      id: "cat-1",
+      orgId: "org-1",
+      name: "会場費",
+      sortOrder: 0,
+      createdAt: new Date("2024-01-01"),
+    });
+    vi.mocked(prisma.event.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/expenses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...validBody, eventId: "event-1" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
   it("正常: 201を返す", async () => {
     vi.mocked(prisma.expenseCategory.findUnique).mockResolvedValue({
       id: "cat-1",
@@ -352,6 +400,42 @@ describe("PATCH /finance/expenses/:expenseId", () => {
     expect(res.status).toBe(404);
     const body = await json(res);
     expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("categoryIdが存在しない/別テナント: 404を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.expense.findFirst).mockResolvedValue({ id: "expense-1" } as any);
+    vi.mocked(prisma.expenseCategory.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/expenses/expense-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ categoryId: "other-org-cat" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+    expect(prisma.expense.update).not.toHaveBeenCalled();
+  });
+
+  it("eventIdが存在しない/別テナント: 404を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.expense.findFirst).mockResolvedValue({ id: "expense-1" } as any);
+    vi.mocked(prisma.event.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/expenses/expense-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eventId: "other-org-event" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+    expect(prisma.expense.update).not.toHaveBeenCalled();
   });
 
   it("正常: 部分更新される", async () => {
@@ -527,6 +611,38 @@ describe("POST /finance/collections", () => {
     expect(res.status).toBe(403);
     const body = await json(res);
     expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("eventIdが存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...validBody, eventId: "other-org-event" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+    expect(prisma.collection.create).not.toHaveBeenCalled();
+  });
+
+  it("scoreIdが存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...validBody, scoreId: "other-org-score" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+    expect(prisma.collection.create).not.toHaveBeenCalled();
   });
 
   it("正常（memberIds未指定）: アクティブかつguest/visitor除くメンバー全員にpendingが作成される", async () => {
@@ -765,6 +881,24 @@ describe("PATCH /finance/collections/:collectionId", () => {
     expect(res.status).toBe(404);
     const body = await json(res);
     expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("eventIdが存在しない/別テナント: 404を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.collection.findFirst).mockResolvedValue({ id: "collection-1" } as any);
+    vi.mocked(prisma.event.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/collection-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eventId: "other-org-event" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+    expect(prisma.collection.update).not.toHaveBeenCalled();
   });
 
   it("正常: 部分更新される", async () => {

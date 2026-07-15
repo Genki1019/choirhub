@@ -201,6 +201,12 @@ export const accountingRouter = new Hono<TenantEnv>()
       if (!cat || cat.orgId !== org.id) {
         return c.json({ error: { code: "NOT_FOUND", message: "カテゴリが見つかりません" } }, 404);
       }
+      if (body.eventId) {
+        const ev = await prisma.event.findUnique({ where: { id: body.eventId } });
+        if (!ev || ev.orgId !== org.id) {
+          return c.json({ error: { code: "NOT_FOUND", message: "イベントが見つかりません" } }, 404);
+        }
+      }
 
       const expense = await prisma.expense.create({
         data: {
@@ -259,6 +265,19 @@ export const accountingRouter = new Hono<TenantEnv>()
       }
 
       const body = c.req.valid("json");
+
+      if (body.categoryId !== undefined) {
+        const cat = await prisma.expenseCategory.findUnique({ where: { id: body.categoryId } });
+        if (!cat || cat.orgId !== org.id) {
+          return c.json({ error: { code: "NOT_FOUND", message: "カテゴリが見つかりません" } }, 404);
+        }
+      }
+      if (body.eventId) {
+        const ev = await prisma.event.findUnique({ where: { id: body.eventId } });
+        if (!ev || ev.orgId !== org.id) {
+          return c.json({ error: { code: "NOT_FOUND", message: "イベントが見つかりません" } }, 404);
+        }
+      }
 
       const updated = await prisma.expense.update({
         where: { id: expenseId, orgId: org.id },
@@ -383,6 +402,19 @@ export const accountingRouter = new Hono<TenantEnv>()
 
       const body = c.req.valid("json");
 
+      if (body.eventId) {
+        const ev = await prisma.event.findUnique({ where: { id: body.eventId } });
+        if (!ev || ev.orgId !== org.id) {
+          return c.json({ error: { code: "NOT_FOUND", message: "イベントが見つかりません" } }, 404);
+        }
+      }
+      if (body.scoreId) {
+        const score = await prisma.score.findUnique({ where: { id: body.scoreId } });
+        if (!score || score.orgId !== org.id) {
+          return c.json({ error: { code: "NOT_FOUND", message: "楽譜が見つかりません" } }, 404);
+        }
+      }
+
       const col = await prisma.collection.create({
         data: {
           orgId: org.id,
@@ -500,11 +532,15 @@ export const accountingRouter = new Hono<TenantEnv>()
   // PATCH /finance/collections/:collectionId
   .patch(
     "/finance/collections/:collectionId",
-    zValidator("json", collectionBodySchema.omit({ memberIds: true }).partial(), (result, c) => {
-      if (!result.success) {
-        return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
-      }
-    }),
+    zValidator(
+      "json",
+      collectionBodySchema.omit({ memberIds: true, scoreId: true }).partial(),
+      (result, c) => {
+        if (!result.success) {
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+        }
+      },
+    ),
     async (c) => {
       const org = c.get("org");
       const member = c.get("member");
@@ -522,6 +558,13 @@ export const accountingRouter = new Hono<TenantEnv>()
       }
 
       const body = c.req.valid("json");
+
+      if (body.eventId) {
+        const ev = await prisma.event.findUnique({ where: { id: body.eventId } });
+        if (!ev || ev.orgId !== org.id) {
+          return c.json({ error: { code: "NOT_FOUND", message: "イベントが見つかりません" } }, 404);
+        }
+      }
 
       const updated = await prisma.collection.update({
         where: { id: collectionId, orgId: org.id },

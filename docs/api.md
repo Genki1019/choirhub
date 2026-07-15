@@ -3565,7 +3565,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 { "data": { "id": "cuid", "title": "6月合宿費", "amount": 15000 } }
 ```
 
-**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` `eventId`指定時、イベントが存在しない・別テナント / `404` `NOT_FOUND` `scoreId`指定時、楽譜が存在しない・別テナント
 
 ---
 
@@ -3632,7 +3632,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 ### PATCH `/api/v1/:orgSlug/finance/collections/:id`
 
-徴収の基本情報を更新する（`memberIds`は指定不可・すべて省略可）。
+徴収の基本情報を更新する（`memberIds`・`scoreId`は指定不可・すべて省略可）。
 
 **権限**: `finance+`
 
@@ -3648,7 +3648,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 { "data": { "id": "cuid", "title": "6月合宿費（改）", "amount": 16000 } }
 ```
 
-**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 徴収が存在しない
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 徴収が存在しない / `404` `NOT_FOUND` `eventId`指定時、イベントが存在しない・別テナント
 
 ---
 
@@ -3812,7 +3812,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Response** `201` → 作成した Expense
 
-**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` カテゴリが存在しない・別テナント
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` カテゴリが存在しない・別テナント / `404` `NOT_FOUND` `eventId`指定時、イベントが存在しない・別テナント
 
 ---
 
@@ -3826,7 +3826,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Response** `200` → 更新後の Expense
 
-**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 支出が存在しない・別テナント
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 支出が存在しない・別テナント / `404` `NOT_FOUND` `categoryId`指定時、カテゴリが存在しない・別テナント / `404` `NOT_FOUND` `eventId`指定時、イベントが存在しない・別テナント
 
 ---
 

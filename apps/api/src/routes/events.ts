@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { isAdmin, hasRole, isHiddenRole } from "../services/access.js";
+import { isAdmin, hasRole, isHiddenRole, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 import type { Event, EventCategory, Member } from "../generated/prisma/index.js";
 import { Prisma } from "../generated/prisma/index.js";
@@ -196,33 +196,65 @@ export const eventsRouter = new Hono<TenantEnv>()
 
   // ── POST /events ─────────────────────────────────────────────────────────
   // イベントを作成する。eventType=concert の場合は Concert も自動生成する。
-  .post("/events", zValidator("json", eventBodySchema), async (c) => {
-    const org = c.get("org");
-    const member = c.get("member");
+  .post(
+    "/events",
+    zValidator("json", eventBodySchema, (r, c) => {
+      if (!r.success)
+        return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+    }),
+    async (c) => {
+      const org = c.get("org");
+      const member = c.get("member");
 
-    if (!hasRole(member, "tech")) {
-      return c.json({ error: { code: "FORBIDDEN", message: "技術系以上の権限が必要です" } }, 403);
-    }
+      if (!hasRole(member, "tech")) {
+        return c.json({ error: { code: "FORBIDDEN", message: "技術系以上の権限が必要です" } }, 403);
+      }
 
-    const body = c.req.valid("json");
+      const body = c.req.valid("json");
 
-    const selectedCategory = await prisma.eventCategory.findUnique({
-      where: { id: body.categoryId },
-    });
-    if (!selectedCategory || selectedCategory.orgId !== org.id) {
-      return c.json({ error: { code: "NOT_FOUND", message: "イベント区分が見つかりません" } }, 404);
-    }
-
-    if (selectedCategory.slug === "concert") {
-      const concert = await prisma.concert.create({
-        data: {
-          orgId: org.id,
-          title: body.title,
-          heldOn: new Date(body.startsAt),
-          venue: body.location ?? null,
-        },
+      const selectedCategory = await prisma.eventCategory.findUnique({
+        where: { id: body.categoryId },
       });
-      await prisma.event.create({
+      if (!selectedCategory || selectedCategory.orgId !== org.id) {
+        return c.json(
+          { error: { code: "NOT_FOUND", message: "イベント区分が見つかりません" } },
+          404,
+        );
+      }
+
+      if (selectedCategory.slug === "concert") {
+        const concert = await prisma.concert.create({
+          data: {
+            orgId: org.id,
+            title: body.title,
+            heldOn: new Date(body.startsAt),
+            venue: body.location ?? null,
+          },
+        });
+        await prisma.event.create({
+          data: {
+            orgId: org.id,
+            title: body.title,
+            categoryId: body.categoryId,
+            startsAt: new Date(body.startsAt),
+            endsAt: new Date(body.endsAt),
+            location: body.location ?? null,
+            locationUrl: body.locationUrl ?? null,
+            deadline: body.deadline ? new Date(body.deadline) : null,
+            pageMemo: body.pageMemo ?? null,
+            targetRoles: body.targetRoles ?? [],
+            targetPartIds: body.targetPartIds ?? [],
+            concertId: concert.id,
+          },
+        });
+        const result = await prisma.event.findFirst({
+          where: { concertId: concert.id },
+          include: { category: true },
+        });
+        return c.json({ data: formatEvent(result!) }, 201);
+      }
+
+      const ev = await prisma.event.create({
         data: {
           orgId: org.id,
           title: body.title,
@@ -235,75 +267,53 @@ export const eventsRouter = new Hono<TenantEnv>()
           pageMemo: body.pageMemo ?? null,
           targetRoles: body.targetRoles ?? [],
           targetPartIds: body.targetPartIds ?? [],
-          concertId: concert.id,
         },
       });
-      const result = await prisma.event.findFirst({
-        where: { concertId: concert.id },
-        include: { category: true },
-      });
-      return c.json({ data: formatEvent(result!) }, 201);
-    }
 
-    const ev = await prisma.event.create({
-      data: {
-        orgId: org.id,
-        title: body.title,
-        categoryId: body.categoryId,
-        startsAt: new Date(body.startsAt),
-        endsAt: new Date(body.endsAt),
-        location: body.location ?? null,
-        locationUrl: body.locationUrl ?? null,
-        deadline: body.deadline ? new Date(body.deadline) : null,
-        pageMemo: body.pageMemo ?? null,
-        targetRoles: body.targetRoles ?? [],
-        targetPartIds: body.targetPartIds ?? [],
-      },
-    });
-
-    // per_rehearsal モードの練習イベントは徴収を自動生成
-    if (
-      selectedCategory.slug === "rehearsal" &&
-      org.feeType === "per_rehearsal" &&
-      org.defaultFeeAmount
-    ) {
-      const activeMembers = await prisma.member.findMany({
-        where: { orgId: org.id, status: "active", NOT: { roles: { hasSome: ["visitor"] } } },
-        select: { id: true, memberType: { select: { defaultFeeAmount: true } } },
-      });
-      if (activeMembers.length > 0) {
-        const collection = await prisma.collection.create({
-          data: {
-            orgId: org.id,
-            title: `${body.title} 場所代`,
-            amount: org.defaultFeeAmount,
-            eventId: ev.id,
-            createdById: member.id,
-          },
+      // per_rehearsal モードの練習イベントは徴収を自動生成
+      if (
+        selectedCategory.slug === "rehearsal" &&
+        org.feeType === "per_rehearsal" &&
+        org.defaultFeeAmount
+      ) {
+        const activeMembers = await prisma.member.findMany({
+          where: { orgId: org.id, status: "active", ...EXCLUDE_HIDDEN_ROLES },
+          select: { id: true, memberType: { select: { defaultFeeAmount: true } } },
         });
-        for (const m of activeMembers) {
-          await prisma.collectionPayment.create({
+        if (activeMembers.length > 0) {
+          const collection = await prisma.collection.create({
             data: {
-              collectionId: collection.id,
-              memberId: m.id,
-              status: "pending",
-              amount:
-                m.memberType?.defaultFeeAmount != null &&
-                m.memberType.defaultFeeAmount !== org.defaultFeeAmount
-                  ? m.memberType.defaultFeeAmount
-                  : null,
+              orgId: org.id,
+              title: `${body.title} 場所代`,
+              amount: org.defaultFeeAmount,
+              eventId: ev.id,
+              createdById: member.id,
             },
           });
+          for (const m of activeMembers) {
+            await prisma.collectionPayment.create({
+              data: {
+                collectionId: collection.id,
+                memberId: m.id,
+                status: "pending",
+                amount:
+                  m.memberType?.defaultFeeAmount != null &&
+                  m.memberType.defaultFeeAmount !== org.defaultFeeAmount
+                    ? m.memberType.defaultFeeAmount
+                    : null,
+              },
+            });
+          }
         }
       }
-    }
 
-    const event = await prisma.event.findUnique({
-      where: { id: ev.id },
-      include: { category: true },
-    });
-    return c.json({ data: formatEvent(event!) }, 201);
-  })
+      const event = await prisma.event.findUnique({
+        where: { id: ev.id },
+        include: { category: true },
+      });
+      return c.json({ data: formatEvent(event!) }, 201);
+    },
+  )
 
   // ── GET /events/:id ───────────────────────────────────────────────────────
   .get("/events/:id", async (c) => {
@@ -374,54 +384,61 @@ export const eventsRouter = new Hono<TenantEnv>()
 
   // ── PATCH /events/:id ─────────────────────────────────────────────────────
   // Concert とリンクしている場合は Concert も同期更新する
-  .patch("/events/:id", zValidator("json", eventBodySchema.partial()), async (c) => {
-    const org = c.get("org");
-    const member = c.get("member");
-    const { id } = c.req.param();
+  .patch(
+    "/events/:id",
+    zValidator("json", eventBodySchema.partial(), (r, c) => {
+      if (!r.success)
+        return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+    }),
+    async (c) => {
+      const org = c.get("org");
+      const member = c.get("member");
+      const { id } = c.req.param();
 
-    if (!hasRole(member, "tech")) {
-      return c.json({ error: { code: "FORBIDDEN", message: "技術系以上の権限が必要です" } }, 403);
-    }
+      if (!hasRole(member, "tech")) {
+        return c.json({ error: { code: "FORBIDDEN", message: "技術系以上の権限が必要です" } }, 403);
+      }
 
-    const event = await prisma.event.findUnique({ where: { id } });
-    if (!event || event.orgId !== org.id) {
-      return c.json({ error: { code: "NOT_FOUND", message: "イベントが見つかりません" } }, 404);
-    }
+      const event = await prisma.event.findUnique({ where: { id } });
+      if (!event || event.orgId !== org.id) {
+        return c.json({ error: { code: "NOT_FOUND", message: "イベントが見つかりません" } }, 404);
+      }
 
-    const body = c.req.valid("json");
+      const body = c.req.valid("json");
 
-    await prisma.event.update({
-      where: { id, orgId: org.id },
-      data: {
-        ...(body.title !== undefined && { title: body.title }),
-        ...(body.categoryId !== undefined && { categoryId: body.categoryId }),
-        ...(body.startsAt !== undefined && { startsAt: new Date(body.startsAt) }),
-        ...(body.endsAt !== undefined && { endsAt: new Date(body.endsAt) }),
-        ...(body.location !== undefined && { location: body.location }),
-        ...(body.locationUrl !== undefined && { locationUrl: body.locationUrl }),
-        ...(body.deadline !== undefined && {
-          deadline: body.deadline ? new Date(body.deadline) : null,
-        }),
-        ...(body.pageMemo !== undefined && { pageMemo: body.pageMemo }),
-        ...(body.targetRoles !== undefined && { targetRoles: body.targetRoles ?? [] }),
-        ...(body.targetPartIds !== undefined && { targetPartIds: body.targetPartIds ?? [] }),
-      },
-    });
-
-    if (event.concertId) {
-      await prisma.concert.update({
-        where: { id: event.concertId, orgId: org.id },
+      await prisma.event.update({
+        where: { id, orgId: org.id },
         data: {
           ...(body.title !== undefined && { title: body.title }),
-          ...(body.startsAt !== undefined && { heldOn: new Date(body.startsAt) }),
-          ...(body.location !== undefined && { venue: body.location }),
+          ...(body.categoryId !== undefined && { categoryId: body.categoryId }),
+          ...(body.startsAt !== undefined && { startsAt: new Date(body.startsAt) }),
+          ...(body.endsAt !== undefined && { endsAt: new Date(body.endsAt) }),
+          ...(body.location !== undefined && { location: body.location }),
+          ...(body.locationUrl !== undefined && { locationUrl: body.locationUrl }),
+          ...(body.deadline !== undefined && {
+            deadline: body.deadline ? new Date(body.deadline) : null,
+          }),
+          ...(body.pageMemo !== undefined && { pageMemo: body.pageMemo }),
+          ...(body.targetRoles !== undefined && { targetRoles: body.targetRoles ?? [] }),
+          ...(body.targetPartIds !== undefined && { targetPartIds: body.targetPartIds ?? [] }),
         },
       });
-    }
 
-    const updated = await prisma.event.findUnique({ where: { id }, include: { category: true } });
-    return c.json({ data: formatEvent(updated!) });
-  })
+      if (event.concertId) {
+        await prisma.concert.update({
+          where: { id: event.concertId, orgId: org.id },
+          data: {
+            ...(body.title !== undefined && { title: body.title }),
+            ...(body.startsAt !== undefined && { heldOn: new Date(body.startsAt) }),
+            ...(body.location !== undefined && { venue: body.location }),
+          },
+        });
+      }
+
+      const updated = await prisma.event.findUnique({ where: { id }, include: { category: true } });
+      return c.json({ data: formatEvent(updated!) });
+    },
+  )
 
   // ── DELETE /events/:id ────────────────────────────────────────────────────
   // Concert とリンクしている場合は Concert も削除する
@@ -448,50 +465,60 @@ export const eventsRouter = new Hono<TenantEnv>()
   })
 
   // ── PUT /events/:id/attendance/me ─────────────────────────────────────────
-  .put("/events/:id/attendance/me", zValidator("json", attendanceBodySchema), async (c) => {
-    const org = c.get("org");
-    const member = c.get("member");
-    const { id } = c.req.param();
+  .put(
+    "/events/:id/attendance/me",
+    zValidator("json", attendanceBodySchema, (r, c) => {
+      if (!r.success)
+        return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+    }),
+    async (c) => {
+      const org = c.get("org");
+      const member = c.get("member");
+      const { id } = c.req.param();
 
-    const event = await prisma.event.findUnique({ where: { id } });
-    if (!event || event.orgId !== org.id) {
-      return c.json({ error: { code: "NOT_FOUND", message: "イベントが見つかりません" } }, 404);
-    }
+      const event = await prisma.event.findUnique({ where: { id } });
+      if (!event || event.orgId !== org.id) {
+        return c.json({ error: { code: "NOT_FOUND", message: "イベントが見つかりません" } }, 404);
+      }
 
-    if (!isAdmin(member) && !isInvited(member, event)) {
-      return c.json(
-        { error: { code: "NOT_INVITED", message: "このイベントへの参加権限がありません" } },
-        403,
-      );
-    }
+      if (!isAdmin(member) && !isInvited(member, event)) {
+        return c.json(
+          { error: { code: "NOT_INVITED", message: "このイベントへの参加権限がありません" } },
+          403,
+        );
+      }
 
-    if (event.isLocked) {
-      return c.json({ error: { code: "LOCKED", message: "出欠の締切が過ぎています" } }, 403);
-    }
+      if (event.isLocked) {
+        return c.json({ error: { code: "LOCKED", message: "出欠の締切が過ぎています" } }, 403);
+      }
 
-    const body = c.req.valid("json");
+      const body = c.req.valid("json");
 
-    const attendance = await prisma.attendance.upsert({
-      where: { eventId_memberId: { eventId: id, memberId: member.id } },
-      create: { eventId: id, memberId: member.id, ...body },
-      update: { ...body },
-    });
+      const attendance = await prisma.attendance.upsert({
+        where: { eventId_memberId: { eventId: id, memberId: member.id } },
+        create: { eventId: id, memberId: member.id, ...body },
+        update: { ...body },
+      });
 
-    return c.json({
-      data: {
-        status: attendance.status,
-        arriveTime: attendance.arriveTime,
-        leaveTime: attendance.leaveTime,
-        dayMemo: attendance.dayMemo,
-        updatedAt: attendance.updatedAt.toISOString(),
-      },
-    });
-  })
+      return c.json({
+        data: {
+          status: attendance.status,
+          arriveTime: attendance.arriveTime,
+          leaveTime: attendance.leaveTime,
+          dayMemo: attendance.dayMemo,
+          updatedAt: attendance.updatedAt.toISOString(),
+        },
+      });
+    },
+  )
 
   // ── PATCH /events/:id/attendance/:memberId ────────────────────────────────
   .patch(
     "/events/:id/attendance/:memberId",
-    zValidator("json", attendanceBodySchema.partial()),
+    zValidator("json", attendanceBodySchema.partial(), (r, c) => {
+      if (!r.success)
+        return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+    }),
     async (c) => {
       const org = c.get("org");
       const member = c.get("member");

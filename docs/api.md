@@ -814,7 +814,8 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 **権限**: `member+`
 
-> サーバーはリクエストユーザーのロール・パートを参照し、`targetRoles` / `targetPartIds` に一致しないイベントを結果から除外する。
+> - サーバーはリクエストユーザーのロール・パートを参照し、`targetRoles` / `targetPartIds` に一致しないイベントを結果から除外する（adminは全件表示）。
+> - `type`未指定または`type=concert`の場合、スケジュールと連携していない演奏会（`Concert`のうち`linkedEvent`が無いもの）も`concertId`付きの疑似イベントとしてマージされる。その場合の`myAttendance`はオンステ確定（`OnStageAssignment`）の有無から`attending`/`undecided`のいずれかになる（出欠回答由来ではない）。
 
 **Query Parameters:**
 
@@ -859,15 +860,17 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
+**Errors:**: `400` `VALIDATION_ERROR` `from`/`to`の日付形式が不正
+
 ---
 
 <a id="events-create"></a>
 
 ### POST `/api/v1/:orgSlug/events`
 
-イベントを作成する。
+イベントを作成する。`categoryId`のスラグが`concert`の場合、`Concert`も同時に自動作成しリンクする。`rehearsal`区分かつ団体の`feeType`が`per_rehearsal`の場合、アクティブメンバー（`guest`/`visitor`除く）全員分の場所代徴収（`Collection`/`CollectionPayment`）を自動生成する。
 
-**権限**: `tech+`（admin / tech / conductor）
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Request Body:**
 
@@ -900,6 +903,8 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 ```
 
 **Response** `201` → 作成したイベント情報（招待フィルタ含む）
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` イベント区分が存在しない
 
 ---
 
@@ -956,12 +961,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
-**Errors:**
-
-| コード            | 説明                 |
-| ----------------- | -------------------- |
-| `403 NOT_INVITED` | 招待対象外のイベント |
-| `404 NOT_FOUND`   | イベントが存在しない |
+**Errors:**: `403` `NOT_INVITED` 招待対象外のイベント / `404` `NOT_FOUND` イベントが存在しない
 
 ---
 
@@ -971,13 +971,16 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 イベント情報を更新する。
 
-**権限**: `tech+`（admin / tech / conductor）
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Request Body:**: POST と同じ形式（すべて省略可）。`targetRoles` / `targetPartIds` も更新可能。
 
-> `targetPartIds` を変更した場合、新たに招待対象から外れたメンバーの出欠レコードは保持されるが、そのメンバーは以降 GET で当該イベントを参照できなくなる。
+> - `targetPartIds` を変更した場合、新たに招待対象から外れたメンバーの出欠レコードは保持されるが、そのメンバーは以降 GET で当該イベントを参照できなくなる。
+> - `event.concertId`（`Concert`とリンクしているイベント）の場合、`title`/`startsAt`/`location`の変更が`Concert`（`title`/`heldOn`/`venue`）にも同期反映される。
 
 **Response** `200` → 更新後のイベント情報
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` イベントが存在しない
 
 ---
 
@@ -985,11 +988,13 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 ### DELETE `/api/v1/:orgSlug/events/:id`
 
-イベントを削除する。
+イベントを削除する。`concertId`でリンクされた`Concert`があれば同時に削除する。
 
-**権限**: `tech+`（admin / tech / conductor）
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Response** `204` No Content
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` イベントが存在しない
 
 ---
 
@@ -1031,12 +1036,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
-**Errors:**
-
-| コード            | 説明                 |
-| ----------------- | -------------------- |
-| `403 NOT_INVITED` | 招待対象外のイベント |
-| `403 LOCKED`      | 締切後ロック済み     |
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `NOT_INVITED` 招待対象外のイベント / `403` `LOCKED` 締切後ロック済み / `404` `NOT_FOUND` イベントが存在しない
 
 ---
 
@@ -1048,11 +1048,13 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 **権限**: `admin`
 
-> 対象メンバーが招待対象でない場合も `admin` は更新可能（手動補正用途）。
+> 対象メンバーが招待対象でない場合も `admin` は更新可能（手動補正用途）。締切（`isLocked`）の影響も受けない。
 
 **Request Body:**: PUT /me と同じ形式
 
 **Response** `200` → 更新後の出欠情報
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` イベントが存在しない / `404` `NOT_FOUND` メンバーが存在しない・別テナント
 
 ---
 

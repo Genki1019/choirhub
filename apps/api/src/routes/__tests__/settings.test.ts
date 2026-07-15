@@ -29,6 +29,14 @@ vi.mock("../../lib/prisma.js", () => ({
       delete: vi.fn(),
     },
     expense: { count: vi.fn() },
+    memberType: {
+      findMany: vi.fn(),
+      aggregate: vi.fn(),
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    },
   },
 }));
 
@@ -799,5 +807,286 @@ describe("DELETE /settings/expense-categories/:categoryId", () => {
     const res = await app.request("/settings/expense-categories/cat-1", { method: "DELETE" });
     expect(res.status).toBe(204);
     expect(prisma.expenseCategory.delete).toHaveBeenCalledWith({ where: { id: "cat-1" } });
+  });
+});
+
+// ────────────────────────────
+// GET /settings/member-types
+// ────────────────────────────
+
+describe("GET /settings/member-types", () => {
+  it("member未満(guest): 403を返す", async () => {
+    const app = createTestApp(makeMember(["guest"]));
+    const res = await app.request("/settings/member-types");
+    expect(res.status).toBe(403);
+  });
+
+  it("member: 200で一覧を取得できる", async () => {
+    vi.mocked(prisma.memberType.findMany).mockResolvedValue([
+      {
+        id: "type-1",
+        orgId: "org-1",
+        name: "正団員",
+        defaultFeeAmount: 3000,
+        sortOrder: 0,
+        createdAt: new Date("2024-01-01"),
+      },
+    ]);
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/settings/member-types");
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual([
+      { id: "type-1", name: "正団員", defaultFeeAmount: 3000, sortOrder: 0 },
+    ]);
+    expect(prisma.memberType.findMany).toHaveBeenCalledWith({
+      where: { orgId: "org-1" },
+      orderBy: { sortOrder: "asc" },
+    });
+  });
+});
+
+// ────────────────────────────
+// POST /settings/member-types
+// ────────────────────────────
+
+describe("POST /settings/member-types", () => {
+  it("admin未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/settings/member-types", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "OB" }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("admin: 201で作成する（sortOrder省略時は既存最大値+1）", async () => {
+    vi.mocked(prisma.memberType.aggregate).mockResolvedValue({ _max: { sortOrder: 0 } } as never);
+    vi.mocked(prisma.memberType.create).mockResolvedValue({
+      id: "type-2",
+      orgId: "org-1",
+      name: "OB",
+      defaultFeeAmount: 1000,
+      sortOrder: 1,
+      createdAt: new Date("2024-01-01"),
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/member-types", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "OB", defaultFeeAmount: 1000 }),
+    });
+    expect(res.status).toBe(201);
+    const body = await json(res);
+    expect(body.data).toEqual({
+      id: "type-2",
+      name: "OB",
+      defaultFeeAmount: 1000,
+      sortOrder: 1,
+    });
+    expect(prisma.memberType.create).toHaveBeenCalledWith({
+      data: { orgId: "org-1", name: "OB", defaultFeeAmount: 1000, sortOrder: 1 },
+    });
+  });
+
+  it("defaultFeeAmount省略時: nullで作成される", async () => {
+    vi.mocked(prisma.memberType.aggregate).mockResolvedValue({
+      _max: { sortOrder: null },
+    } as never);
+    vi.mocked(prisma.memberType.create).mockResolvedValue({
+      id: "type-2",
+      orgId: "org-1",
+      name: "OB",
+      defaultFeeAmount: null,
+      sortOrder: 1,
+      createdAt: new Date("2024-01-01"),
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    await app.request("/settings/member-types", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "OB" }),
+    });
+    expect(prisma.memberType.create).toHaveBeenCalledWith({
+      data: { orgId: "org-1", name: "OB", defaultFeeAmount: null, sortOrder: 1 },
+    });
+  });
+
+  it("nameが空文字: 400を返す", async () => {
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/member-types", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("nameが51文字以上: 400を返す", async () => {
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/member-types", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "あ".repeat(51) }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+// ────────────────────────────
+// PATCH /settings/member-types/:typeId
+// ────────────────────────────
+
+describe("PATCH /settings/member-types/:typeId", () => {
+  it("admin未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/settings/member-types/type-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "OB" }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("存在しないtypeId: 404を返す", async () => {
+    vi.mocked(prisma.memberType.findUnique).mockResolvedValue(null);
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/member-types/no-such-type", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "OB" }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("他テナントのtypeId: 404を返す", async () => {
+    vi.mocked(prisma.memberType.findUnique).mockResolvedValue({
+      id: "type-other",
+      orgId: "org-2",
+      name: "他団体区分",
+      defaultFeeAmount: null,
+      sortOrder: 0,
+      createdAt: new Date("2024-01-01"),
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/member-types/type-other", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "OB" }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("admin: 200でname・defaultFeeAmount・sortOrderを部分更新できる", async () => {
+    vi.mocked(prisma.memberType.findUnique).mockResolvedValue({
+      id: "type-1",
+      orgId: "org-1",
+      name: "正団員",
+      defaultFeeAmount: 3000,
+      sortOrder: 0,
+      createdAt: new Date("2024-01-01"),
+    });
+    vi.mocked(prisma.memberType.update).mockResolvedValue({
+      id: "type-1",
+      orgId: "org-1",
+      name: "OB",
+      defaultFeeAmount: 1000,
+      sortOrder: 1,
+      createdAt: new Date("2024-01-01"),
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/member-types/type-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "OB", defaultFeeAmount: 1000, sortOrder: 1 }),
+    });
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({
+      id: "type-1",
+      name: "OB",
+      defaultFeeAmount: 1000,
+      sortOrder: 1,
+    });
+    expect(prisma.memberType.update).toHaveBeenCalledWith({
+      where: { id: "type-1" },
+      data: { name: "OB", defaultFeeAmount: 1000, sortOrder: 1 },
+    });
+  });
+});
+
+// ────────────────────────────
+// DELETE /settings/member-types/:typeId
+// ────────────────────────────
+
+describe("DELETE /settings/member-types/:typeId", () => {
+  it("admin未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/settings/member-types/type-1", { method: "DELETE" });
+    expect(res.status).toBe(403);
+  });
+
+  it("存在しないtypeId: 404を返す", async () => {
+    vi.mocked(prisma.memberType.findUnique).mockResolvedValue(null);
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/member-types/no-such-type", { method: "DELETE" });
+    expect(res.status).toBe(404);
+  });
+
+  it("他テナントのtypeId: 404を返す", async () => {
+    vi.mocked(prisma.memberType.findUnique).mockResolvedValue({
+      id: "type-other",
+      orgId: "org-2",
+      name: "他団体区分",
+      defaultFeeAmount: null,
+      sortOrder: 0,
+      createdAt: new Date("2024-01-01"),
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/member-types/type-other", { method: "DELETE" });
+    expect(res.status).toBe(404);
+  });
+
+  it("使用中のメンバーが存在する: 409を返す（人数を含むメッセージ）", async () => {
+    vi.mocked(prisma.memberType.findUnique).mockResolvedValue({
+      id: "type-1",
+      orgId: "org-1",
+      name: "正団員",
+      defaultFeeAmount: 3000,
+      sortOrder: 0,
+      createdAt: new Date("2024-01-01"),
+    });
+    vi.mocked(prisma.member.count).mockResolvedValue(5);
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/member-types/type-1", { method: "DELETE" });
+    expect(res.status).toBe(409);
+    const body = await json(res);
+    expect(body.error.message).toContain("5");
+    expect(prisma.memberType.delete).not.toHaveBeenCalled();
+  });
+
+  it("使用中のメンバーが0人: 204で削除できる", async () => {
+    vi.mocked(prisma.memberType.findUnique).mockResolvedValue({
+      id: "type-1",
+      orgId: "org-1",
+      name: "正団員",
+      defaultFeeAmount: 3000,
+      sortOrder: 0,
+      createdAt: new Date("2024-01-01"),
+    });
+    vi.mocked(prisma.member.count).mockResolvedValue(0);
+    vi.mocked(prisma.memberType.delete).mockResolvedValue({
+      id: "type-1",
+      orgId: "org-1",
+      name: "正団員",
+      defaultFeeAmount: 3000,
+      sortOrder: 0,
+      createdAt: new Date("2024-01-01"),
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/member-types/type-1", { method: "DELETE" });
+    expect(res.status).toBe(204);
+    expect(prisma.memberType.delete).toHaveBeenCalledWith({ where: { id: "type-1" } });
   });
 });

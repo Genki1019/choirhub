@@ -1839,6 +1839,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
+**Errors:**: `400` `VALIDATION_ERROR` name未入力 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
 ---
 
 <a id="stage-patch"></a>
@@ -1861,6 +1863,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 { "data": { "id": "cuid", "name": "第2ステージ（委嘱作品）", "sortOrder": 2 } }
 ```
 
+**Errors:**: `400` `VALIDATION_ERROR` name未入力 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` ステージが存在しない・この演奏会に属さない
+
 ---
 
 <a id="stages-order"></a>
@@ -1877,9 +1881,11 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 { "ids": ["cuid_stage2", "cuid_stage1", "cuid_stage3"] }
 ```
 
-> `ids` に指定した順番が `sortOrder` になる（index 0 → sortOrder 1）
+> `ids` に指定した順番が `sortOrder` になる（index 0 → sortOrder 1）。この演奏会の全ステージを網羅している必要はなく、指定されたステージのみ並び替えられる。
 
 **Response** `204` No Content
+
+**Errors:**: `400` `VALIDATION_ERROR` idsが空 / `400` `BAD_REQUEST` この演奏会に属さないステージIDが含まれる / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 

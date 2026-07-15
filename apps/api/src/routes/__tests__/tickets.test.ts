@@ -1177,3 +1177,385 @@ describe("PATCH /tickets/:concertId/outreach-expense-rate", () => {
     expect(body.data).toEqual({ outreachExpensePerTrip: null });
   });
 });
+
+describe("GET /tickets/:concertId/race", () => {
+  const makeAllocation = (opts: {
+    memberId: string;
+    nameJa: string;
+    partId: string | null;
+    partName: string | null;
+    allocatedCount: number;
+    sold: number;
+    outreachCount?: number;
+    reportedAt?: Date | null;
+    roles?: string[];
+  }) => ({
+    memberId: opts.memberId,
+    allocatedCount: opts.allocatedCount,
+    soldAdult: opts.sold,
+    soldStudent: 0,
+    soldOther: 0,
+    outreachCount: opts.outreachCount ?? 0,
+    reportedAt: opts.reportedAt ?? null,
+    member: {
+      roles: opts.roles ?? ["member"],
+      userRef: { nameJa: opts.nameJa },
+      part: opts.partId
+        ? { id: opts.partId, name: opts.partName, sortOrder: 1, voiceType: "tenor" }
+        : null,
+    },
+  });
+
+  it("演奏会が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request("/tickets/nonexistent/race");
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("未公開・非ticket担当者: 403を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue({
+      ...testConcert,
+      racePublishedAt: null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race`);
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("公開済み・一般団員: 200を返す（誰でも見える）", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue({
+      ...testConcert,
+      racePublishedAt: new Date("2026-11-01T00:00:00Z"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race`);
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.isTicketManager).toBe(false);
+  });
+
+  it("allocatedが0の団員は集計から除外される", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([
+      {
+        allocations: [
+          makeAllocation({
+            memberId: "member-1",
+            nameJa: "山田 太郎",
+            partId: "part-1",
+            partName: "Tenor I",
+            allocatedCount: 0,
+            sold: 0,
+          }),
+        ],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race`);
+
+    const body = await json(res);
+    expect(body.data.individuals).toEqual([]);
+    expect(body.data.parts).toEqual([]);
+  });
+
+  it("正常: avgSales得点が同率タイで平均点付与される", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([
+      {
+        allocations: [
+          makeAllocation({
+            memberId: "member-1",
+            nameJa: "団員A",
+            partId: "part-1",
+            partName: "Tenor I",
+            allocatedCount: 10,
+            sold: 5,
+          }),
+          makeAllocation({
+            memberId: "member-2",
+            nameJa: "団員B",
+            partId: "part-2",
+            partName: "Bass I",
+            allocatedCount: 10,
+            sold: 5,
+          }),
+        ],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race`);
+
+    const body = await json(res);
+    // points[0]=10, points[1]=8 の平均9が両パートに付与される
+    expect(body.data.parts[0].breakdown.avgSalesPoints).toBe(9);
+    expect(body.data.parts[1].breakdown.avgSalesPoints).toBe(9);
+  });
+
+  it("正常: speed5未達（3名到達前）は0点・nullになる", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([
+      {
+        allocations: [
+          makeAllocation({
+            memberId: "member-1",
+            nameJa: "団員A",
+            partId: "part-1",
+            partName: "Tenor I",
+            allocatedCount: 10,
+            sold: 6,
+            reportedAt: new Date("2026-10-01T00:00:00Z"),
+          }),
+        ],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race`);
+
+    const body = await json(res);
+    expect(body.data.parts[0].breakdown.speed5Points).toBe(0);
+    expect(body.data.parts[0].stats.speed5AchievedAt).toBeNull();
+  });
+
+  it("正常: zeroSellerRatioが正しく計算される", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([
+      {
+        allocations: [
+          makeAllocation({
+            memberId: "member-1",
+            nameJa: "団員A",
+            partId: "part-1",
+            partName: "Tenor I",
+            allocatedCount: 10,
+            sold: 0,
+          }),
+          makeAllocation({
+            memberId: "member-2",
+            nameJa: "団員B",
+            partId: "part-1",
+            partName: "Tenor I",
+            allocatedCount: 10,
+            sold: 3,
+          }),
+        ],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race`);
+
+    const body = await json(res);
+    expect(body.data.parts[0].stats.zeroSellerRatio).toBe(0.5);
+  });
+
+  it("正常: 情宣回数は複数席種の合計ではなく最大値を採用する", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([
+      {
+        allocations: [
+          makeAllocation({
+            memberId: "member-1",
+            nameJa: "団員A",
+            partId: "part-1",
+            partName: "Tenor I",
+            allocatedCount: 10,
+            sold: 2,
+            outreachCount: 2,
+          }),
+        ],
+      },
+      {
+        allocations: [
+          makeAllocation({
+            memberId: "member-1",
+            nameJa: "団員A",
+            partId: "part-1",
+            partName: "Tenor I",
+            allocatedCount: 5,
+            sold: 1,
+            outreachCount: 5,
+          }),
+        ],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race`);
+
+    const body = await json(res);
+    expect(body.data.individuals[0].outreachCount).toBe(5);
+  });
+
+  it("正常: guest/visitorの配布記録は除外するクエリになっている", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    await app.request(`/tickets/${testConcert.id}/race`);
+
+    expect(prisma.ticketBatch.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          allocations: expect.objectContaining({
+            where: { member: { NOT: { roles: { hasSome: ["guest", "visitor"] } } } },
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("正常: individualsが販売数降順→情宣回数降順でランキングされる", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([
+      {
+        allocations: [
+          makeAllocation({
+            memberId: "member-low",
+            nameJa: "少ない人",
+            partId: "part-1",
+            partName: "Tenor I",
+            allocatedCount: 10,
+            sold: 2,
+            outreachCount: 5,
+          }),
+          makeAllocation({
+            memberId: "member-high",
+            nameJa: "多い人",
+            partId: "part-1",
+            partName: "Tenor I",
+            allocatedCount: 10,
+            sold: 8,
+            outreachCount: 1,
+          }),
+        ],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race`);
+
+    const body = await json(res);
+    expect(body.data.individuals.map((i: { memberId: string }) => i.memberId)).toEqual([
+      "member-high",
+      "member-low",
+    ]);
+    expect(body.data.individuals[0].rank).toBe(1);
+  });
+});
+
+describe("POST /tickets/:concertId/race/publish", () => {
+  it("ticket担当者/admin以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race/publish`, { method: "POST" });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("演奏会が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request("/tickets/nonexistent/race/publish", { method: "POST" });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: racePublishedAtが設定される", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.concert.update).mockResolvedValue({
+      ...testConcert,
+      racePublishedAt: new Date("2026-11-01T00:00:00Z"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race/publish`, { method: "POST" });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.racePublishedAt).toBe("2026-11-01T00:00:00.000Z");
+    expect(prisma.concert.update).toHaveBeenCalledWith({
+      where: { id: testConcert.id },
+      data: { racePublishedAt: expect.any(Date) },
+    });
+  });
+});
+
+describe("DELETE /tickets/:concertId/race/publish", () => {
+  it("ticket担当者/admin以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race/publish`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("演奏会が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request("/tickets/nonexistent/race/publish", { method: "DELETE" });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: racePublishedAtがnullに戻る", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.update).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race/publish`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ racePublishedAt: null });
+    expect(prisma.concert.update).toHaveBeenCalledWith({
+      where: { id: testConcert.id },
+      data: { racePublishedAt: null },
+    });
+  });
+});

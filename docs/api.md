@@ -2906,31 +2906,119 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 ### GET `/api/v1/:orgSlug/tickets/:concertId/race`
 
-パートセールスレースの集計データを取得する。
+パート対抗チケットレース（販売枚数・速さ・情宣回数を得点化した順位表）の集計データを取得する。
 
-**権限**: `ticket or admin`
+**権限**: 公開済み（`racePublishedAt`あり）なら`member+`全員 / 未公開は`ticket or admin`のみ
 
 **Response** `200`
 
 ```json
 {
   "data": {
-    "isFinalized": false,
+    "concert": { "id": "cuid", "title": "第20回定期演奏会" },
+    "isTicketManager": true,
+    "racePublishedAt": null,
+    "scoring": {
+      "avgSales": { "label": "平均販売枚数", "points": [10, 8, 6, 4] },
+      "speed5": {
+        "label": "速さ（5枚×3名）",
+        "threshold": 5,
+        "minCount": 3,
+        "points": [5, 4, 3, 2]
+      },
+      "speed10": {
+        "label": "速さ（10枚×3名）",
+        "threshold": 10,
+        "minCount": 3,
+        "points": [5, 4, 3, 2]
+      },
+      "zeroRatio": { "label": "ゼロ販売割合（少順）", "points": [4, 3, 2, 1] },
+      "outreach": { "label": "情宣回数", "points": [5, 4, 3, 2] }
+    },
     "parts": [
       {
+        "partId": "cuid",
         "partName": "Tenor I",
-        "sold": 28,
-        "allocated": 40,
-        "rate": 0.7,
-        "timeline": [
-          { "date": "2026-10-01", "cumulativeSold": 5 },
-          { "date": "2026-10-15", "cumulativeSold": 18 }
-        ]
+        "totalPoints": 22,
+        "rank": 1,
+        "breakdown": {
+          "avgSalesPoints": 10,
+          "speed5Points": 5,
+          "speed10Points": 3,
+          "zeroRatioPoints": 4,
+          "outreachPoints": 0
+        },
+        "stats": {
+          "avgSold": 7,
+          "speed5AchievedAt": "2026-10-05T12:00:00.000Z",
+          "speed10AchievedAt": null,
+          "zeroSellerRatio": 0,
+          "totalOutreach": 3,
+          "memberCount": 4,
+          "allocated": 40,
+          "sold": 28
+        }
+      }
+    ],
+    "individuals": [
+      {
+        "memberId": "cuid",
+        "nameJa": "山田 太郎",
+        "partId": "cuid",
+        "partName": "Tenor I",
+        "allocated": 10,
+        "sold": 9,
+        "outreachCount": 3,
+        "rate": 0.9,
+        "rank": 1
       }
     ]
   }
 }
 ```
+
+> - `allocated`が0の団員は`individuals`・パート集計から除外される。guest/visitorロールの団員は最初から集計対象外。
+> - 同率タイの場合、該当順位の得点の平均（四捨五入）が全員に付与される。
+> - 情宣回数はメンバーが複数席種に配布記録を持つ場合、合計ではなく最大値を採用する（重複計上防止）。
+> - `speed5`/`speed10`はパート内で該当枚数以上を売った団員が`minCount`人に達した時点の`reportedAt`（3人目の報告日時）。未達の場合`null`で得点0。
+
+**Errors:**: `403` `FORBIDDEN` 未公開のレースに非担当者がアクセスしようとした / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="tickets-race-publish"></a>
+
+### POST `/api/v1/:orgSlug/tickets/:concertId/race/publish`
+
+チケットレースを公開する（`Concert.racePublishedAt`に現在時刻を設定）。
+
+**権限**: `ticket or admin`
+
+**Response** `200`
+
+```json
+{ "data": { "racePublishedAt": "2026-11-01T00:00:00.000Z" } }
+```
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="tickets-race-unpublish"></a>
+
+### DELETE `/api/v1/:orgSlug/tickets/:concertId/race/publish`
+
+チケットレースの公開を取り消す（`racePublishedAt`を`null`に戻す）。
+
+**権限**: `ticket or admin`
+
+**Response** `200`
+
+```json
+{ "data": { "racePublishedAt": null } }
+```
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 

@@ -59,6 +59,7 @@
 | [招待メール送信](#members-invite)               | POST   | `/:orgSlug/members/invite`    | admin   |
 | [メンバー詳細取得](#members-id-get)             | GET    | `/:orgSlug/members/:id`       | member+ |
 | [メンバー情報更新（管理者）](#members-id-patch) | PATCH  | `/:orgSlug/members/:id`       | admin   |
+| [メンバー退団処理](#members-id-delete)          | DELETE | `/:orgSlug/members/:id`       | admin   |
 | [パート一覧取得](#parts-list)                   | GET    | `/:orgSlug/parts`             | member+ |
 
 ### スケジュール・出欠
@@ -733,13 +734,15 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 **権限**: `member+`
 
-**Request**: multipart/form-data、フィールド名 `avatar`（JPEG/PNG/GIF、最大5MB）
+**Request**: multipart/form-data、フィールド名 `file`（JPEG/PNG/WebP/GIF、最大4MB）
 
 **Response** `200`
 
 ```json
-{ "data": { "avatarUrl": "/uploads/avatars/xxx.jpg" } }
+{ "data": { "avatarUrl": "https://..." } }
 ```
+
+**Errors:**: `400` `BAD_REQUEST` ファイル未指定 / 許可されていないMIMEタイプ / サイズ超過
 
 ---
 
@@ -810,6 +813,24 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 ---
 
+<a id="members-id-delete"></a>
+
+### DELETE `/api/v1/:orgSlug/members/:id`
+
+メンバーを退団処理する（ソフトデリート。`deletedAt`をセットするのみでレコードは残る）。
+
+**権限**: `admin`（自分自身は退団処理不可）
+
+**Response** `200`
+
+```json
+{ "data": { "success": true } }
+```
+
+**Errors:**: `403` `FORBIDDEN` 管理者権限が必要 / 自分自身は退団処理できない / `404` `NOT_FOUND` メンバーが見つからない（他テナントのIDを指定した場合を含む）
+
+---
+
 <a id="parts-list"></a>
 
 ### GET `/api/v1/:orgSlug/parts`
@@ -823,6 +844,8 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 ```json
 { "data": [{ "id": "cuid", "name": "Tenor I", "voiceType": "tenor", "sortOrder": 1 }] }
 ```
+
+**Errors:**: `403` `FORBIDDEN` 閲覧権限がありません
 
 ---
 

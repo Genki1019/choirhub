@@ -4,7 +4,7 @@ import { z } from "zod";
 import { randomUUID } from "crypto";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "../lib/prisma.js";
-import { isAdmin, isHiddenRole, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
+import { isAdmin, isMemberPlus, isHiddenRole, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
 import { sendInviteEmail } from "../services/mail.js";
 import { storage } from "../services/storage.js";
 import { logger } from "../lib/logger.js";
@@ -62,7 +62,13 @@ export const membersRouter = new Hono<TenantEnv>()
 
   // ── GET /parts ──
   .get("/parts", async (c) => {
+    const actingMember = c.get("member");
     const org = c.get("org");
+
+    if (!isMemberPlus(actingMember)) {
+      return c.json({ error: { code: "FORBIDDEN", message: "閲覧権限がありません" } }, 403);
+    }
+
     const parts = await prisma.part.findMany({
       where: { orgId: org.id },
       orderBy: { sortOrder: "asc" },

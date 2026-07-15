@@ -23,6 +23,9 @@ vi.mock("../../lib/prisma.js", () => ({
     inviteToken: {
       create: vi.fn(),
     },
+    part: {
+      findMany: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }));
@@ -31,7 +34,18 @@ vi.mock("../../services/mail.js", () => ({
   sendInviteEmail: vi.fn(),
 }));
 
+vi.mock("../../services/storage.js", () => ({
+  storage: {
+    resolveAvatarUrl: vi.fn((key: string | null) =>
+      key ? `https://cdn.example.com/${key}` : null,
+    ),
+    upload: vi.fn(),
+    delete: vi.fn(),
+  },
+}));
+
 import { prisma } from "../../lib/prisma.js";
+import { storage } from "../../services/storage.js";
 import { membersRouter } from "../members.js";
 
 // ────────────────────────────
@@ -415,5 +429,168 @@ describe("POST /members/invite", () => {
     expect(res.status).toBe(400);
     const body = await json(res);
     expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+});
+
+// ────────────────────────────
+// GET /parts — パート一覧
+// ────────────────────────────
+
+describe("GET /parts", () => {
+  it("member未満(guest): 403を返す", async () => {
+    const app = createTestApp({ ...makeNormalMember(), roles: ["guest"] });
+    const res = await app.request("/parts");
+    expect(res.status).toBe(403);
+  });
+
+  it("member: 200で一覧を取得できる（sortOrder昇順）", async () => {
+    vi.mocked(prisma.part.findMany).mockResolvedValue([testPart]);
+    const app = createTestApp(makeNormalMember());
+    const res = await app.request("/parts");
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual([
+      { id: "part-1", name: "Tenor I", voiceType: "tenor", sortOrder: 1 },
+    ]);
+    expect(prisma.part.findMany).toHaveBeenCalledWith({
+      where: { orgId: "org-1" },
+      orderBy: { sortOrder: "asc" },
+    });
+  });
+});
+
+// ────────────────────────────
+// POST /members/me/avatar — アバターアップロード
+// ────────────────────────────
+
+describe("POST /members/me/avatar", () => {
+  it("fileが無い: 400を返す", async () => {
+    const app = createTestApp(makeNormalMember());
+    const res = await app.request("/members/me/avatar", {
+      method: "POST",
+      body: new FormData(),
+    });
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("BAD_REQUEST");
+  });
+
+  it("許可されていないMIMEタイプ: 400を返す", async () => {
+    const app = createTestApp(makeNormalMember());
+    const form = new FormData();
+    form.append("file", new File(["dummy"], "avatar.svg", { type: "image/svg+xml" }));
+    const res = await app.request("/members/me/avatar", { method: "POST", body: form });
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("BAD_REQUEST");
+  });
+
+  it("ファイルサイズが4MB超: 400を返す", async () => {
+    const app = createTestApp(makeNormalMember());
+    const form = new FormData();
+    const oversized = new Uint8Array(4 * 1024 * 1024 + 1);
+    form.append("file", new File([oversized], "avatar.png", { type: "image/png" }));
+    const res = await app.request("/members/me/avatar", { method: "POST", body: form });
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("BAD_REQUEST");
+  });
+
+  it.each([
+    ["image/jpeg", ".jpg"],
+    ["image/png", ".png"],
+    ["image/webp", ".webp"],
+    ["image/gif", ".gif"],
+  ])("%s: 200でアップロードしavatarUrlを更新する", async (mimeType) => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ avatarUrl: null } as never);
+    vi.mocked(prisma.user.update).mockResolvedValue(testUser);
+
+    const app = createTestApp(makeNormalMember());
+    const form = new FormData();
+    form.append("file", new File(["dummy"], "avatar", { type: mimeType }));
+    const res = await app.request("/members/me/avatar", { method: "POST", body: form });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.avatarUrl).toMatch(/^https:\/\/cdn\.example\.com\//);
+    expect(storage.upload).toHaveBeenCalledWith(expect.any(String), expect.any(Buffer), mimeType);
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-member-1" },
+      data: { avatarUrl: expect.any(String) },
+    });
+  });
+
+  it("既存アバターがある場合: 旧ファイルをstorage.deleteで削除する", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      avatarUrl: "avatars/old-key.jpg",
+    } as never);
+    vi.mocked(prisma.user.update).mockResolvedValue(testUser);
+
+    const app = createTestApp(makeNormalMember());
+    const form = new FormData();
+    form.append("file", new File(["dummy"], "avatar.png", { type: "image/png" }));
+    await app.request("/members/me/avatar", { method: "POST", body: form });
+
+    expect(storage.delete).toHaveBeenCalledWith("avatars/old-key.jpg");
+  });
+});
+
+// ────────────────────────────
+// DELETE /members/:id — 退団処理（ソフトデリート）
+// ────────────────────────────
+
+describe("DELETE /members/:id", () => {
+  it("admin未満: 403を返す", async () => {
+    const app = createTestApp(makeNormalMember());
+    const res = await app.request("/members/member-2", { method: "DELETE" });
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("自分自身: 403を返す", async () => {
+    const admin = makeAdminMember();
+    vi.mocked(prisma.member.findUnique).mockResolvedValue(admin);
+    const app = createTestApp(admin);
+    const res = await app.request(`/members/${admin.id}`, { method: "DELETE" });
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("存在しないid: 404を返す", async () => {
+    vi.mocked(prisma.member.findUnique).mockResolvedValue(null);
+    const app = createTestApp(makeAdminMember());
+    const res = await app.request("/members/no-such-member", { method: "DELETE" });
+    expect(res.status).toBe(404);
+  });
+
+  it("他テナントのid: 404を返す", async () => {
+    vi.mocked(prisma.member.findUnique).mockResolvedValue({
+      ...makeNormalMember("member-other"),
+      orgId: "org-2",
+    });
+    const app = createTestApp(makeAdminMember());
+    const res = await app.request("/members/member-other", { method: "DELETE" });
+    expect(res.status).toBe(404);
+  });
+
+  it("admin: 200でdeletedAtをセットして{success: true}を返す", async () => {
+    const target = makeNormalMember("member-2");
+    vi.mocked(prisma.member.findUnique).mockResolvedValue(target);
+    vi.mocked(prisma.member.update).mockResolvedValue({
+      ...target,
+      deletedAt: new Date("2026-07-15"),
+    });
+
+    const app = createTestApp(makeAdminMember());
+    const res = await app.request("/members/member-2", { method: "DELETE" });
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ success: true });
+    expect(prisma.member.update).toHaveBeenCalledWith({
+      where: { id: "member-2" },
+      data: { deletedAt: expect.any(Date) },
+    });
   });
 });

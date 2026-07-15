@@ -43,9 +43,10 @@
 
 ### ホーム
 
-| API名                         | Method | Path             | 権限    |
-| ----------------------------- | ------ | ---------------- | ------- |
-| [ホームデータ取得](#home-get) | GET    | `/:orgSlug/home` | member+ |
+| API名                                             | Method | Path                               | 権限         |
+| ------------------------------------------------- | ------ | ---------------------------------- | ------------ |
+| [ホームデータ取得](#home-get)                     | GET    | `/:orgSlug/home`                   | -            |
+| [月当番パート更新](#home-monthly-organizer-patch) | PATCH  | `/:orgSlug/home/monthly-organizer` | ticket/admin |
 
 ### メンバー管理
 
@@ -158,12 +159,13 @@
 
 | API名                                            | Method | Path                                        | 権限     |
 | ------------------------------------------------ | ------ | ------------------------------------------- | -------- |
-| [設定取得](#settings-get)                        | GET    | `/:orgSlug/settings`                        | admin    |
-| [団体情報更新](#settings-org-patch)              | PATCH  | `/:orgSlug/settings/org`                    | admin    |
-| [パート追加](#parts-create)                      | POST   | `/:orgSlug/settings/parts`                  | admin    |
-| [パート更新](#parts-patch)                       | PATCH  | `/:orgSlug/settings/parts/:id`              | admin    |
-| [パート削除](#parts-delete)                      | DELETE | `/:orgSlug/settings/parts/:id`              | admin    |
-| [会費設定更新](#settings-fee-patch)              | PATCH  | `/:orgSlug/settings/fee`                    | admin    |
+| [設定取得](#settings-get)                        | GET    | `/:orgSlug/settings`                        | finance+ |
+| [団体情報更新](#settings-patch)                  | PATCH  | `/:orgSlug/settings`                        | admin    |
+| [会費設定取得](#settings-org-get)                | GET    | `/:orgSlug/settings/org`                    | finance+ |
+| [パート追加](#parts-create)                      | POST   | `/:orgSlug/parts`                           | admin    |
+| [パート更新](#parts-patch)                       | PATCH  | `/:orgSlug/parts/:id`                       | admin    |
+| [パート削除](#parts-delete)                      | DELETE | `/:orgSlug/parts/:id`                       | admin    |
+| [会費設定更新](#settings-fee-patch)              | PATCH  | `/:orgSlug/settings/fee`                    | finance+ |
 | [支出カテゴリ一覧取得](#expense-categories-list) | GET    | `/:orgSlug/settings/expense-categories`     | finance+ |
 | [支出カテゴリ追加](#expense-categories-create)   | POST   | `/:orgSlug/settings/expense-categories`     | admin    |
 | [支出カテゴリ更新](#expense-categories-patch)    | PATCH  | `/:orgSlug/settings/expense-categories/:id` | admin    |
@@ -555,9 +557,9 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 ### GET `/api/v1/:orgSlug/home`
 
-ホーム画面に必要なデータを一括取得する。
+ホーム画面に必要なデータを一括取得する。表示対象イベントは`admin`は全件、それ以外は`targetRoles`/`targetPartIds`（両方空なら全員対象）でフィルタされる。`recentMails`は`visitor`ロールの場合は取得せず空配列を返す。
 
-**権限**: `member+`
+**権限**: 権限チェック無し（認証済みメンバーなら誰でも取得可）
 
 **Response** `200`
 
@@ -598,14 +600,45 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
       {
         "id": "cuid",
         "subject": "6月練習のご案内",
-        "sentAt": "2026-05-30T12:00:00+09:00"
+        "sentAt": "2026-05-30T12:00:00+09:00",
+        "senderName": "山田太郎",
+        "senderAvatarUrl": "https://example.com/avatar.png"
       }
     ],
     "canViewTickets": false,
-    "ticketRaceWinner": null
+    "monthlyOrganizer": "Tenor I",
+    "isTicketManager": false
   }
 }
 ```
+
+> `nextConcert`は該当イベントが見つからない場合、直近の`Concert`レコードから疑似イベント（`category.id`は空文字、`myAttendance`は`"undecided"`固定）を合成して返す。
+
+---
+
+<a id="home-monthly-organizer-patch"></a>
+
+### PATCH `/api/v1/:orgSlug/home/monthly-organizer`
+
+月当番パートを更新する。
+
+**権限**: `ticket` or `admin`
+
+**Request Body:**
+
+```json
+{ "partName": "Tenor I" }
+```
+
+`partName`は`null`指定で解除できる（最大50文字）。
+
+**Response** `200`
+
+```json
+{ "data": { "monthlyOrganizer": "Tenor I" } }
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` チケット担当または管理者のみ操作可能
 
 ---
 
@@ -3083,28 +3116,25 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 ### GET `/api/v1/:orgSlug/settings`
 
-団体設定情報（団名・パート一覧・ロール設定）を取得する。
+団体基本情報を取得する。
 
-**権限**: `admin`
+**権限**: `finance+`
 
 **Response** `200`
 
 ```json
-{
-  "data": {
-    "org": { "id": "cuid", "name": "東京男声合唱団", "slug": "tokyo-men-choir" },
-    "parts": [{ "id": "cuid", "name": "Tenor I", "voiceType": "tenor", "sortOrder": 1 }]
-  }
-}
+{ "data": { "id": "cuid", "name": "東京男声合唱団", "slug": "tokyo-men-choir" } }
 ```
+
+**Errors:**: `403` `FORBIDDEN` 会計以上の権限が必要
 
 ---
 
-<a id="settings-org-patch"></a>
+<a id="settings-patch"></a>
 
-### PATCH `/api/v1/:orgSlug/settings/org`
+### PATCH `/api/v1/:orgSlug/settings`
 
-団体情報を更新する。
+団体情報（団名）を更新する。
 
 **権限**: `admin`
 
@@ -3114,13 +3144,33 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 { "name": "東京男声合唱団" }
 ```
 
-**Response** `200` → 更新後の団体情報
+**Response** `200` → 更新後の団体情報（GET と同じ形式）
+
+**Errors:**: `400` `VALIDATION_ERROR` nameが空文字
+
+---
+
+<a id="settings-org-get"></a>
+
+### GET `/api/v1/:orgSlug/settings/org`
+
+会費設定（徴収方式・デフォルト金額）を取得する。
+
+**権限**: `finance+`
+
+**Response** `200`
+
+```json
+{ "data": { "feeType": "per_rehearsal", "defaultFeeAmount": 300 } }
+```
+
+**Errors:**: `403` `FORBIDDEN` 会計以上の権限が必要
 
 ---
 
 <a id="parts-create"></a>
 
-### POST `/api/v1/:orgSlug/settings/parts`
+### POST `/api/v1/:orgSlug/parts`
 
 パートを追加する。
 
@@ -3138,11 +3188,13 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Response** `201` → 作成したパート情報
 
+**Errors:**: `400` `VALIDATION_ERROR` nameが空文字 / `403` `FORBIDDEN` 管理者権限が必要
+
 ---
 
 <a id="parts-patch"></a>
 
-### PATCH `/api/v1/:orgSlug/settings/parts/:id`
+### PATCH `/api/v1/:orgSlug/parts/:id`
 
 パート情報を更新する。
 
@@ -3152,19 +3204,26 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Response** `200` → 更新後のパート情報
 
+**Errors:**: `400` `VALIDATION_ERROR` / `403` `FORBIDDEN` / `404` `NOT_FOUND` 他テナントのパートIDを指定した場合を含む
+
 ---
 
 <a id="parts-delete"></a>
 
-### DELETE `/api/v1/:orgSlug/settings/parts/:id`
+### DELETE `/api/v1/:orgSlug/parts/:id`
 
-パートを削除する。メンバーが紐付いている場合は `409` を返す。
+パートを削除する。デフォルトパート（`isCustom: false`）、または在団メンバーが紐付いている場合は `409` を返す。
 
 **権限**: `admin`
 
 **Response** `204` No Content
 
-**Errors:**: `409` 団員が紐付いているため削除不可
+**Errors:**:
+
+- `403` `FORBIDDEN` 管理者権限が必要
+- `404` `NOT_FOUND` パートが見つからない（他テナントのIDを指定した場合を含む）
+- `409` `CONFLICT` デフォルトパートは削除できない
+- `409` `CONFLICT` 在団メンバーが所属しているため削除できない
 
 ---
 
@@ -3369,7 +3428,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 徴収方式とデフォルト金額を更新する。
 
-**権限**: `admin`
+**権限**: `finance+`
 
 **Request Body:**
 
@@ -3395,6 +3454,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
   }
 }
 ```
+
+**Errors:**: `400` `VALIDATION_ERROR` feeTypeがenum外 / defaultFeeAmountが負数 / `403` `FORBIDDEN` finance以上の権限が必要
 
 ---
 

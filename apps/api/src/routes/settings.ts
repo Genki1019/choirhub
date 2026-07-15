@@ -2,14 +2,20 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { isAdmin, isFinancePlus } from "../services/access.js";
+import { isAdmin, isFinancePlus, isMemberPlus } from "../services/access.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 export const settingsRouter = new Hono<TenantEnv>()
 
   // ── GET /settings ──
   .get("/settings", async (c) => {
+    const actingMember = c.get("member");
     const org = c.get("org");
+
+    if (!isFinancePlus(actingMember)) {
+      return c.json({ error: { code: "FORBIDDEN", message: "会計以上の権限が必要です" } }, 403);
+    }
+
     return c.json({
       data: {
         id: org.id,
@@ -190,7 +196,13 @@ export const settingsRouter = new Hono<TenantEnv>()
 
   // ── GET /settings/org ──（会費設定取得）
   .get("/settings/org", async (c) => {
+    const actingMember = c.get("member");
     const org = c.get("org");
+
+    if (!isFinancePlus(actingMember)) {
+      return c.json({ error: { code: "FORBIDDEN", message: "会計以上の権限が必要です" } }, 403);
+    }
+
     return c.json({
       data: {
         feeType: org.feeType,
@@ -239,7 +251,13 @@ export const settingsRouter = new Hono<TenantEnv>()
 
   // ── GET /settings/expense-categories ──
   .get("/settings/expense-categories", async (c) => {
+    const actingMember = c.get("member");
     const org = c.get("org");
+
+    if (!isFinancePlus(actingMember)) {
+      return c.json({ error: { code: "FORBIDDEN", message: "会計以上の権限が必要です" } }, 403);
+    }
+
     const cats = await prisma.expenseCategory.findMany({
       where: { orgId: org.id },
       orderBy: { sortOrder: "asc" },
@@ -359,7 +377,13 @@ export const settingsRouter = new Hono<TenantEnv>()
 
   // ── GET /settings/member-types ──
   .get("/settings/member-types", async (c) => {
+    const actingMember = c.get("member");
     const org = c.get("org");
+
+    if (!isMemberPlus(actingMember)) {
+      return c.json({ error: { code: "FORBIDDEN", message: "閲覧権限がありません" } }, 403);
+    }
+
     const types = await prisma.memberType.findMany({
       where: { orgId: org.id },
       orderBy: { sortOrder: "asc" },
@@ -503,7 +527,13 @@ export const settingsRouter = new Hono<TenantEnv>()
 
   // ── GET /settings/event-categories ──
   .get("/settings/event-categories", async (c) => {
+    const actingMember = c.get("member");
     const org = c.get("org");
+
+    if (!isMemberPlus(actingMember)) {
+      return c.json({ error: { code: "FORBIDDEN", message: "閲覧権限がありません" } }, 403);
+    }
+
     const cats = await prisma.eventCategory.findMany({
       where: { orgId: org.id },
       orderBy: { sortOrder: "asc" },

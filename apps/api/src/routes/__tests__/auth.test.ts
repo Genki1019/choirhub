@@ -15,6 +15,9 @@ vi.mock("../../lib/prisma.js", () => ({
     member: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
     inviteToken: { findUnique: vi.fn(), update: vi.fn() },
     passwordResetToken: { findUnique: vi.fn(), create: vi.fn() },
+    organization: { findUnique: vi.fn(), create: vi.fn() },
+    eventCategory: { create: vi.fn() },
+    part: { create: vi.fn() },
     $executeRaw: vi.fn(),
   },
 }));
@@ -84,6 +87,13 @@ const testResetToken = {
   userId: testUser.id,
   usedAt: null as Date | null,
   expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+};
+
+const testOrg = {
+  id: "org-new",
+  name: "○○男声合唱団",
+  slug: "circle-choir",
+  partTemplate: {},
 };
 
 beforeEach(() => {
@@ -693,6 +703,116 @@ describe("POST /auth/password-reset/:token", () => {
     });
     expect(prisma.session.deleteMany).toHaveBeenCalledWith({
       where: { userId: testResetToken.userId },
+    });
+  });
+});
+
+describe("POST /auth/orgs", () => {
+  it("バリデーションエラー: name空は400を返す", async () => {
+    const app = createTestApp();
+    const res = await app.request("/auth/orgs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "", slug: "circle-choir" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("Cookieなし: 401を返す", async () => {
+    const app = createTestApp();
+    const res = await app.request("/auth/orgs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: testOrg.name, slug: testOrg.slug }),
+    });
+
+    expect(res.status).toBe(401);
+    const body = await json(res);
+    expect(body.error.code).toBe("UNAUTHORIZED");
+  });
+
+  it("セッションが無効: 401を返す", async () => {
+    vi.mocked(prisma.session.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp();
+    const res = await app.request("/auth/orgs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: "session=invalid-session" },
+      body: JSON.stringify({ name: testOrg.name, slug: testOrg.slug }),
+    });
+
+    expect(res.status).toBe(401);
+    const body = await json(res);
+    expect(body.error.code).toBe("UNAUTHORIZED");
+  });
+
+  it("スラグ重複: 409を返す", async () => {
+    vi.mocked(prisma.session.findUnique).mockResolvedValue({
+      id: "session-abc",
+      userId: testUser.id,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      user: testUser,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue(testOrg as any);
+
+    const app = createTestApp();
+    const res = await app.request("/auth/orgs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: "session=session-abc" },
+      body: JSON.stringify({ name: testOrg.name, slug: testOrg.slug }),
+    });
+
+    expect(res.status).toBe(409);
+    const body = await json(res);
+    expect(body.error.code).toBe("CONFLICT");
+  });
+
+  it("正常: 201を返し団体・イベント区分4件・パート4件・adminメンバーが作成される", async () => {
+    vi.mocked(prisma.session.findUnique).mockResolvedValue({
+      id: "session-abc",
+      userId: testUser.id,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      user: testUser,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.organization.create).mockResolvedValue(testOrg as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.eventCategory.create).mockResolvedValue({} as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.part.create).mockResolvedValue({} as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.member.create).mockResolvedValue({} as any);
+
+    const app = createTestApp();
+    const res = await app.request("/auth/orgs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: "session=session-abc" },
+      body: JSON.stringify({ name: testOrg.name, slug: testOrg.slug }),
+    });
+
+    expect(res.status).toBe(201);
+    const body = await json(res);
+    expect(body.data).toEqual({ orgSlug: testOrg.slug, orgName: testOrg.name });
+
+    expect(prisma.organization.create).toHaveBeenCalledWith({
+      data: { name: testOrg.name, slug: testOrg.slug, partTemplate: {} },
+    });
+    expect(prisma.eventCategory.create).toHaveBeenCalledTimes(4);
+    expect(prisma.part.create).toHaveBeenCalledTimes(4);
+    expect(prisma.member.create).toHaveBeenCalledWith({
+      data: {
+        userId: testUser.id,
+        orgId: testOrg.id,
+        roles: ["admin"],
+        joinedAt: expect.any(Date),
+      },
     });
   });
 });

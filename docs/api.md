@@ -537,7 +537,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 { "data": { "orgSlug": "circle-choir", "orgName": "○○男声合唱団" } }
 ```
 
-**Errors:** `400` バリデーションエラー / `401` 未認証 / `409` スラグ重複
+**Errors:**: `400` `VALIDATION_ERROR` バリデーションエラー / `401` `UNAUTHORIZED` 未認証 / `409` `CONFLICT` スラグ重複
 
 ---
 

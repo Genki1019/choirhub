@@ -3765,6 +3765,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
+**Errors:**: `404` `NOT_FOUND` 演奏会が存在しない
+
 ---
 
 <a id="outreach-create"></a>
@@ -3792,7 +3794,11 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
+> `ticket or admin`以外（一般団員）が申請する場合、`participants`に自分自身を含める必要がある（含まれていなければ`403 FORBIDDEN`）。`ticket or admin`は自分を含めずに他メンバーのみで申請できる。
+
 **Response** `201` 作成した活動オブジェクト
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `400` `INVALID_MEMBER` 参加者にこの団体に属さないメンバーが含まれる / `403` `FORBIDDEN` guest/visitorが申請しようとした / `403` `FORBIDDEN` 一般団員が自分を参加者に含めなかった / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 
@@ -3806,6 +3812,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Response** `200` 更新後の活動オブジェクト
 
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 情宣活動が存在しない・指定の演奏会に属していない
+
 ---
 
 <a id="outreach-delete"></a>
@@ -3817,5 +3825,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 **権限**: 申請者本人または `ticket+` / `admin`
 
 **Response** `204` No Content
+
+**Errors:**: `403` `FORBIDDEN` 申請者本人でも担当者でもない / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 情宣活動が存在しない・指定の演奏会に属していない
 
 ---

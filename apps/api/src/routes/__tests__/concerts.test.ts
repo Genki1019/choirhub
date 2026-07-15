@@ -21,6 +21,15 @@ vi.mock("../../lib/prisma.js", () => ({
       update: vi.fn(),
       findMany: vi.fn(),
     },
+    program: {
+      aggregate: vi.fn(),
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      findMany: vi.fn(),
+    },
+    score: { findUnique: vi.fn(), update: vi.fn(), create: vi.fn() },
   },
 }));
 
@@ -594,5 +603,546 @@ describe("PUT /concerts/:concertId/stages/order", () => {
       where: { id: "stage-1" },
       data: { sortOrder: 2 },
     });
+  });
+});
+
+describe("POST /concerts/:concertId/stages/:stageId/programs", () => {
+  const testStage = { id: "stage-1", concertId: testConcert.id, name: "第1ステージ", sortOrder: 1 };
+
+  it("バリデーションエラー: scoreIdもtitleも無しは400を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.stage.findUnique).mockResolvedValue(testStage as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/stages/stage-1/programs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("バリデーションエラー: titleが空白のみは400を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.stage.findUnique).mockResolvedValue(testStage as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/stages/stage-1/programs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "   " }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("admin以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/concerts/${testConcert.id}/stages/stage-1/programs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "新曲" }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("演奏会が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/concerts/nonexistent/stages/stage-1/programs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "新曲" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("ステージが別演奏会に属する（IDOR）: 404を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.stage.findUnique).mockResolvedValue({
+      id: "stage-1",
+      concertId: "other-concert",
+      name: "第1ステージ",
+      sortOrder: 1,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/stages/stage-1/programs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "新曲" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("scoreId指定・楽譜が存在しない/別テナント: 404を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.stage.findUnique).mockResolvedValue(testStage as any);
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/stages/stage-1/programs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scoreId: "score-1" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常（scoreId指定）: 201を返しaccessLevelを送っても既存楽譜は更新されない", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.stage.findUnique).mockResolvedValue(testStage as any);
+    vi.mocked(prisma.score.findUnique).mockResolvedValue({
+      id: "score-1",
+      orgId: "org-1",
+      title: "既存楽譜",
+      composer: "既存作曲家",
+      arranger: null,
+      accessLevel: "secret",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.program.aggregate).mockResolvedValue({
+      _max: { sortOrder: 2 },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.program.create).mockResolvedValue({
+      id: "program-1",
+      title: "既存楽譜",
+      sortOrder: 3,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/stages/stage-1/programs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scoreId: "score-1", accessLevel: "restricted" }),
+    });
+
+    expect(res.status).toBe(201);
+    const body = await json(res);
+    expect(body.data).toEqual({
+      id: "program-1",
+      title: "既存楽譜",
+      sortOrder: 3,
+      score: { id: "score-1", composer: "既存作曲家", arranger: null },
+    });
+    expect(prisma.score.update).not.toHaveBeenCalled();
+    expect(prisma.program.create).toHaveBeenCalledWith({
+      data: { stageId: "stage-1", scoreId: "score-1", title: "既存楽譜", sortOrder: 3 },
+    });
+  });
+
+  it("正常（title指定・新規楽譜作成）: 201を返しscore.createにaccessLevelが渡る", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.stage.findUnique).mockResolvedValue(testStage as any);
+    vi.mocked(prisma.program.aggregate).mockResolvedValue({
+      _max: { sortOrder: null },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.score.create).mockResolvedValue({
+      id: "score-new",
+      composer: "新作曲家",
+      arranger: null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.program.create).mockResolvedValue({
+      id: "program-1",
+      title: "新曲",
+      sortOrder: 1,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/stages/stage-1/programs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "新曲",
+        composer: "新作曲家",
+        accessLevel: "public",
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    const body = await json(res);
+    expect(body.data.score).toEqual({ id: "score-new", composer: "新作曲家", arranger: null });
+    expect(prisma.score.create).toHaveBeenCalledWith({
+      data: {
+        orgId: testOrg.id,
+        title: "新曲",
+        composer: "新作曲家",
+        arranger: null,
+        accessLevel: "public",
+      },
+    });
+    expect(prisma.program.create).toHaveBeenCalledWith({
+      data: { stageId: "stage-1", scoreId: "score-new", title: "新曲", sortOrder: 1 },
+    });
+  });
+});
+
+describe("PUT /concerts/:concertId/stages/:stageId/programs/order", () => {
+  const testStage = { id: "stage-1", concertId: testConcert.id, name: "第1ステージ", sortOrder: 1 };
+
+  it("バリデーションエラー: idsが空配列は400を返す", async () => {
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/stages/stage-1/programs/order`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: [] }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("admin以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/concerts/${testConcert.id}/stages/stage-1/programs/order`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: ["program-1"] }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("演奏会が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/concerts/nonexistent/stages/stage-1/programs/order", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: ["program-1"] }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("ステージが別演奏会に属する（IDOR）: 404を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.stage.findUnique).mockResolvedValue({
+      id: "stage-1",
+      concertId: "other-concert",
+      name: "第1ステージ",
+      sortOrder: 1,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/stages/stage-1/programs/order`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: ["program-1"] }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("他ステージのprogramIdが混入: 400 BAD_REQUESTを返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.stage.findUnique).mockResolvedValue(testStage as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.program.findMany).mockResolvedValue([{ id: "program-1" }] as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/stages/stage-1/programs/order`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: ["program-1", "other-stage-program"] }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("BAD_REQUEST");
+    expect(prisma.program.update).not.toHaveBeenCalled();
+  });
+
+  it("正常: 204を返し並び替えられる", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.stage.findUnique).mockResolvedValue(testStage as any);
+    vi.mocked(prisma.program.findMany).mockResolvedValue([
+      { id: "program-1" },
+      { id: "program-2" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.program.update).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/stages/stage-1/programs/order`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: ["program-2", "program-1"] }),
+    });
+
+    expect(res.status).toBe(204);
+    expect(prisma.program.update).toHaveBeenCalledTimes(2);
+    expect(prisma.program.update).toHaveBeenCalledWith({
+      where: { id: "program-2" },
+      data: { sortOrder: 1 },
+    });
+  });
+});
+
+describe("DELETE /concerts/:concertId/programs/:programId", () => {
+  it("admin以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/concerts/${testConcert.id}/programs/program-1`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("演奏会が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/concerts/nonexistent/programs/program-1", {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("演目が別演奏会に属する（IDOR）: 404を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.program.findUnique).mockResolvedValue({
+      id: "program-1",
+      stageId: "stage-1",
+      title: "曲A",
+      sortOrder: 1,
+      stage: { concertId: "other-concert" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/programs/program-1`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: 204を返し演目のみ削除され楽譜本体は削除されない", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.program.findUnique).mockResolvedValue({
+      id: "program-1",
+      stageId: "stage-1",
+      title: "曲A",
+      sortOrder: 1,
+      stage: { concertId: testConcert.id },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.program.delete).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/programs/program-1`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(204);
+    expect(prisma.program.delete).toHaveBeenCalledWith({
+      where: { id: "program-1", stageId: "stage-1" },
+    });
+  });
+});
+
+describe("PATCH /concerts/:concertId/programs/:programId", () => {
+  it("バリデーションエラー: titleが空文字は400を返す", async () => {
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/programs/program-1`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("admin以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/concerts/${testConcert.id}/programs/program-1`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "改題" }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("演奏会が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/concerts/nonexistent/programs/program-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "改題" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("演目が別演奏会に属する（IDOR）: 404を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.program.findUnique).mockResolvedValue({
+      id: "program-1",
+      stageId: "stage-1",
+      scoreId: "score-1",
+      title: "曲A",
+      sortOrder: 1,
+      stage: { concertId: "other-concert" },
+      score: { id: "score-1", composer: null, arranger: null },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/programs/program-1`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "改題" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: titleのみ更新しscoreは更新されない", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.program.findUnique).mockResolvedValue({
+      id: "program-1",
+      stageId: "stage-1",
+      scoreId: "score-1",
+      title: "曲A",
+      sortOrder: 1,
+      stage: { concertId: testConcert.id },
+      score: { id: "score-1", composer: "作曲家A", arranger: null },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.program.update).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/programs/program-1`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "曲A（改）" }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({
+      id: "program-1",
+      title: "曲A（改）",
+      sortOrder: 1,
+      score: { id: "score-1", composer: "作曲家A", arranger: null },
+    });
+    expect(prisma.program.update).toHaveBeenCalledWith({
+      where: { id: "program-1" },
+      data: { title: "曲A（改）" },
+    });
+    expect(prisma.score.update).not.toHaveBeenCalled();
+  });
+
+  it("正常: composer/arrangerを更新するとscoreIdがある場合のみscore.updateが呼ばれる", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.program.findUnique).mockResolvedValue({
+      id: "program-1",
+      stageId: "stage-1",
+      scoreId: "score-1",
+      title: "曲A",
+      sortOrder: 1,
+      stage: { concertId: testConcert.id },
+      score: { id: "score-1", composer: "旧作曲家", arranger: null },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.score.update).mockResolvedValue({
+      id: "score-1",
+      composer: "新作曲家",
+      arranger: "新編曲家",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/programs/program-1`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ composer: "新作曲家", arranger: "新編曲家" }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.score).toEqual({ id: "score-1", composer: "新作曲家", arranger: "新編曲家" });
+    expect(prisma.score.update).toHaveBeenCalledWith({
+      where: { id: "score-1" },
+      data: { composer: "新作曲家", arranger: "新編曲家" },
+      select: { id: true, composer: true, arranger: true },
+    });
+    expect(prisma.program.update).not.toHaveBeenCalled();
   });
 });

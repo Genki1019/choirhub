@@ -106,6 +106,7 @@
 | [演目追加](#program-create)                                   | POST   | `/:orgSlug/concerts/:concertId/stages/:stageId/programs`                            | admin    |
 | [演目並び替え](#programs-order)                               | PUT    | `/:orgSlug/concerts/:concertId/stages/:stageId/programs/order`                      | admin    |
 | [演目削除](#program-delete)                                   | DELETE | `/:orgSlug/concerts/:concertId/programs/:programId`                                 | admin    |
+| [演目編集](#program-patch)                                    | PATCH  | `/:orgSlug/concerts/:concertId/programs/:programId`                                 | admin    |
 | [調査作成（複数回対応）](#surveys-create)                     | POST   | `/:orgSlug/concerts/:concertId/surveys`                                             | tech+    |
 | [調査詳細取得](#surveys-id-get)                               | GET    | `/:orgSlug/concerts/:concertId/surveys/:surveyId`                                   | member+  |
 | [調査更新（開閉・タイトル）](#surveys-id-patch)               | PATCH  | `/:orgSlug/concerts/:concertId/surveys/:surveyId`                                   | tech+    |
@@ -1932,7 +1933,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
-**Errors:**: `400` `scoreId` も `title` も指定されていない
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正・`scoreId`も`title`も指定されていない / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` ステージが存在しない・この演奏会に属さない / `404` `NOT_FOUND` `scoreId`指定時、楽譜が存在しない・別テナント
 
 ---
 
@@ -1952,6 +1953,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Response** `204` No Content
 
+**Errors:**: `400` `VALIDATION_ERROR` idsが空 / `400` `BAD_REQUEST` このステージに属さない演目IDが含まれる / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` ステージが存在しない・この演奏会に属さない
+
 ---
 
 <a id="program-delete"></a>
@@ -1964,7 +1967,44 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 **Response** `204` No Content
 
-**Errors:**: `404` 演目が指定の演奏会に属していない
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 演目が存在しない・指定の演奏会に属していない
+
+---
+
+<a id="program-patch"></a>
+
+### PATCH `/api/v1/:orgSlug/concerts/:concertId/programs/:programId`
+
+演目のタイトル・作曲者・編曲者を編集する。`composer`/`arranger`は紐づく楽譜（Score）本体を更新する。
+
+**権限**: `admin`
+
+**Request Body:**
+
+| フィールド | 型             | 必須 | 説明   |
+| ---------- | -------------- | ---- | ------ |
+| title      | string         |      | 演目名 |
+| composer   | string \| null |      | 作曲者 |
+| arranger   | string \| null |      | 編曲者 |
+
+```json
+{ "title": "男声合唱のための〇〇（改訂版）" }
+```
+
+**Response** `200`
+
+```json
+{
+  "data": {
+    "id": "cuid",
+    "title": "男声合唱のための〇〇（改訂版）",
+    "sortOrder": 3,
+    "score": { "id": "cuid", "composer": "△△ △△", "arranger": null }
+  }
+}
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 演目が存在しない・指定の演奏会に属していない
 
 ---
 

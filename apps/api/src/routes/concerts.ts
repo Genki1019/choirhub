@@ -411,17 +411,13 @@ export const concertsRouter = new Hono<TenantEnv>()
           _max: { sortOrder: true },
         });
         const sortOrder1 = (maxOrder1._max.sortOrder ?? 0) + 1;
-        const updatedScore = await prisma.score.update({
-          where: { id: scoreId },
-          data: { ...(accessLevel ? { accessLevel } : {}) },
-        });
         program = await prisma.program.create({
           data: { stageId, scoreId, title: programTitle, sortOrder: sortOrder1 },
         });
         responseScore = {
-          id: updatedScore.id,
-          composer: updatedScore.composer,
-          arranger: updatedScore.arranger,
+          id: existingScore.id,
+          composer: existingScore.composer,
+          arranger: existingScore.arranger,
         };
       } else {
         const trimmedTitle = title!.trim();

@@ -3022,6 +3022,42 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 ---
 
+<a id="tickets-close"></a>
+
+### POST `/api/v1/:orgSlug/tickets/:concertId/close`
+
+チケット入力を締め切る（`Concert.ticketInputClosedAt`に現在時刻を設定）。締切後は`ticket or admin`以外の入力・編集ができなくなる（[PATCH allocations/:id](#tickets-allocation-patch)・[POST allocate](#tickets-allocate)参照）。
+
+**権限**: `ticket or admin`
+
+**Response** `200`
+
+```json
+{ "data": { "ticketInputClosedAt": "2026-11-20T23:59:59.000Z" } }
+```
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="tickets-reopen"></a>
+
+### DELETE `/api/v1/:orgSlug/tickets/:concertId/close`
+
+チケット入力を再開する（`ticketInputClosedAt`を`null`に戻す）。
+
+**権限**: `ticket or admin`
+
+**Response** `200`
+
+```json
+{ "data": { "ticketInputClosedAt": null } }
+```
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
 ## 10. 設定 API
 
 <a id="settings-get"></a>

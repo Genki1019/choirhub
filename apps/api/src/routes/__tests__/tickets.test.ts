@@ -1559,3 +1559,86 @@ describe("DELETE /tickets/:concertId/race/publish", () => {
     });
   });
 });
+
+describe("POST /tickets/:concertId/close", () => {
+  it("ticket担当者/admin以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/tickets/${testConcert.id}/close`, { method: "POST" });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("演奏会が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request("/tickets/nonexistent/close", { method: "POST" });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: ticketInputClosedAtが設定される", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.concert.update).mockResolvedValue({
+      ...testConcert,
+      ticketInputClosedAt: new Date("2026-11-20T23:59:59Z"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/close`, { method: "POST" });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.ticketInputClosedAt).toBe("2026-11-20T23:59:59.000Z");
+    expect(prisma.concert.update).toHaveBeenCalledWith({
+      where: { id: testConcert.id },
+      data: { ticketInputClosedAt: expect.any(Date) },
+    });
+  });
+});
+
+describe("DELETE /tickets/:concertId/close", () => {
+  it("ticket担当者/admin以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/tickets/${testConcert.id}/close`, { method: "DELETE" });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("演奏会が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request("/tickets/nonexistent/close", { method: "DELETE" });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: ticketInputClosedAtがnullに戻る", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.update).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/close`, { method: "DELETE" });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ ticketInputClosedAt: null });
+    expect(prisma.concert.update).toHaveBeenCalledWith({
+      where: { id: testConcert.id },
+      data: { ticketInputClosedAt: null },
+    });
+  });
+});

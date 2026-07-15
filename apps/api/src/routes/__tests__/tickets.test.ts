@@ -446,3 +446,209 @@ describe("GET /tickets/:concertId", () => {
     expect(body.data.concert.outreachExpensePerTrip).toBeNull();
   });
 });
+
+describe("POST /tickets/:concertId/batches", () => {
+  it("バリデーションエラー: totalCountが0以下は400を返す", async () => {
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/batches`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "一般", price: 2000, totalCount: 0 }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("ticket担当者/admin以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/tickets/${testConcert.id}/batches`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "一般", price: 2000, totalCount: 200 }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("演奏会が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request("/tickets/nonexistent/batches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "一般", price: 2000, totalCount: 200 }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: 201を返しallocationsは空配列", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.ticketBatch.create).mockResolvedValue({
+      id: "batch-1",
+      name: "一般",
+      price: 2000,
+      priceStudent: null,
+      totalCount: 200,
+      saleStart: null,
+      saleEnd: null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/batches`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "一般", price: 2000, totalCount: 200 }),
+    });
+
+    expect(res.status).toBe(201);
+    const body = await json(res);
+    expect(body.data).toEqual({
+      id: "batch-1",
+      name: "一般",
+      price: 2000,
+      priceStudent: null,
+      totalCount: 200,
+      saleStart: null,
+      saleEnd: null,
+      allocations: [],
+    });
+  });
+});
+
+describe("PATCH /tickets/:concertId/batches/:batchId", () => {
+  const testBatch = {
+    id: "batch-1",
+    concertId: "concert-1",
+    name: "一般",
+    price: 2000,
+    priceStudent: null,
+    totalCount: 200,
+    saleStart: null,
+    saleEnd: null,
+    concert: testConcert,
+  };
+
+  it("バリデーションエラー: priceが負数は400を返す", async () => {
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/batches/batch-1`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ price: -100 }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("ticket担当者/admin以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/tickets/${testConcert.id}/batches/batch-1`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "改名" }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("席種が存在しない/別演奏会・別テナント: 404を返す", async () => {
+    vi.mocked(prisma.ticketBatch.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/batches/nonexistent`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "改名" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: 部分更新される", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.ticketBatch.findUnique).mockResolvedValue(testBatch as any);
+    vi.mocked(prisma.ticketBatch.update).mockResolvedValue({
+      ...testBatch,
+      name: "一般（改）",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/batches/batch-1`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "一般（改）" }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.name).toBe("一般（改）");
+    expect(prisma.ticketBatch.update).toHaveBeenCalledWith({
+      where: { id: "batch-1" },
+      data: { name: "一般（改）" },
+    });
+  });
+});
+
+describe("DELETE /tickets/:concertId/batches/:batchId", () => {
+  const testBatch = {
+    id: "batch-1",
+    concertId: "concert-1",
+    name: "一般",
+    concert: testConcert,
+  };
+
+  it("ticket担当者/admin以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/tickets/${testConcert.id}/batches/batch-1`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("席種が存在しない/別演奏会・別テナント: 404を返す", async () => {
+    vi.mocked(prisma.ticketBatch.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/batches/nonexistent`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: 204を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.ticketBatch.findUnique).mockResolvedValue(testBatch as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.ticketBatch.delete).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/batches/batch-1`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(204);
+    expect(prisma.ticketBatch.delete).toHaveBeenCalledWith({ where: { id: "batch-1" } });
+  });
+});

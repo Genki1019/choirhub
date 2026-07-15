@@ -138,7 +138,8 @@
 | [チケット一覧（自分）](#tickets-my-get)     | GET    | `/:orgSlug/tickets/my`                                  | member+                    |
 | [チケット集計取得](#tickets-id-get)         | GET    | `/:orgSlug/tickets/:concertId`                          | ticket or admin            |
 | [席種作成](#tickets-batches-create)         | POST   | `/:orgSlug/tickets/:concertId/batches`                  | ticket or admin            |
-| [席種削除](#tickets-batches-delete)         | DELETE | `/:orgSlug/tickets/:concertId/batches/:batchId`         | admin                      |
+| [席種更新](#tickets-batches-patch)          | PATCH  | `/:orgSlug/tickets/:concertId/batches/:batchId`         | ticket or admin            |
+| [席種削除](#tickets-batches-delete)         | DELETE | `/:orgSlug/tickets/:concertId/batches/:batchId`         | ticket or admin            |
 | [チケット配布記録](#tickets-allocate)       | POST   | `/:orgSlug/tickets/:concertId/allocate`                 | admin / member（自分のみ） |
 | [販売・回収報告](#tickets-allocation-patch) | PATCH  | `/:orgSlug/tickets/allocations/:id`                     | member（自分）/ admin      |
 | [パートレース取得](#tickets-race)           | GET    | `/:orgSlug/tickets/:concertId/race`                     | ticket or admin            |
@@ -2722,7 +2723,48 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 }
 ```
 
-**Response** `201` → 作成した席種情報
+**Response** `201` → 作成した席種情報（`allocations: []`）
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="tickets-batches-patch"></a>
+
+### PATCH `/api/v1/:orgSlug/tickets/:concertId/batches/:batchId`
+
+チケット席種情報を更新する（すべて省略可・部分更新）。
+
+**権限**: `ticket or admin`
+
+**Request Body:**
+
+| フィールド   | 型             | 説明                             |
+| ------------ | -------------- | -------------------------------- |
+| name         | string         | 席種名                           |
+| price        | number         | 一般価格                         |
+| priceStudent | number \| null | 学生価格                         |
+| totalCount   | number         | 総数                             |
+| saleStart    | string \| null | 販売開始日時（ISO8601 datetime） |
+| saleEnd      | string \| null | 販売終了日時（ISO8601 datetime） |
+
+**Response** `200` → 更新後の席種情報
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 席種が存在しない・指定の演奏会に属していない
+
+---
+
+<a id="tickets-batches-delete"></a>
+
+### DELETE `/api/v1/:orgSlug/tickets/:concertId/batches/:batchId`
+
+チケット席種を削除する。
+
+**権限**: `ticket or admin`
+
+**Response** `204` No Content
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 席種が存在しない・指定の演奏会に属していない
 
 ---
 

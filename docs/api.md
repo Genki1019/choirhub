@@ -84,6 +84,8 @@
 | [配布価格設定](#scores-price)                 | PATCH  | `/:orgSlug/scores/:scoreId/price`                  | score+       |
 | [購入記録取得](#scores-purchases-get)         | GET    | `/:orgSlug/scores/:scoreId/purchases`              | score+       |
 | [購入記録一括保存](#scores-purchases-put)     | PUT    | `/:orgSlug/scores/:scoreId/purchases`              | score+       |
+| [プレサインドURL発行](#scores-file-presign)   | POST   | `/:orgSlug/scores/:scoreId/files/presign`          | score+/tech+ |
+| [アップロード確定](#scores-file-confirm)      | POST   | `/:orgSlug/scores/:scoreId/files/confirm`          | score+/tech+ |
 | [ファイルアップロード](#scores-file-upload)   | POST   | `/:orgSlug/scores/:scoreId/files`                  | score+/tech+ |
 | [ファイルダウンロード](#scores-file-download) | GET    | `/:orgSlug/scores/:scoreId/files/:fileId/download` | 権限別       |
 | [ファイル削除](#scores-file-delete)           | DELETE | `/:orgSlug/scores/:scoreId/files/:fileId`          | score+/tech+ |
@@ -1393,11 +1395,92 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 ---
 
+<a id="scores-file-presign"></a>
+
+### POST `/api/v1/:orgSlug/scores/:scoreId/files/presign`
+
+R2への直接アップロード用に、プレサインドPUT URLを発行する（本番のアップロードフローの1段階目）。
+
+**権限**: `score+`（PDFなど）/ `tech+`（MIDI）
+
+**Request Body:**
+
+| フィールド  | 型             | 必須 | 説明                            |
+| ----------- | -------------- | ---- | ------------------------------- |
+| fileType    | string         | ✓    | `full_score` / `midi` / `other` |
+| fileName    | string         | ✓    | 元のファイル名（拡張子判定用）  |
+| partId      | string \| null |      | パートID（パート譜の場合）      |
+| contentType | string         | ✓    | MIMEタイプ                      |
+
+```json
+{
+  "fileType": "full_score",
+  "fileName": "score.pdf",
+  "partId": null,
+  "contentType": "application/pdf"
+}
+```
+
+**Response** `200`
+
+```json
+{ "data": { "presignedUrl": "https://...", "key": "scores/uuid.pdf" } }
+```
+
+> `fileType` ごとに許可される拡張子が決まっている（`full_score`: `.pdf` / `midi`: `.mid` `.midi` `.mp3` / `other`: `.pdf` `.mp3` `.wav`）。`full_score` は1楽譜につき1ファイルのみ（既存があれば409）。
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正・パート不正・拡張子不一致 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 楽譜が存在しない / `409` `CONFLICT` 楽譜PDFが登録済み
+
+---
+
+<a id="scores-file-confirm"></a>
+
+### POST `/api/v1/:orgSlug/scores/:scoreId/files/confirm`
+
+プレサインドURLへのアップロード完了後、ファイルをDBに登録する（本番のアップロードフローの2段階目）。
+
+**権限**: `score+`（PDFなど）/ `tech+`（MIDI）
+
+**Request Body:**
+
+| フィールド | 型             | 必須 | 説明                            |
+| ---------- | -------------- | ---- | ------------------------------- |
+| key        | string         | ✓    | presignで発行された `key`       |
+| fileType   | string         | ✓    | `full_score` / `midi` / `other` |
+| fileName   | string         | ✓    | 表示用ファイル名                |
+| partId     | string \| null |      | パートID（パート譜の場合）      |
+
+```json
+{ "key": "scores/uuid.pdf", "fileType": "full_score", "fileName": "score.pdf", "partId": null }
+```
+
+**Response** `201`
+
+```json
+{
+  "data": {
+    "id": "cuid",
+    "fileType": "full_score",
+    "fileName": "score_full.pdf",
+    "partId": null,
+    "partName": null,
+    "version": 1,
+    "downloadUrl": "/api/v1/:orgSlug/scores/:scoreId/files/:fileId/download"
+  }
+}
+```
+
+> `key`・`fileType`・`partId` は presign 発行時のものと独立してクライアントから送られてくるため、ここでも拡張子とfileTypeの整合性・`partId`の所属teナントを検証する。`full_score` の重複が検出された場合、R2上のアップロード済みファイルも削除する。
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正・拡張子不一致・パートが存在しない / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 楽譜が存在しない / `409` `CONFLICT` 楽譜PDFが登録済み
+
+---
+
 <a id="scores-file-upload"></a>
 
 ### POST `/api/v1/:orgSlug/scores/:scoreId/files`
 
-ファイルをアップロードする（`multipart/form-data`）。
+ファイルをアップロードする（`multipart/form-data`、ローカル開発用・R2未設定時のフォールバック）。
 
 **権限**: `score+`（PDFなど）/ `tech+`（MIDI）
 
@@ -1424,6 +1507,8 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
   }
 }
 ```
+
+**Errors:**: `400` `VALIDATION_ERROR` ファイル未選択・fileType不正・パート不正・拡張子不一致 / `400` `FILE_TOO_LARGE` ファイルサイズ超過（最大20MB） / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 楽譜が存在しない / `409` `CONFLICT` 楽譜PDFが登録済み
 
 ---
 

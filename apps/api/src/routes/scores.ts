@@ -683,6 +683,16 @@ export const scoresRouter = new Hono<TenantEnv>()
         }
       }
 
+      if (resolvedPartId) {
+        const part = await prisma.part.findUnique({ where: { id: resolvedPartId } });
+        if (!part || part.orgId !== org.id) {
+          return c.json(
+            { error: { code: "VALIDATION_ERROR", message: "パートが見つかりません" } },
+            400,
+          );
+        }
+      }
+
       const ext = extname(key).toLowerCase();
       if (fileType === "full_score" && ext !== ".pdf") {
         return c.json(

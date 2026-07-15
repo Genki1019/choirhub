@@ -13,15 +13,26 @@ vi.mock("../../lib/prisma.js", () => ({
   prisma: {
     score: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     concert: { findMany: vi.fn() },
-    part: { findMany: vi.fn() },
+    part: { findMany: vi.fn(), findUnique: vi.fn() },
     member: { findMany: vi.fn() },
     scorePurchase: { findFirst: vi.fn(), count: vi.fn(), findMany: vi.fn(), create: vi.fn() },
     collection: { findFirst: vi.fn() },
+    scoreFile: { findFirst: vi.fn(), aggregate: vi.fn(), create: vi.fn() },
     $executeRaw: vi.fn(),
   },
 }));
 
+vi.mock("../../services/storage.js", () => ({
+  storage: {
+    getPresignedPutUrl: vi.fn(),
+    upload: vi.fn(),
+    delete: vi.fn(),
+  },
+  CONTENT_TYPES: { ".pdf": "application/pdf", ".mid": "audio/midi", ".mp3": "audio/mpeg" },
+}));
+
 import { prisma } from "../../lib/prisma.js";
+import { storage } from "../../services/storage.js";
 import { scoresRouter } from "../scores.js";
 
 // ────────────────────────────
@@ -943,5 +954,556 @@ describe("PATCH /scores/:scoreId/price", () => {
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.data).toEqual({ id: testScore.id, distributionPrice: null });
+  });
+});
+
+describe("POST /scores/:scoreId/files/presign", () => {
+  it("バリデーションエラー: fileNameが空は400を返す", async () => {
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/files/presign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileType: "full_score",
+        fileName: "",
+        contentType: "application/pdf",
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request("/scores/nonexistent/files/presign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileType: "full_score",
+        fileName: "a.pdf",
+        contentType: "application/pdf",
+      }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("MIDI: tech+以外は403を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/files/presign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fileType: "midi", fileName: "a.mid", contentType: "audio/midi" }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("full_score: score+以外は403を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/scores/${testScore.id}/files/presign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileType: "full_score",
+        fileName: "a.pdf",
+        contentType: "application/pdf",
+      }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("partIdが別テナント: 400を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.part.findUnique).mockResolvedValue({
+      id: "part-1",
+      orgId: "other-org",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/files/presign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileType: "full_score",
+        fileName: "a.pdf",
+        partId: "part-1",
+        contentType: "application/pdf",
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("拡張子不一致: full_scoreにpdf以外は400を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/files/presign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileType: "full_score",
+        fileName: "a.docx",
+        contentType: "application/pdf",
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("拡張子不一致: midiに対象外拡張子は400を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/scores/${testScore.id}/files/presign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileType: "midi",
+        fileName: "a.wav",
+        contentType: "audio/wav",
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("拡張子不一致: otherに対象外拡張子は400を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/files/presign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileType: "other",
+        fileName: "a.docx",
+        contentType: "application/octet-stream",
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("full_score重複: 409を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.findFirst).mockResolvedValue({ id: "existing-file" } as any);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/files/presign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileType: "full_score",
+        fileName: "a.pdf",
+        contentType: "application/pdf",
+      }),
+    });
+
+    expect(res.status).toBe(409);
+    const body = await json(res);
+    expect(body.error.code).toBe("CONFLICT");
+  });
+
+  it("正常: presignedUrlとkeyを返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.scoreFile.findFirst).mockResolvedValue(null);
+    vi.mocked(storage.getPresignedPutUrl).mockResolvedValue("https://r2.example.com/presigned");
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/files/presign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileType: "full_score",
+        fileName: "a.pdf",
+        contentType: "application/pdf",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.presignedUrl).toBe("https://r2.example.com/presigned");
+    expect(body.data.key).toMatch(/^scores\/.+\.pdf$/);
+  });
+});
+
+describe("POST /scores/:scoreId/files/confirm", () => {
+  it("バリデーションエラー: keyの形式が不正は400を返す", async () => {
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "invalid-key", fileType: "full_score", fileName: "a.pdf" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request("/scores/nonexistent/files/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "scores/abc.pdf", fileType: "full_score", fileName: "a.pdf" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("MIDI: tech+以外は403を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "scores/abc.mid", fileType: "midi", fileName: "a.mid" }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("full_score: score+以外は403を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "scores/abc.pdf", fileType: "full_score", fileName: "a.pdf" }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("partIdが別テナント: 400を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.part.findUnique).mockResolvedValue({
+      id: "part-1",
+      orgId: "other-org",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        key: "scores/abc.pdf",
+        fileType: "full_score",
+        fileName: "a.pdf",
+        partId: "part-1",
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("拡張子不一致: full_scoreにpdf以外は400を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "scores/abc.docx", fileType: "full_score", fileName: "a.docx" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("拡張子不一致: midiに対象外拡張子は400を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "scores/abc.wav", fileType: "midi", fileName: "a.wav" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("拡張子不一致: otherに対象外拡張子は400を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "scores/abc.docx", fileType: "other", fileName: "a.docx" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("full_score重複: 409を返しR2上のファイルも削除される", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.aggregate).mockResolvedValue({ _max: { version: null } } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.findFirst).mockResolvedValue({ id: "existing-file" } as any);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "scores/abc.pdf", fileType: "full_score", fileName: "a.pdf" }),
+    });
+
+    expect(res.status).toBe(409);
+    const body = await json(res);
+    expect(body.error.code).toBe("CONFLICT");
+    expect(storage.delete).toHaveBeenCalledWith("scores/abc.pdf");
+  });
+
+  it("正常: 201を返しファイルが登録される", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.aggregate).mockResolvedValue({ _max: { version: 1 } } as any);
+    vi.mocked(prisma.scoreFile.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.scoreFile.create).mockResolvedValue({
+      id: "file-1",
+      fileType: "full_score",
+      fileName: "a.pdf",
+      partId: null,
+      version: 2,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["score"], "member-1"));
+    const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "scores/abc.pdf", fileType: "full_score", fileName: "a.pdf" }),
+    });
+
+    expect(res.status).toBe(201);
+    const body = await json(res);
+    expect(body.data).toEqual({
+      id: "file-1",
+      fileType: "full_score",
+      fileName: "a.pdf",
+      partId: null,
+      partName: null,
+      version: 2,
+      downloadUrl: `/api/v1/${testOrg.slug}/scores/${testScore.id}/files/file-1/download`,
+    });
+    expect(prisma.scoreFile.create).toHaveBeenCalledWith({
+      data: {
+        scoreId: testScore.id,
+        fileType: "full_score",
+        partId: null,
+        storageKey: "scores/abc.pdf",
+        fileName: "a.pdf",
+        version: 2,
+        uploadedBy: "member-1",
+      },
+    });
+  });
+});
+
+describe("POST /scores/:scoreId/files（フォールバックアップロード）", () => {
+  it("ファイル未選択: 400を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+
+    const app = createTestApp(makeMember(["score"]));
+    const fd = new FormData();
+    fd.append("fileType", "full_score");
+    const res = await app.request(`/scores/${testScore.id}/files`, { method: "POST", body: fd });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("MIDI: tech+以外は403を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+
+    const app = createTestApp(makeMember(["score"]));
+    const fd = new FormData();
+    fd.append("file", new File(["dummy"], "a.mid", { type: "audio/midi" }));
+    fd.append("fileType", "midi");
+    const res = await app.request(`/scores/${testScore.id}/files`, { method: "POST", body: fd });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("full_score重複（アップロード前チェック）: 409を返しuploadは呼ばれない", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.findFirst).mockResolvedValue({ id: "existing-file" } as any);
+
+    const app = createTestApp(makeMember(["score"]));
+    const fd = new FormData();
+    fd.append("file", new File(["dummy"], "a.pdf", { type: "application/pdf" }));
+    fd.append("fileType", "full_score");
+    const res = await app.request(`/scores/${testScore.id}/files`, { method: "POST", body: fd });
+
+    expect(res.status).toBe(409);
+    const body = await json(res);
+    expect(body.error.code).toBe("CONFLICT");
+    expect(storage.upload).not.toHaveBeenCalled();
+  });
+
+  it("拡張子不一致: full_scoreにpdf以外は400を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.scoreFile.findFirst).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["score"]));
+    const fd = new FormData();
+    fd.append("file", new File(["dummy"], "a.docx", { type: "application/octet-stream" }));
+    fd.append("fileType", "full_score");
+    const res = await app.request(`/scores/${testScore.id}/files`, { method: "POST", body: fd });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("拡張子不一致: midiに対象外拡張子は400を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const fd = new FormData();
+    fd.append("file", new File(["dummy"], "a.wav", { type: "audio/wav" }));
+    fd.append("fileType", "midi");
+    const res = await app.request(`/scores/${testScore.id}/files`, { method: "POST", body: fd });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("拡張子不一致: otherに対象外拡張子は400を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.scoreFile.findFirst).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["score"]));
+    const fd = new FormData();
+    fd.append("file", new File(["dummy"], "a.docx", { type: "application/octet-stream" }));
+    fd.append("fileType", "other");
+    const res = await app.request(`/scores/${testScore.id}/files`, { method: "POST", body: fd });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("ファイルサイズ超過: 400 FILE_TOO_LARGEを返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.scoreFile.findFirst).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["score"]));
+    const bigContent = new Uint8Array(21 * 1024 * 1024);
+    const fd = new FormData();
+    fd.append("file", new File([bigContent], "big.pdf", { type: "application/pdf" }));
+    fd.append("fileType", "full_score");
+    const res = await app.request(`/scores/${testScore.id}/files`, { method: "POST", body: fd });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("FILE_TOO_LARGE");
+  });
+
+  it("正常: 201を返しファイルがアップロード・登録される", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.scoreFile.findFirst).mockResolvedValue(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.aggregate).mockResolvedValue({ _max: { version: null } } as any);
+    vi.mocked(storage.upload).mockResolvedValue(undefined);
+    vi.mocked(prisma.scoreFile.create).mockResolvedValue({
+      id: "file-1",
+      fileType: "full_score",
+      fileName: "a.pdf",
+      partId: null,
+      version: 1,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["score"]));
+    const fd = new FormData();
+    fd.append("file", new File(["dummy"], "a.pdf", { type: "application/pdf" }));
+    fd.append("fileType", "full_score");
+    const res = await app.request(`/scores/${testScore.id}/files`, { method: "POST", body: fd });
+
+    expect(res.status).toBe(201);
+    const body = await json(res);
+    expect(body.data.id).toBe("file-1");
+    expect(storage.upload).toHaveBeenCalled();
+    expect(prisma.scoreFile.create).toHaveBeenCalled();
+  });
+
+  it("full_score重複（アップロード後の競合再チェック）: 409を返しR2上のファイルを削除する", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.scoreFile.findFirst)
+      .mockResolvedValueOnce(null)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .mockResolvedValueOnce({ id: "concurrently-uploaded-file" } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.aggregate).mockResolvedValue({ _max: { version: null } } as any);
+    vi.mocked(storage.upload).mockResolvedValue(undefined);
+    vi.mocked(storage.delete).mockResolvedValue(undefined);
+
+    const app = createTestApp(makeMember(["score"]));
+    const fd = new FormData();
+    fd.append("file", new File(["dummy"], "a.pdf", { type: "application/pdf" }));
+    fd.append("fileType", "full_score");
+    const res = await app.request(`/scores/${testScore.id}/files`, { method: "POST", body: fd });
+
+    expect(res.status).toBe(409);
+    const body = await json(res);
+    expect(body.error.code).toBe("CONFLICT");
+    expect(storage.upload).toHaveBeenCalled();
+    expect(storage.delete).toHaveBeenCalled();
+    expect(prisma.scoreFile.create).not.toHaveBeenCalled();
   });
 });

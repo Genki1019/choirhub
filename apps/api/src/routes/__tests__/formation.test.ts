@@ -33,6 +33,7 @@ vi.mock("../../services/onstage.js", () => ({
 }));
 
 import { prisma } from "../../lib/prisma.js";
+import { applySurveyToOnStage } from "../../services/onstage.js";
 import { formationRouter } from "../formation.js";
 
 // ────────────────────────────
@@ -521,5 +522,300 @@ describe("PUT /concerts/:concertId/stages/:stageId/formation-patterns/order", ()
       where: { id: "pattern-2" },
       data: { sortOrder: 1 },
     });
+  });
+});
+
+describe("POST /concerts/:concertId/surveys/:surveyId/apply", () => {
+  const testSurvey = { id: "survey-1", concertId: "concert-1" };
+
+  it("tech未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/concerts/${testConcert.id}/surveys/survey-1/apply`, {
+      method: "POST",
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("演奏会が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request("/concerts/nonexistent/surveys/survey-1/apply", {
+      method: "POST",
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("調査が存在しない/別演奏会に属する: 404を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.concertSurvey.findUnique).mockResolvedValue({
+      ...testSurvey,
+      concertId: "other-concert",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/concerts/${testConcert.id}/surveys/survey-1/apply`, {
+      method: "POST",
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: applySurveyToOnStageが呼ばれる", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concertSurvey.findUnique).mockResolvedValue(testSurvey as any);
+    vi.mocked(applySurveyToOnStage).mockResolvedValue(undefined);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/concerts/${testConcert.id}/surveys/survey-1/apply`, {
+      method: "POST",
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ ok: true });
+    expect(applySurveyToOnStage).toHaveBeenCalledWith(testConcert.id, "survey-1");
+  });
+});
+
+describe("PUT /concerts/:concertId/stages/:stageId/formation-patterns/:patternId/slots", () => {
+  const testPattern = { id: "pattern-1", stageId: "stage-1" };
+  const url = `/concerts/${testConcert.id}/stages/${testStage.id}/formation-patterns/pattern-1/slots`;
+
+  const validBody = {
+    boxes: [{ clientId: "box:1", kind: "conductor", sortOrder: 1 }],
+    slots: [{ memberId: "member-2", boxClientId: "box:1", positionOrder: 1 }],
+  };
+
+  function makeTx() {
+    return {
+      formationSlot: { deleteMany: vi.fn(), createMany: vi.fn() },
+      formationBox: {
+        deleteMany: vi.fn(),
+        create: vi
+          .fn()
+          .mockImplementation(({ data }: { data: { kind: string } }) =>
+            Promise.resolve({ id: `real-${data.kind}`, ...data }),
+          ),
+      },
+    };
+  }
+
+  it("バリデーションエラー: slotsのmemberId・labelどちらも無いは400を返す", async () => {
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        boxes: [],
+        slots: [{ boxClientId: "box:1", positionOrder: 1 }],
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("tech未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validBody),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("演奏会が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validBody),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("パターンが別ステージに属する（IDOR）: 404を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.formationPattern.findUnique).mockResolvedValue({
+      ...testPattern,
+      stageId: "other-stage",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validBody),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("memberIdが別テナントのメンバー: 400 BAD_REQUESTを返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.formationPattern.findUnique).mockResolvedValue(testPattern as any);
+    vi.mocked(prisma.member.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validBody),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("BAD_REQUEST");
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("memberIdがこのステージでオンステ確定していない: 400 BAD_REQUESTを返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.formationPattern.findUnique).mockResolvedValue(testPattern as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.member.findMany).mockResolvedValue([{ id: "member-2" }] as any);
+    vi.mocked(prisma.onStageAssignment.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validBody),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("BAD_REQUEST");
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("boxClientIdが存在しない枠を参照: 400 BAD_REQUESTを返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.formationPattern.findUnique).mockResolvedValue(testPattern as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.member.findMany).mockResolvedValue([{ id: "member-2" }] as any);
+    vi.mocked(prisma.onStageAssignment.findMany).mockResolvedValue([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { memberId: "member-2" } as any,
+    ]);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        boxes: [],
+        slots: [{ memberId: "member-2", boxClientId: "box:missing", positionOrder: 1 }],
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("BAD_REQUEST");
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("正常: 既存のbox/slotを削除してから作り直す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.formationPattern.findUnique).mockResolvedValue(testPattern as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.member.findMany).mockResolvedValue([{ id: "member-2" }] as any);
+    vi.mocked(prisma.onStageAssignment.findMany).mockResolvedValue([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { memberId: "member-2" } as any,
+    ]);
+
+    const tx = makeTx();
+    vi.mocked(prisma.$transaction).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (fn: any) => fn(tx),
+    );
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validBody),
+    });
+
+    expect(res.status).toBe(204);
+    expect(tx.formationSlot.deleteMany).toHaveBeenCalledWith({ where: { patternId: "pattern-1" } });
+    expect(tx.formationBox.deleteMany).toHaveBeenCalledWith({ where: { patternId: "pattern-1" } });
+    expect(tx.formationBox.create).toHaveBeenCalledWith({
+      data: { patternId: "pattern-1", kind: "conductor", title: null, sortOrder: 1 },
+    });
+    expect(tx.formationSlot.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          patternId: "pattern-1",
+          memberId: "member-2",
+          label: null,
+          boxId: "real-conductor",
+          rowNum: null,
+          positionOrder: 1,
+        },
+      ],
+    });
+  });
+
+  it("正常: slotsが0件の場合はformationSlot.createManyが呼ばれない", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.formationPattern.findUnique).mockResolvedValue(testPattern as any);
+
+    const tx = makeTx();
+    vi.mocked(prisma.$transaction).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (fn: any) => fn(tx),
+    );
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        boxes: [{ clientId: "box:1", kind: "conductor", sortOrder: 1 }],
+        slots: [],
+      }),
+    });
+
+    expect(res.status).toBe(204);
+    expect(tx.formationSlot.createMany).not.toHaveBeenCalled();
   });
 });

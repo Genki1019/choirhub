@@ -202,3 +202,213 @@ describe("GET /mailing/templates", () => {
     expect(body.data).toEqual([]);
   });
 });
+
+describe("POST /mailing/templates", () => {
+  const validBody = { name: "練習案内", subject: "○月練習のご案内", body: "本文" };
+
+  it("バリデーションエラー: nameが空は400を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/mailing/templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...validBody, name: "" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("guest/visitor未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["visitor"]));
+    const res = await app.request("/mailing/templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validBody),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("正常: 201を返す", async () => {
+    vi.mocked(prisma.mailTemplate.create).mockResolvedValue({
+      id: "template-1",
+      name: "練習案内",
+      subject: "○月練習のご案内",
+      body: "本文",
+      updatedAt: new Date("2026-06-11T00:00:00Z"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const actingMember = makeMember(["member"], "member-1");
+    const app = createTestApp(actingMember);
+    const res = await app.request("/mailing/templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validBody),
+    });
+
+    expect(res.status).toBe(201);
+    const body = await json(res);
+    expect(body.data.id).toBe("template-1");
+    expect(prisma.mailTemplate.create).toHaveBeenCalledWith({
+      data: {
+        orgId: testOrg.id,
+        createdById: actingMember.id,
+        name: "練習案内",
+        subject: "○月練習のご案内",
+        body: "本文",
+      },
+    });
+  });
+});
+
+describe("PATCH /mailing/templates/:id", () => {
+  const testTemplate = { id: "template-1", orgId: "org-1", createdById: "member-1" };
+
+  it("バリデーションエラー: nameが空文字は400を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/mailing/templates/template-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("テンプレートが存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.mailTemplate.findFirst).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/mailing/templates/nonexistent", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "改名" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("作成者でも管理者でもない: 403を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.mailTemplate.findFirst).mockResolvedValue(testTemplate as any);
+
+    const app = createTestApp(makeMember(["member"], "member-2"));
+    const res = await app.request("/mailing/templates/template-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "改名" }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("正常（作成者本人）: 更新される", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.mailTemplate.findFirst).mockResolvedValue(testTemplate as any);
+    vi.mocked(prisma.mailTemplate.update).mockResolvedValue({
+      id: "template-1",
+      name: "改名",
+      subject: "件名",
+      body: "本文",
+      updatedAt: new Date("2026-06-12T00:00:00Z"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["member"], "member-1"));
+    const res = await app.request("/mailing/templates/template-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "改名" }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.name).toBe("改名");
+  });
+
+  it("正常（admin・作成者でなくても）: 更新される", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.mailTemplate.findFirst).mockResolvedValue(testTemplate as any);
+    vi.mocked(prisma.mailTemplate.update).mockResolvedValue({
+      id: "template-1",
+      name: "改名",
+      subject: "件名",
+      body: "本文",
+      updatedAt: new Date("2026-06-12T00:00:00Z"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["admin"], "admin-1"));
+    const res = await app.request("/mailing/templates/template-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "改名" }),
+    });
+
+    expect(res.status).toBe(200);
+  });
+});
+
+describe("DELETE /mailing/templates/:id", () => {
+  const testTemplate = { id: "template-1", orgId: "org-1", createdById: "member-1" };
+
+  it("テンプレートが存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.mailTemplate.findFirst).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/mailing/templates/nonexistent", { method: "DELETE" });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("作成者でも管理者でもない: 403を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.mailTemplate.findFirst).mockResolvedValue(testTemplate as any);
+
+    const app = createTestApp(makeMember(["member"], "member-2"));
+    const res = await app.request("/mailing/templates/template-1", { method: "DELETE" });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("正常（作成者本人）: 204を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.mailTemplate.findFirst).mockResolvedValue(testTemplate as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.mailTemplate.delete).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["member"], "member-1"));
+    const res = await app.request("/mailing/templates/template-1", { method: "DELETE" });
+
+    expect(res.status).toBe(204);
+    expect(prisma.mailTemplate.delete).toHaveBeenCalledWith({
+      where: { id: "template-1", orgId: testOrg.id },
+    });
+  });
+
+  it("正常（admin）: 204を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.mailTemplate.findFirst).mockResolvedValue(testTemplate as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.mailTemplate.delete).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["admin"], "admin-1"));
+    const res = await app.request("/mailing/templates/template-1", { method: "DELETE" });
+
+    expect(res.status).toBe(204);
+  });
+});

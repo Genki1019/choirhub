@@ -16,7 +16,8 @@ export const outreachRouter = new Hono<TenantEnv>()
     const concert = await prisma.concert.findFirst({
       where: { id: concertId, orgId: org.id },
     });
-    if (!concert) return c.json({ error: { code: "NOT_FOUND" } }, 404);
+    if (!concert)
+      return c.json({ error: { code: "NOT_FOUND", message: "演奏会が見つかりません" } }, 404);
 
     const activities = await prisma.outreachActivity.findMany({
       where: { concertId, concert: { orgId: org.id } },
@@ -100,7 +101,8 @@ export const outreachRouter = new Hono<TenantEnv>()
       const concert = await prisma.concert.findFirst({
         where: { id: concertId, orgId: org.id },
       });
-      if (!concert) return c.json({ error: { code: "NOT_FOUND" } }, 404);
+      if (!concert)
+        return c.json({ error: { code: "NOT_FOUND", message: "演奏会が見つかりません" } }, 404);
 
       const memberIds = body.participants.map((p) => p.memberId);
       const validMembers = await prisma.member.findMany({
@@ -108,7 +110,15 @@ export const outreachRouter = new Hono<TenantEnv>()
         select: { id: true },
       });
       if (validMembers.length !== memberIds.length) {
-        return c.json({ error: { code: "INVALID_MEMBER" } }, 400);
+        return c.json(
+          {
+            error: {
+              code: "INVALID_MEMBER",
+              message: "この団体に属さないメンバーが含まれています",
+            },
+          },
+          400,
+        );
       }
 
       const activity = await prisma.outreachActivity.create({
@@ -154,18 +164,23 @@ export const outreachRouter = new Hono<TenantEnv>()
     const { concertId, activityId } = c.req.param();
 
     if (!isTicketManager(actingMember)) {
-      return c.json({ error: { code: "FORBIDDEN" } }, 403);
+      return c.json(
+        { error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } },
+        403,
+      );
     }
 
     const concert = await prisma.concert.findFirst({
       where: { id: concertId, orgId: org.id },
     });
-    if (!concert) return c.json({ error: { code: "NOT_FOUND" } }, 404);
+    if (!concert)
+      return c.json({ error: { code: "NOT_FOUND", message: "演奏会が見つかりません" } }, 404);
 
     const activity = await prisma.outreachActivity.findFirst({
       where: { id: activityId, concertId, concert: { orgId: org.id } },
     });
-    if (!activity) return c.json({ error: { code: "NOT_FOUND" } }, 404);
+    if (!activity)
+      return c.json({ error: { code: "NOT_FOUND", message: "情宣活動が見つかりません" } }, 404);
 
     const updated = await prisma.outreachActivity.update({
       where: { id: activityId },
@@ -202,15 +217,25 @@ export const outreachRouter = new Hono<TenantEnv>()
     const concert = await prisma.concert.findFirst({
       where: { id: concertId, orgId: org.id },
     });
-    if (!concert) return c.json({ error: { code: "NOT_FOUND" } }, 404);
+    if (!concert)
+      return c.json({ error: { code: "NOT_FOUND", message: "演奏会が見つかりません" } }, 404);
 
     const activity = await prisma.outreachActivity.findFirst({
       where: { id: activityId, concertId, concert: { orgId: org.id } },
     });
-    if (!activity) return c.json({ error: { code: "NOT_FOUND" } }, 404);
+    if (!activity)
+      return c.json({ error: { code: "NOT_FOUND", message: "情宣活動が見つかりません" } }, 404);
 
     if (activity.createdById !== actingMember.id && !isTicketManager(actingMember)) {
-      return c.json({ error: { code: "FORBIDDEN" } }, 403);
+      return c.json(
+        {
+          error: {
+            code: "FORBIDDEN",
+            message: "申請者またはチケット担当者・管理者のみ削除できます",
+          },
+        },
+        403,
+      );
     }
 
     await prisma.outreachActivity.delete({ where: { id: activityId, concertId } });

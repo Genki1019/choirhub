@@ -14,7 +14,7 @@ import type { TenantEnv } from "../middleware/tenant.js";
 
 export const concertsRouter = new Hono<TenantEnv>()
 
-  // ── POST /concerts ── 演奏会を新規作成（tech 以上）
+  // ── POST /concerts ── 演奏会を新規作成（admin のみ）
   // スケジュールと連携するため、"concert" スラグのイベント区分を自動で探して Event も作成する
   .post(
     "/concerts",
@@ -40,8 +40,11 @@ export const concertsRouter = new Hono<TenantEnv>()
       const actingMember = c.get("member");
       const org = c.get("org");
 
-      if (!hasRole(actingMember, "tech")) {
-        return c.json({ error: { code: "FORBIDDEN", message: "技術系以上の権限が必要です" } }, 403);
+      if (!isAdmin(actingMember)) {
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "管理者のみ演奏会を作成できます" } },
+          403,
+        );
       }
 
       const {
@@ -408,17 +411,13 @@ export const concertsRouter = new Hono<TenantEnv>()
           _max: { sortOrder: true },
         });
         const sortOrder1 = (maxOrder1._max.sortOrder ?? 0) + 1;
-        const updatedScore = await prisma.score.update({
-          where: { id: scoreId },
-          data: { ...(accessLevel ? { accessLevel } : {}) },
-        });
         program = await prisma.program.create({
           data: { stageId, scoreId, title: programTitle, sortOrder: sortOrder1 },
         });
         responseScore = {
-          id: updatedScore.id,
-          composer: updatedScore.composer,
-          arranger: updatedScore.arranger,
+          id: existingScore.id,
+          composer: existingScore.composer,
+          arranger: existingScore.arranger,
         };
       } else {
         const trimmedTitle = title!.trim();

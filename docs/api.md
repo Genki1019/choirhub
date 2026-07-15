@@ -84,6 +84,8 @@
 | [配布価格設定](#scores-price)                 | PATCH  | `/:orgSlug/scores/:scoreId/price`                  | score+       |
 | [購入記録取得](#scores-purchases-get)         | GET    | `/:orgSlug/scores/:scoreId/purchases`              | score+       |
 | [購入記録一括保存](#scores-purchases-put)     | PUT    | `/:orgSlug/scores/:scoreId/purchases`              | score+       |
+| [プレサインドURL発行](#scores-file-presign)   | POST   | `/:orgSlug/scores/:scoreId/files/presign`          | score+/tech+ |
+| [アップロード確定](#scores-file-confirm)      | POST   | `/:orgSlug/scores/:scoreId/files/confirm`          | score+/tech+ |
 | [ファイルアップロード](#scores-file-upload)   | POST   | `/:orgSlug/scores/:scoreId/files`                  | score+/tech+ |
 | [ファイルダウンロード](#scores-file-download) | GET    | `/:orgSlug/scores/:scoreId/files/:fileId/download` | 権限別       |
 | [ファイル削除](#scores-file-delete)           | DELETE | `/:orgSlug/scores/:scoreId/files/:fileId`          | score+/tech+ |
@@ -104,6 +106,7 @@
 | [演目追加](#program-create)                                   | POST   | `/:orgSlug/concerts/:concertId/stages/:stageId/programs`                            | admin    |
 | [演目並び替え](#programs-order)                               | PUT    | `/:orgSlug/concerts/:concertId/stages/:stageId/programs/order`                      | admin    |
 | [演目削除](#program-delete)                                   | DELETE | `/:orgSlug/concerts/:concertId/programs/:programId`                                 | admin    |
+| [演目編集](#program-patch)                                    | PATCH  | `/:orgSlug/concerts/:concertId/programs/:programId`                                 | admin    |
 | [調査作成（複数回対応）](#surveys-create)                     | POST   | `/:orgSlug/concerts/:concertId/surveys`                                             | tech+    |
 | [調査詳細取得](#surveys-id-get)                               | GET    | `/:orgSlug/concerts/:concertId/surveys/:surveyId`                                   | member+  |
 | [調査更新（開閉・タイトル）](#surveys-id-patch)               | PATCH  | `/:orgSlug/concerts/:concertId/surveys/:surveyId`                                   | tech+    |
@@ -129,24 +132,27 @@
 
 ### チケット管理
 
-| API名                                       | Method | Path                                                    | 権限                       |
-| ------------------------------------------- | ------ | ------------------------------------------------------- | -------------------------- |
-| [チケット管理一覧](#tickets-list)           | GET    | `/:orgSlug/tickets`                                     | ticket or admin            |
-| [チケット一覧（自分）](#tickets-my-get)     | GET    | `/:orgSlug/tickets/my`                                  | member+                    |
-| [チケット集計取得](#tickets-id-get)         | GET    | `/:orgSlug/tickets/:concertId`                          | ticket or admin            |
-| [席種作成](#tickets-batches-create)         | POST   | `/:orgSlug/tickets/:concertId/batches`                  | ticket or admin            |
-| [席種削除](#tickets-batches-delete)         | DELETE | `/:orgSlug/tickets/:concertId/batches/:batchId`         | admin                      |
-| [チケット配布記録](#tickets-allocate)       | POST   | `/:orgSlug/tickets/:concertId/allocate`                 | admin / member（自分のみ） |
-| [販売・回収報告](#tickets-allocation-patch) | PATCH  | `/:orgSlug/tickets/allocations/:id`                     | member（自分）/ admin      |
-| [パートレース取得](#tickets-race)           | GET    | `/:orgSlug/tickets/:concertId/race`                     | ticket or admin            |
-| [レース公開](#tickets-race-publish)         | POST   | `/:orgSlug/tickets/:concertId/race/publish`             | ticket or admin            |
-| [レース非公開](#tickets-race-unpublish)     | DELETE | `/:orgSlug/tickets/:concertId/race/publish`             | ticket or admin            |
-| [入力締め切り](#tickets-close)              | POST   | `/:orgSlug/tickets/:concertId/close`                    | ticket or admin            |
-| [入力再開](#tickets-reopen)                 | DELETE | `/:orgSlug/tickets/:concertId/close`                    | ticket or admin            |
-| [情宣活動一覧取得](#outreach-list)          | GET    | `/:orgSlug/tickets/:concertId/outreach`                 | member+                    |
-| [情宣活動申請](#outreach-create)            | POST   | `/:orgSlug/tickets/:concertId/outreach`                 | member+                    |
-| [交通費支払い承認](#outreach-pay)           | PATCH  | `/:orgSlug/tickets/:concertId/outreach/:activityId/pay` | ticket or admin            |
-| [情宣活動削除](#outreach-delete)            | DELETE | `/:orgSlug/tickets/:concertId/outreach/:activityId`     | 申請者 or ticket or admin  |
+| API名                                                       | Method | Path                                                    | 権限                                  |
+| ----------------------------------------------------------- | ------ | ------------------------------------------------------- | ------------------------------------- |
+| [チケット管理一覧](#tickets-list)                           | GET    | `/:orgSlug/tickets`                                     | ticket or admin                       |
+| [チケット一覧（自分）](#tickets-my-get)                     | GET    | `/:orgSlug/tickets/my`                                  | member+                               |
+| [チケット集計取得](#tickets-id-get)                         | GET    | `/:orgSlug/tickets/:concertId`                          | ticket or admin                       |
+| [席種作成](#tickets-batches-create)                         | POST   | `/:orgSlug/tickets/:concertId/batches`                  | ticket or admin                       |
+| [席種更新](#tickets-batches-patch)                          | PATCH  | `/:orgSlug/tickets/:concertId/batches/:batchId`         | ticket or admin                       |
+| [席種削除](#tickets-batches-delete)                         | DELETE | `/:orgSlug/tickets/:concertId/batches/:batchId`         | ticket or admin                       |
+| [チケット配布記録](#tickets-allocate)                       | POST   | `/:orgSlug/tickets/:concertId/allocate`                 | ticket or admin / member+（自分のみ） |
+| [販売・回収報告](#tickets-allocation-patch)                 | PATCH  | `/:orgSlug/tickets/allocations/:id`                     | member（自分）/ ticket or admin       |
+| [情宣交通費一括支払い記録](#tickets-outreach-expenses-bulk) | POST   | `/:orgSlug/tickets/:concertId/outreach-expenses/bulk`   | ticket or admin                       |
+| [情宣交通費単価設定](#tickets-outreach-expense-rate)        | PATCH  | `/:orgSlug/tickets/:concertId/outreach-expense-rate`    | ticket or admin                       |
+| [パートレース取得](#tickets-race)                           | GET    | `/:orgSlug/tickets/:concertId/race`                     | ticket or admin                       |
+| [レース公開](#tickets-race-publish)                         | POST   | `/:orgSlug/tickets/:concertId/race/publish`             | ticket or admin                       |
+| [レース非公開](#tickets-race-unpublish)                     | DELETE | `/:orgSlug/tickets/:concertId/race/publish`             | ticket or admin                       |
+| [入力締め切り](#tickets-close)                              | POST   | `/:orgSlug/tickets/:concertId/close`                    | ticket or admin                       |
+| [入力再開](#tickets-reopen)                                 | DELETE | `/:orgSlug/tickets/:concertId/close`                    | ticket or admin                       |
+| [情宣活動一覧取得](#outreach-list)                          | GET    | `/:orgSlug/tickets/:concertId/outreach`                 | member+                               |
+| [情宣活動申請](#outreach-create)                            | POST   | `/:orgSlug/tickets/:concertId/outreach`                 | member+                               |
+| [交通費支払い承認](#outreach-pay)                           | PATCH  | `/:orgSlug/tickets/:concertId/outreach/:activityId/pay` | ticket or admin                       |
+| [情宣活動削除](#outreach-delete)                            | DELETE | `/:orgSlug/tickets/:concertId/outreach/:activityId`     | 申請者 or ticket or admin             |
 
 ### 設定
 
@@ -252,14 +258,15 @@ Cookie: session=<session_token>
 
 ### 1.4 共通エラーコード
 
-| HTTPステータス | code               | 説明                                              |
-| -------------- | ------------------ | ------------------------------------------------- |
-| 400            | `VALIDATION_ERROR` | バリデーションエラー。`details` に Zod エラー詳細 |
-| 401            | `UNAUTHORIZED`     | 未認証                                            |
-| 403            | `FORBIDDEN`        | 権限不足                                          |
-| 404            | `NOT_FOUND`        | リソースが存在しない                              |
-| 409            | `CONFLICT`         | 重複登録など                                      |
-| 500            | `INTERNAL_ERROR`   | サーバーエラー                                    |
+| HTTPステータス | code                | 説明                                              |
+| -------------- | ------------------- | ------------------------------------------------- |
+| 400            | `VALIDATION_ERROR`  | バリデーションエラー。`details` に Zod エラー詳細 |
+| 401            | `UNAUTHORIZED`      | 未認証                                            |
+| 403            | `FORBIDDEN`         | 権限不足                                          |
+| 404            | `NOT_FOUND`         | リソースが存在しない                              |
+| 409            | `CONFLICT`          | 重複登録など                                      |
+| 429            | `TOO_MANY_REQUESTS` | レート制限超過                                    |
+| 500            | `INTERNAL_ERROR`    | サーバーエラー                                    |
 
 ### 1.5 権限チェック記法
 
@@ -331,7 +338,7 @@ Cookie: session=<session_token>
 
 Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
-**Errors:**: `401` メールアドレスまたはパスワードが不正
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `401` `UNAUTHORIZED` メールアドレスまたはパスワードが不正 / `429` `TOO_MANY_REQUESTS` レート制限超過
 
 ---
 
@@ -388,6 +395,8 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
+**Errors:**: `401` `UNAUTHORIZED` 未認証（Cookie無し・セッション無効/期限切れ）
+
 ---
 
 <a id="auth-invite-get"></a>
@@ -412,7 +421,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
-**Errors:**: `400` トークン期限切れ / `404` トークンが存在しない
+**Errors:**: `404` `INVALID_TOKEN` トークンが存在しない / `404` `TOKEN_USED` 使用済み / `404` `TOKEN_EXPIRED` 期限切れ
 
 ---
 
@@ -439,7 +448,9 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 { "data": { "message": "登録が完了しました" } }
 ```
 
-**Errors:**: `400` バリデーションエラー / `404` トークン無効・期限切れ / `409` 同一メールが既に登録済み
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `401` `UNAUTHORIZED` 既存ユーザーのパスワード不一致 / `404` `INVALID_TOKEN` トークンが存在しない / `404` `TOKEN_USED` 使用済み / `404` `TOKEN_EXPIRED` 期限切れ / `409` `CONFLICT` 同一メールが既に登録済み
+
+---
 
 <a id="auth-password-reset-request"></a>
 
@@ -461,7 +472,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 { "data": { "message": "パスワードリセットメールを送信しました" } }
 ```
 
-**Errors:**: `400` バリデーションエラー
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `429` `TOO_MANY_REQUESTS` レート制限超過
 
 ---
 
@@ -479,7 +490,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 { "data": { "email": "member@example.com" } }
 ```
 
-**Errors:**: `404` トークン無効・期限切れ・使用済み
+**Errors:**: `404` `INVALID_TOKEN` トークンが存在しない / `404` `TOKEN_USED` 使用済み / `404` `TOKEN_EXPIRED` 期限切れ
 
 ---
 
@@ -503,7 +514,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 { "data": { "message": "パスワードをリセットしました" } }
 ```
 
-**Errors:**: `400` バリデーションエラー / `404` トークン無効・期限切れ・使用済み
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `404` `INVALID_TOKEN` トークンが無効・期限切れ・使用済み（原子的な更新のため詳細な理由は区別しない）
 
 ---
 
@@ -532,7 +543,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 { "data": { "orgSlug": "circle-choir", "orgName": "○○男声合唱団" } }
 ```
 
-**Errors:** `400` バリデーションエラー / `401` 未認証 / `409` スラグ重複
+**Errors:**: `400` `VALIDATION_ERROR` バリデーションエラー / `401` `UNAUTHORIZED` 未認証 / `409` `CONFLICT` スラグ重複
 
 ---
 
@@ -806,7 +817,8 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 **権限**: `member+`
 
-> サーバーはリクエストユーザーのロール・パートを参照し、`targetRoles` / `targetPartIds` に一致しないイベントを結果から除外する。
+> - サーバーはリクエストユーザーのロール・パートを参照し、`targetRoles` / `targetPartIds` に一致しないイベントを結果から除外する（adminは全件表示）。
+> - `type`未指定または`type=concert`の場合、スケジュールと連携していない演奏会（`Concert`のうち`linkedEvent`が無いもの）も`concertId`付きの疑似イベントとしてマージされる。その場合の`myAttendance`はオンステ確定（`OnStageAssignment`）の有無から`attending`/`undecided`のいずれかになる（出欠回答由来ではない）。
 
 **Query Parameters:**
 
@@ -851,15 +863,17 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
+**Errors:**: `400` `VALIDATION_ERROR` `from`/`to`の日付形式が不正
+
 ---
 
 <a id="events-create"></a>
 
 ### POST `/api/v1/:orgSlug/events`
 
-イベントを作成する。
+イベントを作成する。`categoryId`のスラグが`concert`の場合、`Concert`も同時に自動作成しリンクする。`rehearsal`区分かつ団体の`feeType`が`per_rehearsal`の場合、アクティブメンバー（`guest`/`visitor`除く）全員分の場所代徴収（`Collection`/`CollectionPayment`）を自動生成する。
 
-**権限**: `tech+`（admin / tech / conductor）
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Request Body:**
 
@@ -892,6 +906,8 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 ```
 
 **Response** `201` → 作成したイベント情報（招待フィルタ含む）
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` イベント区分が存在しない
 
 ---
 
@@ -948,12 +964,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
-**Errors:**
-
-| コード            | 説明                 |
-| ----------------- | -------------------- |
-| `403 NOT_INVITED` | 招待対象外のイベント |
-| `404 NOT_FOUND`   | イベントが存在しない |
+**Errors:**: `403` `NOT_INVITED` 招待対象外のイベント / `404` `NOT_FOUND` イベントが存在しない
 
 ---
 
@@ -963,13 +974,16 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 イベント情報を更新する。
 
-**権限**: `tech+`（admin / tech / conductor）
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Request Body:**: POST と同じ形式（すべて省略可）。`targetRoles` / `targetPartIds` も更新可能。
 
-> `targetPartIds` を変更した場合、新たに招待対象から外れたメンバーの出欠レコードは保持されるが、そのメンバーは以降 GET で当該イベントを参照できなくなる。
+> - `targetPartIds` を変更した場合、新たに招待対象から外れたメンバーの出欠レコードは保持されるが、そのメンバーは以降 GET で当該イベントを参照できなくなる。
+> - `event.concertId`（`Concert`とリンクしているイベント）の場合、`title`/`startsAt`/`location`の変更が`Concert`（`title`/`heldOn`/`venue`）にも同期反映される。
 
 **Response** `200` → 更新後のイベント情報
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` イベントが存在しない
 
 ---
 
@@ -977,11 +991,13 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 ### DELETE `/api/v1/:orgSlug/events/:id`
 
-イベントを削除する。
+イベントを削除する。`concertId`でリンクされた`Concert`があれば同時に削除する。
 
-**権限**: `tech+`（admin / tech / conductor）
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Response** `204` No Content
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` イベントが存在しない
 
 ---
 
@@ -1023,12 +1039,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
-**Errors:**
-
-| コード            | 説明                 |
-| ----------------- | -------------------- |
-| `403 NOT_INVITED` | 招待対象外のイベント |
-| `403 LOCKED`      | 締切後ロック済み     |
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `NOT_INVITED` 招待対象外のイベント / `403` `LOCKED` 締切後ロック済み / `404` `NOT_FOUND` イベントが存在しない
 
 ---
 
@@ -1040,11 +1051,13 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 **権限**: `admin`
 
-> 対象メンバーが招待対象でない場合も `admin` は更新可能（手動補正用途）。
+> 対象メンバーが招待対象でない場合も `admin` は更新可能（手動補正用途）。締切（`isLocked`）の影響も受けない。
 
 **Request Body:**: PUT /me と同じ形式
 
 **Response** `200` → 更新後の出欠情報
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` イベントが存在しない / `404` `NOT_FOUND` メンバーが存在しない・別テナント
 
 ---
 
@@ -1179,6 +1192,8 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 管理者以外
+
 ---
 
 <a id="scores-detail"></a>
@@ -1234,7 +1249,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 > `visitor` は `accessLevel` を問わず全楽譜の PDF を閲覧可（`canDownload: false`）。`canAccessFiles: false` の場合は閲覧不可。
 
-**Errors:** `404` 楽譜が存在しない、または別テナントの楽譜
+**Errors:**: `404` `NOT_FOUND` 楽譜が存在しない、または別テナントの楽譜
 
 ---
 
@@ -1288,7 +1303,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
-**Errors:** `403` score+ 以外 / `404` 楽譜が存在しない
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` score+ 以外 / `404` `NOT_FOUND` 楽譜が存在しない
 
 ---
 
@@ -1321,7 +1336,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
-**Errors:**: `403` 楽譜がかり・管理者以外
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` score+ 以外 / `404` `NOT_FOUND` 楽譜が存在しない
 
 ---
 
@@ -1350,6 +1365,10 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
+> `guest`・`visitor` ロールのメンバーは購入記録の対象外（一覧に含まれない）。
+
+**Errors:**: `403` `FORBIDDEN` score+ 以外 / `404` `NOT_FOUND` 楽譜が存在しない
+
 ---
 
 <a id="scores-purchases-put"></a>
@@ -1365,6 +1384,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 ```json
 {
   "memberIds": ["cuid1", "cuid2"],
+  "purchasedAt": "2026-10-01",
   "note": "10月配布分"
 }
 ```
@@ -1375,13 +1395,98 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 { "data": { "updated": 2 } }
 ```
 
+> `memberIds` に他団体のメンバーIDが1件でも含まれる場合、全体を拒否する（サイレント消去防止）。
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `400` `BAD_REQUEST` 他団体のメンバーIDが含まれている / `403` `FORBIDDEN` score+ 以外 / `404` `NOT_FOUND` 楽譜が存在しない
+
+---
+
+<a id="scores-file-presign"></a>
+
+### POST `/api/v1/:orgSlug/scores/:scoreId/files/presign`
+
+R2への直接アップロード用に、プレサインドPUT URLを発行する（本番のアップロードフローの1段階目）。
+
+**権限**: `score+`（PDFなど）/ `tech+`（MIDI）
+
+**Request Body:**
+
+| フィールド  | 型             | 必須 | 説明                            |
+| ----------- | -------------- | ---- | ------------------------------- |
+| fileType    | string         | ✓    | `full_score` / `midi` / `other` |
+| fileName    | string         | ✓    | 元のファイル名（拡張子判定用）  |
+| partId      | string \| null |      | パートID（パート譜の場合）      |
+| contentType | string         | ✓    | MIMEタイプ                      |
+
+```json
+{
+  "fileType": "full_score",
+  "fileName": "score.pdf",
+  "partId": null,
+  "contentType": "application/pdf"
+}
+```
+
+**Response** `200`
+
+```json
+{ "data": { "presignedUrl": "https://...", "key": "scores/uuid.pdf" } }
+```
+
+> `fileType` ごとに許可される拡張子が決まっている（`full_score`: `.pdf` / `midi`: `.mid` `.midi` `.mp3` / `other`: `.pdf` `.mp3` `.wav`）。`full_score` は1楽譜につき1ファイルのみ（既存があれば409）。
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正・パート不正・拡張子不一致 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 楽譜が存在しない / `409` `CONFLICT` 楽譜PDFが登録済み
+
+---
+
+<a id="scores-file-confirm"></a>
+
+### POST `/api/v1/:orgSlug/scores/:scoreId/files/confirm`
+
+プレサインドURLへのアップロード完了後、ファイルをDBに登録する（本番のアップロードフローの2段階目）。
+
+**権限**: `score+`（PDFなど）/ `tech+`（MIDI）
+
+**Request Body:**
+
+| フィールド | 型             | 必須 | 説明                            |
+| ---------- | -------------- | ---- | ------------------------------- |
+| key        | string         | ✓    | presignで発行された `key`       |
+| fileType   | string         | ✓    | `full_score` / `midi` / `other` |
+| fileName   | string         | ✓    | 表示用ファイル名                |
+| partId     | string \| null |      | パートID（パート譜の場合）      |
+
+```json
+{ "key": "scores/uuid.pdf", "fileType": "full_score", "fileName": "score.pdf", "partId": null }
+```
+
+**Response** `201`
+
+```json
+{
+  "data": {
+    "id": "cuid",
+    "fileType": "full_score",
+    "fileName": "score_full.pdf",
+    "partId": null,
+    "partName": null,
+    "version": 1,
+    "downloadUrl": "/api/v1/:orgSlug/scores/:scoreId/files/:fileId/download"
+  }
+}
+```
+
+> `key`・`fileType`・`partId` は presign 発行時のものと独立してクライアントから送られてくるため、ここでも拡張子とfileTypeの整合性・`partId`の所属teナントを検証する。`full_score` の重複が検出された場合、R2上のアップロード済みファイルも削除する。
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正・拡張子不一致・パートが存在しない / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 楽譜が存在しない / `409` `CONFLICT` 楽譜PDFが登録済み
+
 ---
 
 <a id="scores-file-upload"></a>
 
 ### POST `/api/v1/:orgSlug/scores/:scoreId/files`
 
-ファイルをアップロードする（`multipart/form-data`）。
+ファイルをアップロードする（`multipart/form-data`、ローカル開発用・R2未設定時のフォールバック）。
 
 **権限**: `score+`（PDFなど）/ `tech+`（MIDI）
 
@@ -1408,6 +1513,8 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
   }
 }
 ```
+
+**Errors:**: `400` `VALIDATION_ERROR` ファイル未選択・fileType不正・パート不正・拡張子不一致 / `400` `FILE_TOO_LARGE` ファイルサイズ超過（最大20MB） / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 楽譜が存在しない / `409` `CONFLICT` 楽譜PDFが登録済み
 
 ---
 
@@ -1436,6 +1543,14 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 > 日本語ファイル名は RFC 5987 の `filename*=UTF-8''...` 形式でエンコードする。
 
+**Response** `302`
+
+R2設定時（本番環境）は署名付きURLへのリダイレクトを返す（ファイルはサーバーを経由しない）。
+
+> エラー時のレスポンスは他のAPIと異なり、JSONではなく**HTMLエラーページ**を返す（ブラウザの直接遷移・埋め込み表示を想定した設計のため）。
+
+**Errors:**: `403` 体験アカウントがPDF以外にアクセス / `403` 非特権メンバーが`secret`楽譜にアクセス / `403` 非特権メンバーが未購入の楽譜ファイルにアクセス / `404` 楽譜が存在しない / `404` ファイルが存在しない / `404` ストレージ上にファイルが存在しない
+
 ---
 
 <a id="scores-file-delete"></a>
@@ -1444,9 +1559,11 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 ファイルを削除する。
 
-**権限**: `score+`（PDFなど）/ `tech+`（MIDI）
+**権限**: `admin` / `score`（PDFなど）・`admin` / `tech` / `conductor`（MIDI）
 
 **Response** `204` No Content
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 楽譜が存在しない / `404` `NOT_FOUND` ファイルが存在しない
 
 ---
 
@@ -1480,33 +1597,60 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 }
 ```
 
+**Errors:**: `403` `FORBIDDEN` 権限不足
+
 ---
 
 <a id="concerts-create"></a>
 
 ### POST `/api/v1/:orgSlug/concerts`
 
-演奏会を作成する。
+演奏会を作成する。あわせてスケジュールと連携するため、`concert`スラグ（無ければ「本番」という名前）のイベント区分を自動で探す／作成し、その区分の`Event`も同時に作成する。
 
 **権限**: `admin`
 
 **Request Body:**
 
-| フィールド | 型             | 必須 | 説明                   |
-| ---------- | -------------- | ---- | ---------------------- |
-| title      | string         | ✓    | 演奏会名               |
-| heldOn     | string         | ✓    | 開催日（ISO8601 date） |
-| venue      | string \| null |      | 会場名                 |
+| フィールド    | 型               | 必須 | 説明                                         |
+| ------------- | ---------------- | ---- | -------------------------------------------- |
+| title         | string           | ✓    | 演奏会名                                     |
+| heldOn        | string           | ✓    | 開催日時（ISO8601 datetime、オフセット必須） |
+| endsAt        | string           |      | 終了日時（ISO8601 datetime、オフセット必須） |
+| venue         | string \| null   |      | 会場名                                       |
+| locationUrl   | string \| null   |      | 会場URL（連携Eventに使用）                   |
+| targetRoles   | string[] \| null |      | 対象ロール（連携Eventに使用）                |
+| targetPartIds | string[] \| null |      | 対象パートID（連携Eventに使用）              |
+| deadline      | string \| null   |      | 出欠回答締切（ISO8601 datetime）             |
+| pageMemo      | string \| null   |      | 連携Eventのページメモ                        |
 
 ```json
 {
   "title": "第20回定期演奏会",
-  "heldOn": "2026-11-23",
+  "heldOn": "2026-11-23T00:00:00+09:00",
   "venue": "○○ホール"
 }
 ```
 
-**Response** `201` → 作成した演奏会情報（`stageCount: 0`, `programCount: 0`）
+**Response** `201`
+
+```json
+{
+  "data": {
+    "id": "cuid",
+    "title": "第20回定期演奏会",
+    "heldOn": "2026-11-23T00:00:00.000Z",
+    "venue": "○○ホール",
+    "status": "planning",
+    "stageCount": 0,
+    "programCount": 0,
+    "hasSurvey": false,
+    "surveyOpen": false,
+    "linkedEventId": "cuid"
+  }
+}
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足
 
 ---
 
@@ -1534,6 +1678,8 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
   ]
 }
 ```
+
+**Errors:**: `403` `FORBIDDEN` 権限不足
 
 ---
 
@@ -1635,28 +1781,40 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 > `visitor` ロールはステージ構成（`stages[].programs`）のみを取得でき、`stages[].formationPatterns` は含まれず（キー自体が省略される）、`surveys` / `assignments` は空配列になる。`guest` / `visitor` は `assignments` / `formationPatterns[].slots` の対象メンバーから除外される。`surveys` の回答マトリクス自体（`rows`）は [GET .../surveys/:surveyId](#surveys-id-get) で取得する。
 
+**Errors:**: `404` `NOT_FOUND` 演奏会が存在しない
+
 ---
 
 <a id="concerts-id-patch"></a>
 
 ### PATCH `/api/v1/:orgSlug/concerts/:id`
 
-演奏会の基本情報を更新する。
+演奏会の基本情報を更新する。連携する`Event`（title・heldOn・venue）があれば同時に更新される。
 
 **権限**: `admin`
 
 **Request Body:**（すべて省略可）
 
+| フィールド             | 型             | 説明                                                             |
+| ---------------------- | -------------- | ---------------------------------------------------------------- |
+| title                  | string         | 演奏会名                                                         |
+| heldOn                 | string         | 開催日（ISO8601 date、`YYYY-MM-DD`。時刻・オフセットは付けない） |
+| venue                  | string \| null | 会場名                                                           |
+| status                 | string         | `draft` / `survey_open` / `confirmed` / `past`                   |
+| outreachExpensePerTrip | number \| null | 情宣活動1回あたりの実費                                          |
+
 ```json
 {
   "title": "第20回定期演奏会",
-  "heldOn": "2026-11-23T00:00:00+09:00",
+  "heldOn": "2026-11-23",
   "venue": "○○ホール",
   "status": "survey_open"
 }
 ```
 
-**Response** `200` → 更新後の演奏会情報
+**Response** `200` → 更新後の演奏会情報（`id`/`title`/`heldOn`/`venue`/`status`）
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 
@@ -1669,6 +1827,8 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 **権限**: `admin`
 
 **Response** `204` No Content
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 
@@ -1699,6 +1859,8 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 }
 ```
 
+**Errors:**: `400` `VALIDATION_ERROR` name未入力 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
 ---
 
 <a id="stage-patch"></a>
@@ -1721,6 +1883,8 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 { "data": { "id": "cuid", "name": "第2ステージ（委嘱作品）", "sortOrder": 2 } }
 ```
 
+**Errors:**: `400` `VALIDATION_ERROR` name未入力 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` ステージが存在しない・この演奏会に属さない
+
 ---
 
 <a id="stages-order"></a>
@@ -1737,9 +1901,11 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 { "ids": ["cuid_stage2", "cuid_stage1", "cuid_stage3"] }
 ```
 
-> `ids` に指定した順番が `sortOrder` になる（index 0 → sortOrder 1）
+> `ids` に指定した順番が `sortOrder` になる（index 0 → sortOrder 1）。この演奏会の全ステージを網羅している必要はなく、指定されたステージのみ並び替えられる。
 
 **Response** `204` No Content
+
+**Errors:**: `400` `VALIDATION_ERROR` idsが空 / `400` `BAD_REQUEST` この演奏会に属さないステージIDが含まれる / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 
@@ -1786,7 +1952,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 }
 ```
 
-**Errors:**: `400` `scoreId` も `title` も指定されていない
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正・`scoreId`も`title`も指定されていない / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` ステージが存在しない・この演奏会に属さない / `404` `NOT_FOUND` `scoreId`指定時、楽譜が存在しない・別テナント
 
 ---
 
@@ -1806,6 +1972,8 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 **Response** `204` No Content
 
+**Errors:**: `400` `VALIDATION_ERROR` idsが空 / `400` `BAD_REQUEST` このステージに属さない演目IDが含まれる / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` ステージが存在しない・この演奏会に属さない
+
 ---
 
 <a id="program-delete"></a>
@@ -1818,7 +1986,44 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 **Response** `204` No Content
 
-**Errors:**: `404` 演目が指定の演奏会に属していない
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 演目が存在しない・指定の演奏会に属していない
+
+---
+
+<a id="program-patch"></a>
+
+### PATCH `/api/v1/:orgSlug/concerts/:concertId/programs/:programId`
+
+演目のタイトル・作曲者・編曲者を編集する。`composer`/`arranger`は紐づく楽譜（Score）本体を更新する。
+
+**権限**: `admin`
+
+**Request Body:**
+
+| フィールド | 型             | 必須 | 説明   |
+| ---------- | -------------- | ---- | ------ |
+| title      | string         |      | 演目名 |
+| composer   | string \| null |      | 作曲者 |
+| arranger   | string \| null |      | 編曲者 |
+
+```json
+{ "title": "男声合唱のための〇〇（改訂版）" }
+```
+
+**Response** `200`
+
+```json
+{
+  "data": {
+    "id": "cuid",
+    "title": "男声合唱のための〇〇（改訂版）",
+    "sortOrder": 3,
+    "score": { "id": "cuid", "composer": "△△ △△", "arranger": null }
+  }
+}
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 演目が存在しない・指定の演奏会に属していない
 
 ---
 
@@ -1849,10 +2054,14 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
     "id": "cuid",
     "title": "第20回定演 出演調査",
     "isOpen": true,
-    "closeAt": "2026-08-31T23:59:59+09:00"
+    "openAt": "2026-08-01T00:00:00+09:00",
+    "closeAt": "2026-08-31T23:59:59+09:00",
+    "responseCount": 0
   }
 }
 ```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 
@@ -1895,13 +2104,15 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 }
 ```
 
+**Errors:**: `403` `FORBIDDEN` visitorはアクセス不可 / `404` `NOT_FOUND` 調査が存在しない・指定の演奏会に属していない
+
 ---
 
 <a id="surveys-id-patch"></a>
 
 ### PATCH `/api/v1/:orgSlug/concerts/:concertId/surveys/:surveyId`
 
-調査の開閉を切り替える。
+調査の開閉・タイトルを変更する。`isOpen: true`にすると同じ演奏会の他の開放中調査は自動クローズされ、演奏会の`status`が`survey_open`になる。`isOpen: false`にした結果、開放中の調査が他に無くなった場合は`status`が`confirmed`になり、この調査の回答がオンステ確定へ自動反映される（[POST .../apply](#survey-apply)と同じ処理）。
 
 **権限**: `tech+`（admin / tech / conductor / score）
 
@@ -1914,8 +2125,19 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 **Response** `200`
 
 ```json
-{ "data": { "id": "cuid", "isOpen": false } }
+{
+  "data": {
+    "id": "cuid",
+    "title": "第20回定演 出演調査",
+    "isOpen": false,
+    "concertStatus": "confirmed"
+  }
+}
 ```
+
+> `concertStatus`は更新後の演奏会の`status`（`isOpen`未指定でtitleのみ変更した場合は変化しない現在の値）。
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 調査が存在しない・指定の演奏会に属していない
 
 ---
 
@@ -1951,6 +2173,8 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 { "data": { "ok": true } }
 ```
 
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `LOCKED` 調査が締め切られている（admin以外） / `403` `FORBIDDEN` admin以外が他メンバーの回答を変更しようとした / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 調査が存在しない / `404` `NOT_FOUND` `targetMemberId`のメンバーが存在しない・別テナント / `404` `NOT_FOUND` 無効なステージIDが含まれる
+
 ---
 
 <a id="survey-apply"></a>
@@ -1959,7 +2183,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 指定した調査の回答内容を `OnStageAssignment`（オンステ確定）に反映する。調査が複数（一次・二次など）ある場合に、どの調査を反映するかを明示的に選べるようにするための操作。開閉状態にかかわらず呼び出せる（締切時の自動反映とは独立）。
 
-**権限**: `tech+`
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Response** `200`
 
@@ -1968,6 +2192,8 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 ```
 
 > 反映すると `Concert.appliedSurveyId` がこの調査の ID になる。`off` になったメンバーは、既存のフォーメーション配置（`FormationSlot`）からも削除される。
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 調査が存在しない・指定の演奏会に属していない
 
 ---
 
@@ -1979,7 +2205,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 フォーメーションパターンを新規作成する。
 
-**権限**: `tech+`
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Request Body:**
 
@@ -2008,6 +2234,8 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 > 作成と同時に `conductor` / `piano` の `FormationBox` を1件ずつ自動作成する。
 
+**Errors:**: `400` `VALIDATION_ERROR` name未入力 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` ステージが存在しない・この演奏会に属さない
+
 ---
 
 <a id="formation-patterns-patch"></a>
@@ -2016,7 +2244,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 パターンの名称・段の千鳥配置・ピアノ位置を更新する（いずれも省略可・部分更新）。
 
-**権限**: `tech+`
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Request Body:**
 
@@ -2028,6 +2256,8 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 **Response** `200` → 更新後のパターン基本情報（`boxes` / `slots` は含まない）
 
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` パターンが存在しない・指定のステージに属さない
+
 ---
 
 <a id="formation-patterns-delete"></a>
@@ -2036,9 +2266,11 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 パターンを削除する（紐づく `FormationBox` / `FormationSlot` もカスケード削除）。
 
-**権限**: `tech+`
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Response** `204`
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` パターンが存在しない・指定のステージに属さない
 
 ---
 
@@ -2048,7 +2280,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 パターンの表示順を並び替える。
 
-**権限**: `tech+`
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Request Body:**
 
@@ -2058,6 +2290,8 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 **Response** `204`
 
+**Errors:**: `400` `VALIDATION_ERROR` idsが空 / `400` `BAD_REQUEST` このステージに属さないパターンIDが含まれる / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
 ---
 
 <a id="formation-slots-save"></a>
@@ -2066,7 +2300,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 枠（`boxes`）とスロット（`slots`）をまとめて保存する。既存の枠・スロットを全て削除してから作り直す（フォーメーション編集画面が編集操作のたびに全体を送信する）。
 
-**権限**: `tech+`
+**権限**: `tech+`（admin / tech / conductor / score）
 
 **Request Body:**
 
@@ -2102,6 +2336,8 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 > `memberId` を指定する場合、そのメンバーが同一団体に属していること（IDOR 防止）に加え、当該ステージで `OnStageAssignment.status: "on"`（オンステ確定済み）であることを検証する。いずれかを満たさない場合は `400 BAD_REQUEST`。`boxClientId` は同リクエスト内の `boxes[].clientId` に存在するものだけを許可する。
 
 **Response** `204`
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `400` `BAD_REQUEST` 別テナントのメンバーが含まれる / `400` `BAD_REQUEST` オンステ確定していないメンバーが含まれる / `400` `BAD_REQUEST` 存在しない枠を参照している / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` パターンが存在しない・指定のステージに属さない
 
 ---
 
@@ -2321,6 +2557,84 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 ## 9. チケット管理 API
 
+<a id="tickets-list"></a>
+
+### GET `/api/v1/:orgSlug/tickets`
+
+演奏会ごとのチケット配布状況一覧を取得する。
+
+**権限**: `ticket or admin`
+
+**Response** `200`
+
+```json
+{
+  "data": [
+    {
+      "concertId": "cuid",
+      "title": "第20回定期演奏会",
+      "heldOn": "2026-11-23T00:00:00.000Z",
+      "status": "confirmed",
+      "batchCount": 2,
+      "totalAllocated": 400,
+      "totalSold": 280,
+      "soldRate": 0.7,
+      "collectedCount": 30,
+      "memberCount": 32
+    }
+  ]
+}
+```
+
+> `soldRate`は`totalAllocated`が0の場合`0`になる。
+
+**Errors:**: `403` `FORBIDDEN` 権限不足
+
+---
+
+<a id="tickets-my-get"></a>
+
+### GET `/api/v1/:orgSlug/tickets/my`
+
+自分のチケット配布状況を演奏会ごとにまとめて取得する（全団員アクセス可）。
+
+**権限**: `member+`
+
+**Response** `200`
+
+```json
+{
+  "data": [
+    {
+      "concertId": "cuid",
+      "title": "第20回定期演奏会",
+      "heldOn": "2026-11-23T00:00:00.000Z",
+      "racePublishedAt": null,
+      "ticketInputClosedAt": null,
+      "batches": [
+        {
+          "allocationId": "cuid",
+          "batchId": "cuid",
+          "batchName": "一般",
+          "price": 2000,
+          "priceStudent": 1000,
+          "allocatedCount": 10,
+          "requestedCount": null,
+          "soldAdult": 6,
+          "soldStudent": 1,
+          "soldOther": 0,
+          "returnedCount": 0,
+          "outreachCount": 3,
+          "reportedAt": null
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
 <a id="tickets-id-get"></a>
 
 ### GET `/api/v1/:orgSlug/tickets/:concertId`
@@ -2334,38 +2648,60 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 ```json
 {
   "data": {
-    "concert": { "id": "cuid", "title": "第20回定期演奏会" },
+    "concert": {
+      "id": "cuid",
+      "title": "第20回定期演奏会",
+      "heldOn": "2026-11-23T00:00:00.000Z",
+      "ticketInputClosedAt": null,
+      "outreachExpensePerTrip": 500
+    },
+    "isAdmin": true,
+    "myMemberId": "cuid",
     "batches": [
       {
         "id": "cuid",
         "name": "一般",
         "price": 2000,
+        "priceStudent": 1000,
         "totalCount": 200,
+        "saleStart": "2026-09-01T00:00:00.000Z",
+        "saleEnd": "2026-11-20T23:59:59.000Z",
         "allocations": [
           {
-            "member": { "id": "cuid", "nameJa": "山田 太郎", "part": { "name": "Tenor I" } },
+            "id": "cuid",
+            "batchId": "cuid",
+            "memberId": "cuid",
+            "nameJa": "山田 太郎",
+            "partId": "cuid",
+            "partName": "Tenor I",
+            "partSortOrder": 1,
+            "partVoiceType": "tenor",
             "allocatedCount": 10,
+            "requestedCount": null,
             "soldAdult": 6,
             "soldStudent": 1,
             "soldOther": 0,
             "returnedCount": 0,
-            "isCollected": false,
+            "outreachCount": 3,
+            "isOutreachExpensePaid": false,
+            "outreachExpensePaidAt": null,
+            "collected": false,
             "reportedAt": null
           }
         ]
       }
     ],
     "partSummary": [
-      {
-        "part": { "name": "Tenor I" },
-        "allocated": 40,
-        "sold": 28,
-        "rate": 0.7
-      }
+      { "partId": "cuid", "partName": "Tenor I", "allocated": 40, "sold": 28, "rate": 0.7 }
     ]
   }
 }
 ```
+
+> - `allocations`はguest/visitorロールのメンバーを除外して返す。`partSummary`は割当0件のパートを除外する。
+> - `isAdmin`はフィールド名によらず`ticket or admin`（`isTicketManager`）の判定結果。このエンドポイント自体`ticket or admin`のみアクセス可能なため、200が返る時点で常に`true`になる。
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 
@@ -2389,7 +2725,48 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 }
 ```
 
-**Response** `201` → 作成した席種情報
+**Response** `201` → 作成した席種情報（`allocations: []`）
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="tickets-batches-patch"></a>
+
+### PATCH `/api/v1/:orgSlug/tickets/:concertId/batches/:batchId`
+
+チケット席種情報を更新する（すべて省略可・部分更新）。
+
+**権限**: `ticket or admin`
+
+**Request Body:**
+
+| フィールド   | 型             | 説明                             |
+| ------------ | -------------- | -------------------------------- |
+| name         | string         | 席種名                           |
+| price        | number         | 一般価格                         |
+| priceStudent | number \| null | 学生価格                         |
+| totalCount   | number         | 総数                             |
+| saleStart    | string \| null | 販売開始日時（ISO8601 datetime） |
+| saleEnd      | string \| null | 販売終了日時（ISO8601 datetime） |
+
+**Response** `200` → 更新後の席種情報
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 席種が存在しない・指定の演奏会に属していない
+
+---
+
+<a id="tickets-batches-delete"></a>
+
+### DELETE `/api/v1/:orgSlug/tickets/:concertId/batches/:batchId`
+
+チケット席種を削除する。
+
+**権限**: `ticket or admin`
+
+**Response** `204` No Content
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 席種が存在しない・指定の演奏会に属していない
 
 ---
 
@@ -2397,27 +2774,39 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 ### POST `/api/v1/:orgSlug/tickets/:concertId/allocate`
 
-団員へのチケット配布を記録する。
+チケット配布・希望枚数申請を1件登録・更新する（`batchId`+`memberId`の組で upsert）。
 
-**権限**: `admin`
+**権限**: `ticket or admin`（他メンバーへの登録） / `member+`（`memberId`省略時、自分の希望枚数申請のみ）
 
 **Request Body:**
 
+| フィールド     | 型     | 必須 | 説明                                                                            |
+| -------------- | ------ | ---- | ------------------------------------------------------------------------------- |
+| batchId        | string | ✓    | 対象の席種ID                                                                    |
+| memberId       | string |      | 対象メンバーID（省略時は自分）                                                  |
+| allocatedCount | number | ✓    | `ticket or admin`が指定した場合は配布枚数、自分の場合は希望枚数として登録される |
+
 ```json
-{
-  "batchId": "cuid",
-  "allocations": [
-    { "memberId": "cuid", "allocatedCount": 10 },
-    { "memberId": "cuid", "allocatedCount": 8 }
-  ]
-}
+{ "batchId": "cuid", "memberId": "cuid", "allocatedCount": 10 }
 ```
+
+> `ticket or admin`が登録・更新すると`allocatedCount`（配布枚数）が確定し、`requestedCount`はクリアされる。一般団員が自分の分を登録・更新すると`requestedCount`（希望枚数）として保存され、`allocatedCount`は変更されない（`ticket or admin`による確定待ち）。
 
 **Response** `201`
 
 ```json
-{ "data": { "created": 28 } }
+{
+  "data": {
+    "id": "cuid",
+    "batchId": "cuid",
+    "memberId": "cuid",
+    "allocatedCount": 0,
+    "requestedCount": 10
+  }
+}
 ```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 他メンバーへの登録を一般団員が行おうとした / `403` `INPUT_CLOSED` 入力締切後に非担当者が自分の申請をしようとした / `404` `NOT_FOUND` 席種が存在しない・指定の演奏会に属していない
 
 ---
 
@@ -2425,9 +2814,9 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 ### PATCH `/api/v1/:orgSlug/tickets/allocations/:id`
 
-販売・回収報告を更新する（自分の配布分の報告、または管理者による全員分の更新）。
+販売・回収報告を更新する（自分の配布分の報告、またはticket担当者/adminによる全員分の更新）。
 
-**権限**: `member`（自分の記録のみ）/ `admin`（全員）
+**権限**: `member`（自分の記録のみ）/ `ticket or admin`（全員）
 
 **Request Body:**（すべて省略可）
 
@@ -2444,9 +2833,72 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 }
 ```
 
-> `allocatedCount` は `ticket or admin` のみ更新可能。一般団員が指定した場合は無視される。
+> - `allocatedCount`（配布枚数）・`isOutreachExpensePaid`（情宣交通費支払い記録）は`ticket or admin`のみ更新可能。一般団員が自分の記録に対して指定した場合は無視されず`403 FORBIDDEN`を返す。
+> - `ticketInputClosedAt`（入力締切）を過ぎている場合、`ticket or admin`以外は編集不可（`403 INPUT_CLOSED`）。
+> - `soldAdult`/`soldStudent`/`soldOther`/`returnedCount`のいずれかを更新すると`reportedAt`が現在時刻に更新される（`outreachCount`単独の変更では更新されない）。
 
 **Response** `200` → 更新後の配布情報
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 自分以外の記録を編集しようとした / `403` `FORBIDDEN` 一般団員が`allocatedCount`・`isOutreachExpensePaid`を指定した / `403` `INPUT_CLOSED` 入力締切後に非担当者が編集しようとした / `404` `NOT_FOUND` 配布記録が存在しない
+
+---
+
+<a id="tickets-outreach-expenses-bulk"></a>
+
+### POST `/api/v1/:orgSlug/tickets/:concertId/outreach-expenses/bulk`
+
+複数の配布記録の情宣交通費支払い状態を一括で記録する。
+
+**権限**: `ticket or admin`
+
+**Request Body:**
+
+| フィールド    | 型       | 必須 | 説明                                          |
+| ------------- | -------- | ---- | --------------------------------------------- |
+| allocationIds | string[] | ✓    | 対象の配布記録ID（1件以上）                   |
+| paid          | boolean  | ✓    | `true`=支払い済みにする・`false`=未払いに戻す |
+
+```json
+{ "allocationIds": ["cuid1", "cuid2"], "paid": true }
+```
+
+> `allocationIds`が全て指定した演奏会・団体に属する配布記録であることを検証する（1件でも一致しなければ`400 BAD_REQUEST`）。`paid: true`の場合`outreachExpensePaidAt`が現在時刻になり、`false`の場合`null`に戻る。
+
+**Response** `200`
+
+```json
+{ "data": { "updatedCount": 2 } }
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `400` `BAD_REQUEST` 一部の配布記録が見つからない・別演奏会/別テナント / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="tickets-outreach-expense-rate"></a>
+
+### PATCH `/api/v1/:orgSlug/tickets/:concertId/outreach-expense-rate`
+
+情宣活動1回あたりの交通費単価を設定する（`Concert.outreachExpensePerTrip`）。
+
+**権限**: `ticket or admin`
+
+**Request Body:**
+
+| フィールド             | 型             | 必須 | 説明                                      |
+| ---------------------- | -------------- | ---- | ----------------------------------------- |
+| outreachExpensePerTrip | number \| null | ✓    | 1回あたりの実費（未設定に戻す場合はnull） |
+
+```json
+{ "outreachExpensePerTrip": 500 }
+```
+
+**Response** `200`
+
+```json
+{ "data": { "outreachExpensePerTrip": 500 } }
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 
@@ -2454,31 +2906,155 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 ### GET `/api/v1/:orgSlug/tickets/:concertId/race`
 
-パートセールスレースの集計データを取得する。
+パート対抗チケットレース（販売枚数・速さ・情宣回数を得点化した順位表）の集計データを取得する。
 
-**権限**: `ticket or admin`
+**権限**: 公開済み（`racePublishedAt`あり）なら`member+`全員 / 未公開は`ticket or admin`のみ
 
 **Response** `200`
 
 ```json
 {
   "data": {
-    "isFinalized": false,
+    "concert": { "id": "cuid", "title": "第20回定期演奏会" },
+    "isTicketManager": true,
+    "racePublishedAt": null,
+    "scoring": {
+      "avgSales": { "label": "平均販売枚数", "points": [10, 8, 6, 4] },
+      "speed5": {
+        "label": "速さ（5枚×3名）",
+        "threshold": 5,
+        "minCount": 3,
+        "points": [5, 4, 3, 2]
+      },
+      "speed10": {
+        "label": "速さ（10枚×3名）",
+        "threshold": 10,
+        "minCount": 3,
+        "points": [5, 4, 3, 2]
+      },
+      "zeroRatio": { "label": "ゼロ販売割合（少順）", "points": [4, 3, 2, 1] },
+      "outreach": { "label": "情宣回数", "points": [5, 4, 3, 2] }
+    },
     "parts": [
       {
+        "partId": "cuid",
         "partName": "Tenor I",
-        "sold": 28,
-        "allocated": 40,
-        "rate": 0.7,
-        "timeline": [
-          { "date": "2026-10-01", "cumulativeSold": 5 },
-          { "date": "2026-10-15", "cumulativeSold": 18 }
-        ]
+        "totalPoints": 22,
+        "rank": 1,
+        "breakdown": {
+          "avgSalesPoints": 10,
+          "speed5Points": 5,
+          "speed10Points": 3,
+          "zeroRatioPoints": 4,
+          "outreachPoints": 0
+        },
+        "stats": {
+          "avgSold": 7,
+          "speed5AchievedAt": "2026-10-05T12:00:00.000Z",
+          "speed10AchievedAt": null,
+          "zeroSellerRatio": 0,
+          "totalOutreach": 3,
+          "memberCount": 4,
+          "allocated": 40,
+          "sold": 28
+        }
+      }
+    ],
+    "individuals": [
+      {
+        "memberId": "cuid",
+        "nameJa": "山田 太郎",
+        "partId": "cuid",
+        "partName": "Tenor I",
+        "allocated": 10,
+        "sold": 9,
+        "outreachCount": 3,
+        "rate": 0.9,
+        "rank": 1
       }
     ]
   }
 }
 ```
+
+> - `allocated`が0の団員は`individuals`・パート集計から除外される。guest/visitorロールの団員は最初から集計対象外。
+> - 同率タイの場合、該当順位の得点の平均（四捨五入）が全員に付与される。
+> - 情宣回数はメンバーが複数席種に配布記録を持つ場合、合計ではなく最大値を採用する（重複計上防止）。
+> - `speed5`/`speed10`はパート内で該当枚数以上を売った団員が`minCount`人に達した時点の`reportedAt`（3人目の報告日時）。未達の場合`null`で得点0。
+
+**Errors:**: `403` `FORBIDDEN` 未公開のレースに非担当者がアクセスしようとした / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="tickets-race-publish"></a>
+
+### POST `/api/v1/:orgSlug/tickets/:concertId/race/publish`
+
+チケットレースを公開する（`Concert.racePublishedAt`に現在時刻を設定）。
+
+**権限**: `ticket or admin`
+
+**Response** `200`
+
+```json
+{ "data": { "racePublishedAt": "2026-11-01T00:00:00.000Z" } }
+```
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="tickets-race-unpublish"></a>
+
+### DELETE `/api/v1/:orgSlug/tickets/:concertId/race/publish`
+
+チケットレースの公開を取り消す（`racePublishedAt`を`null`に戻す）。
+
+**権限**: `ticket or admin`
+
+**Response** `200`
+
+```json
+{ "data": { "racePublishedAt": null } }
+```
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="tickets-close"></a>
+
+### POST `/api/v1/:orgSlug/tickets/:concertId/close`
+
+チケット入力を締め切る（`Concert.ticketInputClosedAt`に現在時刻を設定）。締切後は`ticket or admin`以外の入力・編集ができなくなる（[PATCH allocations/:id](#tickets-allocation-patch)・[POST allocate](#tickets-allocate)参照）。
+
+**権限**: `ticket or admin`
+
+**Response** `200`
+
+```json
+{ "data": { "ticketInputClosedAt": "2026-11-20T23:59:59.000Z" } }
+```
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="tickets-reopen"></a>
+
+### DELETE `/api/v1/:orgSlug/tickets/:concertId/close`
+
+チケット入力を再開する（`ticketInputClosedAt`を`null`に戻す）。
+
+**権限**: `ticket or admin`
+
+**Response** `200`
+
+```json
+{ "data": { "ticketInputClosedAt": null } }
+```
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 
@@ -3189,6 +3765,8 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 }
 ```
 
+**Errors:**: `404` `NOT_FOUND` 演奏会が存在しない
+
 ---
 
 <a id="outreach-create"></a>
@@ -3216,7 +3794,11 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 }
 ```
 
+> `ticket or admin`以外（一般団員）が申請する場合、`participants`に自分自身を含める必要がある（含まれていなければ`403 FORBIDDEN`）。`ticket or admin`は自分を含めずに他メンバーのみで申請できる。
+
 **Response** `201` 作成した活動オブジェクト
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `400` `INVALID_MEMBER` 参加者にこの団体に属さないメンバーが含まれる / `403` `FORBIDDEN` guest/visitorが申請しようとした / `403` `FORBIDDEN` 一般団員が自分を参加者に含めなかった / `404` `NOT_FOUND` 演奏会が存在しない
 
 ---
 
@@ -3230,6 +3812,8 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 
 **Response** `200` 更新後の活動オブジェクト
 
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 情宣活動が存在しない・指定の演奏会に属していない
+
 ---
 
 <a id="outreach-delete"></a>
@@ -3241,5 +3825,7 @@ Content-Disposition: inline; filename*=UTF-8''%E6%A5%BD%E8%AD%9C.pdf
 **権限**: 申請者本人または `ticket+` / `admin`
 
 **Response** `204` No Content
+
+**Errors:**: `403` `FORBIDDEN` 申請者本人でも担当者でもない / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 情宣活動が存在しない・指定の演奏会に属していない
 
 ---

@@ -1,7 +1,6 @@
 import { Hono, type Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { createHash, timingSafeEqual } from "crypto";
 import { hash, verify } from "argon2";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { prisma } from "../lib/prisma.js";
@@ -22,21 +21,7 @@ async function hashPassword(password: string): Promise<string> {
   return hash(password, ARGON2_OPTIONS);
 }
 
-// SHA-256 ハッシュかどうか判定（移行期間中の後方互換）
-function isSha256Hash(h: string): boolean {
-  return /^[0-9a-f]{64}$/.test(h);
-}
-
-function sha256(password: string): string {
-  return createHash("sha256").update(password).digest("hex");
-}
-
 async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
-  if (isSha256Hash(storedHash)) {
-    const computed = Buffer.from(sha256(password), "hex");
-    const stored = Buffer.from(storedHash, "hex");
-    return timingSafeEqual(computed, stored);
-  }
   return verify(storedHash, password);
 }
 
@@ -57,6 +42,30 @@ function getClientIp(c: Context): string {
       .map((s) => s.trim())
       .filter((ip) => IP_REGEX.test(ip)) ?? [];
   return ips[ips.length - 1] ?? c.req.header("x-real-ip") ?? "unknown";
+}
+
+const INVALID_TOKEN_ERROR = { code: "INVALID_TOKEN", message: "招待リンクが無効です" } as const;
+
+function usedOrExpiredInviteError(invite: {
+  usedAt: Date | null;
+  expiresAt: Date;
+}): { code: string; message: string } | null {
+  if (invite.usedAt) return { code: "TOKEN_USED", message: "この招待リンクは既に使用されています" };
+  if (invite.expiresAt < new Date())
+    return { code: "TOKEN_EXPIRED", message: "招待リンクの有効期限が切れています" };
+  return null;
+}
+
+const RESET_INVALID_TOKEN_ERROR = { code: "INVALID_TOKEN", message: "リンクが無効です" } as const;
+
+function usedOrExpiredResetTokenError(resetToken: {
+  usedAt: Date | null;
+  expiresAt: Date;
+}): { code: string; message: string } | null {
+  if (resetToken.usedAt) return { code: "TOKEN_USED", message: "このリンクは既に使用されています" };
+  if (resetToken.expiresAt < new Date())
+    return { code: "TOKEN_EXPIRED", message: "リンクの有効期限が切れています" };
+  return null;
 }
 
 export const authRouter = new Hono()
@@ -104,14 +113,6 @@ export const authRouter = new Hono()
 
       await clearLoginRateLimit(ip);
 
-      // SHA-256 ハッシュでログイン成功した場合は Argon2id に移行
-      if (isSha256Hash(user.passwordHash)) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { passwordHash: await hashPassword(password) },
-        });
-      }
-
       const sessionData = sessionManager.createSession(user.id);
       await prisma.session.create({ data: sessionData });
 
@@ -148,6 +149,7 @@ export const authRouter = new Hono()
     },
   )
 
+  // ── POST /auth/logout ── セッション破棄
   .post("/auth/logout", async (c) => {
     const sessionId = getCookie(c, sessionManager.sessionCookieName);
     if (sessionId) {
@@ -165,12 +167,9 @@ export const authRouter = new Hono()
       include: { org: { select: { name: true, slug: true } } },
     });
 
-    if (!invite || invite.usedAt || invite.expiresAt < new Date()) {
-      return c.json(
-        { error: { code: "INVALID_TOKEN", message: "招待リンクが無効または期限切れです" } },
-        404,
-      );
-    }
+    if (!invite) return c.json({ error: INVALID_TOKEN_ERROR }, 404);
+    const err = usedOrExpiredInviteError(invite);
+    if (err) return c.json({ error: err }, 404);
 
     return c.json({
       data: {
@@ -202,12 +201,9 @@ export const authRouter = new Hono()
       const { nameJa, password } = c.req.valid("json");
 
       const invite = await prisma.inviteToken.findUnique({ where: { token } });
-      if (!invite || invite.usedAt || invite.expiresAt < new Date()) {
-        return c.json(
-          { error: { code: "INVALID_TOKEN", message: "招待リンクが無効または期限切れです" } },
-          404,
-        );
-      }
+      if (!invite) return c.json({ error: INVALID_TOKEN_ERROR }, 404);
+      const tokenErr = usedOrExpiredInviteError(invite);
+      if (tokenErr) return c.json({ error: tokenErr }, 404);
 
       const existingUser = await prisma.user.findUnique({ where: { email: invite.email } });
       if (existingUser) {
@@ -257,6 +253,7 @@ export const authRouter = new Hono()
     },
   )
 
+  // ── GET /auth/me ── 現在のログインユーザー情報取得
   .get("/auth/me", async (c) => {
     const sessionId = getCookie(c, sessionManager.sessionCookieName);
     if (!sessionId)
@@ -326,6 +323,9 @@ export const authRouter = new Hono()
           resetToken: resetToken.token,
           expiresAt,
         }).catch((err: unknown) => logger.error("[auth] password reset mail failed:", err));
+      } else {
+        // ユーザー存在確認防止のため、DB書き込み・メール送信相当の待機時間を確保する
+        await new Promise((resolve) => setTimeout(resolve, 300));
       }
 
       // ユーザー存在確認防止のため成功・失敗とも同じレスポンスを返す
@@ -338,22 +338,15 @@ export const authRouter = new Hono()
     const { token } = c.req.param();
     const resetToken = await prisma.passwordResetToken.findUnique({ where: { token } });
 
-    if (!resetToken || resetToken.usedAt || resetToken.expiresAt < new Date()) {
-      return c.json(
-        { error: { code: "INVALID_TOKEN", message: "リンクが無効または期限切れです" } },
-        404,
-      );
-    }
+    if (!resetToken) return c.json({ error: RESET_INVALID_TOKEN_ERROR }, 404);
+    const tokenErr = usedOrExpiredResetTokenError(resetToken);
+    if (tokenErr) return c.json({ error: tokenErr }, 404);
 
     const user = await prisma.user.findUnique({
       where: { id: resetToken.userId },
       select: { email: true },
     });
-    if (!user)
-      return c.json(
-        { error: { code: "INVALID_TOKEN", message: "リンクが無効または期限切れです" } },
-        404,
-      );
+    if (!user) return c.json({ error: RESET_INVALID_TOKEN_ERROR }, 404);
 
     return c.json({ data: { email: user.email } });
   })

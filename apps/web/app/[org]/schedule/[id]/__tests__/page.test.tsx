@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ScheduleDetailPage from "../page";
 import { MemberProvider } from "@/contexts/MemberContext";
@@ -217,5 +218,210 @@ describe("ScheduleDetailPage（場所リンク）", () => {
 
     const link = await screen.findByText("○○公民館");
     expect(link.closest("a")).toHaveAttribute("href", "https://maps.example.com/xyz");
+  });
+});
+
+// ────────────────────────────
+// 出欠回答フロー
+// ────────────────────────────
+
+const selfMember = {
+  id: "member-self",
+  nameJa: "自分",
+  part: { id: "part-1", name: "Tenor I", voiceType: "tenor", sortOrder: 1 },
+} as never;
+
+const otherMember = {
+  id: "member-other",
+  nameJa: "他人",
+  part: { id: "part-1", name: "Tenor I", voiceType: "tenor", sortOrder: 1 },
+} as never;
+
+function setupAttendanceMembers() {
+  vi.mocked(membersApi.list).mockResolvedValue([selfMember, otherMember]);
+  vi.mocked(membersApi.parts).mockResolvedValue([
+    { id: "part-1", name: "Tenor I", voiceType: "tenor", sortOrder: 1 },
+  ]);
+}
+
+describe("ScheduleDetailPage（出欠セルのクリック）", () => {
+  it("自分の行のセルをクリックすると即座に表示が更新され、updateAttendanceが呼ばれる", async () => {
+    setupAttendanceMembers();
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent({ isLocked: false, attendances: [] }));
+    vi.mocked(eventsApi.updateAttendance).mockResolvedValue(undefined as never);
+    const user = userEvent.setup();
+    renderPage();
+
+    const cell = await screen.findByTitle("クリックで変更");
+    expect(cell).toHaveTextContent("—");
+
+    await user.click(cell);
+    expect(cell).toHaveTextContent("○");
+    expect(eventsApi.updateAttendance).toHaveBeenCalledWith("tokyo-men-choir", "event-1", {
+      status: "attending",
+      arriveTime: null,
+      leaveTime: null,
+      dayMemo: null,
+    });
+
+    await user.click(cell);
+    expect(cell).toHaveTextContent("✕");
+
+    await user.click(cell);
+    expect(cell).toHaveTextContent("△");
+
+    await user.click(cell);
+    expect(cell).toHaveTextContent("—");
+  });
+
+  it("自分以外の行のセルはクリックできない", async () => {
+    setupAttendanceMembers();
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent({ isLocked: false, attendances: [] }));
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("他人");
+    const otherRow = screen.getByText("他人").closest(".border-b")!;
+    const otherCell = within(otherRow as HTMLElement).getByRole("button");
+    expect(otherCell).toBeDisabled();
+
+    await user.click(otherCell);
+    expect(eventsApi.updateAttendance).not.toHaveBeenCalled();
+  });
+
+  it("isLocked=trueの場合、自分の行でもクリックできない", async () => {
+    setupAttendanceMembers();
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent({ isLocked: true, attendances: [] }));
+    renderPage();
+
+    await screen.findByText("自分");
+    const selfRow = screen.getByText("自分").closest(".border-b")!;
+    const cell = within(selfRow as HTMLElement).getByRole("button");
+    expect(cell).toBeDisabled();
+  });
+
+  it("maybeへ切り替えるとメモ入力欄が展開される", async () => {
+    setupAttendanceMembers();
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent({ isLocked: false, attendances: [] }));
+    vi.mocked(eventsApi.updateAttendance).mockResolvedValue(undefined as never);
+    const user = userEvent.setup();
+    renderPage();
+
+    const cell = await screen.findByTitle("クリックで変更");
+    await user.click(cell); // attending
+    await user.click(cell); // absent
+    await user.click(cell); // maybe
+
+    expect(await screen.findByText("△ 詳細を入力してください")).toBeInTheDocument();
+  });
+
+  it("ステータス更新API失敗時は元の状態にロールバックする", async () => {
+    setupAttendanceMembers();
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent({ isLocked: false, attendances: [] }));
+    vi.mocked(eventsApi.updateAttendance).mockRejectedValue(new Error("failed"));
+    const user = userEvent.setup();
+    renderPage();
+
+    const cell = await screen.findByTitle("クリックで変更");
+    await user.click(cell);
+
+    await waitFor(() => {
+      expect(cell).toHaveTextContent("—");
+    });
+  });
+});
+
+describe("ScheduleDetailPage（メモ保存）", () => {
+  async function openMemoRow(user: ReturnType<typeof userEvent.setup>) {
+    const cell = await screen.findByTitle("クリックで変更");
+    await user.click(cell); // attending
+    await user.click(cell); // absent
+    await user.click(cell); // maybe
+    await screen.findByText("△ 詳細を入力してください");
+  }
+
+  it("「保存」クリックでupdateAttendanceが呼ばれ、成功時は入力欄が閉じる", async () => {
+    setupAttendanceMembers();
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent({ isLocked: false, attendances: [] }));
+    vi.mocked(eventsApi.updateAttendance).mockResolvedValue(undefined as never);
+    const user = userEvent.setup();
+    renderPage();
+
+    await openMemoRow(user);
+    await user.click(screen.getByText("保存"));
+
+    await waitFor(() => {
+      expect(eventsApi.updateAttendance).toHaveBeenLastCalledWith(
+        "tokyo-men-choir",
+        "event-1",
+        expect.objectContaining({ status: "maybe" }),
+      );
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("△ 詳細を入力してください")).not.toBeInTheDocument();
+    });
+  });
+
+  it("メモ保存API失敗時は元の状態にロールバックする", async () => {
+    setupAttendanceMembers();
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent({ isLocked: false, attendances: [] }));
+    vi.mocked(eventsApi.updateAttendance)
+      .mockResolvedValueOnce(undefined as never) // attending
+      .mockResolvedValueOnce(undefined as never) // absent
+      .mockResolvedValueOnce(undefined as never) // maybe
+      .mockRejectedValueOnce(new Error("failed")); // メモ保存
+    const user = userEvent.setup();
+    renderPage();
+
+    await openMemoRow(user);
+    await user.click(screen.getByText("保存"));
+
+    await waitFor(() => {
+      expect(screen.getByTitle("未回答")).toBeInTheDocument();
+    });
+  });
+});
+
+describe("ScheduleDetailPage（削除フロー）", () => {
+  it("「削除」→確認モーダル表示→「キャンセル」で閉じる", async () => {
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent());
+    const user = userEvent.setup();
+    renderPage(["admin"]);
+
+    await user.click(await screen.findByText("削除"));
+    expect(screen.getByText("イベントを削除しますか？")).toBeInTheDocument();
+
+    await user.click(screen.getByText("キャンセル"));
+    expect(screen.queryByText("イベントを削除しますか？")).not.toBeInTheDocument();
+    expect(eventsApi.delete).not.toHaveBeenCalled();
+  });
+
+  it("確認モーダルで「削除する」→削除成功時は一覧へ遷移する", async () => {
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent());
+    vi.mocked(eventsApi.delete).mockResolvedValue(undefined as never);
+    const user = userEvent.setup();
+    renderPage(["admin"]);
+
+    await user.click(await screen.findByText("削除"));
+    await user.click(screen.getByText("削除する"));
+
+    await waitFor(() => {
+      expect(eventsApi.delete).toHaveBeenCalledWith("tokyo-men-choir", "event-1");
+    });
+    expect(pushMock).toHaveBeenCalledWith("/tokyo-men-choir/schedule");
+  });
+
+  it("削除失敗時はエラーメッセージを表示し、モーダルは開いたままになる", async () => {
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent());
+    vi.mocked(eventsApi.delete).mockRejectedValue(new Error("削除に失敗しました"));
+    const user = userEvent.setup();
+    renderPage(["admin"]);
+
+    await user.click(await screen.findByText("削除"));
+    await user.click(screen.getByText("削除する"));
+
+    expect(await screen.findByText("削除に失敗しました")).toBeInTheDocument();
+    expect(screen.getByText("イベントを削除しますか？")).toBeInTheDocument();
+    expect(pushMock).not.toHaveBeenCalled();
   });
 });

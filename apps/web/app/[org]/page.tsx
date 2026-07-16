@@ -39,6 +39,15 @@ export default function HomePage() {
   const nextRehearsal = data?.nextRehearsal ?? null;
   const nextConcert = data?.nextConcert ?? null;
 
+  // 未回答が1件のときはその場でイベント詳細へ、複数件（または upcomingEvents に無い場合）は一覧へ
+  const soleUnansweredEvent =
+    data?.unansweredEventCount === 1
+      ? (upcomingEvents.find((e) => e.myAttendance === "undecided") ?? null)
+      : null;
+  const unansweredHref = soleUnansweredEvent
+    ? `/${org}/schedule/${soleUnansweredEvent.id}`
+    : `/${org}/schedule`;
+
   return (
     <div className="flex flex-col">
       <header className="shrink-0 border-b border-gray-200 bg-white">
@@ -46,7 +55,7 @@ export default function HomePage() {
           <h1 className="text-lg font-semibold text-gray-800">ホーム</h1>
           {data && data.unansweredEventCount > 0 && (
             <Link
-              href={`/${org}/schedule`}
+              href={unansweredHref}
               prefetch={false}
               className="flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-600 transition-colors hover:bg-orange-100"
             >

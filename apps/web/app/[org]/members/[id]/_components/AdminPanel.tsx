@@ -84,8 +84,11 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">パート</label>
+          <label htmlFor="admin-part" className="mb-1 block text-xs font-medium text-gray-600">
+            パート
+          </label>
           <select
+            id="admin-part"
             value={localPartId}
             onChange={(e) => setLocalPartId(e.target.value)}
             className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:outline-none"
@@ -99,8 +102,11 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">ステータス</label>
+          <label htmlFor="admin-status" className="mb-1 block text-xs font-medium text-gray-600">
+            ステータス
+          </label>
           <select
+            id="admin-status"
             value={localStatus}
             onChange={(e) => setLocalStatus(e.target.value as MemberStatus)}
             className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:outline-none"
@@ -115,8 +121,11 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
       </div>
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-600">メンバー区分</label>
+        <label htmlFor="admin-memberType" className="mb-1 block text-xs font-medium text-gray-600">
+          メンバー区分
+        </label>
         <select
+          id="admin-memberType"
           value={localMemberTypeId}
           onChange={(e) => setLocalMemberTypeId(e.target.value)}
           className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:outline-none"
@@ -132,8 +141,11 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
       </div>
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-600">管理者メモ</label>
+        <label htmlFor="admin-memo" className="mb-1 block text-xs font-medium text-gray-600">
+          管理者メモ
+        </label>
         <textarea
+          id="admin-memo"
           value={localMemo}
           onChange={(e) => setLocalMemo(e.target.value)}
           rows={2}

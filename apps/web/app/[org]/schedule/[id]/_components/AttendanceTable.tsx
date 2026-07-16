@@ -48,12 +48,13 @@ const STATUS_CONFIG: Record<
 };
 
 interface MemoRowProps {
+  memberId: string;
   attendance: LocalAttendance;
   saving: boolean;
   onSave: (data: Partial<LocalAttendance>) => void;
 }
 
-function MemoRow({ attendance, saving, onSave }: MemoRowProps) {
+function MemoRow({ memberId, attendance, saving, onSave }: MemoRowProps) {
   const [arrive, setArrive] = useState(attendance.arriveTime ?? "");
   const [leave, setLeave] = useState(attendance.leaveTime ?? "");
   const [memo, setMemo] = useState(attendance.dayMemo ?? "");
@@ -63,8 +64,14 @@ function MemoRow({ attendance, saving, onSave }: MemoRowProps) {
       <p className="text-xs font-medium text-orange-700">△ 詳細を入力してください</p>
       <div className="flex gap-3">
         <div>
-          <label className="mb-1 block text-[10px] text-gray-500">遅刻: 到着予定</label>
+          <label
+            htmlFor={`memo-arrive-${memberId}`}
+            className="mb-1 block text-[10px] text-gray-500"
+          >
+            遅刻: 到着予定
+          </label>
           <input
+            id={`memo-arrive-${memberId}`}
             type="time"
             value={arrive}
             onChange={(e) => setArrive(e.target.value)}
@@ -72,8 +79,14 @@ function MemoRow({ attendance, saving, onSave }: MemoRowProps) {
           />
         </div>
         <div>
-          <label className="mb-1 block text-[10px] text-gray-500">早退: 退席予定</label>
+          <label
+            htmlFor={`memo-leave-${memberId}`}
+            className="mb-1 block text-[10px] text-gray-500"
+          >
+            早退: 退席予定
+          </label>
           <input
+            id={`memo-leave-${memberId}`}
             type="time"
             value={leave}
             onChange={(e) => setLeave(e.target.value)}
@@ -82,8 +95,11 @@ function MemoRow({ attendance, saving, onSave }: MemoRowProps) {
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-[10px] text-gray-500">メモ</label>
+        <label htmlFor={`memo-text-${memberId}`} className="mb-1 block text-[10px] text-gray-500">
+          メモ
+        </label>
         <input
+          id={`memo-text-${memberId}`}
           value={memo}
           onChange={(e) => setMemo(e.target.value)}
           placeholder="連絡事項など"
@@ -273,6 +289,7 @@ export function AttendanceTable({
 
                   {isExpanded && att.status === "maybe" && (
                     <MemoRow
+                      memberId={member.id}
                       attendance={att}
                       saving={saving}
                       onSave={(data) => onSaveMemo(member.id, data)}

@@ -9,6 +9,7 @@ import { eventsApi } from "@/lib/events-api";
 import { membersApi } from "@/lib/members-api";
 import { useMember } from "@/contexts/MemberContext";
 import { comparePartOrder } from "@/lib/voice-order";
+import { canManageSchedule } from "@/lib/roles";
 import { eventKeys, memberKeys } from "@/lib/query-keys";
 import { AttendanceTable, type LocalAttendance } from "./_components/AttendanceTable";
 import { DeleteConfirmModal } from "./_components/DeleteConfirmModal";
@@ -236,7 +237,7 @@ export default function ScheduleDetailPage() {
             </div>
           </div>
 
-          {roles.includes("admin") && (
+          {canManageSchedule(roles) && (
             <div className="flex shrink-0 items-center gap-2">
               <Link
                 href={`/${org}/schedule/${id}/edit`}

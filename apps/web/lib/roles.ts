@@ -78,9 +78,9 @@ export const MANAGEABLE_ROLES = ROLES.filter((r) => r.key !== "member").map((r) 
 /** 招待モーダル・フィルターで使用するロール全件オプション */
 export const ROLE_OPTIONS = ROLES.map((r) => ({ value: r.key, label: r.defaultName }));
 
-/** スケジュール・イベント作成・編集の権限（admin / tech） */
+/** スケジュール・イベント作成・編集の権限（admin / tech / conductor。conductorはtechと同権限） */
 export const canManageSchedule = (roles: string[]): boolean =>
-  roles.includes("admin") || roles.includes("tech");
+  roles.includes("admin") || roles.includes("tech") || roles.includes("conductor");
 
 /** 設定画面・財務画面へのアクセス権限（admin / finance） */
 export const canAccessSettings = (roles: string[]): boolean =>

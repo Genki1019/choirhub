@@ -9,10 +9,12 @@ import { avatarColor } from "../../_components/MemberCard";
 const INPUT_CLS =
   "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400";
 
-function FormField({ label, children }: { label: string; children: ReactNode }) {
+function FormField({ id, label, children }: { id: string; label: string; children: ReactNode }) {
   return (
     <div>
-      <label className="mb-1 block text-xs font-medium text-gray-500">{label}</label>
+      <label htmlFor={id} className="mb-1 block text-xs font-medium text-gray-500">
+        {label}
+      </label>
       {children}
     </div>
   );
@@ -160,16 +162,17 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <FormField label="氏名">
-          <input className={INPUT_CLS} {...field("nameJa")} />
+        <FormField id="edit-nameJa" label="氏名">
+          <input id="edit-nameJa" className={INPUT_CLS} {...field("nameJa")} />
         </FormField>
-        <FormField label="カナ">
-          <input className={INPUT_CLS} {...field("nameKana")} />
+        <FormField id="edit-nameKana" label="カナ">
+          <input id="edit-nameKana" className={INPUT_CLS} {...field("nameKana")} />
         </FormField>
       </div>
 
-      <FormField label="ひとこと">
+      <FormField id="edit-bio" label="ひとこと">
         <textarea
+          id="edit-bio"
           className={`${INPUT_CLS} resize-none`}
           rows={3}
           maxLength={200}
@@ -180,30 +183,52 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
       </FormField>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <FormField label="職業">
-          <input className={INPUT_CLS} placeholder="例: エンジニア" {...field("job")} />
+        <FormField id="edit-job" label="職業">
+          <input
+            id="edit-job"
+            className={INPUT_CLS}
+            placeholder="例: エンジニア"
+            {...field("job")}
+          />
         </FormField>
-        <FormField label="好きなもの">
-          <input className={INPUT_CLS} placeholder="例: コーヒー" {...field("interests")} />
+        <FormField id="edit-interests" label="好きなもの">
+          <input
+            id="edit-interests"
+            className={INPUT_CLS}
+            placeholder="例: コーヒー"
+            {...field("interests")}
+          />
         </FormField>
       </div>
 
-      <FormField label="出身団体">
-        <input className={INPUT_CLS} placeholder="例: ○○大学混声合唱団" {...field("originGroup")} />
+      <FormField id="edit-originGroup" label="出身団体">
+        <input
+          id="edit-originGroup"
+          className={INPUT_CLS}
+          placeholder="例: ○○大学混声合唱団"
+          {...field("originGroup")}
+        />
       </FormField>
 
       <div className="space-y-3 border-t border-gray-100 pt-1">
         <p className="text-xs font-semibold text-gray-500">連絡先</p>
-        <FormField label="メールアドレス">
+        <FormField id="edit-email" label="メールアドレス">
           <input
+            id="edit-email"
             className={INPUT_CLS}
             type="email"
             placeholder="example@mail.com"
             {...field("email")}
           />
         </FormField>
-        <FormField label="電話番号">
-          <input className={INPUT_CLS} placeholder="090-xxxx-xxxx" type="tel" {...field("phone")} />
+        <FormField id="edit-phone" label="電話番号">
+          <input
+            id="edit-phone"
+            className={INPUT_CLS}
+            placeholder="090-xxxx-xxxx"
+            type="tel"
+            {...field("phone")}
+          />
         </FormField>
       </div>
 

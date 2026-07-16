@@ -2,15 +2,7 @@
 
 import { Users } from "lucide-react";
 import type { PartSummary } from "@/lib/members-api";
-
-const ROLE_OPTIONS: { value: string; label: string }[] = [
-  { value: "admin", label: "最高管理者" },
-  { value: "tech", label: "技術系" },
-  { value: "score", label: "楽譜がかり" },
-  { value: "member", label: "一般" },
-  { value: "guest", label: "客演" },
-  { value: "visitor", label: "体験" },
-];
+import { ROLE_OPTIONS } from "@/lib/roles";
 
 function toggleItem(arr: string[], value: string): string[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];

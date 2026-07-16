@@ -69,8 +69,11 @@ export const MEMBER_LEVEL_ROLES = new Set<string>(
   ROLES.filter((r) => r.key !== "guest" && r.key !== "visitor").map((r) => r.key),
 );
 
-/** 管理者がロール変更パネルで操作できる全ロール */
-export const MANAGEABLE_ROLES = ROLES.map((r) => ({ value: r.key, label: r.defaultName }));
+/** 管理者がロール変更パネルで操作できる全ロール（member は常に付与されるためチップから除外） */
+export const MANAGEABLE_ROLES = ROLES.filter((r) => r.key !== "member").map((r) => ({
+  value: r.key,
+  label: r.defaultName,
+}));
 
 /** 招待モーダル・フィルターで使用するロール全件オプション */
 export const ROLE_OPTIONS = ROLES.map((r) => ({ value: r.key, label: r.defaultName }));

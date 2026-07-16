@@ -177,7 +177,7 @@ export function FileManageModal({
 
   const fullScores = files.filter((f) => f.fileType === "full_score");
   const midiFiles = files.filter((f) => f.fileType === "midi");
-  const otherFiles = files.filter((f) => f.fileType === "other");
+  const otherFiles = files.filter((f) => f.fileType !== "full_score" && f.fileType !== "midi");
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {

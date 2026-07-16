@@ -57,8 +57,11 @@ async function seedAdmin() {
     });
   }
 
+  const passwordHint = process.env.SEED_PASSWORD
+    ? "環境変数 SEED_PASSWORD の値"
+    : "changeme123（デフォルト）";
   console.log("✅ adminシード完了");
-  console.log(`   メール: ${email} / パスワード: ${password}`);
+  console.log(`   メール: ${email} / パスワード: ${passwordHint}`);
   console.log(`   URL  : https://choirhub-web.vercel.app/${orgSlug}`);
 }
 

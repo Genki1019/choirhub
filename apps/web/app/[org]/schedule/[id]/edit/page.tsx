@@ -246,12 +246,14 @@ export default function EditSchedulePage() {
                 <span className="w-8 shrink-0 text-xs text-gray-400">開始</span>
                 <input
                   type="date"
+                  aria-label="開始日"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   className="focus:ring-brand-400 rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:ring-1 focus:outline-none"
                 />
                 <input
                   type="time"
+                  aria-label="開始時刻"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
                   className="focus:ring-brand-400 rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:ring-1 focus:outline-none"
@@ -261,6 +263,7 @@ export default function EditSchedulePage() {
                 <span className="w-8 shrink-0 text-xs text-gray-400">終了</span>
                 <input
                   type="date"
+                  aria-label="終了日"
                   value={endDate}
                   min={startDate}
                   onChange={(e) => setEndDate(e.target.value)}
@@ -268,6 +271,7 @@ export default function EditSchedulePage() {
                 />
                 <input
                   type="time"
+                  aria-label="終了時刻"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
                   className="focus:ring-brand-400 rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:ring-1 focus:outline-none"

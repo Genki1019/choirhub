@@ -13,6 +13,7 @@ import { EventList } from "./_components/EventList";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
 import { useMember } from "@/contexts/MemberContext";
+import { canManageSchedule } from "@/lib/roles";
 
 export default function SchedulePage() {
   const { org } = useParams<{ org: string }>();
@@ -34,7 +35,7 @@ export default function SchedulePage() {
     queryFn: () => eventsApi.list(org, { from, to }),
   });
 
-  const canCreateEvent = roles.some((r) => ["admin", "tech", "conductor"].includes(r));
+  const canCreateEvent = canManageSchedule(roles);
 
   const prevMonth = () => {
     if (month === 1) {

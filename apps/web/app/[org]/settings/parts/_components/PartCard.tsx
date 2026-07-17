@@ -9,10 +9,11 @@ import type { PartSummary } from "@/lib/members-api";
 interface PartCardProps {
   initialParts: PartSummary[];
   org: string;
+  canEdit: boolean;
   onToast: (msg: string) => void;
 }
 
-export function PartCard({ initialParts, org, onToast }: PartCardProps) {
+export function PartCard({ initialParts, org, canEdit, onToast }: PartCardProps) {
   const [parts, setParts] = useState<PartSummary[]>(initialParts);
   const [busy, setBusy] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -92,38 +93,44 @@ export function PartCard({ initialParts, org, onToast }: PartCardProps) {
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
       <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
         <p className="text-sm font-semibold text-gray-700">パート一覧</p>
-        <button
-          onClick={() => {
-            setShowAdd(true);
-            setEditId(null);
-          }}
-          disabled={busy}
-          className="text-brand-600 hover:text-brand-700 flex items-center gap-1 text-xs font-medium transition-colors disabled:opacity-40"
-        >
-          <Plus size={13} />
-          追加
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => {
+              setShowAdd(true);
+              setEditId(null);
+            }}
+            disabled={busy}
+            className="text-brand-600 hover:text-brand-700 flex items-center gap-1 text-xs font-medium transition-colors disabled:opacity-40"
+          >
+            <Plus size={13} />
+            追加
+          </button>
+        )}
       </div>
 
       <div className="divide-y divide-gray-100">
         {parts.map((part, idx) => (
           <div key={part.id} className="flex items-center gap-3 px-5 py-3">
-            <div className="flex shrink-0 flex-col">
-              <button
-                onClick={() => swap(idx, -1)}
-                disabled={idx === 0 || busy}
-                className="p-0.5 text-gray-300 transition-colors hover:text-gray-500 disabled:opacity-20"
-              >
-                <ChevronUp size={14} />
-              </button>
-              <button
-                onClick={() => swap(idx, 1)}
-                disabled={idx === parts.length - 1 || busy}
-                className="p-0.5 text-gray-300 transition-colors hover:text-gray-500 disabled:opacity-20"
-              >
-                <ChevronDown size={14} />
-              </button>
-            </div>
+            {canEdit && (
+              <div className="flex shrink-0 flex-col">
+                <button
+                  onClick={() => swap(idx, -1)}
+                  disabled={idx === 0 || busy}
+                  aria-label={`${part.name}を上に移動`}
+                  className="p-0.5 text-gray-300 transition-colors hover:text-gray-500 disabled:opacity-20"
+                >
+                  <ChevronUp size={14} />
+                </button>
+                <button
+                  onClick={() => swap(idx, 1)}
+                  disabled={idx === parts.length - 1 || busy}
+                  aria-label={`${part.name}を下に移動`}
+                  className="p-0.5 text-gray-300 transition-colors hover:text-gray-500 disabled:opacity-20"
+                >
+                  <ChevronDown size={14} />
+                </button>
+              </div>
+            )}
 
             {editId === part.id ? (
               <div className="flex flex-1 items-center gap-2">
@@ -156,32 +163,36 @@ export function PartCard({ initialParts, org, onToast }: PartCardProps) {
             ) : (
               <>
                 <span className="flex-1 text-sm text-gray-800">{part.name}</span>
-                <div className="flex shrink-0 items-center gap-0.5">
-                  <button
-                    onClick={() => {
-                      setEditId(part.id);
-                      setEditName(part.name);
-                    }}
-                    disabled={busy}
-                    className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors disabled:opacity-40"
-                  >
-                    <Pencil size={13} />
-                  </button>
-                  <button
-                    onClick={() => deletePart(part)}
-                    disabled={busy}
-                    className="p-1.5 text-gray-300 transition-colors hover:text-red-500 disabled:opacity-40"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
+                {canEdit && (
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    <button
+                      onClick={() => {
+                        setEditId(part.id);
+                        setEditName(part.name);
+                      }}
+                      disabled={busy}
+                      aria-label={`${part.name}を編集`}
+                      className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors disabled:opacity-40"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                    <button
+                      onClick={() => deletePart(part)}
+                      disabled={busy}
+                      aria-label={`${part.name}を削除`}
+                      className="p-1.5 text-gray-300 transition-colors hover:text-red-500 disabled:opacity-40"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </div>
         ))}
       </div>
 
-      {showAdd && (
+      {canEdit && showAdd && (
         <div className="border-brand-100 bg-brand-50/40 flex items-center gap-2 border-t px-5 py-3">
           <input
             autoFocus

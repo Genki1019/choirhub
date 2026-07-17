@@ -7,11 +7,13 @@ import { settingsApi } from "@/lib/settings-api";
 import type { MemberType } from "@/lib/settings-api";
 import { memberKeys } from "@/lib/query-keys";
 import { settingsPageTitle } from "@/lib/settings-nav";
+import { useMember } from "@/contexts/MemberContext";
 import { SettingsPageShell } from "../_components/SettingsPageShell";
 import { MemberTypeCard } from "./_components/MemberTypeCard";
 
 export default function MemberTypesPage() {
   const { org } = useParams<{ org: string }>();
+  const { roles } = useMember();
   const queryClient = useQueryClient();
   const [toast, setToast] = useState<string | null>(null);
 
@@ -36,6 +38,7 @@ export default function MemberTypesPage() {
       <MemberTypeCard
         types={types}
         org={org}
+        canEdit={roles.includes("admin")}
         onUpdated={(updated) =>
           queryClient.setQueryData<MemberType[]>(memberKeys.types(org), (prev) =>
             prev ? prev.map((t) => (t.id === updated.id ? updated : t)) : prev,
@@ -54,9 +57,11 @@ export default function MemberTypesPage() {
         onToast={showToast}
       />
 
-      <p className="text-xs text-gray-400">
-        団員が割り当てられている区分は削除できません。削除前に区分を変更してください。
-      </p>
+      {roles.includes("admin") && (
+        <p className="text-xs text-gray-400">
+          団員が割り当てられている区分は削除できません。削除前に区分を変更してください。
+        </p>
+      )}
     </SettingsPageShell>
   );
 }

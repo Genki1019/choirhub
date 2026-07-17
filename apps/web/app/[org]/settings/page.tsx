@@ -35,6 +35,7 @@ export default function SettingsPage() {
             orgSlug={org}
             initialName={settings?.name ?? ""}
             initialSlug={settings?.slug ?? ""}
+            canEdit={roles.includes("admin")}
           />
           {roles.includes("admin") && <DangerZone />}
         </>

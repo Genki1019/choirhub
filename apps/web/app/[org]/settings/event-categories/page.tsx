@@ -7,12 +7,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { settingsApi, type EventCategory } from "@/lib/settings-api";
 import { eventKeys } from "@/lib/query-keys";
 import { settingsPageTitle } from "@/lib/settings-nav";
+import { useMember } from "@/contexts/MemberContext";
 import { SettingsPageShell } from "../_components/SettingsPageShell";
 import { CategoryList } from "./_components/CategoryList";
 import { AddCategoryForm } from "./_components/AddCategoryForm";
 
 export default function EventCategoriesPage() {
   const { org } = useParams<{ org: string }>();
+  const { roles } = useMember();
+  const canEdit = roles.includes("admin");
   const queryClient = useQueryClient();
   const [mutationError, setMutationError] = useState<string | null>(null);
 
@@ -43,6 +46,7 @@ export default function EventCategoriesPage() {
       <CategoryList
         categories={categories}
         org={org}
+        canEdit={canEdit}
         onUpdated={(updated) =>
           queryClient.setQueryData<EventCategory[]>(eventKeys.categories(org), (prev) =>
             prev ? prev.map((c) => (c.id === updated.id ? updated : c)) : prev,
@@ -57,16 +61,18 @@ export default function EventCategoriesPage() {
         onError={setMutationError}
       />
 
-      <AddCategoryForm
-        org={org}
-        onCreated={(cat) =>
-          queryClient.setQueryData<EventCategory[]>(eventKeys.categories(org), (prev) =>
-            prev ? [...prev, cat] : prev,
-          )
-        }
-      />
+      {canEdit && (
+        <AddCategoryForm
+          org={org}
+          onCreated={(cat) =>
+            queryClient.setQueryData<EventCategory[]>(eventKeys.categories(org), (prev) =>
+              prev ? [...prev, cat] : prev,
+            )
+          }
+        />
+      )}
 
-      <p className="text-xs text-gray-400">↑↓ で表示順を変更できます。</p>
+      {canEdit && <p className="text-xs text-gray-400">↑↓ で表示順を変更できます。</p>}
     </SettingsPageShell>
   );
 }

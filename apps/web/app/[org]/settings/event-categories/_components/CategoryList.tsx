@@ -8,6 +8,7 @@ import { ApiClientError } from "@/lib/api-client";
 interface CategoryListProps {
   categories: EventCategory[];
   org: string;
+  canEdit: boolean;
   onUpdated: (updated: EventCategory) => void;
   onDeleted: (id: string) => void;
   onReordered: (reordered: EventCategory[]) => void;
@@ -17,6 +18,7 @@ interface CategoryListProps {
 export function CategoryList({
   categories,
   org,
+  canEdit,
   onUpdated,
   onDeleted,
   onReordered,
@@ -127,24 +129,26 @@ export function CategoryList({
             </>
           ) : (
             <>
-              <div className="flex shrink-0 flex-col">
-                <button
-                  onClick={() => swap(idx, -1)}
-                  disabled={idx === 0 || busy}
-                  aria-label="上に移動"
-                  className="p-0.5 text-gray-300 transition-colors hover:text-gray-500 disabled:opacity-20"
-                >
-                  <ChevronUp size={14} />
-                </button>
-                <button
-                  onClick={() => swap(idx, 1)}
-                  disabled={idx === categories.length - 1 || busy}
-                  aria-label="下に移動"
-                  className="p-0.5 text-gray-300 transition-colors hover:text-gray-500 disabled:opacity-20"
-                >
-                  <ChevronDown size={14} />
-                </button>
-              </div>
+              {canEdit && (
+                <div className="flex shrink-0 flex-col">
+                  <button
+                    onClick={() => swap(idx, -1)}
+                    disabled={idx === 0 || busy}
+                    aria-label={`${cat.name}を上に移動`}
+                    className="p-0.5 text-gray-300 transition-colors hover:text-gray-500 disabled:opacity-20"
+                  >
+                    <ChevronUp size={14} />
+                  </button>
+                  <button
+                    onClick={() => swap(idx, 1)}
+                    disabled={idx === categories.length - 1 || busy}
+                    aria-label={`${cat.name}を下に移動`}
+                    className="p-0.5 text-gray-300 transition-colors hover:text-gray-500 disabled:opacity-20"
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                </div>
+              )}
               <span
                 className="h-3 w-3 shrink-0 rounded-full"
                 style={{ backgroundColor: cat.color }}
@@ -155,19 +159,21 @@ export function CategoryList({
                   標準
                 </span>
               )}
-              <button
-                onClick={() => startEdit(cat)}
-                disabled={busy}
-                aria-label="編集"
-                className="text-gray-400 hover:text-gray-600 disabled:opacity-40"
-              >
-                <Pencil size={14} />
-              </button>
-              {!cat.slug && (
+              {canEdit && (
+                <button
+                  onClick={() => startEdit(cat)}
+                  disabled={busy}
+                  aria-label={`${cat.name}を編集`}
+                  className="text-gray-400 hover:text-gray-600 disabled:opacity-40"
+                >
+                  <Pencil size={14} />
+                </button>
+              )}
+              {canEdit && !cat.slug && (
                 <button
                   onClick={() => handleDelete(cat.id)}
                   disabled={busy}
-                  aria-label="削除"
+                  aria-label={`${cat.name}を削除`}
                   className="text-gray-400 hover:text-red-500 disabled:opacity-40"
                 >
                   <Trash2 size={14} />

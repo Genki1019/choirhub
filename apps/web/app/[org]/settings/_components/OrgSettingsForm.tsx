@@ -8,9 +8,15 @@ interface OrgSettingsFormProps {
   orgSlug: string;
   initialName: string;
   initialSlug: string;
+  canEdit: boolean;
 }
 
-export function OrgSettingsForm({ orgSlug, initialName, initialSlug }: OrgSettingsFormProps) {
+export function OrgSettingsForm({
+  orgSlug,
+  initialName,
+  initialSlug,
+  canEdit,
+}: OrgSettingsFormProps) {
   const [orgName, setOrgName] = useState(initialName);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -45,7 +51,12 @@ export function OrgSettingsForm({ orgSlug, initialName, initialSlug }: OrgSettin
           value={orgName}
           onChange={(e) => setOrgName(e.target.value)}
           required
-          className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+          readOnly={!canEdit}
+          className={
+            canEdit
+              ? "focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+              : "w-full cursor-default rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-400"
+          }
         />
       </div>
 
@@ -71,22 +82,28 @@ export function OrgSettingsForm({ orgSlug, initialName, initialSlug }: OrgSettin
         </p>
       )}
 
-      <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-2">
-        {saved && (
-          <span className="flex items-center gap-1 text-xs text-teal-600">
-            <CheckCircle size={12} />
-            保存しました
-          </span>
-        )}
-        <button
-          type="submit"
-          disabled={saving}
-          className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
-        >
-          {saving && <Loader2 size={13} className="animate-spin" />}
-          保存する
-        </button>
-      </div>
+      {canEdit ? (
+        <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-2">
+          {saved && (
+            <span className="flex items-center gap-1 text-xs text-teal-600">
+              <CheckCircle size={12} />
+              保存しました
+            </span>
+          )}
+          <button
+            type="submit"
+            disabled={saving}
+            className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
+          >
+            {saving && <Loader2 size={13} className="animate-spin" />}
+            保存する
+          </button>
+        </div>
+      ) : (
+        <p className="border-t border-gray-100 pt-2 text-xs text-gray-400">
+          団体名の変更には管理者権限が必要です。
+        </p>
+      )}
     </form>
   );
 }

@@ -105,24 +105,24 @@
 └─────────────────────┘
 ```
 
-| アイコン | ラベル                        | リンク先                             | 表示条件                                      |
-| -------- | ----------------------------- | ------------------------------------ | --------------------------------------------- |
-| —        | 団体切替ボタン（org名 + `∨`） | `/select-org`                        | 常時                                          |
-| Home     | ホーム                        | `/[org]`                             | 全員                                          |
-| Users    | メンバー                      | `/[org]/members`                     | visitor+                                      |
-| Calendar | スケジュール                  | `/[org]/schedule`                    | visitor+                                      |
-| Music    | 楽譜                          | `/[org]/scores`                      | visitor+                                      |
-| Star     | 本番                          | `/[org]/concerts`                    | visitor+                                      |
-| Mail     | メール                        | `/[org]/mailing`                     | member+（**visitor は非表示**）               |
-| Ticket   | チケット                      | `/[org]/tickets`                     | ticket_manager, admin（**visitor は非表示**） |
-| Wallet   | 会計                          | `/[org]/accounting`                  | admin, finance                                |
-| Settings | 設定 ▼（アコーディオン）      | —                                    | admin, finance                                |
-| —        | └ 団体情報                    | `/[org]/settings`                    | admin                                         |
-| —        | └ パート管理                  | `/[org]/settings/parts`              | admin                                         |
-| —        | └ 会費設定                    | `/[org]/settings/fee`                | admin, finance                                |
-| —        | └ 支出カテゴリ                | `/[org]/settings/expense-categories` | admin, finance                                |
-| —        | └ メンバー区分                | `/[org]/settings/member-types`       | admin                                         |
-| —        | └ イベント区分                | `/[org]/settings/event-categories`   | admin                                         |
+| アイコン | ラベル                        | リンク先                             | 表示条件                                |
+| -------- | ----------------------------- | ------------------------------------ | --------------------------------------- |
+| —        | 団体切替ボタン（org名 + `∨`） | `/select-org`                        | 常時                                    |
+| Home     | ホーム                        | `/[org]`                             | 全員                                    |
+| Users    | メンバー                      | `/[org]/members`                     | visitor+                                |
+| Calendar | スケジュール                  | `/[org]/schedule`                    | visitor+                                |
+| Music    | 楽譜                          | `/[org]/scores`                      | visitor+                                |
+| Star     | 本番                          | `/[org]/concerts`                    | visitor+                                |
+| Mail     | メール                        | `/[org]/mailing`                     | visitor以外全員（**visitor は非表示**） |
+| Ticket   | チケット                      | `/[org]/tickets`                     | visitor以外全員（**visitor は非表示**） |
+| Wallet   | 会計                          | `/[org]/accounting`                  | admin, finance                          |
+| Settings | 設定 ▼（アコーディオン）      | —                                    | admin, finance                          |
+| —        | └ 団体情報                    | `/[org]/settings`                    | admin                                   |
+| —        | └ パート管理                  | `/[org]/settings/parts`              | admin                                   |
+| —        | └ 会費設定                    | `/[org]/settings/fee`                | admin, finance                          |
+| —        | └ 支出カテゴリ                | `/[org]/settings/expense-categories` | admin, finance                          |
+| —        | └ メンバー区分                | `/[org]/settings/member-types`       | admin                                   |
+| —        | └ イベント区分                | `/[org]/settings/event-categories`   | admin                                   |
 
 > `visitor` ロールのみの場合（`member` 以上のロールを持たない）、メール・チケットのタブはサイドバーに表示されない。
 
@@ -131,10 +131,23 @@
 - 左: ページタイトル
 - 右: 主要アクションボタン（「新規作成」など、権限に応じて表示・非表示）
 
+#### ユーザーメニュー（ヘッダー右上、`UserMenu`）
+
+- アバターボタン（`avatarUrl`があれば円形画像、無ければ氏名の頭文字1文字）をクリックしてドロップダウンを開閉
+- ドロップダウン: 氏名表示 → 「プロフィール」（`/[org]/members/:memberId`へ、クリックでメニューを閉じる）→ 「ログアウト」
+- 「ログアウト」→ `POST /auth/logout` → 成功・失敗にかかわらず `/login` へ遷移
+- メニュー外クリックで自動的に閉じる
+
+#### フッター（コンテンツ下部、`AppFooter`）
+
+- ChoirHubロゴ・「プライバシーポリシー」「利用規約」「お問い合わせ」（現状はいずれもリンク未実装のプレースホルダー）・コピーライト表記
+
 ### 2.2 モバイル対応
 
-- サイドバー → ボトムナビゲーション（主要5項目に絞る）
-- ボトムナビ: ホーム / スケジュール / 楽譜 / メンバー / その他（ドロワー）
+- 画面幅1024px未満では、サイドバーは初期状態で非表示。ヘッダー左のハンバーガーボタン（`AppShell`）をタップすると同じサイドバーがオーバーレイのスライドインドロワーとして表示される（項目を絞った専用のボトムナビゲーションは無い）
+- ドロワー表示中は背景に半透明の黒オーバーレイが出現し、タップまたはサイドバー右上の`×`ボタンで閉じる
+- ドロワー内のリンクをタップして画面遷移すると自動的に閉じる
+- 画面幅1024px以上ではサイドバーは常時表示の固定パネルになり、ハンバーガーボタン・オーバーレイは機能しない
 
 ---
 

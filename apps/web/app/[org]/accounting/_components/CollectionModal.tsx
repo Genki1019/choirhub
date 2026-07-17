@@ -99,8 +99,14 @@ export function CollectionModal({
 
         <form onSubmit={handleSubmit} className="space-y-4 px-6 py-4">
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-500">件名</label>
+            <label
+              htmlFor="collection-title"
+              className="mb-1.5 block text-xs font-medium text-gray-500"
+            >
+              件名
+            </label>
             <input
+              id="collection-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -160,6 +166,7 @@ export function CollectionModal({
                       required
                       min={1}
                       placeholder="3000"
+                      aria-label={`${t.name}の金額`}
                       className="focus:ring-brand-400 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm focus:ring-1 focus:outline-none"
                     />
                     <span className="shrink-0 text-xs text-gray-400">円</span>
@@ -174,6 +181,7 @@ export function CollectionModal({
                     required
                     min={1}
                     placeholder="3000"
+                    aria-label="区分未設定の金額"
                     className="focus:ring-brand-400 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm focus:ring-1 focus:outline-none"
                   />
                   <span className="shrink-0 text-xs text-gray-400">円</span>
@@ -183,10 +191,14 @@ export function CollectionModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-500">
+            <label
+              htmlFor="collection-yearMonth"
+              className="mb-1.5 block text-xs font-medium text-gray-500"
+            >
               対象年月（任意）
             </label>
             <input
+              id="collection-yearMonth"
               type="month"
               value={yearMonth}
               onChange={(e) => setYearMonth(e.target.value)}
@@ -195,8 +207,14 @@ export function CollectionModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-500">メモ</label>
+            <label
+              htmlFor="collection-note"
+              className="mb-1.5 block text-xs font-medium text-gray-500"
+            >
+              メモ
+            </label>
             <input
+              id="collection-note"
               type="text"
               value={note}
               onChange={(e) => setNote(e.target.value)}

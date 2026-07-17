@@ -68,10 +68,14 @@ export function CreateSurveyModal({
         </div>
         <div className="space-y-4 px-6 py-5">
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-600">
+            <label
+              htmlFor="survey-title"
+              className="mb-1.5 block text-xs font-medium text-gray-600"
+            >
               調査タイトル <span className="text-red-500">*</span>
             </label>
             <input
+              id="survey-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:ring-2 focus:outline-none"
@@ -80,10 +84,14 @@ export function CreateSurveyModal({
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-600">
+            <label
+              htmlFor="survey-close-date"
+              className="mb-1.5 block text-xs font-medium text-gray-600"
+            >
               回答締切日（任意）
             </label>
             <input
+              id="survey-close-date"
               type="date"
               value={closeDate}
               onChange={(e) => setCloseDate(e.target.value)}

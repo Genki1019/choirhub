@@ -28,6 +28,7 @@ import { ApiClientError } from "@/lib/api-client";
 import { formatJaDate } from "@/lib/date";
 import { concertKeys } from "@/lib/query-keys";
 import { useMember } from "@/contexts/MemberContext";
+import { MEMBER_LEVEL_ROLES } from "@/lib/roles";
 import { StagesTab } from "./_components/StagesTab";
 import { AddStageModal } from "./_components/AddStageModal";
 import { AddProgramModal } from "./_components/AddProgramModal";
@@ -56,15 +57,21 @@ export default function ConcertDetailPage() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
 
+  const { roles, memberId } = useMember();
+  const isAdmin = roles.includes("admin");
+  const canManageStage = isAdmin || roles.includes("tech");
+  // visitor（共有アカウント）のみの場合はAPIもオンステ調査・出演メンバーの限定レスポンスを返すため、該当タブ自体を非表示にする
+  const isVisitorOnly = roles.includes("visitor") && !roles.some((r) => MEMBER_LEVEL_ROLES.has(r));
+
   const tabParam = searchParams.get("tab") as Tab | null;
-  const initialTab: Tab = tabParam && VALID_TABS.includes(tabParam) ? tabParam : "stages";
+  const initialTab: Tab =
+    tabParam && VALID_TABS.includes(tabParam) && (!isVisitorOnly || tabParam === "stages")
+      ? tabParam
+      : "stages";
   const fromParam = searchParams.get("from");
   const backHref = fromParam === "schedule" ? `/${org}/schedule` : `/${org}/concerts`;
 
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
-  const { roles, memberId } = useMember();
-  const isAdmin = roles.includes("admin");
-  const canManageStage = isAdmin || roles.includes("tech");
   const [addProgramStageId, setAddProgramStageId] = useState<string | null>(null);
   const [showAddStageModal, setShowAddStageModal] = useState(false);
   const [moveCopySource, setMoveCopySource] = useState<{
@@ -291,8 +298,12 @@ export default function ConcertDetailPage() {
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "stages", label: "ステージ構成", icon: <Music size={13} /> },
-    { id: "survey", label: "オンステ調査", icon: <ClipboardList size={13} /> },
-    { id: "onstage", label: "出演メンバー", icon: <Users size={13} /> },
+    ...(isVisitorOnly
+      ? []
+      : [
+          { id: "survey" as Tab, label: "オンステ調査", icon: <ClipboardList size={13} /> },
+          { id: "onstage" as Tab, label: "出演メンバー", icon: <Users size={13} /> },
+        ]),
   ];
 
   return (
@@ -387,7 +398,7 @@ export default function ConcertDetailPage() {
             onEditProgramClick={(stageId, program) => setEditProgramTarget({ stageId, program })}
           />
         )}
-        {activeTab === "survey" && (
+        {activeTab === "survey" && !isVisitorOnly && (
           <SurveyTab
             concert={concert}
             org={org}
@@ -399,7 +410,7 @@ export default function ConcertDetailPage() {
             onAssignmentsMayChange={handleAssignmentsMayChange}
           />
         )}
-        {activeTab === "onstage" && (
+        {activeTab === "onstage" && !isVisitorOnly && (
           <OnstageTab
             concert={concert}
             org={org}

@@ -134,6 +134,7 @@ export function ExpenseCategoryCard({
                       setEditName(cat.name);
                     }}
                     disabled={busy}
+                    aria-label={`${cat.name}を編集`}
                     className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors disabled:opacity-40"
                   >
                     <Pencil size={13} />
@@ -141,6 +142,7 @@ export function ExpenseCategoryCard({
                   <button
                     onClick={() => deleteCategory(cat)}
                     disabled={busy}
+                    aria-label={`${cat.name}を削除`}
                     className="p-1.5 text-gray-300 transition-colors hover:text-red-500 disabled:opacity-40"
                   >
                     <Trash2 size={13} />

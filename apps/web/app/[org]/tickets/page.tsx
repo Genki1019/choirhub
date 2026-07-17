@@ -21,7 +21,8 @@ export default function TicketsPage() {
   } = useQuery({
     queryKey: ticketKeys.list(org),
     queryFn: () => ticketsApi.list(org),
-    retry: (_, err) => !(err instanceof ApiClientError && err.status === 403),
+    retry: (failureCount, err) =>
+      !(err instanceof ApiClientError && err.status === 403) && failureCount < 3,
   });
 
   const isForbidden = managerError instanceof ApiClientError && managerError.status === 403;

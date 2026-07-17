@@ -13,6 +13,7 @@ function yen(n: number | null) {
 interface MemberTypeCardProps {
   types: MemberType[];
   org: string;
+  canEdit: boolean;
   onUpdated: (updated: MemberType) => void;
   onDeleted: (id: string) => void;
   onCreated: (created: MemberType) => void;
@@ -22,6 +23,7 @@ interface MemberTypeCardProps {
 export function MemberTypeCard({
   types,
   org,
+  canEdit,
   onUpdated,
   onDeleted,
   onCreated,
@@ -102,17 +104,19 @@ export function MemberTypeCard({
           <p className="text-sm font-semibold text-gray-700">メンバー区分</p>
           <p className="mt-0.5 text-xs text-gray-400">区分ごとにデフォルト会費を設定できます</p>
         </div>
-        <button
-          onClick={() => {
-            setShowAdd(true);
-            setEditId(null);
-          }}
-          disabled={busy}
-          className="text-brand-600 hover:text-brand-700 flex items-center gap-1 text-xs font-medium transition-colors disabled:opacity-40"
-        >
-          <Plus size={13} />
-          追加
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => {
+              setShowAdd(true);
+              setEditId(null);
+            }}
+            disabled={busy}
+            className="text-brand-600 hover:text-brand-700 flex items-center gap-1 text-xs font-medium transition-colors disabled:opacity-40"
+          >
+            <Plus size={13} />
+            追加
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-3 border-b border-gray-100 bg-gray-50 px-5 py-2">
@@ -167,22 +171,26 @@ export function MemberTypeCard({
                 <span className="w-28 text-right text-sm text-gray-500">
                   {yen(t.defaultFeeAmount)}
                 </span>
-                <div className="flex w-14 shrink-0 items-center justify-end gap-0.5">
-                  <button
-                    onClick={() => startEdit(t)}
-                    disabled={busy}
-                    className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors disabled:opacity-40"
-                  >
-                    <Pencil size={13} />
-                  </button>
-                  <button
-                    onClick={() => deleteType(t)}
-                    disabled={busy}
-                    className="p-1.5 text-gray-300 transition-colors hover:text-red-500 disabled:opacity-40"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
+                {canEdit && (
+                  <div className="flex w-14 shrink-0 items-center justify-end gap-0.5">
+                    <button
+                      onClick={() => startEdit(t)}
+                      disabled={busy}
+                      aria-label={`${t.name}を編集`}
+                      className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors disabled:opacity-40"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                    <button
+                      onClick={() => deleteType(t)}
+                      disabled={busy}
+                      aria-label={`${t.name}を削除`}
+                      className="p-1.5 text-gray-300 transition-colors hover:text-red-500 disabled:opacity-40"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -193,7 +201,7 @@ export function MemberTypeCard({
         )}
       </div>
 
-      {showAdd && (
+      {canEdit && showAdd && (
         <div className="border-brand-100 bg-brand-50/40 flex items-center gap-2 border-t px-5 py-3">
           <input
             autoFocus

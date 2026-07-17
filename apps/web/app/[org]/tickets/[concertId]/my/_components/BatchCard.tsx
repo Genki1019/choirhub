@@ -123,6 +123,7 @@ export function BatchCard({ batch, orgSlug, concertId, isClosed, onChange }: Bat
                   type="button"
                   onClick={() => setReqCount(Math.max(0, reqCount - 1))}
                   disabled={isClosed}
+                  aria-label="希望枚数を減らす"
                   className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-xl leading-none text-gray-500 transition-colors select-none hover:bg-white disabled:opacity-40"
                 >
                   −
@@ -133,12 +134,14 @@ export function BatchCard({ batch, orgSlug, concertId, isClosed, onChange }: Bat
                   value={reqCount}
                   disabled={isClosed}
                   onChange={(e) => setReqCount(Math.max(0, Number(e.target.value)))}
+                  aria-label="希望枚数"
                   className="focus:ring-brand-400 w-14 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-center text-sm font-medium focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
                 />
                 <button
                   type="button"
                   onClick={() => setReqCount(reqCount + 1)}
                   disabled={isClosed}
+                  aria-label="希望枚数を増やす"
                   className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-xl leading-none text-gray-500 transition-colors select-none hover:bg-white disabled:opacity-40"
                 >
                   ＋

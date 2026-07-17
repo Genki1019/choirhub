@@ -70,6 +70,7 @@ export default function CollectionDetailPage() {
               }
             : prev,
       );
+      queryClient.invalidateQueries({ queryKey: accountingKeys.all(org) });
       showToast(`${payment.member.nameJa} の支払いを記録しました`);
     } catch {
       showToast("記録に失敗しました");
@@ -89,6 +90,7 @@ export default function CollectionDetailPage() {
             }
           : prev,
     );
+    queryClient.invalidateQueries({ queryKey: accountingKeys.all(org) });
     setSelected(null);
     showToast("更新しました");
   };
@@ -241,6 +243,7 @@ export default function CollectionDetailPage() {
             onClick={clearChecked}
             className="p-1 text-gray-400 transition-colors hover:text-white"
             title="選択解除"
+            aria-label="選択解除"
           >
             <X size={15} />
           </button>

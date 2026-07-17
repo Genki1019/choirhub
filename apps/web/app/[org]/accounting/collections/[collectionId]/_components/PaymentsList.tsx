@@ -103,6 +103,7 @@ export function PaymentsList({
                     type="checkbox"
                     checked={checkedIds.has(payment.member.id)}
                     onChange={() => onToggleCheck(payment.member.id)}
+                    aria-label={`${payment.member.nameJa}を選択`}
                     className="text-brand-600 focus:ring-brand-400 h-4 w-4 shrink-0 cursor-pointer rounded border-gray-300"
                   />
                   <div className="min-w-0 flex-1">
@@ -135,6 +136,7 @@ export function PaymentsList({
                       <button
                         onClick={() => onQuickPaid(payment)}
                         title="現金 支払済みにする"
+                        aria-label={`${payment.member.nameJa}を支払済みにする`}
                         className="flex items-center gap-1 rounded-lg border border-teal-200 px-2 py-1 text-xs text-teal-600 transition-colors hover:bg-teal-50"
                       >
                         <Check size={11} />
@@ -145,6 +147,7 @@ export function PaymentsList({
                       onClick={() => onEdit(payment)}
                       className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors"
                       title="詳細編集"
+                      aria-label={`${payment.member.nameJa}を編集`}
                     >
                       <span className="text-xs">編集</span>
                     </button>

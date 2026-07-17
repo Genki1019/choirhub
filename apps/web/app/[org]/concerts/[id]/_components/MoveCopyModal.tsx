@@ -105,7 +105,10 @@ export function MoveCopyModal({
           </p>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-600">
+            <label
+              htmlFor="move-copy-target"
+              className="mb-1.5 block text-xs font-medium text-gray-600"
+            >
               移動先 / コピー先
             </label>
             {loadingStructure ? (
@@ -115,6 +118,7 @@ export function MoveCopyModal({
               </div>
             ) : (
               <select
+                id="move-copy-target"
                 value={targetValue}
                 onChange={(e) => setTargetValue(e.target.value)}
                 className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:ring-2 focus:outline-none"

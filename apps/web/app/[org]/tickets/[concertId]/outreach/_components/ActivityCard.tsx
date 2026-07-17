@@ -100,6 +100,7 @@ export function ActivityCard({
                 handleDelete();
               }}
               disabled={deleting}
+              aria-label={`${activity.destination}を削除`}
               className="p-1 text-gray-300 transition-colors hover:text-red-400"
             >
               {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}

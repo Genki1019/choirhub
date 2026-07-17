@@ -85,6 +85,7 @@ export function AllocationRowComponent({
             <input
               type="number"
               min={0}
+              aria-label={`${row.nameJa}の配布数`}
               value={allocCount}
               onChange={(e) => setAllocCount(Number(e.target.value))}
               className="border-brand-300 focus:ring-brand-400 w-10 rounded border px-1 py-0.5 text-center text-sm focus:ring-1 focus:outline-none"
@@ -93,6 +94,7 @@ export function AllocationRowComponent({
             <button
               onClick={handleSaveAlloc}
               disabled={savingAlloc}
+              aria-label="配布数を保存"
               className="text-brand-600 hover:text-brand-700 p-0.5 disabled:opacity-60"
             >
               {savingAlloc ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
@@ -102,6 +104,7 @@ export function AllocationRowComponent({
                 setAllocCount(row.allocatedCount);
                 setEditingAlloc(false);
               }}
+              aria-label="配布数の編集をキャンセル"
               className="p-0.5 text-gray-400 hover:text-gray-600"
             >
               <X size={11} />
@@ -121,6 +124,7 @@ export function AllocationRowComponent({
                   setAllocCount(row.allocatedCount);
                   setEditingAlloc(true);
                 }}
+                aria-label={`${row.nameJa}の配布数を編集`}
                 className="hover:text-brand-500 p-0.5 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100"
               >
                 <Pencil size={10} />
@@ -135,6 +139,7 @@ export function AllocationRowComponent({
           <input
             type="number"
             min={0}
+            aria-label={`${row.nameJa}の大人販売数`}
             value={form.soldAdult}
             onChange={(e) => setForm({ ...form, soldAdult: Number(e.target.value) })}
             className="border-brand-300 focus:ring-brand-400 w-12 rounded border px-1 py-0.5 text-center text-sm focus:ring-1 focus:outline-none"
@@ -142,6 +147,7 @@ export function AllocationRowComponent({
           <input
             type="number"
             min={0}
+            aria-label={`${row.nameJa}の学生販売数`}
             value={form.soldStudent}
             onChange={(e) => setForm({ ...form, soldStudent: Number(e.target.value) })}
             className="border-brand-300 focus:ring-brand-400 w-12 rounded border px-1 py-0.5 text-center text-sm focus:ring-1 focus:outline-none"
@@ -149,6 +155,7 @@ export function AllocationRowComponent({
           <input
             type="number"
             min={0}
+            aria-label={`${row.nameJa}の他販売数`}
             value={form.soldOther}
             onChange={(e) => setForm({ ...form, soldOther: Number(e.target.value) })}
             className="border-brand-300 focus:ring-brand-400 w-12 rounded border px-1 py-0.5 text-center text-sm focus:ring-1 focus:outline-none"
@@ -156,6 +163,7 @@ export function AllocationRowComponent({
           <input
             type="number"
             min={0}
+            aria-label={`${row.nameJa}の返却数`}
             value={form.returnedCount}
             onChange={(e) => setForm({ ...form, returnedCount: Number(e.target.value) })}
             className="border-brand-300 focus:ring-brand-400 w-12 rounded border px-1 py-0.5 text-center text-sm focus:ring-1 focus:outline-none"
@@ -180,6 +188,7 @@ export function AllocationRowComponent({
         {editing && isAdmin ? (
           <input
             type="checkbox"
+            aria-label={`${row.nameJa}の集金済み`}
             checked={form.isCollected}
             onChange={(e) => setForm({ ...form, isCollected: e.target.checked })}
             className="accent-brand-600 h-4 w-4"
@@ -195,6 +204,7 @@ export function AllocationRowComponent({
         {!editing && canEdit && (
           <button
             onClick={() => setEditing(true)}
+            aria-label={`${row.nameJa}の販売状況を編集`}
             className="hover:text-brand-500 hover:bg-brand-50 rounded-lg p-1.5 text-gray-400 transition-colors"
           >
             <Pencil size={13} />
@@ -212,6 +222,7 @@ export function AllocationRowComponent({
             </button>
             <button
               onClick={handleCancel}
+              aria-label="編集をキャンセル"
               className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
             >
               <X size={13} />

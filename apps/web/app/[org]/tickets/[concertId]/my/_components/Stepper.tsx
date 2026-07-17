@@ -16,6 +16,7 @@ export function Stepper({ label, value, disabled, onChange }: StepperProps) {
           type="button"
           onClick={() => onChange(Math.max(0, value - 1))}
           disabled={disabled}
+          aria-label={`${label}を減らす`}
           className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-xl leading-none text-gray-500 transition-colors select-none hover:bg-gray-100 disabled:opacity-40"
         >
           −
@@ -26,12 +27,14 @@ export function Stepper({ label, value, disabled, onChange }: StepperProps) {
           value={value}
           onChange={(e) => onChange(Math.max(0, Number(e.target.value)))}
           disabled={disabled}
+          aria-label={label}
           className="focus:ring-brand-400 w-14 rounded-lg border border-gray-200 px-2 py-1.5 text-center text-sm font-medium focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
         />
         <button
           type="button"
           onClick={() => onChange(value + 1)}
           disabled={disabled}
+          aria-label={`${label}を増やす`}
           className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-xl leading-none text-gray-500 transition-colors select-none hover:bg-gray-100 disabled:opacity-40"
         >
           ＋

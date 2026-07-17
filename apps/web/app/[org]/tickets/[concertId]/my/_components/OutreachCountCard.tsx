@@ -46,6 +46,7 @@ export function OutreachCountCard({
               type="button"
               onClick={() => setCount(Math.max(0, count - 1))}
               disabled={isClosed}
+              aria-label="情宣回数を減らす"
               className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-xl leading-none text-gray-500 transition-colors select-none hover:bg-gray-100 disabled:opacity-40"
             >
               −
@@ -56,12 +57,14 @@ export function OutreachCountCard({
               value={count}
               onChange={(e) => setCount(Math.max(0, Number(e.target.value)))}
               disabled={isClosed}
+              aria-label="情宣に行った回数"
               className="w-14 rounded-lg border border-gray-200 px-2 py-1.5 text-center text-sm font-medium focus:ring-2 focus:ring-purple-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
             />
             <button
               type="button"
               onClick={() => setCount(count + 1)}
               disabled={isClosed}
+              aria-label="情宣回数を増やす"
               className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-xl leading-none text-gray-500 transition-colors select-none hover:bg-gray-100 disabled:opacity-40"
             >
               ＋

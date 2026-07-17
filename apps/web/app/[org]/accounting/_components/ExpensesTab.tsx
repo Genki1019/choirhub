@@ -71,6 +71,7 @@ export function ExpensesTab({
                 <div className="flex shrink-0 items-center gap-0.5">
                   <button
                     onClick={() => onEditClick(exp)}
+                    aria-label={`${exp.title}を編集`}
                     className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors"
                   >
                     <Pencil size={13} />
@@ -78,6 +79,7 @@ export function ExpensesTab({
                   <button
                     onClick={() => onDeleteClick(exp.id)}
                     disabled={deletingId === exp.id}
+                    aria-label={`${exp.title}を削除`}
                     className="p-1.5 text-gray-300 transition-colors hover:text-red-500 disabled:opacity-40"
                   >
                     {deletingId === exp.id ? (

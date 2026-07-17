@@ -121,8 +121,14 @@ export function RecordModal({
           {status === "paid" && (
             <>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-500">金額（円）</label>
+                <label
+                  htmlFor="record-amount"
+                  className="mb-1.5 block text-xs font-medium text-gray-500"
+                >
+                  金額（円）
+                </label>
                 <input
+                  id="record-amount"
                   type="number"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
@@ -133,8 +139,14 @@ export function RecordModal({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1.5 block text-xs font-medium text-gray-500">支払日</label>
+                  <label
+                    htmlFor="record-paidAt"
+                    className="mb-1.5 block text-xs font-medium text-gray-500"
+                  >
+                    支払日
+                  </label>
                   <input
+                    id="record-paidAt"
                     type="date"
                     value={paidAt}
                     onChange={(e) => setPaidAt(e.target.value)}
@@ -142,8 +154,14 @@ export function RecordModal({
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-medium text-gray-500">方法</label>
+                  <label
+                    htmlFor="record-method"
+                    className="mb-1.5 block text-xs font-medium text-gray-500"
+                  >
+                    方法
+                  </label>
                   <select
+                    id="record-method"
                     value={method}
                     onChange={(e) => setMethod(e.target.value as PaymentMethod | "")}
                     className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
@@ -161,8 +179,11 @@ export function RecordModal({
           )}
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-500">メモ</label>
+            <label htmlFor="record-note" className="mb-1.5 block text-xs font-medium text-gray-500">
+              メモ
+            </label>
             <input
+              id="record-note"
               type="text"
               value={note}
               onChange={(e) => setNote(e.target.value)}

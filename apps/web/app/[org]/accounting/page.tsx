@@ -227,23 +227,35 @@ export default function AccountingPage() {
               ))}
             </div>
 
-            {tab === "collections" && (
-              <CollectionsTab
-                collections={collections}
-                org={org}
-                onAddClick={() => setCollectionModal(true)}
-              />
-            )}
+            {tab === "collections" &&
+              (collectionsError ? (
+                <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
+                  <AlertCircle size={16} />
+                  <span className="text-sm">{collectionsError.message}</span>
+                </div>
+              ) : (
+                <CollectionsTab
+                  collections={collections}
+                  org={org}
+                  onAddClick={() => setCollectionModal(true)}
+                />
+              ))}
 
-            {tab === "expenses" && (
-              <ExpensesTab
-                expenses={expenses}
-                deletingId={deletingId}
-                onAddClick={() => setExpenseModal({ open: true, editing: null })}
-                onEditClick={(exp) => setExpenseModal({ open: true, editing: exp })}
-                onDeleteClick={handleDeleteExpense}
-              />
-            )}
+            {tab === "expenses" &&
+              (expensesError ? (
+                <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
+                  <AlertCircle size={16} />
+                  <span className="text-sm">{expensesError.message}</span>
+                </div>
+              ) : (
+                <ExpensesTab
+                  expenses={expenses}
+                  deletingId={deletingId}
+                  onAddClick={() => setExpenseModal({ open: true, editing: null })}
+                  onEditClick={(exp) => setExpenseModal({ open: true, editing: exp })}
+                  onDeleteClick={handleDeleteExpense}
+                />
+              ))}
           </>
         )}
       </PageMain>

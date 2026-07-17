@@ -79,8 +79,14 @@ export function ExpenseModal({ org, categories, editing, onClose, onSaved }: Exp
 
         <form onSubmit={handleSubmit} className="space-y-4 px-6 py-4">
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-500">カテゴリ</label>
+            <label
+              htmlFor="expense-category"
+              className="mb-1.5 block text-xs font-medium text-gray-500"
+            >
+              カテゴリ
+            </label>
             <select
+              id="expense-category"
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
               required
@@ -95,8 +101,14 @@ export function ExpenseModal({ org, categories, editing, onClose, onSaved }: Exp
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-500">件名</label>
+            <label
+              htmlFor="expense-title"
+              className="mb-1.5 block text-xs font-medium text-gray-500"
+            >
+              件名
+            </label>
             <input
+              id="expense-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -107,8 +119,14 @@ export function ExpenseModal({ org, categories, editing, onClose, onSaved }: Exp
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-500">金額（円）</label>
+            <label
+              htmlFor="expense-amount"
+              className="mb-1.5 block text-xs font-medium text-gray-500"
+            >
+              金額（円）
+            </label>
             <input
+              id="expense-amount"
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
@@ -121,8 +139,14 @@ export function ExpenseModal({ org, categories, editing, onClose, onSaved }: Exp
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-500">支払方法</label>
+              <label
+                htmlFor="expense-method"
+                className="mb-1.5 block text-xs font-medium text-gray-500"
+              >
+                支払方法
+              </label>
               <select
+                id="expense-method"
                 value={method}
                 onChange={(e) => setMethod(e.target.value as PaymentMethod | "")}
                 className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
@@ -136,8 +160,14 @@ export function ExpenseModal({ org, categories, editing, onClose, onSaved }: Exp
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-500">支払日</label>
+              <label
+                htmlFor="expense-paidAt"
+                className="mb-1.5 block text-xs font-medium text-gray-500"
+              >
+                支払日
+              </label>
               <input
+                id="expense-paidAt"
                 type="date"
                 value={paidAt}
                 onChange={(e) => setPaidAt(e.target.value)}
@@ -147,8 +177,14 @@ export function ExpenseModal({ org, categories, editing, onClose, onSaved }: Exp
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-500">メモ</label>
+            <label
+              htmlFor="expense-note"
+              className="mb-1.5 block text-xs font-medium text-gray-500"
+            >
+              メモ
+            </label>
             <input
+              id="expense-note"
               type="text"
               value={note}
               onChange={(e) => setNote(e.target.value)}

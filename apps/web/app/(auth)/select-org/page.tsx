@@ -33,6 +33,7 @@ export default function SelectOrgPage() {
   const [orgs, setOrgs] = useState<OrgEntry[]>([]);
   const [userName, setUserName] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [orgName, setOrgName] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
@@ -52,6 +53,7 @@ export default function SelectOrgPage() {
         if (err instanceof ApiClientError && err.status === 401) {
           router.replace("/login");
         } else {
+          setLoadError("団体情報の取得に失敗しました。しばらくしてから再度お試しください。");
           setLoading(false);
         }
       });
@@ -114,7 +116,12 @@ export default function SelectOrgPage() {
             </div>
           </div>
 
-          {orgs.length === 0 ? (
+          {loadError ? (
+            <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+              <Users size={32} className="mb-1 text-gray-200" />
+              <p className="text-sm font-medium text-red-600">{loadError}</p>
+            </div>
+          ) : orgs.length === 0 ? (
             <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
               <Users size={32} className="mb-1 text-gray-200" />
               <p className="text-sm font-medium text-gray-600">所属している団体がありません</p>
@@ -187,6 +194,7 @@ export default function SelectOrgPage() {
                   setShowForm(false);
                   setFormError(null);
                 }}
+                aria-label="団体作成フォームを閉じる"
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X size={16} />
@@ -195,8 +203,11 @@ export default function SelectOrgPage() {
 
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">団体名</label>
+                <label htmlFor="orgName" className="mb-1 block text-xs font-medium text-gray-600">
+                  団体名
+                </label>
                 <input
+                  id="orgName"
                   type="text"
                   value={orgName}
                   onChange={(e) => handleNameChange(e.target.value)}
@@ -207,12 +218,13 @@ export default function SelectOrgPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">
+                <label htmlFor="orgSlug" className="mb-1 block text-xs font-medium text-gray-600">
                   スラグ <span className="font-normal text-gray-400">（URL に使用）</span>
                 </label>
                 <div className="focus-within:ring-brand-500 flex items-center gap-1 overflow-hidden rounded-lg border border-gray-200 text-sm focus-within:ring-2">
                   <span className="px-2 text-gray-400 select-none">choirhub.app/</span>
                   <input
+                    id="orgSlug"
                     type="text"
                     value={orgSlug}
                     onChange={(e) => handleSlugChange(e.target.value)}

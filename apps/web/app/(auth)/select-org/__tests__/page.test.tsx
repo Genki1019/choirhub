@@ -79,6 +79,17 @@ describe("SelectOrgPage（表示）", () => {
       expect(replace).toHaveBeenCalledWith("/login");
     });
   });
+
+  it("401以外のエラー時は0件時とは異なるエラーメッセージを表示する", async () => {
+    vi.mocked(authApi.me).mockRejectedValue(new Error("network error"));
+    render(<SelectOrgPage />);
+
+    expect(
+      await screen.findByText("団体情報の取得に失敗しました。しばらくしてから再度お試しください。"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("所属している団体がありません")).not.toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
+  });
 });
 
 describe("SelectOrgPage（団体選択・ログアウト）", () => {
@@ -149,6 +160,20 @@ describe("SelectOrgPage（新しい団体を作成）", () => {
     await user.type(screen.getByLabelText("団体名"), " Extra");
 
     expect(screen.getByLabelText(/スラグ/)).toHaveValue("custom-slug");
+  });
+
+  it("団体名またはスラグが未入力の場合は作成ボタンが無効化される", async () => {
+    const user = userEvent.setup();
+    render(<SelectOrgPage />);
+
+    await user.click(await screen.findByText("新しい団体を作成"));
+    expect(screen.getByText("作成する")).toBeDisabled();
+
+    await user.type(screen.getByLabelText("団体名"), "My Choir");
+    expect(screen.getByText("作成する")).not.toBeDisabled();
+
+    await user.clear(screen.getByLabelText(/スラグ/));
+    expect(screen.getByText("作成する")).toBeDisabled();
   });
 
   it("[×]ボタンでフォームを閉じられる", async () => {

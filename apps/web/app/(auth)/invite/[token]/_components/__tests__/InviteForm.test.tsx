@@ -43,6 +43,12 @@ describe("InviteForm（表示）", () => {
     expect(screen.getByLabelText("パスワード（確認）")).toBeInTheDocument();
   });
 
+  it("招待情報に氏名が含まれる場合はお名前欄に初期値として表示する", () => {
+    render(<InviteForm token="test-token" invite={{ ...invite, nameJa: "山田太郎" }} />);
+
+    expect(screen.getByLabelText("お名前")).toHaveValue("山田太郎");
+  });
+
   it("目アイコンでパスワードの表示・非表示を切り替えられる", async () => {
     const user = userEvent.setup();
     render(<InviteForm token="test-token" invite={invite} />);

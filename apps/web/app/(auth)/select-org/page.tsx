@@ -33,6 +33,7 @@ export default function SelectOrgPage() {
   const [orgs, setOrgs] = useState<OrgEntry[]>([]);
   const [userName, setUserName] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [orgName, setOrgName] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
@@ -52,6 +53,7 @@ export default function SelectOrgPage() {
         if (err instanceof ApiClientError && err.status === 401) {
           router.replace("/login");
         } else {
+          setLoadError("団体情報の取得に失敗しました。しばらくしてから再度お試しください。");
           setLoading(false);
         }
       });
@@ -114,7 +116,12 @@ export default function SelectOrgPage() {
             </div>
           </div>
 
-          {orgs.length === 0 ? (
+          {loadError ? (
+            <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+              <Users size={32} className="mb-1 text-gray-200" />
+              <p className="text-sm font-medium text-red-600">{loadError}</p>
+            </div>
+          ) : orgs.length === 0 ? (
             <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
               <Users size={32} className="mb-1 text-gray-200" />
               <p className="text-sm font-medium text-gray-600">所属している団体がありません</p>

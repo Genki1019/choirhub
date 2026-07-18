@@ -187,6 +187,7 @@ export default function SelectOrgPage() {
                   setShowForm(false);
                   setFormError(null);
                 }}
+                aria-label="団体作成フォームを閉じる"
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X size={16} />
@@ -195,8 +196,11 @@ export default function SelectOrgPage() {
 
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">団体名</label>
+                <label htmlFor="orgName" className="mb-1 block text-xs font-medium text-gray-600">
+                  団体名
+                </label>
                 <input
+                  id="orgName"
                   type="text"
                   value={orgName}
                   onChange={(e) => handleNameChange(e.target.value)}
@@ -207,12 +211,13 @@ export default function SelectOrgPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">
+                <label htmlFor="orgSlug" className="mb-1 block text-xs font-medium text-gray-600">
                   スラグ <span className="font-normal text-gray-400">（URL に使用）</span>
                 </label>
                 <div className="focus-within:ring-brand-500 flex items-center gap-1 overflow-hidden rounded-lg border border-gray-200 text-sm focus-within:ring-2">
                   <span className="px-2 text-gray-400 select-none">choirhub.app/</span>
                   <input
+                    id="orgSlug"
                     type="text"
                     value={orgSlug}
                     onChange={(e) => handleSlugChange(e.target.value)}

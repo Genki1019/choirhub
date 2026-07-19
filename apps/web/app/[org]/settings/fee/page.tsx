@@ -4,8 +4,8 @@ import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { settingsApi } from "@/lib/settings-api";
 import { settingsKeys } from "@/lib/query-keys";
-import { settingsPageTitle } from "@/lib/settings-nav";
-import { SettingsPageShell } from "../_components/SettingsPageShell";
+import { settingsPageTitle, SETTINGS_MAIN_CLASS_NAME } from "@/lib/settings-nav";
+import { PageWithHeader } from "@/components/PageWithHeader";
 import { FeeSettingsForm } from "./_components/FeeSettingsForm";
 
 export default function FeeSettingsPage() {
@@ -17,12 +17,16 @@ export default function FeeSettingsPage() {
   });
 
   return (
-    <SettingsPageShell title={settingsPageTitle("/fee")} loading={loading}>
+    <PageWithHeader
+      title={settingsPageTitle("/fee")}
+      loading={loading}
+      mainClassName={SETTINGS_MAIN_CLASS_NAME}
+    >
       <FeeSettingsForm
         orgSlug={org}
         initialFeeType={feeData?.feeType ?? "per_rehearsal"}
         initialAmount={feeData?.defaultFeeAmount != null ? String(feeData.defaultFeeAmount) : ""}
       />
-    </SettingsPageShell>
+    </PageWithHeader>
   );
 }

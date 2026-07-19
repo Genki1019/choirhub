@@ -6,9 +6,9 @@ import { AlertCircle } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { settingsApi, type EventCategory } from "@/lib/settings-api";
 import { eventKeys } from "@/lib/query-keys";
-import { settingsPageTitle } from "@/lib/settings-nav";
+import { settingsPageTitle, SETTINGS_MAIN_CLASS_NAME } from "@/lib/settings-nav";
 import { useMember } from "@/contexts/MemberContext";
-import { SettingsPageShell } from "../_components/SettingsPageShell";
+import { PageWithHeader } from "@/components/PageWithHeader";
 import { CategoryList } from "./_components/CategoryList";
 import { AddCategoryForm } from "./_components/AddCategoryForm";
 
@@ -31,7 +31,11 @@ export default function EventCategoriesPage() {
   const displayError = queryError?.message ?? mutationError;
 
   return (
-    <SettingsPageShell title={settingsPageTitle("/event-categories")} loading={loading}>
+    <PageWithHeader
+      title={settingsPageTitle("/event-categories")}
+      loading={loading}
+      mainClassName={SETTINGS_MAIN_CLASS_NAME}
+    >
       <p className="text-xs text-gray-400">
         練習・本番などのシステム標準区分は削除できません。名前・色の変更は可能です。
       </p>
@@ -73,6 +77,6 @@ export default function EventCategoriesPage() {
       )}
 
       {canEdit && <p className="text-xs text-gray-400">↑↓ で表示順を変更できます。</p>}
-    </SettingsPageShell>
+    </PageWithHeader>
   );
 }

@@ -12,3 +12,5 @@ export function settingsPageTitle(suffix: string): string {
   if (!item) throw new Error(`Unknown settings suffix: ${suffix}`);
   return item.label;
 }
+
+export const SETTINGS_MAIN_CLASS_NAME = "mx-auto max-w-lg space-y-4";

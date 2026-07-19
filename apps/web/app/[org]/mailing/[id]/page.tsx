@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft, Users, Loader2, AlertCircle, Reply, Send, X } from "lucide-react";
+import { Users, Loader2, AlertCircle, Reply, Send, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { mailingApi, LAST_EVENT_LABEL } from "@/lib/mailing-api";
 import { ApiClientError } from "@/lib/api-client";
 import { mailingKeys } from "@/lib/query-keys";
 import { formatJaDateTime } from "@/lib/date";
-import { PageBleedRow } from "@/components/PageBleedRow";
+import { PageHeader } from "@/components/PageHeader";
 
 type ReplyTarget = "sender" | "all";
 
@@ -235,15 +234,10 @@ export default function MailDetailPage() {
   return (
     <>
       <div className="flex flex-col">
-        <header className="shrink-0 border-b border-gray-200 bg-white">
-          <PageBleedRow className="flex items-center gap-4 py-4">
-            <Link
-              href={`/${org}/mailing`}
-              className="text-gray-400 transition-colors hover:text-gray-600"
-            >
-              <ArrowLeft size={18} />
-            </Link>
-            <h1 className="flex-1 truncate text-lg font-semibold text-gray-800">{subject}</h1>
+        <PageHeader
+          title={subject}
+          backHref={`/${org}/mailing`}
+          actions={
             <button
               onClick={() => setShowReply(true)}
               className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
@@ -251,8 +245,8 @@ export default function MailDetailPage() {
               <Reply size={14} />
               返信
             </button>
-          </PageBleedRow>
-        </header>
+          }
+        />
 
         <main className="mx-auto w-full max-w-3xl flex-1 space-y-5 px-4 py-6 sm:px-8">
           <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">

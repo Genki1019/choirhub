@@ -2,9 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import {
-  ArrowLeft,
   CalendarDays,
   MapPin,
   Music,
@@ -39,6 +37,7 @@ import { EditConcertModal } from "./_components/EditConcertModal";
 import { EditProgramModal } from "./_components/EditProgramModal";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
+import { PageHeader } from "@/components/PageHeader";
 
 const STATUS_CONFIG: Record<ConcertStatus, { label: string; badge: string }> = {
   draft: { label: "準備中", badge: "bg-gray-100 text-gray-500" },
@@ -308,38 +307,36 @@ export default function ConcertDetailPage() {
 
   return (
     <div className="flex flex-col">
-      <header className="shrink-0 border-b border-gray-200 bg-white">
-        <PageBleedRow className="flex items-center gap-4 py-4">
-          <Link href={backHref} className="text-gray-400 transition-colors hover:text-gray-600">
-            <ArrowLeft size={18} />
-          </Link>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-lg font-semibold text-gray-800">{concert.title}</h1>
-              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${s.badge}`}>
-                {s.label}
-              </span>
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
-              <span className="flex items-center gap-1.5 text-sm text-gray-500">
-                <CalendarDays size={13} className="text-gray-400" />
-                {dateStr}
-              </span>
-              {concert.venue && (
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(concert.venue)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-brand-600 flex items-center gap-1.5 text-sm hover:underline"
-                >
-                  <MapPin size={13} className="text-brand-400 shrink-0" />
-                  {concert.venue}
-                </a>
-              )}
-            </div>
+      <PageHeader
+        title={concert.title}
+        badge={
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${s.badge}`}>
+            {s.label}
+          </span>
+        }
+        subtitle={
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="flex items-center gap-1.5 text-sm text-gray-500">
+              <CalendarDays size={13} className="text-gray-400" />
+              {dateStr}
+            </span>
+            {concert.venue && (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(concert.venue)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-600 flex items-center gap-1.5 text-sm hover:underline"
+              >
+                <MapPin size={13} className="text-brand-400 shrink-0" />
+                {concert.venue}
+              </a>
+            )}
           </div>
-          {isAdmin && (
-            <div className="flex shrink-0 items-center gap-2">
+        }
+        backHref={backHref}
+        actions={
+          isAdmin ? (
+            <>
               <button
                 onClick={() => setShowEditModal(true)}
                 className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
@@ -354,10 +351,10 @@ export default function ConcertDetailPage() {
                 <Trash2 size={13} />
                 削除
               </button>
-            </div>
-          )}
-        </PageBleedRow>
-
+            </>
+          ) : undefined
+        }
+      >
         <div className="border-t border-gray-100 bg-gray-50">
           <PageBleedRow className="flex items-center gap-6 py-2">
             <span className="text-xs text-gray-500">{concert.stages.length} ステージ</span>
@@ -382,7 +379,7 @@ export default function ConcertDetailPage() {
             </button>
           ))}
         </PageBleedRow>
-      </header>
+      </PageHeader>
 
       <PageMain>
         {activeTab === "stages" && (

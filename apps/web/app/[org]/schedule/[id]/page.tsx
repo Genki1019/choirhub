@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MapPin, Clock, Lock, Pencil, Trash2, Loader2, AlertCircle } from "lucide-react";
+import { MapPin, Clock, Lock, Pencil, Trash2, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { eventsApi } from "@/lib/events-api";
 import { membersApi } from "@/lib/members-api";
@@ -14,7 +14,8 @@ import { eventKeys, memberKeys } from "@/lib/query-keys";
 import { AttendanceTable, type LocalAttendance } from "./_components/AttendanceTable";
 import { DeleteConfirmModal } from "./_components/DeleteConfirmModal";
 import { PageMain } from "@/components/PageMain";
-import { PageBleedRow } from "@/components/PageBleedRow";
+import { PageHeader } from "@/components/PageHeader";
+import { PageErrorState } from "@/components/PageErrorState";
 
 const STATUS_CYCLE = ["attending", "absent", "maybe", "undecided"] as const;
 
@@ -161,106 +162,87 @@ export default function ScheduleDetailPage() {
 
   if (eventError || !event) {
     return (
-      <div className="flex h-full flex-col">
-        <header className="border-b border-gray-200 bg-white">
-          <PageBleedRow className="flex items-center gap-4 py-4">
-            <Link
-              href={`/${org}/schedule`}
-              className="text-gray-400 transition-colors hover:text-gray-600"
-            >
-              <ArrowLeft size={18} />
-            </Link>
-            <h1 className="text-lg font-semibold text-gray-800">イベント詳細</h1>
-          </PageBleedRow>
-        </header>
-        <div className="m-8 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-          <AlertCircle size={16} />
-          <span className="text-sm">{eventError?.message ?? "イベントが見つかりません"}</span>
-        </div>
-      </div>
+      <PageErrorState
+        title="イベント詳細"
+        backHref={`/${org}/schedule`}
+        message={eventError?.message ?? "イベントが見つかりません"}
+      />
     );
   }
 
   const selfAnswered = attendances[selfId]?.status !== "undecided";
 
+  const statusBadge = isLocked ? (
+    <span className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+      <Lock size={10} /> 締切済み
+    </span>
+  ) : selfAnswered ? (
+    <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs font-medium text-teal-700">
+      回答済み
+    </span>
+  ) : undefined;
+
+  const eventMeta = (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
+      <span className="flex items-center gap-1.5">
+        <Clock size={13} className="text-gray-400" />
+        {formatDatetime(event.startsAt)}〜{new Date(event.endsAt).getHours()}:
+        {String(new Date(event.endsAt).getMinutes()).padStart(2, "0")}
+      </span>
+      {event.location && (
+        <a
+          href={
+            event.locationUrl ??
+            `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`
+          }
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-brand-600 flex items-center gap-1.5 hover:underline"
+        >
+          <MapPin size={13} className="text-brand-400 shrink-0" />
+          {event.location}
+        </a>
+      )}
+      {event.deadline && (
+        <span className={new Date(event.deadline) < new Date() ? "text-red-400" : ""}>
+          締切: {formatDatetime(event.deadline)}
+        </span>
+      )}
+    </div>
+  );
+
+  const manageActions = canManageSchedule(roles) ? (
+    <>
+      <Link
+        href={`/${org}/schedule/${id}/edit`}
+        prefetch={false}
+        className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
+      >
+        <Pencil size={13} />
+        編集
+      </Link>
+      <button
+        onClick={() => {
+          setShowDeleteConfirm(true);
+          setDeleteError(null);
+        }}
+        className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
+      >
+        <Trash2 size={13} />
+        削除
+      </button>
+    </>
+  ) : undefined;
+
   return (
     <div className="flex flex-col">
-      <header className="shrink-0 border-b border-gray-200 bg-white">
-        <PageBleedRow className="flex items-center justify-between py-4">
-          <div className="flex min-w-0 flex-1 items-center gap-4">
-            <Link
-              href={`/${org}/schedule`}
-              className="shrink-0 text-gray-400 transition-colors hover:text-gray-600"
-            >
-              <ArrowLeft size={18} />
-            </Link>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-lg font-semibold text-gray-800">{event.title}</h1>
-                {isLocked && (
-                  <span className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-                    <Lock size={10} /> 締切済み
-                  </span>
-                )}
-                {!isLocked && selfAnswered && (
-                  <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs font-medium text-teal-700">
-                    回答済み
-                  </span>
-                )}
-              </div>
-              <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
-                <span className="flex items-center gap-1.5">
-                  <Clock size={13} className="text-gray-400" />
-                  {formatDatetime(event.startsAt)}〜{new Date(event.endsAt).getHours()}:
-                  {String(new Date(event.endsAt).getMinutes()).padStart(2, "0")}
-                </span>
-                {event.location && (
-                  <a
-                    href={
-                      event.locationUrl ??
-                      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-brand-600 flex items-center gap-1.5 hover:underline"
-                  >
-                    <MapPin size={13} className="text-brand-400 shrink-0" />
-                    {event.location}
-                  </a>
-                )}
-                {event.deadline && (
-                  <span className={new Date(event.deadline) < new Date() ? "text-red-400" : ""}>
-                    締切: {formatDatetime(event.deadline)}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {canManageSchedule(roles) && (
-            <div className="flex shrink-0 items-center gap-2">
-              <Link
-                href={`/${org}/schedule/${id}/edit`}
-                prefetch={false}
-                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
-              >
-                <Pencil size={13} />
-                編集
-              </Link>
-              <button
-                onClick={() => {
-                  setShowDeleteConfirm(true);
-                  setDeleteError(null);
-                }}
-                className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
-              >
-                <Trash2 size={13} />
-                削除
-              </button>
-            </div>
-          )}
-        </PageBleedRow>
-      </header>
+      <PageHeader
+        title={event.title}
+        backHref={`/${org}/schedule`}
+        badge={statusBadge}
+        subtitle={eventMeta}
+        actions={manageActions}
+      />
 
       {showDeleteConfirm && (
         <DeleteConfirmModal

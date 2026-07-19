@@ -15,6 +15,7 @@ import { InviteModal, InviteSuccessModal } from "./_components/InviteModal";
 import { MemberPartSection } from "./_components/MemberPartSection";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
+import { PageHeader } from "@/components/PageHeader";
 
 type SortKey = "nameJa" | "joinedAt_asc" | "joinedAt_desc";
 type ViewMode = "card" | "list";
@@ -155,11 +156,10 @@ function MembersContent() {
       )}
       {showInviteSuccess && <InviteSuccessModal onClose={() => setShowInviteSuccess(false)} />}
       <div className="flex flex-col">
-        {/* ヘッダー */}
-        <header className="shrink-0 border-b border-gray-200 bg-white">
-          <PageBleedRow className="flex items-center justify-between py-4">
-            <h1 className="text-lg font-semibold text-gray-800">メンバー</h1>
-            {isAdmin && (
+        <PageHeader
+          title="メンバー"
+          actions={
+            isAdmin ? (
               <button
                 onClick={() => setShowInvite(true)}
                 className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
@@ -167,9 +167,9 @@ function MembersContent() {
                 <UserPlus size={14} />
                 メンバーを招待
               </button>
-            )}
-          </PageBleedRow>
-        </header>
+            ) : undefined
+          }
+        />
 
         {/* コントロールバー */}
         <div className="shrink-0 border-b border-gray-100 bg-white">

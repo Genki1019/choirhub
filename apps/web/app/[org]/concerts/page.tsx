@@ -10,6 +10,7 @@ import { concertKeys } from "@/lib/query-keys";
 import { ConcertCard } from "./_components/ConcertCard";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
+import { PageHeader } from "@/components/PageHeader";
 import { useMember } from "@/contexts/MemberContext";
 
 type Filter = "all" | ConcertStatus;
@@ -43,13 +44,13 @@ export default function ConcertsPage() {
 
   return (
     <div className="flex flex-col">
-      <header className="shrink-0 border-b border-gray-200 bg-white">
-        <PageBleedRow className="flex items-center justify-between py-4">
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-semibold text-gray-800">本番</h1>
-            {!loading && <span className="text-sm text-gray-400">{sorted.length}件</span>}
-          </div>
-          {roles.includes("admin") && (
+      <PageHeader
+        title="本番"
+        badge={
+          !loading ? <span className="text-sm text-gray-400">{sorted.length}件</span> : undefined
+        }
+        actions={
+          roles.includes("admin") ? (
             <Link
               href={`/${org}/concerts/new`}
               prefetch={false}
@@ -58,9 +59,9 @@ export default function ConcertsPage() {
               <Plus size={14} />
               演奏会を登録
             </Link>
-          )}
-        </PageBleedRow>
-      </header>
+          ) : undefined
+        }
+      />
 
       {/* フィルタ */}
       <div className="shrink-0 border-b border-gray-100 bg-white">

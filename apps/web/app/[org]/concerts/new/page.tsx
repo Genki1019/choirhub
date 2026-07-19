@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Calendar, MapPin, FileText, AlertCircle, Loader2 } from "lucide-react";
+import { Calendar, MapPin, FileText, AlertCircle, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { concertsApi } from "@/lib/concerts-api";
 import { membersApi } from "@/lib/members-api";
@@ -17,7 +17,8 @@ import { SectionLabel } from "../../_components/SectionLabel";
 import { TargetAudienceSection } from "../../_components/TargetAudienceSection";
 import { DeadlineSection } from "../../_components/DeadlineSection";
 import { PageMain } from "@/components/PageMain";
-import { PageBleedRow } from "@/components/PageBleedRow";
+import { PageHeader } from "@/components/PageHeader";
+import { PageErrorState } from "@/components/PageErrorState";
 
 export default function NewConcertPage() {
   const { org } = useParams<{ org: string }>();
@@ -74,20 +75,7 @@ export default function NewConcertPage() {
 
   if (initError) {
     return (
-      <div className="flex h-full flex-col">
-        <header className="border-b border-gray-200 bg-white">
-          <PageBleedRow className="flex items-center gap-4 py-4">
-            <Link href={`/${org}/concerts`} className="text-gray-400 hover:text-gray-600">
-              <ArrowLeft size={18} />
-            </Link>
-            <h1 className="text-lg font-semibold text-gray-800">演奏会を登録</h1>
-          </PageBleedRow>
-        </header>
-        <div className="m-8 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-          <AlertCircle size={16} />
-          <span className="text-sm">{initError}</span>
-        </div>
-      </div>
+      <PageErrorState title="演奏会を登録" backHref={`/${org}/concerts`} message={initError} />
     );
   }
 
@@ -135,17 +123,7 @@ export default function NewConcertPage() {
 
   return (
     <div className="flex flex-col bg-gray-50">
-      <header className="shrink-0 border-b border-gray-200 bg-white">
-        <PageBleedRow className="flex items-center gap-4 py-4">
-          <Link
-            href={`/${org}/concerts`}
-            className="text-gray-400 transition-colors hover:text-gray-600"
-          >
-            <ArrowLeft size={18} />
-          </Link>
-          <h1 className="text-lg font-semibold text-gray-800">演奏会を登録</h1>
-        </PageBleedRow>
-      </header>
+      <PageHeader title="演奏会を登録" backHref={`/${org}/concerts`} />
 
       <PageMain>
         <form onSubmit={handleSubmit} className="mx-auto max-w-xl space-y-4">

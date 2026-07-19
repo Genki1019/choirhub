@@ -11,7 +11,7 @@ import { eventKeys } from "@/lib/query-keys";
 import { Calendar } from "./_components/Calendar";
 import { EventList } from "./_components/EventList";
 import { PageMain } from "@/components/PageMain";
-import { PageBleedRow } from "@/components/PageBleedRow";
+import { PageHeader } from "@/components/PageHeader";
 import { useMember } from "@/contexts/MemberContext";
 import { canManageSchedule } from "@/lib/roles";
 
@@ -51,11 +51,13 @@ export default function SchedulePage() {
   };
 
   return (
+    // h-full前提のカレンダーレイアウトでローディング/エラーをPageMain外に配置するため、
+    // PageMainまで内包するPageWithHeaderではなくPageHeader単体を使う
     <div className="flex h-full flex-col">
-      <header className="shrink-0 border-b border-gray-200 bg-white">
-        <PageBleedRow className="flex items-center justify-between py-4">
-          <h1 className="text-lg font-semibold text-gray-800">スケジュール</h1>
-          {canCreateEvent && (
+      <PageHeader
+        title="スケジュール"
+        actions={
+          canCreateEvent ? (
             <Link
               href={`/${org}/schedule/new`}
               prefetch={false}
@@ -63,9 +65,9 @@ export default function SchedulePage() {
             >
               <Plus size={14} /> イベントを追加
             </Link>
-          )}
-        </PageBleedRow>
-      </header>
+          ) : undefined
+        }
+      />
 
       {loading && (
         <div className="flex flex-1 items-center justify-center gap-2 text-gray-400">

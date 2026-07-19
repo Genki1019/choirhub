@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft, Check, Loader2, AlertCircle, X } from "lucide-react";
+import { Check, Loader2, AlertCircle, X } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { accountingApi } from "@/lib/accounting-api";
 import type {
@@ -17,7 +16,8 @@ import { accountingKeys } from "@/lib/query-keys";
 import { RecordModal } from "./_components/RecordModal";
 import { PaymentsList } from "./_components/PaymentsList";
 import { PageMain } from "@/components/PageMain";
-import { PageBleedRow } from "@/components/PageBleedRow";
+import { PageHeader } from "@/components/PageHeader";
+import { useToast } from "@/hooks/useToast";
 
 export default function CollectionDetailPage() {
   const { org, collectionId } = useParams<{ org: string; collectionId: string }>();
@@ -27,7 +27,7 @@ export default function CollectionDetailPage() {
   const [selected, setSelected] = useState<CollectionPaymentItem | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [bulking, setBulking] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast } = useToast();
 
   const {
     data: col,
@@ -43,11 +43,6 @@ export default function CollectionDetailPage() {
       router.replace(`/${org}`);
     }
   }, [error, org, router]);
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2500);
-  };
 
   const handleQuickPaid = async (payment: CollectionPaymentItem) => {
     if (!col) return;
@@ -181,20 +176,11 @@ export default function CollectionDetailPage() {
 
   return (
     <div className="flex flex-col">
-      <header className="shrink-0 border-b border-gray-200 bg-white">
-        <PageBleedRow className="flex items-center gap-4 py-4">
-          <Link
-            href={`/${org}/accounting`}
-            className="text-gray-400 transition-colors hover:text-gray-600"
-          >
-            <ArrowLeft size={18} />
-          </Link>
-          <div>
-            <h1 className="text-base font-semibold text-gray-800">{col.title}</h1>
-            <p className="text-xs text-gray-400">¥{col.amount.toLocaleString()}/人</p>
-          </div>
-        </PageBleedRow>
-      </header>
+      <PageHeader
+        title={col.title}
+        subtitle={`¥${col.amount.toLocaleString()}/人`}
+        backHref={`/${org}/accounting`}
+      />
 
       <PageMain className="space-y-4">
         <div className="grid grid-cols-4 gap-3">

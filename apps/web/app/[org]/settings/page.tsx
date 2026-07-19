@@ -5,8 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { settingsApi } from "@/lib/settings-api";
 import { settingsKeys } from "@/lib/query-keys";
 import { useMember } from "@/contexts/MemberContext";
-import { settingsPageTitle } from "@/lib/settings-nav";
-import { SettingsPageShell } from "./_components/SettingsPageShell";
+import { settingsPageTitle, SETTINGS_MAIN_CLASS_NAME } from "@/lib/settings-nav";
+import { PageWithHeader } from "@/components/PageWithHeader";
 import { OrgSettingsForm } from "./_components/OrgSettingsForm";
 import { DangerZone } from "./_components/DangerZone";
 
@@ -24,7 +24,11 @@ export default function SettingsPage() {
   });
 
   return (
-    <SettingsPageShell title={settingsPageTitle("")} loading={loading}>
+    <PageWithHeader
+      title={settingsPageTitle("")}
+      loading={loading}
+      mainClassName={SETTINGS_MAIN_CLASS_NAME}
+    >
       {error ? (
         <div className="flex items-center justify-center py-16 text-sm text-red-500">
           {error.message}
@@ -40,6 +44,6 @@ export default function SettingsPage() {
           {roles.includes("admin") && <DangerZone />}
         </>
       )}
-    </SettingsPageShell>
+    </PageWithHeader>
   );
 }

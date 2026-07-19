@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ChevronRight, ChevronLeft, Loader2, AlertCircle, Check } from "lucide-react";
+import { ChevronRight, ChevronLeft, AlertCircle, Check } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { accountingApi } from "@/lib/accounting-api";
 import type { ExpenseItem } from "@/lib/accounting-api";
@@ -13,8 +13,8 @@ import { ExpenseModal } from "./_components/ExpenseModal";
 import { CollectionModal } from "./_components/CollectionModal";
 import { CollectionsTab } from "./_components/CollectionsTab";
 import { ExpensesTab } from "./_components/ExpensesTab";
-import { PageMain } from "@/components/PageMain";
-import { PageBleedRow } from "@/components/PageBleedRow";
+import { PageWithHeader } from "@/components/PageWithHeader";
+import { useToast } from "@/hooks/useToast";
 
 function yen(n: number) {
   return `¥${n.toLocaleString()}`;
@@ -50,7 +50,7 @@ export default function AccountingPage() {
   });
   const [collectionModal, setCollectionModal] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast } = useToast();
 
   const {
     data: summary,
@@ -104,11 +104,6 @@ export default function AccountingPage() {
     }
   }, [summaryError, expensesError, collectionsError, org, router]);
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2500);
-  };
-
   const handleExpenseSaved = (item: ExpenseItem, isNew: boolean) => {
     queryClient.setQueryData<ExpenseItem[]>(accountingKeys.expenses(org, year), (prev) =>
       prev ? (isNew ? [item, ...prev] : prev.map((e) => (e.id === item.id ? item : e))) : prev,
@@ -133,10 +128,12 @@ export default function AccountingPage() {
   };
 
   return (
-    <div className="flex flex-col">
-      <header className="shrink-0 border-b border-gray-200 bg-white">
-        <PageBleedRow className="flex items-center justify-between py-4">
-          <h1 className="text-lg font-semibold text-gray-800">会計</h1>
+    <>
+      <PageWithHeader
+        title="会計"
+        loading={loading}
+        mainClassName="space-y-5"
+        actions={
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -156,24 +153,16 @@ export default function AccountingPage() {
               <ChevronRight size={16} />
             </button>
           </div>
-        </PageBleedRow>
-      </header>
-
-      <PageMain className="space-y-5">
-        {loading && (
-          <div className="flex items-center justify-center gap-2 py-16 text-gray-400">
-            <Loader2 size={18} className="animate-spin" />
-          </div>
-        )}
-
-        {!loading && summaryError && (
+        }
+      >
+        {summaryError && (
           <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
             <AlertCircle size={16} />
             <span className="text-sm">{summaryError.message}</span>
           </div>
         )}
 
-        {!loading && !summaryError && summary && (
+        {!summaryError && summary && (
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <SummaryCard label="支出合計" value={summary.totalExpense} color="text-red-600" />
@@ -258,7 +247,7 @@ export default function AccountingPage() {
               ))}
           </>
         )}
-      </PageMain>
+      </PageWithHeader>
 
       {expenseModal.open && (
         <ExpenseModal
@@ -288,6 +277,6 @@ export default function AccountingPage() {
           {toast}
         </div>
       )}
-    </div>
+    </>
   );
 }

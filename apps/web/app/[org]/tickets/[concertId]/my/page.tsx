@@ -8,7 +8,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ticketKeys } from "@/lib/query-keys";
 import { BatchCard } from "./_components/BatchCard";
 import { OutreachCountCard } from "./_components/OutreachCountCard";
-import { PageBleedRow } from "@/components/PageBleedRow";
+import { PageHeader } from "@/components/PageHeader";
 
 export default function MyTicketPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -66,20 +66,11 @@ export default function MyTicketPage() {
 
   return (
     <div className="flex flex-col">
-      <header className="shrink-0 border-b border-gray-200 bg-white">
-        <PageBleedRow className="flex items-center gap-4 py-4">
-          <Link
-            href={`/${org}/tickets`}
-            className="text-gray-400 transition-colors hover:text-gray-600"
-          >
-            <ArrowLeft size={18} />
-          </Link>
-          <div>
-            <h1 className="text-lg font-semibold text-gray-800">{concert.title}</h1>
-            <p className="text-sm text-gray-400">{dateStr}</p>
-          </div>
-        </PageBleedRow>
-      </header>
+      <PageHeader
+        title={concert.title}
+        subtitle={<span className="text-sm text-gray-400">{dateStr}</span>}
+        backHref={`/${org}/tickets`}
+      />
 
       <main className="mx-auto w-full max-w-lg flex-1 space-y-4 px-6 py-6">
         {isClosed && (

@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft, Pencil, Loader2, AlertCircle } from "lucide-react";
+import { Pencil, Loader2, AlertCircle } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { membersApi, type MemberProfile } from "@/lib/members-api";
 import { useMember } from "@/contexts/MemberContext";
@@ -14,7 +13,7 @@ import { ProfileCard } from "./_components/ProfileCard";
 import { ProfileInfoSection } from "./_components/ProfileInfoSection";
 import { EditForm } from "./_components/EditForm";
 import { AdminPanel } from "./_components/AdminPanel";
-import { PageBleedRow } from "@/components/PageBleedRow";
+import { PageHeader } from "@/components/PageHeader";
 
 export default function MemberDetailPage() {
   const { org, id } = useParams<{ org: string; id: string }>();
@@ -92,27 +91,20 @@ export default function MemberDetailPage() {
 
   return (
     <div className="flex flex-col">
-      <header className="shrink-0 border-b border-gray-200 bg-white">
-        <PageBleedRow className="flex items-center justify-between py-4">
-          <div className="flex items-center gap-4">
-            <Link
-              href={`/${org}/members`}
-              className="text-gray-400 transition-colors hover:text-gray-600"
-            >
-              <ArrowLeft size={18} />
-            </Link>
-            <h1 className="text-lg font-semibold text-gray-800">メンバー詳細</h1>
-          </div>
-          {isSelf && !isEditing && (
+      <PageHeader
+        title="メンバー詳細"
+        backHref={`/${org}/members`}
+        actions={
+          isSelf && !isEditing ? (
             <button
               onClick={() => setIsEditing(true)}
               className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
             >
               <Pencil size={14} /> 編集
             </button>
-          )}
-        </PageBleedRow>
-      </header>
+          ) : undefined
+        }
+      />
 
       <main className="mx-auto w-full max-w-2xl flex-1 space-y-6 px-4 py-6 sm:px-8">
         <ProfileCard member={member} />

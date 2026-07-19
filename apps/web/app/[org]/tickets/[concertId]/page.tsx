@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft,
   Pencil,
   Loader2,
   AlertCircle,
@@ -32,6 +31,7 @@ import { BatchTab } from "./_components/BatchTab";
 import { OutreachExpenseTab } from "./_components/OutreachExpenseTab";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
+import { PageHeader } from "@/components/PageHeader";
 
 export default function TicketDetailPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -130,158 +130,142 @@ export default function TicketDetailPage() {
   const date = new Date(detail.concert.heldOn);
   const dateStr = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
 
-  return (
-    <div className="flex flex-col">
-      <header className="shrink-0 border-b border-gray-200 bg-white">
-        {/* タイトル行 */}
-        <PageBleedRow className="flex items-center gap-4 py-3">
-          <Link
-            href={`/${org}/tickets`}
-            className="shrink-0 text-gray-400 transition-colors hover:text-gray-600"
+  const headerActions = (
+    <>
+      {detail.isAdmin &&
+        (detail.concert.ticketInputClosedAt ? (
+          <button
+            onClick={async () => {
+              setClosingInput(true);
+              try {
+                await ticketsApi.reopenTicketInput(org, concertId);
+                patchDetail((prev) => ({
+                  ...prev,
+                  concert: { ...prev.concert, ticketInputClosedAt: null },
+                }));
+              } finally {
+                setClosingInput(false);
+              }
+            }}
+            disabled={closingInput}
+            className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-2.5 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-60"
           >
-            <ArrowLeft size={18} />
-          </Link>
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-base font-semibold text-gray-800">
-              {detail.concert.title}
-            </h1>
-            <p className="text-xs text-gray-400">{dateStr}</p>
-          </div>
-          <div className="flex shrink-0 items-center gap-1.5">
-            {detail.isAdmin &&
-              (detail.concert.ticketInputClosedAt ? (
-                <button
-                  onClick={async () => {
-                    setClosingInput(true);
-                    try {
-                      await ticketsApi.reopenTicketInput(org, concertId);
-                      patchDetail((prev) => ({
-                        ...prev,
-                        concert: { ...prev.concert, ticketInputClosedAt: null },
-                      }));
-                    } finally {
-                      setClosingInput(false);
-                    }
-                  }}
-                  disabled={closingInput}
-                  className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-2.5 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-60"
-                >
-                  {closingInput ? (
-                    <Loader2 size={13} className="animate-spin" />
-                  ) : (
-                    <LockOpen size={13} />
-                  )}
-                  <span className="hidden sm:inline">入力を再開</span>
-                </button>
-              ) : (
-                <button
-                  onClick={async () => {
-                    setClosingInput(true);
-                    try {
-                      const result = await ticketsApi.closeTicketInput(org, concertId);
-                      patchDetail((prev) => ({
-                        ...prev,
-                        concert: {
-                          ...prev.concert,
-                          ticketInputClosedAt: result.ticketInputClosedAt,
-                        },
-                      }));
-                    } finally {
-                      setClosingInput(false);
-                    }
-                  }}
-                  disabled={closingInput}
-                  className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-100 disabled:opacity-60"
-                >
-                  {closingInput ? (
-                    <Loader2 size={13} className="animate-spin" />
-                  ) : (
-                    <Lock size={13} />
-                  )}
-                  <span className="hidden sm:inline">入力を締め切る</span>
-                </button>
-              ))}
+            {closingInput ? <Loader2 size={13} className="animate-spin" /> : <LockOpen size={13} />}
+            <span className="hidden sm:inline">入力を再開</span>
+          </button>
+        ) : (
+          <button
+            onClick={async () => {
+              setClosingInput(true);
+              try {
+                const result = await ticketsApi.closeTicketInput(org, concertId);
+                patchDetail((prev) => ({
+                  ...prev,
+                  concert: {
+                    ...prev.concert,
+                    ticketInputClosedAt: result.ticketInputClosedAt,
+                  },
+                }));
+              } finally {
+                setClosingInput(false);
+              }
+            }}
+            disabled={closingInput}
+            className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-100 disabled:opacity-60"
+          >
+            {closingInput ? <Loader2 size={13} className="animate-spin" /> : <Lock size={13} />}
+            <span className="hidden sm:inline">入力を締め切る</span>
+          </button>
+        ))}
+      {detail.isAdmin && (
+        <button
+          onClick={() => setShowCreateBatch(true)}
+          className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-white transition-colors"
+        >
+          <Plus size={14} />
+          <span className="hidden sm:inline">席種を追加</span>
+        </button>
+      )}
+      <Link
+        href={`/${org}/tickets/${concertId}/race`}
+        prefetch={false}
+        className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100"
+      >
+        <Trophy size={14} />
+        <span className="hidden sm:inline">チケットレース</span>
+        <ChevronRight size={13} />
+      </Link>
+    </>
+  );
+
+  const closedBanner = detail.concert.ticketInputClosedAt && (
+    <div className="border-t border-red-100 bg-red-50">
+      <PageBleedRow className="flex items-center gap-2 py-2 text-xs text-red-600">
+        <Lock size={12} className="shrink-0" />
+        {new Date(detail.concert.ticketInputClosedAt).toLocaleDateString("ja-JP")}{" "}
+        以降、団員の入力は締め切り済み
+      </PageBleedRow>
+    </div>
+  );
+
+  const batchTabsRow = detail.batches.length > 0 && (
+    <div className="border-t border-gray-100">
+      <PageBleedRow className="flex items-end overflow-x-auto pt-1">
+        {detail.batches.map((batch, idx) => (
+          <div key={batch.id} className="group relative shrink-0">
+            <button
+              onClick={() => setActiveBatchIdx(idx)}
+              className={[
+                "-mb-px border-b-2 px-4 py-2.5 text-xs font-medium whitespace-nowrap transition-colors",
+                activeBatchIdx === idx
+                  ? "border-brand-500 text-brand-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700",
+              ].join(" ")}
+            >
+              {batch.name}
+              <span className="ml-1.5 font-normal text-gray-400">
+                ¥{batch.price.toLocaleString()}
+                {batch.priceStudent != null && ` / 学生¥${batch.priceStudent.toLocaleString()}`}
+              </span>
+            </button>
             {detail.isAdmin && (
               <button
-                onClick={() => setShowCreateBatch(true)}
-                className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-white transition-colors"
+                onClick={() => setEditingBatch(batch)}
+                className="hover:text-brand-500 absolute top-1 right-0 p-1 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100"
+                title="席種を編集"
               >
-                <Plus size={14} />
-                <span className="hidden sm:inline">席種を追加</span>
+                <Pencil size={10} />
               </button>
             )}
-            <Link
-              href={`/${org}/tickets/${concertId}/race`}
-              prefetch={false}
-              className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100"
-            >
-              <Trophy size={14} />
-              <span className="hidden sm:inline">チケットレース</span>
-              <ChevronRight size={13} />
-            </Link>
           </div>
-        </PageBleedRow>
+        ))}
+        <button
+          onClick={() => setActiveBatchIdx("outreach")}
+          className={[
+            "-mb-px ml-2 flex shrink-0 items-center gap-1 border-b-2 px-4 py-2.5 text-xs font-medium whitespace-nowrap transition-colors",
+            activeBatchIdx === "outreach"
+              ? "border-green-500 text-green-600"
+              : "border-transparent text-gray-500 hover:text-gray-700",
+          ].join(" ")}
+        >
+          <Bus size={12} />
+          情宣交通費
+        </button>
+      </PageBleedRow>
+    </div>
+  );
 
-        {/* 締め切りバナー */}
-        {detail.concert.ticketInputClosedAt && (
-          <div className="border-t border-red-100 bg-red-50">
-            <PageBleedRow className="flex items-center gap-2 py-2 text-xs text-red-600">
-              <Lock size={12} className="shrink-0" />
-              {new Date(detail.concert.ticketInputClosedAt).toLocaleDateString("ja-JP")}{" "}
-              以降、団員の入力は締め切り済み
-            </PageBleedRow>
-          </div>
-        )}
-
-        {/* 席種タブ */}
-        {detail.batches.length > 0 && (
-          <div className="border-t border-gray-100">
-            <PageBleedRow className="flex items-end overflow-x-auto pt-1">
-              {detail.batches.map((batch, idx) => (
-                <div key={batch.id} className="group relative shrink-0">
-                  <button
-                    onClick={() => setActiveBatchIdx(idx)}
-                    className={[
-                      "-mb-px border-b-2 px-4 py-2.5 text-xs font-medium whitespace-nowrap transition-colors",
-                      activeBatchIdx === idx
-                        ? "border-brand-500 text-brand-600"
-                        : "border-transparent text-gray-500 hover:text-gray-700",
-                    ].join(" ")}
-                  >
-                    {batch.name}
-                    <span className="ml-1.5 font-normal text-gray-400">
-                      ¥{batch.price.toLocaleString()}
-                      {batch.priceStudent != null &&
-                        ` / 学生¥${batch.priceStudent.toLocaleString()}`}
-                    </span>
-                  </button>
-                  {detail.isAdmin && (
-                    <button
-                      onClick={() => setEditingBatch(batch)}
-                      className="hover:text-brand-500 absolute top-1 right-0 p-1 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100"
-                      title="席種を編集"
-                    >
-                      <Pencil size={10} />
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button
-                onClick={() => setActiveBatchIdx("outreach")}
-                className={[
-                  "-mb-px ml-2 flex shrink-0 items-center gap-1 border-b-2 px-4 py-2.5 text-xs font-medium whitespace-nowrap transition-colors",
-                  activeBatchIdx === "outreach"
-                    ? "border-green-500 text-green-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700",
-                ].join(" ")}
-              >
-                <Bus size={12} />
-                情宣交通費
-              </button>
-            </PageBleedRow>
-          </div>
-        )}
-      </header>
+  return (
+    <div className="flex flex-col">
+      <PageHeader
+        title={detail.concert.title}
+        subtitle={dateStr}
+        backHref={`/${org}/tickets`}
+        actions={headerActions}
+      >
+        {closedBanner}
+        {batchTabsRow}
+      </PageHeader>
 
       <PageMain>
         {detail.batches.length === 0 ? (

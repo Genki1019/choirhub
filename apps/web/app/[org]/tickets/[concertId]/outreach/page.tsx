@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft, Plus, Loader2, AlertCircle, MapPin } from "lucide-react";
+import { Plus, Loader2, AlertCircle, MapPin } from "lucide-react";
 import { ticketsApi, type OutreachActivityRow } from "@/lib/tickets-api";
 import { membersApi } from "@/lib/members-api";
 import { useMember } from "@/contexts/MemberContext";
@@ -11,7 +10,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ticketKeys, memberKeys } from "@/lib/query-keys";
 import { CreateModal } from "./_components/CreateModal";
 import { ActivityCard } from "./_components/ActivityCard";
-import { PageBleedRow } from "@/components/PageBleedRow";
+import { PageHeader } from "@/components/PageHeader";
 
 export default function OutreachPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -60,20 +59,11 @@ export default function OutreachPage() {
 
   return (
     <div className="flex flex-col">
-      <header className="shrink-0 border-b border-gray-200 bg-white">
-        <PageBleedRow className="flex items-center justify-between py-4">
-          <div className="flex items-center gap-4">
-            <Link
-              href={`/${org}/tickets/${concertId}/my`}
-              className="text-gray-400 transition-colors hover:text-gray-600"
-            >
-              <ArrowLeft size={18} />
-            </Link>
-            <div>
-              <h1 className="text-lg font-semibold text-gray-800">情宣活動の申請</h1>
-              <p className="text-sm text-gray-400">{concertTitle}</p>
-            </div>
-          </div>
+      <PageHeader
+        title="情宣活動の申請"
+        subtitle={<span className="text-sm text-gray-400">{concertTitle}</span>}
+        backHref={`/${org}/tickets/${concertId}/my`}
+        actions={
           <button
             onClick={() => setShowCreate(true)}
             className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium text-white transition-colors"
@@ -81,8 +71,8 @@ export default function OutreachPage() {
             <Plus size={15} />
             新規申請
           </button>
-        </PageBleedRow>
-      </header>
+        }
+      />
 
       <main className="mx-auto w-full max-w-lg flex-1 space-y-3 px-6 py-6">
         {activities.length === 0 ? (

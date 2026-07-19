@@ -2,9 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
 import {
-  ArrowLeft,
   FileText,
   Music2,
   EyeOff,
@@ -30,7 +28,7 @@ import { FileManageModal } from "../_components/FileManageModal";
 import { CollectionModal } from "../../accounting/_components/CollectionModal";
 import { ScoreFormModal } from "../_components/ScoreFormModal";
 import { PageMain } from "@/components/PageMain";
-import { PageBleedRow } from "@/components/PageBleedRow";
+import { PageHeader } from "@/components/PageHeader";
 
 export default function ScoreDetailPage() {
   const { org, scoreId } = useParams<{ org: string; scoreId: string }>();
@@ -144,28 +142,21 @@ export default function ScoreDetailPage() {
 
   return (
     <div className="flex flex-col">
-      <header className="shrink-0 border-b border-gray-200 bg-white">
-        <PageBleedRow className="flex items-center gap-3 py-4">
-          <Link
-            href={`/${org}/scores`}
-            className="text-gray-400 transition-colors hover:text-gray-600"
-          >
-            <ArrowLeft size={18} />
-          </Link>
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg font-semibold text-gray-800">{score.title}</h1>
-            {(score.composer || score.arranger) && (
-              <p className="mt-0.5 text-xs text-gray-400">
-                {[
-                  score.composer ? `${score.composer} 作曲` : null,
-                  score.arranger ? `${score.arranger} 編曲` : null,
-                ]
-                  .filter(Boolean)
-                  .join(" / ")}
-              </p>
-            )}
-          </div>
-          {isPrivileged && (
+      <PageHeader
+        title={score.title}
+        subtitle={
+          score.composer || score.arranger
+            ? [
+                score.composer ? `${score.composer} 作曲` : null,
+                score.arranger ? `${score.arranger} 編曲` : null,
+              ]
+                .filter(Boolean)
+                .join(" / ")
+            : undefined
+        }
+        backHref={`/${org}/scores`}
+        actions={
+          isPrivileged ? (
             <button
               onClick={() => setShowEdit(true)}
               className="hover:text-brand-600 hover:border-brand-300 flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-500 transition-colors"
@@ -173,9 +164,9 @@ export default function ScoreDetailPage() {
               <Pencil size={13} />
               編集
             </button>
-          )}
-        </PageBleedRow>
-      </header>
+          ) : undefined
+        }
+      />
 
       <PageMain className="space-y-4">
         {/* ── ファイル ── */}

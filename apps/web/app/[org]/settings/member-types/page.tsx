@@ -1,34 +1,33 @@
 "use client";
 
-import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { settingsApi } from "@/lib/settings-api";
 import type { MemberType } from "@/lib/settings-api";
 import { memberKeys } from "@/lib/query-keys";
-import { settingsPageTitle } from "@/lib/settings-nav";
+import { settingsPageTitle, SETTINGS_MAIN_CLASS_NAME } from "@/lib/settings-nav";
 import { useMember } from "@/contexts/MemberContext";
-import { SettingsPageShell } from "../_components/SettingsPageShell";
+import { PageWithHeader } from "@/components/PageWithHeader";
+import { useToast } from "@/hooks/useToast";
 import { MemberTypeCard } from "./_components/MemberTypeCard";
 
 export default function MemberTypesPage() {
   const { org } = useParams<{ org: string }>();
   const { roles } = useMember();
   const queryClient = useQueryClient();
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast } = useToast();
 
   const { data: types = [], isLoading: loading } = useQuery({
     queryKey: memberKeys.types(org),
     queryFn: () => settingsApi.listMemberTypes(org),
   });
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2500);
-  };
-
   return (
-    <SettingsPageShell title={settingsPageTitle("/member-types")} loading={loading}>
+    <PageWithHeader
+      title={settingsPageTitle("/member-types")}
+      loading={loading}
+      mainClassName={SETTINGS_MAIN_CLASS_NAME}
+    >
       {toast && (
         <div className="fixed right-6 bottom-6 z-50 rounded-lg bg-gray-800 px-4 py-2.5 text-xs text-white shadow-lg">
           {toast}
@@ -62,6 +61,6 @@ export default function MemberTypesPage() {
           団員が割り当てられている区分は削除できません。削除前に区分を変更してください。
         </p>
       )}
-    </SettingsPageShell>
+    </PageWithHeader>
   );
 }

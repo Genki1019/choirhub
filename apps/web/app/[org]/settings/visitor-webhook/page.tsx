@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, RefreshCw, Copy } from "lucide-react";
@@ -10,8 +10,6 @@ import { settingsPageTitle, SETTINGS_MAIN_CLASS_NAME } from "@/lib/settings-nav"
 import { useMember } from "@/contexts/MemberContext";
 import { PageWithHeader } from "@/components/PageWithHeader";
 
-const WEBHOOK_URL = `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/v1/public/visitor-applications`;
-
 export default function VisitorWebhookPage() {
   const { org } = useParams<{ org: string }>();
   const { roles } = useMember();
@@ -19,6 +17,15 @@ export default function VisitorWebhookPage() {
   const isAdmin = roles.includes("admin");
   const [regenerating, setRegenerating] = useState(false);
   const [copied, setCopied] = useState<"url" | "token" | null>(null);
+  // Next.jsのrewriteで /api/v1/* は常にAPIへプロキシされるため、
+  // NEXT_PUBLIC_API_URL未設定環境でも同一オリジンのURLがそのまま使える
+  const [webhookUrl, setWebhookUrl] = useState("/api/v1/public/visitor-applications");
+
+  useEffect(() => {
+    const resolve = () =>
+      setWebhookUrl(`${window.location.origin}/api/v1/public/visitor-applications`);
+    resolve();
+  }, []);
 
   const { data, isLoading } = useQuery({
     queryKey: settingsKeys.visitorWebhook(org),
@@ -59,11 +66,11 @@ export default function VisitorWebhookPage() {
           <div className="flex items-center gap-2">
             <input
               readOnly
-              value={WEBHOOK_URL}
+              value={webhookUrl}
               className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600"
             />
             <button
-              onClick={() => copy(WEBHOOK_URL, "url")}
+              onClick={() => copy(webhookUrl, "url")}
               className="shrink-0 rounded-lg border border-gray-200 p-2 text-gray-500 transition-colors hover:bg-gray-50"
               aria-label="Webhook URLをコピー"
             >

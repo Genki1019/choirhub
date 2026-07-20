@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
+import { randomUUID } from "crypto";
 import { prisma } from "../lib/prisma.js";
 import { isAdmin, isFinancePlus, isMemberPlus } from "../services/access.js";
 import type { TenantEnv } from "../middleware/tenant.js";
@@ -692,4 +693,33 @@ export const settingsRouter = new Hono<TenantEnv>()
 
     await prisma.eventCategory.delete({ where: { id: categoryId } });
     return new Response(null, { status: 204 });
+  })
+
+  // ── GET /settings/visitor-webhook ──
+  .get("/settings/visitor-webhook", async (c) => {
+    const actingMember = c.get("member");
+    const org = c.get("org");
+
+    if (!isAdmin(actingMember)) {
+      return c.json({ error: { code: "FORBIDDEN", message: "管理者権限が必要です" } }, 403);
+    }
+
+    return c.json({ data: { token: org.visitorFormToken } });
+  })
+
+  // ── POST /settings/visitor-webhook/regenerate ──
+  .post("/settings/visitor-webhook/regenerate", async (c) => {
+    const actingMember = c.get("member");
+    const org = c.get("org");
+
+    if (!isAdmin(actingMember)) {
+      return c.json({ error: { code: "FORBIDDEN", message: "管理者権限が必要です" } }, 403);
+    }
+
+    const updated = await prisma.organization.update({
+      where: { id: org.id },
+      data: { visitorFormToken: randomUUID() },
+    });
+
+    return c.json({ data: { token: updated.visitorFormToken } });
   });

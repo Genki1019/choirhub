@@ -1431,3 +1431,51 @@ describe("DELETE /settings/event-categories/:categoryId", () => {
     expect(prisma.eventCategory.delete).toHaveBeenCalledWith({ where: { id: "cat-4" } });
   });
 });
+
+// ────────────────────────────
+// GET /settings/visitor-webhook
+// ────────────────────────────
+
+describe("GET /settings/visitor-webhook", () => {
+  it("admin未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/settings/visitor-webhook");
+    expect(res.status).toBe(403);
+  });
+
+  it("admin: 200でtokenを返す", async () => {
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/visitor-webhook");
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ token: null });
+  });
+});
+
+// ────────────────────────────
+// POST /settings/visitor-webhook/regenerate
+// ────────────────────────────
+
+describe("POST /settings/visitor-webhook/regenerate", () => {
+  it("admin未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/settings/visitor-webhook/regenerate", { method: "POST" });
+    expect(res.status).toBe(403);
+  });
+
+  it("admin: 200で新しいtokenを発行する", async () => {
+    vi.mocked(prisma.organization.update).mockResolvedValue({
+      ...testOrg,
+      visitorFormToken: "new-token-123",
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/visitor-webhook/regenerate", { method: "POST" });
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.token).toBe("new-token-123");
+    expect(prisma.organization.update).toHaveBeenCalledWith({
+      where: { id: "org-1" },
+      data: { visitorFormToken: expect.any(String) },
+    });
+  });
+});

@@ -44,6 +44,7 @@ const testOrg: Organization = {
   monthlyOrganizer: null,
   feeType: "per_rehearsal",
   defaultFeeAmount: 500,
+  visitorFormToken: null,
   createdAt: new Date("2024-01-01"),
 };
 

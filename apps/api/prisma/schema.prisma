@@ -86,6 +86,12 @@ enum CollectionPaymentStatus {
   waived
 }
 
+enum VisitorApplicationStatus {
+  pending
+  approved
+  rejected
+}
+
 // ────────────────────────────
 // Core Domain
 // ────────────────────────────
@@ -140,21 +146,23 @@ model Organization {
   monthlyOrganizer String?  @map("monthly_organizer")
   feeType          FeeType  @default(per_rehearsal) @map("fee_type")
   defaultFeeAmount Int?     @map("default_fee_amount")
+  visitorFormToken String?  @unique @map("visitor_form_token")
   createdAt        DateTime @default(now()) @map("created_at")
 
-  parts             Part[]
-  members           Member[]
-  events            Event[]
-  scores            Score[]
-  concerts          Concert[]
-  mailLogs          MailLog[]
-  mailTemplates     MailTemplate[]
-  inviteTokens      InviteToken[]
-  expenses          Expense[]
-  expenseCategories ExpenseCategory[]
-  memberTypes       MemberType[]
-  eventCategories   EventCategory[]
-  collections       Collection[]
+  parts               Part[]
+  members             Member[]
+  events              Event[]
+  scores              Score[]
+  concerts            Concert[]
+  mailLogs            MailLog[]
+  mailTemplates       MailTemplate[]
+  inviteTokens        InviteToken[]
+  expenses            Expense[]
+  expenseCategories   ExpenseCategory[]
+  memberTypes         MemberType[]
+  eventCategories     EventCategory[]
+  collections         Collection[]
+  visitorApplications VisitorApplication[]
 
   @@map("organizations")
 }
@@ -196,22 +204,24 @@ model Member {
   part       Part?        @relation(fields: [partId], references: [id])
   memberType MemberType?  @relation(fields: [memberTypeId], references: [id])
 
-  attendances               Attendance[]
-  surveyResponses           SurveyResponse[]
-  onStageAssignments        OnStageAssignment[]
-  formationSlots            FormationSlot[]
-  ticketAllocations         TicketAllocation[]
-  mailLogs                  MailLog[]
-  mailTemplates             MailTemplate[]
-  scoreAccessLogs           ScoreAccessLog[]
-  scorePurchases            ScorePurchase[]
-  recordedPurchases         ScorePurchase[]       @relation("PurchaseRecorder")
-  expenses                  Expense[]
-  collections               Collection[]
-  collectionPayments        CollectionPayment[]
-  recordedPayments          CollectionPayment[]   @relation("CollectionPaymentRecorder")
-  outreachActivitiesCreated OutreachActivity[]    @relation("OutreachCreator")
-  outreachParticipations    OutreachParticipant[] @relation("OutreachParticipantMember")
+  attendances                 Attendance[]
+  surveyResponses             SurveyResponse[]
+  onStageAssignments          OnStageAssignment[]
+  formationSlots              FormationSlot[]
+  ticketAllocations           TicketAllocation[]
+  mailLogs                    MailLog[]
+  mailTemplates               MailTemplate[]
+  scoreAccessLogs             ScoreAccessLog[]
+  scorePurchases              ScorePurchase[]
+  recordedPurchases           ScorePurchase[]       @relation("PurchaseRecorder")
+  expenses                    Expense[]
+  collections                 Collection[]
+  collectionPayments          CollectionPayment[]
+  recordedPayments            CollectionPayment[]   @relation("CollectionPaymentRecorder")
+  outreachActivitiesCreated   OutreachActivity[]    @relation("OutreachCreator")
+  outreachParticipations      OutreachParticipant[] @relation("OutreachParticipantMember")
+  createdVisitorApplications  VisitorApplication[]  @relation("VisitorApplicationCreator")
+  reviewedVisitorApplications VisitorApplication[]  @relation("VisitorApplicationReviewer")
 
   @@unique([userId, orgId])
   @@index([userId])
@@ -645,6 +655,33 @@ model InviteToken {
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@map("invite_tokens")
+}
+
+// ────────────────────────────
+// 見学申込
+// ────────────────────────────
+
+model VisitorApplication {
+  id           String                   @id @default(cuid())
+  orgId        String                   @map("org_id")
+  name         String
+  partHope     String?                  @map("part_hope")
+  originGroup  String?                  @map("origin_group")
+  contact      String?
+  message      String?
+  source       String                   @default("manual")
+  status       VisitorApplicationStatus @default(pending)
+  createdById  String?                  @map("created_by_id")
+  reviewedById String?                  @map("reviewed_by_id")
+  reviewedAt   DateTime?                @map("reviewed_at")
+  createdAt    DateTime                 @default(now()) @map("created_at")
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy  Member?      @relation("VisitorApplicationCreator", fields: [createdById], references: [id])
+  reviewedBy Member?      @relation("VisitorApplicationReviewer", fields: [reviewedById], references: [id])
+
+  @@index([orgId, status])
+  @@map("visitor_applications")
 }
 
 // ────────────────────────────

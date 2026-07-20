@@ -1,8 +1,8 @@
 # ChoirHub API設計書
 
-**バージョン**: 1.4  
+**バージョン**: 1.5  
 **作成日**: 2026-06-04  
-**更新日**: 2026-07-14  
+**更新日**: 2026-07-20  
 **ベースURL**: `/api/v1`
 
 ---
@@ -22,6 +22,7 @@
 10. [設定 API](#10-設定-api)
 11. [会計 API](#11-会計-api)
 12. [情宣活動 API](#情宣活動-outreachactivity)
+13. [見学申込 API](#13-見学申込-api)
 
 ---
 
@@ -196,6 +197,19 @@
 | [支出登録](#expenses-create)                    | POST   | `/:orgSlug/finance/expenses`                           | finance+ |
 | [支出更新](#expenses-patch)                     | PATCH  | `/:orgSlug/finance/expenses/:id`                       | finance+ |
 | [支出削除](#expenses-delete)                    | DELETE | `/:orgSlug/finance/expenses/:id`                       | finance+ |
+
+### 見学申込
+
+| API名                                                                 | Method | Path                                            | 権限                     |
+| --------------------------------------------------------------------- | ------ | ----------------------------------------------- | ------------------------ |
+| [見学申込登録](#visitor-applications-create)                          | POST   | `/:orgSlug/visitor-applications`                | member+                  |
+| [見学申込一覧取得](#visitor-applications-list)                        | GET    | `/:orgSlug/visitor-applications`                | admin                    |
+| [見学申込承認](#visitor-applications-approve)                         | POST   | `/:orgSlug/visitor-applications/:id/approve`    | admin                    |
+| [見学申込却下](#visitor-applications-reject)                          | POST   | `/:orgSlug/visitor-applications/:id/reject`     | admin                    |
+| [見学申込一括承認](#visitor-applications-bulk-approve)                | POST   | `/:orgSlug/visitor-applications/bulk-approve`   | admin                    |
+| [見学申込Webhook受信](#public-visitor-applications)                   | POST   | `/public/visitor-applications`                  | 認証不要（トークン検証） |
+| [見学申込Webhookトークン取得](#settings-visitor-webhook-get)          | GET    | `/:orgSlug/settings/visitor-webhook`            | admin                    |
+| [見学申込Webhookトークン再発行](#settings-visitor-webhook-regenerate) | POST   | `/:orgSlug/settings/visitor-webhook/regenerate` | admin                    |
 
 ---
 
@@ -4051,3 +4065,196 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 **Errors:**: `403` `FORBIDDEN` 申請者本人でも担当者でもない / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 情宣活動が存在しない・指定の演奏会に属していない
 
 ---
+
+## 13. 見学申込 API
+
+見学希望者の情報を「申込」として記録し、admin承認を経て団員へ周知するAPI群。承認してもMember/Userは作成されない（見学者本人へのアカウント発行は行わない）。
+
+<a id="visitor-applications-create"></a>
+
+### POST `/api/v1/:orgSlug/visitor-applications`
+
+見学申込を手入力で登録する。団員が見学希望者から聞き取った情報を登録する用途。登録すると、その団体の `admin` ロール全員に通知メールが送られる。
+
+**権限**: `member+`
+
+**Request Body:**
+
+```json
+{
+  "name": "見学 太郎",
+  "partHope": "テノール",
+  "originGroup": "○○大学グリークラブ",
+  "contact": "090-0000-0000",
+  "message": "紹介コメントなど"
+}
+```
+
+**Response** `201`
+
+```json
+{
+  "data": {
+    "id": "string",
+    "name": "見学 太郎",
+    "partHope": "テノール",
+    "originGroup": "○○大学グリークラブ",
+    "contact": "090-0000-0000",
+    "message": "string | null",
+    "source": "manual",
+    "status": "pending",
+    "createdByName": "山田太郎",
+    "reviewedByName": null,
+    "reviewedAt": null,
+    "createdAt": "2026-07-20T00:00:00.000Z"
+  }
+}
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` `name` が未入力 / `403` `FORBIDDEN` guest/visitorが登録しようとした
+
+---
+
+<a id="visitor-applications-list"></a>
+
+### GET `/api/v1/:orgSlug/visitor-applications`
+
+見学申込の一覧を取得する。`status` クエリパラメータで絞り込み可能（例: `?status=pending`）。
+
+**権限**: `admin`
+
+**Response** `200` 見学申込オブジェクトの配列（`POST` と同じ形式）
+
+**Errors:**: `403` `FORBIDDEN` admin以外がアクセスした
+
+---
+
+<a id="visitor-applications-approve"></a>
+
+### POST `/api/v1/:orgSlug/visitor-applications/:id/approve`
+
+見学申込を承認する。Member/Userは作成せず、ステータスのみ更新する。団員向けの紹介メール下書き（`draft`）を返す。
+
+**権限**: `admin`
+
+**Response** `200`
+
+```json
+{
+  "data": {
+    "application": { "...": "承認後の見学申込オブジェクト（status: approved）" },
+    "draft": {
+      "subject": "見学者のご紹介",
+      "body": "以下の方が見学にいらっしゃいます。\n\n・見学 太郎さん（希望パート: テノール / 出身団体: ○○大学グリークラブ）"
+    }
+  }
+}
+```
+
+**Errors:**: `403` `FORBIDDEN` admin以外がアクセスした / `404` `NOT_FOUND` 見学申込が存在しない / `409` `CONFLICT` 既に承認・却下済み
+
+---
+
+<a id="visitor-applications-reject"></a>
+
+### POST `/api/v1/:orgSlug/visitor-applications/:id/reject`
+
+見学申込を却下する。
+
+**権限**: `admin`
+
+**Response** `200` 却下後の見学申込オブジェクト（`status: rejected`）
+
+**Errors:**: `403` `FORBIDDEN` admin以外がアクセスした / `404` `NOT_FOUND` 見学申込が存在しない / `409` `CONFLICT` 既に承認・却下済み
+
+---
+
+<a id="visitor-applications-bulk-approve"></a>
+
+### POST `/api/v1/:orgSlug/visitor-applications/bulk-approve`
+
+複数の見学申込を一括承認する。対象全員分をまとめた紹介メール下書き（`draft`）を返す。
+
+**権限**: `admin`
+
+**Request Body:**
+
+```json
+{ "ids": ["cuid1", "cuid2"] }
+```
+
+**Response** `200`
+
+```json
+{
+  "data": {
+    "applications": ["承認後の見学申込オブジェクトの配列"],
+    "draft": { "subject": "見学者のご紹介", "body": "・見学 太郎さん\n・見学 花子さん" }
+  }
+}
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` `ids` が空 / `403` `FORBIDDEN` admin以外がアクセスした / `404` `NOT_FOUND` 承認可能な（`pending`状態の）見学申込が1件も見つからない
+
+---
+
+<a id="public-visitor-applications"></a>
+
+### POST `/api/v1/public/visitor-applications`
+
+Googleフォームからの回答をWebhook経由で見学申込として取り込む。認証不要（`token` で団体を識別）。Google Apps Script のフォーム送信トリガーからの呼び出しを想定。
+
+**権限**: 不要（`token` が有効な団体の `visitorFormToken` と一致することを検証）
+
+**Request Body:**
+
+```json
+{
+  "token": "団体ごとに発行されたWebhookトークン",
+  "name": "見学 太郎",
+  "partHope": "テノール",
+  "originGroup": "○○大学グリークラブ",
+  "contact": "090-0000-0000",
+  "message": "string"
+}
+```
+
+**Response** `201` 作成した見学申込オブジェクト（`source: "google_form"`）
+
+**Errors:**: `400` `VALIDATION_ERROR` `name` が未入力 / `404` `NOT_FOUND` `token` に一致する団体が存在しない
+
+---
+
+<a id="settings-visitor-webhook-get"></a>
+
+### GET `/api/v1/:orgSlug/settings/visitor-webhook`
+
+見学申込Webhookのトークンを取得する。
+
+**権限**: `admin`
+
+**Response** `200`
+
+```json
+{ "data": { "token": "string | null" } }
+```
+
+**Errors:**: `403` `FORBIDDEN` admin以外がアクセスした
+
+---
+
+<a id="settings-visitor-webhook-regenerate"></a>
+
+### POST `/api/v1/:orgSlug/settings/visitor-webhook/regenerate`
+
+見学申込Webhookのトークンを新規発行・再発行する。再発行すると、既存のトークンを使ったWebhookは無効になる。
+
+**権限**: `admin`
+
+**Response** `200`
+
+```json
+{ "data": { "token": "string" } }
+```
+
+**Errors:**: `403` `FORBIDDEN` admin以外がアクセスした

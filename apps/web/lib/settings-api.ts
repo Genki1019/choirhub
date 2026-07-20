@@ -28,6 +28,10 @@ export interface FeeSettings {
   defaultFeeAmount: number | null;
 }
 
+export interface VisitorWebhookSettings {
+  token: string | null;
+}
+
 export const settingsApi = {
   get: (orgSlug: string) => apiClient.get<OrgSettings>(`/${orgSlug}/settings`),
 
@@ -98,4 +102,10 @@ export const settingsApi = {
 
   deleteEventCategory: (orgSlug: string, categoryId: string) =>
     apiClient.delete(`/${orgSlug}/settings/event-categories/${categoryId}`),
+
+  getVisitorWebhookToken: (orgSlug: string) =>
+    apiClient.get<VisitorWebhookSettings>(`/${orgSlug}/settings/visitor-webhook`),
+
+  regenerateVisitorWebhookToken: (orgSlug: string) =>
+    apiClient.post<VisitorWebhookSettings>(`/${orgSlug}/settings/visitor-webhook/regenerate`, {}),
 };

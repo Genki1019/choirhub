@@ -1,17 +1,32 @@
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from "react";
+import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { LayoutGrid, List, UserPlus, Loader2, AlertCircle, Users } from "lucide-react";
+import {
+  LayoutGrid,
+  List,
+  UserPlus,
+  UserRoundPlus,
+  Loader2,
+  AlertCircle,
+  Users,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { membersApi, type MemberProfile } from "@/lib/members-api";
+import { visitorApplicationsApi } from "@/lib/visitor-applications-api";
 import { useMember } from "@/contexts/MemberContext";
 import { settingsApi } from "@/lib/settings-api";
-import { memberKeys } from "@/lib/query-keys";
+import { memberKeys, visitorApplicationKeys } from "@/lib/query-keys";
 import { MEMBER_STATUS_OPTIONS } from "@/lib/api-types";
 import type { MemberStatus } from "@/lib/api-types";
+import { MEMBER_LEVEL_ROLES } from "@/lib/roles";
 import { comparePartOrder } from "@/lib/voice-order";
 import { InviteModal, InviteSuccessModal } from "./_components/InviteModal";
+import {
+  AddVisitorApplicationModal,
+  AddVisitorApplicationSuccessModal,
+} from "./_components/AddVisitorApplicationModal";
 import { MemberPartSection } from "./_components/MemberPartSection";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
@@ -61,8 +76,17 @@ function MembersContent() {
   const { roles: myRoles } = useMember();
   const [showInvite, setShowInvite] = useState(false);
   const [showInviteSuccess, setShowInviteSuccess] = useState(false);
+  const [showAddVisitor, setShowAddVisitor] = useState(false);
+  const [showAddVisitorSuccess, setShowAddVisitorSuccess] = useState(false);
 
   const isAdmin = myRoles.includes("admin");
+  const canAddVisitor = myRoles.some((r) => MEMBER_LEVEL_ROLES.has(r));
+
+  const { data: pendingApplications = [] } = useQuery({
+    queryKey: visitorApplicationKeys.pending(org),
+    queryFn: () => visitorApplicationsApi.listPending(org),
+    enabled: isAdmin,
+  });
 
   const {
     data: members = [],
@@ -155,18 +179,57 @@ function MembersContent() {
         />
       )}
       {showInviteSuccess && <InviteSuccessModal onClose={() => setShowInviteSuccess(false)} />}
+      {showAddVisitor && (
+        <AddVisitorApplicationModal
+          org={org}
+          onClose={() => setShowAddVisitor(false)}
+          onSuccess={() => {
+            setShowAddVisitor(false);
+            setShowAddVisitorSuccess(true);
+          }}
+        />
+      )}
+      {showAddVisitorSuccess && (
+        <AddVisitorApplicationSuccessModal onClose={() => setShowAddVisitorSuccess(false)} />
+      )}
       <div className="flex flex-col">
         <PageHeader
           title="メンバー"
           actions={
-            isAdmin ? (
-              <button
-                onClick={() => setShowInvite(true)}
-                className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
-              >
-                <UserPlus size={14} />
-                メンバーを招待
-              </button>
+            isAdmin || canAddVisitor ? (
+              <div className="flex items-center gap-2">
+                {isAdmin && (
+                  <Link
+                    href={`/${org}/members/applications`}
+                    className="relative flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                  >
+                    見学申込
+                    {pendingApplications.length > 0 && (
+                      <span className="bg-brand-600 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white">
+                        {pendingApplications.length}
+                      </span>
+                    )}
+                  </Link>
+                )}
+                {canAddVisitor && (
+                  <button
+                    onClick={() => setShowAddVisitor(true)}
+                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                  >
+                    <UserRoundPlus size={14} />
+                    見学者を追加
+                  </button>
+                )}
+                {isAdmin && (
+                  <button
+                    onClick={() => setShowInvite(true)}
+                    className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
+                  >
+                    <UserPlus size={14} />
+                    メンバーを招待
+                  </button>
+                )}
+              </div>
             ) : undefined
           }
         />

@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, X, Check } from "lucide-react";
 import { visitorApplicationsApi } from "@/lib/visitor-applications-api";
+import type { PartSummary } from "@/lib/members-api";
 import { addVisitorApplicationSchema, type AddVisitorApplicationInput } from "@/lib/schemas";
 
 const INPUT_CLS =
@@ -13,12 +14,14 @@ const ERROR_CLS = "text-xs text-red-500 mt-1";
 
 interface AddVisitorApplicationModalProps {
   org: string;
+  parts: PartSummary[];
   onClose: () => void;
   onSuccess: () => void;
 }
 
 export function AddVisitorApplicationModal({
   org,
+  parts,
   onClose,
   onSuccess,
 }: AddVisitorApplicationModalProps) {
@@ -89,12 +92,14 @@ export function AddVisitorApplicationModal({
             >
               希望パート
             </label>
-            <input
-              id="visitor-partHope"
-              className={INPUT_CLS}
-              placeholder="テノール"
-              {...register("partHope")}
-            />
+            <select id="visitor-partHope" className={INPUT_CLS} {...register("partHope")}>
+              <option value="">未定</option>
+              {parts.map((p) => (
+                <option key={p.id} value={p.name}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

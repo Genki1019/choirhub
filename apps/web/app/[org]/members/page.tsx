@@ -182,6 +182,7 @@ function MembersContent() {
       {showAddVisitor && (
         <AddVisitorApplicationModal
           org={org}
+          parts={parts}
           onClose={() => setShowAddVisitor(false)}
           onSuccess={() => {
             setShowAddVisitor(false);

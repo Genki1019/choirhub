@@ -6,12 +6,18 @@ import {
   AddVisitorApplicationSuccessModal,
 } from "../AddVisitorApplicationModal";
 import { visitorApplicationsApi } from "@/lib/visitor-applications-api";
+import type { PartSummary } from "@/lib/api-types";
 
 vi.mock("@/lib/visitor-applications-api", () => ({
   visitorApplicationsApi: {
     create: vi.fn(),
   },
 }));
+
+const parts: PartSummary[] = [
+  { id: "part-1", name: "テノール", voiceType: "tenor", sortOrder: 1 },
+  { id: "part-2", name: "バス", voiceType: "bass", sortOrder: 2 },
+];
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -35,7 +41,14 @@ describe("AddVisitorApplicationModal", () => {
     });
     const onSuccess = vi.fn();
     const user = userEvent.setup();
-    render(<AddVisitorApplicationModal org="tokyo" onClose={vi.fn()} onSuccess={onSuccess} />);
+    render(
+      <AddVisitorApplicationModal
+        org="tokyo"
+        parts={parts}
+        onClose={vi.fn()}
+        onSuccess={onSuccess}
+      />,
+    );
 
     await user.type(screen.getByLabelText("お名前 *"), "見学 太郎");
     await user.click(screen.getByText("登録する"));
@@ -54,7 +67,14 @@ describe("AddVisitorApplicationModal", () => {
 
   it("お名前が空: バリデーションエラーを表示する", async () => {
     const user = userEvent.setup();
-    render(<AddVisitorApplicationModal org="tokyo" onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(
+      <AddVisitorApplicationModal
+        org="tokyo"
+        parts={parts}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
 
     await user.click(screen.getByText("登録する"));
 
@@ -78,10 +98,17 @@ describe("AddVisitorApplicationModal", () => {
       createdAt: "2026-07-20T00:00:00Z",
     });
     const user = userEvent.setup();
-    render(<AddVisitorApplicationModal org="tokyo" onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(
+      <AddVisitorApplicationModal
+        org="tokyo"
+        parts={parts}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
 
     await user.type(screen.getByLabelText("お名前 *"), "見学 太郎");
-    await user.type(screen.getByLabelText("希望パート"), "テノール");
+    await user.selectOptions(screen.getByLabelText("希望パート"), "テノール");
     await user.type(screen.getByLabelText("出身団体"), "○○大学");
     await user.type(screen.getByLabelText("連絡先"), "090-0000-0000");
     await user.type(screen.getByLabelText("コメント"), "よろしくお願いします");
@@ -98,10 +125,32 @@ describe("AddVisitorApplicationModal", () => {
     });
   });
 
+  it("希望パートは団体のパート一覧のみをプルダウンで選択できる", () => {
+    render(
+      <AddVisitorApplicationModal
+        org="tokyo"
+        parts={parts}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    const select = screen.getByLabelText("希望パート") as HTMLSelectElement;
+    const options = Array.from(select.options).map((o) => o.textContent);
+    expect(options).toEqual(["未定", "テノール", "バス"]);
+  });
+
   it("送信失敗: エラーメッセージを表示する", async () => {
     vi.mocked(visitorApplicationsApi.create).mockRejectedValue(new Error("network error"));
     const user = userEvent.setup();
-    render(<AddVisitorApplicationModal org="tokyo" onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(
+      <AddVisitorApplicationModal
+        org="tokyo"
+        parts={parts}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
 
     await user.type(screen.getByLabelText("お名前 *"), "見学 太郎");
     await user.click(screen.getByText("登録する"));
@@ -114,7 +163,14 @@ describe("AddVisitorApplicationModal", () => {
   it("×ボタンクリックでonCloseが呼ばれる", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<AddVisitorApplicationModal org="tokyo" onClose={onClose} onSuccess={vi.fn()} />);
+    render(
+      <AddVisitorApplicationModal
+        org="tokyo"
+        parts={parts}
+        onClose={onClose}
+        onSuccess={vi.fn()}
+      />,
+    );
 
     await user.click(screen.getByLabelText("閉じる"));
     expect(onClose).toHaveBeenCalled();
@@ -123,7 +179,14 @@ describe("AddVisitorApplicationModal", () => {
   it("キャンセルボタンクリックでonCloseが呼ばれる", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<AddVisitorApplicationModal org="tokyo" onClose={onClose} onSuccess={vi.fn()} />);
+    render(
+      <AddVisitorApplicationModal
+        org="tokyo"
+        parts={parts}
+        onClose={onClose}
+        onSuccess={vi.fn()}
+      />,
+    );
 
     await user.click(screen.getByText("キャンセル"));
     expect(onClose).toHaveBeenCalled();

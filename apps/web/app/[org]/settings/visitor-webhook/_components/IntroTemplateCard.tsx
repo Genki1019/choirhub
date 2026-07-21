@@ -9,21 +9,39 @@ import { settingsKeys } from "@/lib/query-keys";
 const DEFAULT_TEMPLATE: VisitorIntroTemplate = {
   subjectTemplate: "見学者のご紹介",
   bodyTemplate: "以下の方が見学にいらっしゃいます。\n\n{lines}",
-  lineTemplate: "・{name}さん（希望パート: {part} / 出身団体: {origin}）",
+  lineTemplate: "・{name}さん（希望パート: {part}[ / 出身団体: {origin}]）",
 };
 
 const PREVIEW_SAMPLE = [
   { name: "見学 太郎", part: "テノール", origin: "○○大学グリークラブ" },
-  { name: "見学 花子", part: "未定", origin: "未定" },
+  { name: "見学 花子", part: "", origin: "" },
 ];
 
-// バックエンドの renderTemplate と同じ規則（未対応の変数はそのまま残す）
-function renderTemplate(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{(\w+)\}/g, (match, key: string) => (key in vars ? vars[key] : match));
+// バックエンドの renderTemplate と同じ規則:
+// `[...]` は中の変数がすべて空なら区間ごと非表示、`[...]` の外の変数は空なら fallback（無ければ空文字）
+function renderTemplate(
+  template: string,
+  vars: Record<string, string>,
+  fallback: Record<string, string> = {},
+): string {
+  const afterOptionalSegments = template.replace(/\[([^[\]]*)\]/g, (whole, inner: string) => {
+    const referenced = [...inner.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+    if (referenced.length === 0) return inner;
+    const hasValue = referenced.some((name) => vars[name]);
+    if (!hasValue) return "";
+    return inner.replace(/\{(\w+)\}/g, (m, key: string) => (key in vars ? vars[key] : m));
+  });
+
+  return afterOptionalSegments.replace(/\{(\w+)\}/g, (match, key: string) => {
+    if (!(key in vars)) return match;
+    return vars[key] || fallback[key] || "";
+  });
 }
 
 function buildPreview(template: VisitorIntroTemplate): { subject: string; body: string } {
-  const lines = PREVIEW_SAMPLE.map((s) => renderTemplate(template.lineTemplate, s));
+  const lines = PREVIEW_SAMPLE.map((s) =>
+    renderTemplate(template.lineTemplate, s, { part: "未定", origin: "未定" }),
+  );
   return {
     subject: template.subjectTemplate,
     body: renderTemplate(template.bodyTemplate, { lines: lines.join("\n") }),
@@ -85,6 +103,11 @@ export function IntroTemplateCard({ org }: { org: string }) {
           <code className="rounded bg-gray-100 px-1">{"{origin}"}</code>（出身団体）・
           <code className="rounded bg-gray-100 px-1">{"{lines}"}</code>
           （本文内では見学者ごとの行がまとまって展開されます）
+          <br />
+          <code className="rounded bg-gray-100 px-1">{"[ ]"}</code>
+          で囲むと、中の変数が空の見学者ではその区間ごと非表示になります（例:{" "}
+          <code className="rounded bg-gray-100 px-1">{"[ / 出身団体: {origin}]"}</code>
+          は出身団体が未入力なら丸ごと消えます）
         </p>
       </div>
 
@@ -124,7 +147,7 @@ export function IntroTemplateCard({ org }: { org: string }) {
           className={TEXTAREA_CLS}
         />
         <p className="mt-1 text-xs text-gray-400">
-          希望パート・出身団体が未入力の見学者は「未定」として表示されます
+          デフォルトでは、希望パートが未入力の場合は「未定」、出身団体が未入力の場合はその項目ごと非表示になります
         </p>
       </div>
 

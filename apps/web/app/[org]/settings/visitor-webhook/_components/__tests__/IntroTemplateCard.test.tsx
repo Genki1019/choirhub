@@ -16,6 +16,8 @@ vi.mock("@/lib/settings-api", async () => {
   };
 });
 
+const DEFAULT_LINE_TEMPLATE = "・{name}さん（希望パート: {part}[ / 出身団体: {origin}]）";
+
 function renderCard() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -34,21 +36,19 @@ describe("IntroTemplateCard", () => {
     vi.mocked(settingsApi.getVisitorIntroTemplate).mockResolvedValue({
       subjectTemplate: "見学者のご紹介",
       bodyTemplate: "以下の方が見学にいらっしゃいます。\n\n{lines}",
-      lineTemplate: "・{name}さん（希望パート: {part} / 出身団体: {origin}）",
+      lineTemplate: DEFAULT_LINE_TEMPLATE,
     });
     renderCard();
 
     expect(await screen.findByDisplayValue("見学者のご紹介")).toBeInTheDocument();
-    expect(
-      screen.getByDisplayValue("・{name}さん（希望パート: {part} / 出身団体: {origin}）"),
-    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue(DEFAULT_LINE_TEMPLATE)).toBeInTheDocument();
   });
 
-  it("プレビューにサンプルデータを展開した結果を表示する", async () => {
+  it("プレビューでは出身団体ありは表示され、出身団体なしはその区間ごと非表示になる", async () => {
     vi.mocked(settingsApi.getVisitorIntroTemplate).mockResolvedValue({
       subjectTemplate: "見学者のご紹介",
       bodyTemplate: "以下の方が見学にいらっしゃいます。\n\n{lines}",
-      lineTemplate: "・{name}さん（希望パート: {part} / 出身団体: {origin}）",
+      lineTemplate: DEFAULT_LINE_TEMPLATE,
     });
     renderCard();
 
@@ -56,21 +56,20 @@ describe("IntroTemplateCard", () => {
     expect(
       screen.getByText(/・見学 太郎さん（希望パート: テノール \/ 出身団体: ○○大学グリークラブ）/),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/・見学 花子さん（希望パート: 未定 \/ 出身団体: 未定）/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/・見学 花子さん（希望パート: 未定）/)).toBeInTheDocument();
+    expect(screen.queryByText(/花子.*出身団体/)).not.toBeInTheDocument();
   });
 
   it("編集して保存すると更新APIが呼ばれる", async () => {
     vi.mocked(settingsApi.getVisitorIntroTemplate).mockResolvedValue({
       subjectTemplate: "見学者のご紹介",
       bodyTemplate: "以下の方が見学にいらっしゃいます。\n\n{lines}",
-      lineTemplate: "・{name}さん（希望パート: {part} / 出身団体: {origin}）",
+      lineTemplate: DEFAULT_LINE_TEMPLATE,
     });
     vi.mocked(settingsApi.updateVisitorIntroTemplate).mockResolvedValue({
       subjectTemplate: "新入団希望者のお知らせ",
       bodyTemplate: "以下の方が見学にいらっしゃいます。\n\n{lines}",
-      lineTemplate: "・{name}さん（希望パート: {part} / 出身団体: {origin}）",
+      lineTemplate: DEFAULT_LINE_TEMPLATE,
     });
     const user = userEvent.setup();
     renderCard();
@@ -84,7 +83,7 @@ describe("IntroTemplateCard", () => {
       expect(settingsApi.updateVisitorIntroTemplate).toHaveBeenCalledWith("tokyo-men-choir", {
         subjectTemplate: "新入団希望者のお知らせ",
         bodyTemplate: "以下の方が見学にいらっしゃいます。\n\n{lines}",
-        lineTemplate: "・{name}さん（希望パート: {part} / 出身団体: {origin}）",
+        lineTemplate: DEFAULT_LINE_TEMPLATE,
       });
     });
     expect(await screen.findByText("保存しました")).toBeInTheDocument();
@@ -103,9 +102,7 @@ describe("IntroTemplateCard", () => {
     await user.click(screen.getByText("デフォルトに戻す"));
 
     expect(screen.getByDisplayValue("見学者のご紹介")).toBeInTheDocument();
-    expect(
-      screen.getByDisplayValue("・{name}さん（希望パート: {part} / 出身団体: {origin}）"),
-    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue(DEFAULT_LINE_TEMPLATE)).toBeInTheDocument();
     expect(settingsApi.updateVisitorIntroTemplate).not.toHaveBeenCalled();
   });
 });

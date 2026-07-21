@@ -10,6 +10,10 @@ export const memberKeys = {
   types: (org: string) => ["memberTypes", org] as const,
 };
 
+export const visitorApplicationKeys = {
+  pending: (org: string) => ["visitorApplications", org, "pending"] as const,
+};
+
 export const eventKeys = {
   list: (org: string, year: number, month: number) => ["events", org, year, month] as const,
   detail: (org: string, id: string) => ["event", org, id] as const,
@@ -36,6 +40,8 @@ export const settingsKeys = {
   org: (org: string) => ["settings", org, "org"] as const,
   fee: (org: string) => ["settings", org, "fee"] as const,
   expenseCategories: (org: string) => ["settings", org, "expenseCategories"] as const,
+  visitorWebhook: (org: string) => ["settings", org, "visitorWebhook"] as const,
+  visitorIntroTemplate: (org: string) => ["settings", org, "visitorIntroTemplate"] as const,
 };
 
 export const accountingKeys = {

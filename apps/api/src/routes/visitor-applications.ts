@@ -40,22 +40,30 @@ function formatApplication(a: ApplicationWithRelations | VisitorApplication) {
   };
 }
 
+// テンプレート内の {name} {part} {origin} {lines} を対応する値に置き換える。
+// 未定義の変数はそのまま残し、値がない項目は「未定」に置き換える。
+function renderTemplate(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (match, key: string) => (key in vars ? vars[key] : match));
+}
+
 function buildIntroDraft(
+  org: Pick<
+    Organization,
+    "visitorIntroSubjectTemplate" | "visitorIntroBodyTemplate" | "visitorIntroLineTemplate"
+  >,
   applications: Pick<VisitorApplication, "name" | "partHope" | "originGroup">[],
 ): { subject: string; body: string } {
-  const lines = applications.map((a) => {
-    const details = [
-      a.partHope ? `希望パート: ${a.partHope}` : null,
-      a.originGroup ? `出身団体: ${a.originGroup}` : null,
-    ]
-      .filter(Boolean)
-      .join(" / ");
-    return details ? `・${a.name}さん（${details}）` : `・${a.name}さん`;
-  });
+  const lines = applications.map((a) =>
+    renderTemplate(org.visitorIntroLineTemplate, {
+      name: a.name,
+      part: a.partHope || "未定",
+      origin: a.originGroup || "未定",
+    }),
+  );
 
   return {
-    subject: "見学者のご紹介",
-    body: `以下の方が見学にいらっしゃいます。\n\n${lines.join("\n")}`,
+    subject: org.visitorIntroSubjectTemplate,
+    body: renderTemplate(org.visitorIntroBodyTemplate, { lines: lines.join("\n") }),
   };
 }
 
@@ -186,7 +194,7 @@ export const visitorApplicationsRouter = new Hono<TenantEnv>()
     });
 
     return c.json({
-      data: { application: formatApplication(updated), draft: buildIntroDraft([updated]) },
+      data: { application: formatApplication(updated), draft: buildIntroDraft(org, [updated]) },
     });
   })
 
@@ -262,7 +270,7 @@ export const visitorApplicationsRouter = new Hono<TenantEnv>()
       return c.json({
         data: {
           applications: updatedApplications.map(formatApplication),
-          draft: buildIntroDraft(updatedApplications),
+          draft: buildIntroDraft(org, updatedApplications),
         },
       });
     },

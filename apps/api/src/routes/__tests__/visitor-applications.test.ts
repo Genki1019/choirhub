@@ -93,10 +93,10 @@ const adminMemberRow = {
   userRef: { email: "admin@example.com" },
 };
 
-function createTestApp(actingMember: Member) {
+function createTestApp(actingMember: Member, org: Organization = testOrg) {
   const app = new Hono<TenantEnv>();
   app.use("*", (c, next) => {
-    c.set("org", testOrg);
+    c.set("org", org);
     c.set("member", actingMember);
     return next();
   });
@@ -208,6 +208,38 @@ describe("POST /visitor-applications/:id/approve", () => {
     expect(body.data.application.status).toBe("approved");
     expect(body.data.draft.body).toContain("見学 太郎さん");
     expect(body.data.draft.body).toContain("テノール");
+  });
+
+  it("希望パート・出身団体が未入力: 下書きは「未定」で埋められる", async () => {
+    vi.mocked(prisma.visitorApplication.findFirst).mockResolvedValue(
+      makeApplication({ partHope: null, originGroup: null }),
+    );
+    vi.mocked(prisma.visitorApplication.update).mockResolvedValue(
+      makeApplication({ status: "approved", partHope: null, originGroup: null }),
+    );
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/visitor-applications/app-1/approve", { method: "POST" });
+    const body = await json(res);
+    expect(body.data.draft.body).toContain("希望パート: 未定 / 出身団体: 未定");
+  });
+
+  it("団体独自のテンプレートが設定されている場合: そのテンプレートで下書きが生成される", async () => {
+    vi.mocked(prisma.visitorApplication.findFirst).mockResolvedValue(makeApplication());
+    vi.mocked(prisma.visitorApplication.update).mockResolvedValue(
+      makeApplication({ status: "approved" }),
+    );
+
+    const app = createTestApp(makeMember(["admin"]), {
+      ...testOrg,
+      visitorIntroSubjectTemplate: "新入団希望者のお知らせ",
+      visitorIntroBodyTemplate: "{lines}\n以上です。",
+      visitorIntroLineTemplate: "{name}（{part}）",
+    });
+    const res = await app.request("/visitor-applications/app-1/approve", { method: "POST" });
+    const body = await json(res);
+    expect(body.data.draft.subject).toBe("新入団希望者のお知らせ");
+    expect(body.data.draft.body).toBe("見学 太郎（テノール）\n以上です。");
   });
 
   it("見つからない: 404", async () => {

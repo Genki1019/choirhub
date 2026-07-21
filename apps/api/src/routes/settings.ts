@@ -722,4 +722,67 @@ export const settingsRouter = new Hono<TenantEnv>()
     });
 
     return c.json({ data: { token: updated.visitorFormToken } });
-  });
+  })
+
+  // ── GET /settings/visitor-intro-template ──
+  .get("/settings/visitor-intro-template", async (c) => {
+    const actingMember = c.get("member");
+    const org = c.get("org");
+
+    if (!isAdmin(actingMember)) {
+      return c.json({ error: { code: "FORBIDDEN", message: "管理者権限が必要です" } }, 403);
+    }
+
+    return c.json({
+      data: {
+        subjectTemplate: org.visitorIntroSubjectTemplate,
+        bodyTemplate: org.visitorIntroBodyTemplate,
+        lineTemplate: org.visitorIntroLineTemplate,
+      },
+    });
+  })
+
+  // ── PATCH /settings/visitor-intro-template ──
+  .patch(
+    "/settings/visitor-intro-template",
+    zValidator(
+      "json",
+      z.object({
+        subjectTemplate: z.string().min(1).max(200),
+        bodyTemplate: z.string().min(1).max(2000),
+        lineTemplate: z.string().min(1).max(500),
+      }),
+      (result, c) => {
+        if (!result.success) {
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+        }
+      },
+    ),
+    async (c) => {
+      const actingMember = c.get("member");
+      const org = c.get("org");
+
+      if (!isAdmin(actingMember)) {
+        return c.json({ error: { code: "FORBIDDEN", message: "管理者権限が必要です" } }, 403);
+      }
+
+      const { subjectTemplate, bodyTemplate, lineTemplate } = c.req.valid("json");
+
+      const updated = await prisma.organization.update({
+        where: { id: org.id },
+        data: {
+          visitorIntroSubjectTemplate: subjectTemplate,
+          visitorIntroBodyTemplate: bodyTemplate,
+          visitorIntroLineTemplate: lineTemplate,
+        },
+      });
+
+      return c.json({
+        data: {
+          subjectTemplate: updated.visitorIntroSubjectTemplate,
+          bodyTemplate: updated.visitorIntroBodyTemplate,
+          lineTemplate: updated.visitorIntroLineTemplate,
+        },
+      });
+    },
+  );

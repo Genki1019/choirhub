@@ -1,6 +1,6 @@
 # ChoirHub DB設計書
 
-**バージョン**: 1.7  
+**バージョン**: 1.8  
 **作成日**: 2026-06-04  
 **更新日**: 2026-07-21  
 **対応 Prisma Schema**: `apps/api/prisma/schema.prisma`
@@ -434,20 +434,20 @@ erDiagram
 
 ### Organization（団体）
 
-| カラム                      | 型        | 制約                               | 説明                                                                       |
-| --------------------------- | --------- | ---------------------------------- | -------------------------------------------------------------------------- |
-| id                          | CUID      | PK                                 |                                                                            |
-| name                        | VARCHAR   | NOT NULL                           | 団体名                                                                     |
-| slug                        | VARCHAR   | NOT NULL, UNIQUE                   | URLパスに使う識別子（例: `tokyo-men-choir`）                               |
-| partTemplate                | JSONB     | NOT NULL                           | パート構成テンプレート（初期パート作成用）                                 |
-| feeType                     | ENUM      | NOT NULL, DEFAULT `per_rehearsal`  | 徴収方式（per_rehearsal / monthly）                                        |
-| defaultFeeAmount            | INT       |                                    | デフォルト徴収金額（円）。Collection 自動生成時の初期値                    |
-| monthlyOrganizer            | VARCHAR   |                                    | 今月の飲み会幹事パート名（ホーム画面表示用）                               |
-| visitorFormToken            | VARCHAR   | UNIQUE                             | 見学申込Webhook用トークン（未発行時はNULL）                                |
-| visitorIntroSubjectTemplate | VARCHAR   | NOT NULL, DEFAULT `見学者のご紹介` | 見学者紹介文（メール件名）のテンプレート                                   |
-| visitorIntroBodyTemplate    | VARCHAR   | NOT NULL                           | 見学者紹介文（本文）のテンプレート。`{lines}` に見学者ごとの行が展開される |
-| visitorIntroLineTemplate    | VARCHAR   | NOT NULL                           | 見学者1名分の行テンプレート。`{name}` `{part}` `{origin}` を使用可能       |
-| createdAt                   | TIMESTAMP | NOT NULL, DEFAULT now()            |                                                                            |
+| カラム                      | 型        | 制約                               | 説明                                                                                                                             |
+| --------------------------- | --------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| id                          | CUID      | PK                                 |                                                                                                                                  |
+| name                        | VARCHAR   | NOT NULL                           | 団体名                                                                                                                           |
+| slug                        | VARCHAR   | NOT NULL, UNIQUE                   | URLパスに使う識別子（例: `tokyo-men-choir`）                                                                                     |
+| partTemplate                | JSONB     | NOT NULL                           | パート構成テンプレート（初期パート作成用）                                                                                       |
+| feeType                     | ENUM      | NOT NULL, DEFAULT `per_rehearsal`  | 徴収方式（per_rehearsal / monthly）                                                                                              |
+| defaultFeeAmount            | INT       |                                    | デフォルト徴収金額（円）。Collection 自動生成時の初期値                                                                          |
+| monthlyOrganizer            | VARCHAR   |                                    | 今月の飲み会幹事パート名（ホーム画面表示用）                                                                                     |
+| visitorFormToken            | VARCHAR   | UNIQUE                             | 見学申込Webhook用トークン（未発行時はNULL）                                                                                      |
+| visitorIntroSubjectTemplate | VARCHAR   | NOT NULL, DEFAULT `見学者のご紹介` | 見学者紹介文（メール件名）のテンプレート                                                                                         |
+| visitorIntroBodyTemplate    | VARCHAR   | NOT NULL                           | 見学者紹介文（本文）のテンプレート。`{lines}` に見学者ごとの行が展開される                                                       |
+| visitorIntroLineTemplate    | VARCHAR   | NOT NULL                           | 見学者1名分の行テンプレート。`{name}` `{part}` `{origin}` を使用可能。`[...]` で囲むと中の変数が空の場合その区間ごと非表示になる |
+| createdAt                   | TIMESTAMP | NOT NULL, DEFAULT now()            |                                                                                                                                  |
 
 ---
 

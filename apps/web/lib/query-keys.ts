@@ -41,6 +41,7 @@ export const settingsKeys = {
   fee: (org: string) => ["settings", org, "fee"] as const,
   expenseCategories: (org: string) => ["settings", org, "expenseCategories"] as const,
   visitorWebhook: (org: string) => ["settings", org, "visitorWebhook"] as const,
+  visitorIntroTemplate: (org: string) => ["settings", org, "visitorIntroTemplate"] as const,
 };
 
 export const accountingKeys = {

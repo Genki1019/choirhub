@@ -9,6 +9,7 @@ import { settingsKeys } from "@/lib/query-keys";
 import { settingsPageTitle, SETTINGS_MAIN_CLASS_NAME } from "@/lib/settings-nav";
 import { useMember } from "@/contexts/MemberContext";
 import { PageWithHeader } from "@/components/PageWithHeader";
+import { IntroTemplateCard } from "./_components/IntroTemplateCard";
 
 export default function VisitorWebhookPage() {
   const { org } = useParams<{ org: string }>();
@@ -114,6 +115,8 @@ export default function VisitorWebhookPage() {
           </p>
         )}
       </div>
+
+      <IntroTemplateCard org={org} />
     </PageWithHeader>
   );
 }

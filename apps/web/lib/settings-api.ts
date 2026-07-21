@@ -32,6 +32,12 @@ export interface VisitorWebhookSettings {
   token: string | null;
 }
 
+export interface VisitorIntroTemplate {
+  subjectTemplate: string;
+  bodyTemplate: string;
+  lineTemplate: string;
+}
+
 export const settingsApi = {
   get: (orgSlug: string) => apiClient.get<OrgSettings>(`/${orgSlug}/settings`),
 
@@ -108,4 +114,10 @@ export const settingsApi = {
 
   regenerateVisitorWebhookToken: (orgSlug: string) =>
     apiClient.post<VisitorWebhookSettings>(`/${orgSlug}/settings/visitor-webhook/regenerate`, {}),
+
+  getVisitorIntroTemplate: (orgSlug: string) =>
+    apiClient.get<VisitorIntroTemplate>(`/${orgSlug}/settings/visitor-intro-template`),
+
+  updateVisitorIntroTemplate: (orgSlug: string, data: VisitorIntroTemplate) =>
+    apiClient.patch<VisitorIntroTemplate>(`/${orgSlug}/settings/visitor-intro-template`, data),
 };

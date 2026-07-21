@@ -149,7 +149,7 @@ model Organization {
   visitorFormToken            String?  @unique @map("visitor_form_token")
   visitorIntroSubjectTemplate String   @default("見学者のご紹介") @map("visitor_intro_subject_template")
   visitorIntroBodyTemplate    String   @default("以下の方が見学にいらっしゃいます。\n\n{lines}") @map("visitor_intro_body_template")
-  visitorIntroLineTemplate    String   @default("・{name}さん（希望パート: {part} / 出身団体: {origin}）") @map("visitor_intro_line_template")
+  visitorIntroLineTemplate    String   @default("・{name}さん（希望パート: {part}[ / 出身団体: {origin}]）") @map("visitor_intro_line_template")
   createdAt                   DateTime @default(now()) @map("created_at")
 
   parts               Part[]

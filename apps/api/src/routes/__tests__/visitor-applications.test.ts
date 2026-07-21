@@ -49,7 +49,7 @@ const testOrg: Organization = {
   visitorFormToken: "webhook-token-abc",
   visitorIntroSubjectTemplate: "見学者のご紹介",
   visitorIntroBodyTemplate: "以下の方が見学にいらっしゃいます。\n\n{lines}",
-  visitorIntroLineTemplate: "・{name}さん（希望パート: {part} / 出身団体: {origin}）",
+  visitorIntroLineTemplate: "・{name}さん（希望パート: {part}[ / 出身団体: {origin}]）",
   createdAt: new Date("2024-01-01"),
 };
 
@@ -210,7 +210,7 @@ describe("POST /visitor-applications/:id/approve", () => {
     expect(body.data.draft.body).toContain("テノール");
   });
 
-  it("希望パート・出身団体が未入力: 下書きは「未定」で埋められる", async () => {
+  it("希望パートが未入力: 下書きは「未定」で埋められる", async () => {
     vi.mocked(prisma.visitorApplication.findFirst).mockResolvedValue(
       makeApplication({ partHope: null, originGroup: null }),
     );
@@ -221,7 +221,24 @@ describe("POST /visitor-applications/:id/approve", () => {
     const app = createTestApp(makeMember(["admin"]));
     const res = await app.request("/visitor-applications/app-1/approve", { method: "POST" });
     const body = await json(res);
-    expect(body.data.draft.body).toContain("希望パート: 未定 / 出身団体: 未定");
+    expect(body.data.draft.body).toContain("希望パート: 未定");
+  });
+
+  it("出身団体が未入力: 「出身団体」の区間ごと表示から消える（未定とは表示しない）", async () => {
+    vi.mocked(prisma.visitorApplication.findFirst).mockResolvedValue(
+      makeApplication({ originGroup: null }),
+    );
+    vi.mocked(prisma.visitorApplication.update).mockResolvedValue(
+      makeApplication({ status: "approved", originGroup: null }),
+    );
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/visitor-applications/app-1/approve", { method: "POST" });
+    const body = await json(res);
+    expect(body.data.draft.body).toBe(
+      "以下の方が見学にいらっしゃいます。\n\n・見学 太郎さん（希望パート: テノール）",
+    );
+    expect(body.data.draft.body).not.toContain("出身団体");
   });
 
   it("団体独自のテンプレートが設定されている場合: そのテンプレートで下書きが生成される", async () => {
@@ -312,8 +329,12 @@ describe("POST /visitor-applications/bulk-approve", () => {
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.data.applications).toHaveLength(2);
-    expect(body.data.draft.body).toContain("見学 太郎さん");
-    expect(body.data.draft.body).toContain("見学 花子さん");
+    // 太郎: 出身団体あり → 表示される / 花子: 出身団体なし → その区間ごと非表示
+    expect(body.data.draft.body).toContain(
+      "・見学 太郎さん（希望パート: テノール / 出身団体: ○○大学グリークラブ）",
+    );
+    expect(body.data.draft.body).toContain("・見学 花子さん（希望パート: ソプラノ）");
+    expect(body.data.draft.body).not.toMatch(/花子.*出身団体/);
   });
 
   it("承認可能な申込がない: 404", async () => {

@@ -41,9 +41,26 @@ function formatApplication(a: ApplicationWithRelations | VisitorApplication) {
 }
 
 // テンプレート内の {name} {part} {origin} {lines} を対応する値に置き換える。
-// 未定義の変数はそのまま残し、値がない項目は「未定」に置き換える。
-function renderTemplate(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{(\w+)\}/g, (match, key: string) => (key in vars ? vars[key] : match));
+// `[...]` で囲んだ区間は、中で参照している変数がすべて空の場合その区間ごと非表示になる
+// （例: `[ / 出身団体: {origin}]` は origin が空なら丸ごと消える）。
+// `[...]` の外にある変数は、空の場合 fallback の値（無ければ空文字）に置き換わる。
+function renderTemplate(
+  template: string,
+  vars: Record<string, string>,
+  fallback: Record<string, string> = {},
+): string {
+  const afterOptionalSegments = template.replace(/\[([^[\]]*)\]/g, (whole, inner: string) => {
+    const referenced = [...inner.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+    if (referenced.length === 0) return inner;
+    const hasValue = referenced.some((name) => vars[name]);
+    if (!hasValue) return "";
+    return inner.replace(/\{(\w+)\}/g, (m, key: string) => (key in vars ? vars[key] : m));
+  });
+
+  return afterOptionalSegments.replace(/\{(\w+)\}/g, (match, key: string) => {
+    if (!(key in vars)) return match;
+    return vars[key] || fallback[key] || "";
+  });
 }
 
 function buildIntroDraft(
@@ -54,11 +71,11 @@ function buildIntroDraft(
   applications: Pick<VisitorApplication, "name" | "partHope" | "originGroup">[],
 ): { subject: string; body: string } {
   const lines = applications.map((a) =>
-    renderTemplate(org.visitorIntroLineTemplate, {
-      name: a.name,
-      part: a.partHope || "未定",
-      origin: a.originGroup || "未定",
-    }),
+    renderTemplate(
+      org.visitorIntroLineTemplate,
+      { name: a.name, part: a.partHope ?? "", origin: a.originGroup ?? "" },
+      { part: "未定", origin: "未定" },
+    ),
   );
 
   return {

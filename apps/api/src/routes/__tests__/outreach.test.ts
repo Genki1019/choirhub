@@ -41,7 +41,7 @@ const testOrg: Organization = {
   visitorFormToken: null,
   visitorIntroSubjectTemplate: "見学者のご紹介",
   visitorIntroBodyTemplate: "以下の方が見学にいらっしゃいます。\n\n{lines}",
-  visitorIntroLineTemplate: "・{name}さん（希望パート: {part} / 出身団体: {origin}）",
+  visitorIntroLineTemplate: "・{name}さん（希望パート: {part}[ / 出身団体: {origin}]）",
   createdAt: new Date("2024-01-01"),
 };
 

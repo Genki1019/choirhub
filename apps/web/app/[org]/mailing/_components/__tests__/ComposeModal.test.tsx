@@ -270,3 +270,22 @@ describe("ComposeModal（閉じる）", () => {
     expect(onClose).toHaveBeenCalledTimes(3);
   });
 });
+
+describe("ComposeModal（下書きの事前入力）", () => {
+  it("initialSubject/initialBody/initialRecipientTypeで初期値が入った状態で開く", () => {
+    renderModal({
+      initialSubject: "見学者のご紹介",
+      initialBody: "・見学 太郎さん（希望パート: テノール）",
+      initialRecipientType: "all",
+    });
+
+    expect(screen.getByDisplayValue("見学者のご紹介")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("・見学 太郎さん（希望パート: テノール）")).toBeInTheDocument();
+  });
+
+  it("初期値を渡さない場合は空の状態で開く（既存呼び出し元への影響なし）", () => {
+    renderModal();
+
+    expect(screen.getByPlaceholderText("例: 6月練習のご案内")).toHaveValue("");
+  });
+});

@@ -16,6 +16,11 @@ function isResendConfigured(): boolean {
   );
 }
 
+// メールHTMLに埋め込む前にユーザー入力由来の文字列をエスケープする（XSS/HTML injection対策）
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 function buildInviteHtml(params: {
   greeting: string;
   orgName: string;
@@ -24,13 +29,16 @@ function buildInviteHtml(params: {
   devNotice?: string;
 }): string {
   const { greeting, orgName, inviteUrl, expiresLabel, devNotice } = params;
+  const safeGreeting = escapeHtml(greeting);
+  const safeOrgName = escapeHtml(orgName);
+  const safeDevNotice = devNotice ? escapeHtml(devNotice) : undefined;
   return `
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${orgName} への招待</title>
+  <title>${safeOrgName} への招待</title>
 </head>
 <body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
@@ -52,7 +60,7 @@ function buildInviteHtml(params: {
           <!-- 開発用注記 -->
           <tr>
             <td style="background:#fef3c7;padding:12px 40px;border-bottom:1px solid #fde68a;">
-              <p style="margin:0;font-size:12px;color:#92400e;">🔧 開発環境テスト送信 — ${devNotice}</p>
+              <p style="margin:0;font-size:12px;color:#92400e;">🔧 開発環境テスト送信 — ${safeDevNotice}</p>
             </td>
           </tr>`
               : ""
@@ -61,9 +69,9 @@ function buildInviteHtml(params: {
           <!-- 本文 -->
           <tr>
             <td style="padding:36px 40px 28px;">
-              <p style="margin:0 0 8px;font-size:15px;color:#374151;">${greeting}</p>
+              <p style="margin:0 0 8px;font-size:15px;color:#374151;">${safeGreeting}</p>
               <p style="margin:0 0 24px;font-size:15px;color:#374151;">
-                <strong>${orgName}</strong> からChoirHubへの招待が届いています。<br />
+                <strong>${safeOrgName}</strong> からChoirHubへの招待が届いています。<br />
                 下のボタンからパスワードを設定して、利用を開始してください。
               </p>
 
@@ -119,26 +127,25 @@ function buildBulkMailHtml(params: {
   devNotice?: string;
 }): string {
   const { orgName, subject, body, devNotice } = params;
-  const htmlBody = body
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\n/g, "<br />");
+  const safeOrgName = escapeHtml(orgName);
+  const safeSubject = escapeHtml(subject);
+  const safeDevNotice = devNotice ? escapeHtml(devNotice) : undefined;
+  const htmlBody = escapeHtml(body).replace(/\n/g, "<br />");
 
   return `<!DOCTYPE html>
 <html lang="ja">
-<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1.0" /><title>${subject}</title></head>
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1.0" /><title>${safeSubject}</title></head>
 <body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
     <tr><td align="center">
       <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;border:1px solid #e5e7eb;overflow:hidden;">
         <tr><td style="background:#2563eb;padding:24px 40px;">
-          <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">${orgName}</p>
+          <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">${safeOrgName}</p>
           <p style="margin:4px 0 0;font-size:12px;color:#bfdbfe;">ChoirHub</p>
         </td></tr>
-        ${devNotice ? `<tr><td style="background:#fef3c7;padding:12px 40px;border-bottom:1px solid #fde68a;"><p style="margin:0;font-size:12px;color:#92400e;">🔧 開発環境テスト送信 — ${devNotice}</p></td></tr>` : ""}
+        ${safeDevNotice ? `<tr><td style="background:#fef3c7;padding:12px 40px;border-bottom:1px solid #fde68a;"><p style="margin:0;font-size:12px;color:#92400e;">🔧 開発環境テスト送信 — ${safeDevNotice}</p></td></tr>` : ""}
         <tr><td style="padding:32px 40px;">
-          <p style="margin:0 0 20px;font-size:18px;font-weight:600;color:#111827;">${subject}</p>
+          <p style="margin:0 0 20px;font-size:18px;font-weight:600;color:#111827;">${safeSubject}</p>
           <p style="margin:0;font-size:15px;color:#374151;line-height:1.7;">${htmlBody}</p>
         </td></tr>
         <tr><td style="background:#f9fafb;padding:16px 40px;border-top:1px solid #f3f4f6;">
@@ -158,6 +165,8 @@ function buildPasswordResetHtml(params: {
   devNotice?: string;
 }): string {
   const { nameJa, resetUrl, expiresLabel, devNotice } = params;
+  const safeNameJa = escapeHtml(nameJa);
+  const safeDevNotice = devNotice ? escapeHtml(devNotice) : undefined;
   return `
 <!DOCTYPE html>
 <html lang="ja">
@@ -177,10 +186,10 @@ function buildPasswordResetHtml(params: {
               <p style="margin:4px 0 0;font-size:13px;color:#bfdbfe;">合唱団運営支援サービス</p>
             </td>
           </tr>
-          ${devNotice ? `<tr><td style="background:#fef3c7;padding:12px 40px;border-bottom:1px solid #fde68a;"><p style="margin:0;font-size:12px;color:#92400e;">🔧 開発環境テスト送信 — ${devNotice}</p></td></tr>` : ""}
+          ${safeDevNotice ? `<tr><td style="background:#fef3c7;padding:12px 40px;border-bottom:1px solid #fde68a;"><p style="margin:0;font-size:12px;color:#92400e;">🔧 開発環境テスト送信 — ${safeDevNotice}</p></td></tr>` : ""}
           <tr>
             <td style="padding:36px 40px 28px;">
-              <p style="margin:0 0 8px;font-size:15px;color:#374151;">${nameJa} さん</p>
+              <p style="margin:0 0 8px;font-size:15px;color:#374151;">${safeNameJa} さん</p>
               <p style="margin:0 0 24px;font-size:15px;color:#374151;">
                 パスワードのリセットをリクエストを受け付けました。<br />
                 下のボタンから新しいパスワードを設定してください。

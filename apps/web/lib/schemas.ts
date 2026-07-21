@@ -23,6 +23,14 @@ export const inviteMemberSchema = z.object({
   roles: z.array(z.string()).min(1, "ロールを1つ以上選択してください"),
 });
 
+export const addVisitorApplicationSchema = z.object({
+  name: z.string().min(1, "お名前を入力してください"),
+  partHope: z.string().optional(),
+  originGroup: z.string().optional(),
+  contact: z.string().optional(),
+  message: z.string().optional(),
+});
+
 export const passwordResetRequestSchema = z.object({
   email: z.string().email("有効なメールアドレスを入力してください"),
 });
@@ -40,5 +48,6 @@ export const passwordResetConfirmSchema = z
 export type LoginInput = z.infer<typeof loginSchema>;
 export type InviteAcceptInput = z.infer<typeof inviteAcceptSchema>;
 export type InviteMemberInput = z.infer<typeof inviteMemberSchema>;
+export type AddVisitorApplicationInput = z.infer<typeof addVisitorApplicationSchema>;
 export type PasswordResetRequestInput = z.infer<typeof passwordResetRequestSchema>;
 export type PasswordResetConfirmInput = z.infer<typeof passwordResetConfirmSchema>;

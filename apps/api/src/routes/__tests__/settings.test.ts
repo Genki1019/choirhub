@@ -64,6 +64,10 @@ const testOrg: Organization = {
   monthlyOrganizer: null,
   feeType: "per_rehearsal",
   defaultFeeAmount: null,
+  visitorFormToken: null,
+  visitorIntroSubjectTemplate: "見学者のご紹介",
+  visitorIntroBodyTemplate: "以下の方が見学にいらっしゃいます。\n\n{lines}",
+  visitorIntroLineTemplate: "・{name}さん（希望パート: {part}[ / 出身団体: {origin}]）",
   createdAt: new Date("2024-01-01"),
 };
 
@@ -1428,5 +1432,159 @@ describe("DELETE /settings/event-categories/:categoryId", () => {
     const res = await app.request("/settings/event-categories/cat-4", { method: "DELETE" });
     expect(res.status).toBe(204);
     expect(prisma.eventCategory.delete).toHaveBeenCalledWith({ where: { id: "cat-4" } });
+  });
+});
+
+// ────────────────────────────
+// GET /settings/visitor-webhook
+// ────────────────────────────
+
+describe("GET /settings/visitor-webhook", () => {
+  it("admin未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/settings/visitor-webhook");
+    expect(res.status).toBe(403);
+  });
+
+  it("admin: 200でtokenを返す", async () => {
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/visitor-webhook");
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ token: null });
+  });
+});
+
+// ────────────────────────────
+// POST /settings/visitor-webhook/regenerate
+// ────────────────────────────
+
+describe("POST /settings/visitor-webhook/regenerate", () => {
+  it("admin未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/settings/visitor-webhook/regenerate", { method: "POST" });
+    expect(res.status).toBe(403);
+  });
+
+  it("admin: 200で新しいtokenを発行する", async () => {
+    vi.mocked(prisma.organization.update).mockResolvedValue({
+      ...testOrg,
+      visitorFormToken: "new-token-123",
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/visitor-webhook/regenerate", { method: "POST" });
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.token).toBe("new-token-123");
+    expect(prisma.organization.update).toHaveBeenCalledWith({
+      where: { id: "org-1" },
+      data: { visitorFormToken: expect.any(String) },
+    });
+  });
+});
+
+// ────────────────────────────
+// GET /settings/visitor-intro-template
+// ────────────────────────────
+
+describe("GET /settings/visitor-intro-template", () => {
+  it("admin未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/settings/visitor-intro-template");
+    expect(res.status).toBe(403);
+  });
+
+  it("admin: 200で現在のテンプレートを返す", async () => {
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/visitor-intro-template");
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({
+      subjectTemplate: testOrg.visitorIntroSubjectTemplate,
+      bodyTemplate: testOrg.visitorIntroBodyTemplate,
+      lineTemplate: testOrg.visitorIntroLineTemplate,
+    });
+  });
+});
+
+// ────────────────────────────
+// PATCH /settings/visitor-intro-template
+// ────────────────────────────
+
+describe("PATCH /settings/visitor-intro-template", () => {
+  it("admin未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/settings/visitor-intro-template", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subjectTemplate: "件名",
+        bodyTemplate: "本文{lines}",
+        lineTemplate: "{name}",
+      }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("admin: 200でテンプレートを更新する", async () => {
+    vi.mocked(prisma.organization.update).mockResolvedValue({
+      ...testOrg,
+      visitorIntroSubjectTemplate: "新しい件名",
+      visitorIntroBodyTemplate: "新しい本文\n{lines}",
+      visitorIntroLineTemplate: "{name}さん / {part} / {origin}",
+    });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/visitor-intro-template", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subjectTemplate: "新しい件名",
+        bodyTemplate: "新しい本文\n{lines}",
+        lineTemplate: "{name}さん / {part} / {origin}",
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({
+      subjectTemplate: "新しい件名",
+      bodyTemplate: "新しい本文\n{lines}",
+      lineTemplate: "{name}さん / {part} / {origin}",
+    });
+    expect(prisma.organization.update).toHaveBeenCalledWith({
+      where: { id: "org-1" },
+      data: {
+        visitorIntroSubjectTemplate: "新しい件名",
+        visitorIntroBodyTemplate: "新しい本文\n{lines}",
+        visitorIntroLineTemplate: "{name}さん / {part} / {origin}",
+      },
+    });
+  });
+
+  it("空文字: 400を返す", async () => {
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/visitor-intro-template", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subjectTemplate: "",
+        bodyTemplate: "{lines}",
+        lineTemplate: "{name}",
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("bodyTemplateに{lines}が含まれない: 400を返す", async () => {
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/visitor-intro-template", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subjectTemplate: "件名",
+        bodyTemplate: "見学者の行を含まない本文",
+        lineTemplate: "{name}",
+      }),
+    });
+    expect(res.status).toBe(400);
   });
 });

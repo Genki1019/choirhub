@@ -5,6 +5,7 @@ export const SETTINGS_NAV_ITEMS = [
   { label: "支出カテゴリ", suffix: "/expense-categories" },
   { label: "メンバー区分", suffix: "/member-types" },
   { label: "イベント区分", suffix: "/event-categories" },
+  { label: "見学申込設定", suffix: "/visitor-webhook" },
 ] as const;
 
 export function settingsPageTitle(suffix: string): string {

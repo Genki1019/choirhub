@@ -220,12 +220,23 @@ export interface ComposeModalProps {
   parts: PartSummary[];
   onClose: () => void;
   onSent: () => void;
+  initialSubject?: string;
+  initialBody?: string;
+  initialRecipientType?: RecipientType;
 }
 
-export function ComposeModal({ orgSlug, parts, onClose, onSent }: ComposeModalProps) {
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
-  const [recipientType, setRecipientType] = useState<RecipientType>("all");
+export function ComposeModal({
+  orgSlug,
+  parts,
+  onClose,
+  onSent,
+  initialSubject = "",
+  initialBody = "",
+  initialRecipientType = "all",
+}: ComposeModalProps) {
+  const [subject, setSubject] = useState(initialSubject);
+  const [body, setBody] = useState(initialBody);
+  const [recipientType, setRecipientType] = useState<RecipientType>(initialRecipientType);
   const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set());
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set());
   const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());

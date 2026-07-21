@@ -305,6 +305,22 @@ describe("POST /visitor-applications/:id/reject", () => {
     const res = await app.request("/visitor-applications/app-1/reject", { method: "POST" });
     expect(res.status).toBe(403);
   });
+
+  it("見つからない: 404", async () => {
+    vi.mocked(prisma.visitorApplication.findFirst).mockResolvedValue(null);
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/visitor-applications/missing/reject", { method: "POST" });
+    expect(res.status).toBe(404);
+  });
+
+  it("処理済み: 409", async () => {
+    vi.mocked(prisma.visitorApplication.findFirst).mockResolvedValue(
+      makeApplication({ status: "rejected" }),
+    );
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/visitor-applications/app-1/reject", { method: "POST" });
+    expect(res.status).toBe(409);
+  });
 });
 
 // ────────────────────────────

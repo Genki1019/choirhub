@@ -1573,4 +1573,18 @@ describe("PATCH /settings/visitor-intro-template", () => {
     });
     expect(res.status).toBe(400);
   });
+
+  it("bodyTemplateに{lines}が含まれない: 400を返す", async () => {
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/visitor-intro-template", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subjectTemplate: "件名",
+        bodyTemplate: "見学者の行を含まない本文",
+        lineTemplate: "{name}",
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
 });

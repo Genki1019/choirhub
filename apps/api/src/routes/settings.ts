@@ -749,7 +749,13 @@ export const settingsRouter = new Hono<TenantEnv>()
       "json",
       z.object({
         subjectTemplate: z.string().min(1).max(200),
-        bodyTemplate: z.string().min(1).max(2000),
+        bodyTemplate: z
+          .string()
+          .min(1)
+          .max(2000)
+          .refine((v) => v.includes("{lines}"), {
+            message: "本文には {lines} を含めてください",
+          }),
         lineTemplate: z.string().min(1).max(500),
       }),
       (result, c) => {

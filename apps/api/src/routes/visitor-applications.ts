@@ -7,6 +7,7 @@ import { sendBulkMail } from "../services/mail.js";
 import { logger } from "../lib/logger.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 import type {
+  Member,
   Organization,
   VisitorApplication,
   VisitorApplicationStatus,
@@ -17,13 +18,12 @@ const applicationInclude = {
   reviewedBy: { select: { id: true, userRef: { select: { nameJa: true } } } },
 } as const;
 
-type ApplicationWithRelations = VisitorApplication & {
-  createdBy: { id: string; userRef: { nameJa: string } } | null;
-  reviewedBy: { id: string; userRef: { nameJa: string } } | null;
+type ApplicationForFormat = VisitorApplication & {
+  createdBy?: { id: string; userRef: { nameJa: string } } | null;
+  reviewedBy?: { id: string; userRef: { nameJa: string } } | null;
 };
 
-function formatApplication(a: ApplicationWithRelations | VisitorApplication) {
-  const withRelations = a as ApplicationWithRelations;
+function formatApplication(a: ApplicationForFormat) {
   return {
     id: a.id,
     name: a.name,
@@ -33,17 +33,28 @@ function formatApplication(a: ApplicationWithRelations | VisitorApplication) {
     message: a.message,
     source: a.source,
     status: a.status,
-    createdByName: withRelations.createdBy?.userRef.nameJa ?? null,
-    reviewedByName: withRelations.reviewedBy?.userRef.nameJa ?? null,
+    createdByName: a.createdBy?.userRef.nameJa ?? null,
+    reviewedByName: a.reviewedBy?.userRef.nameJa ?? null,
     reviewedAt: a.reviewedAt,
     createdAt: a.createdAt,
   };
 }
 
-// テンプレート内の {name} {part} {origin} {lines} を対応する値に置き換える。
-// `[...]` で囲んだ区間は、中で参照している変数がすべて空の場合その区間ごと非表示になる
+// {key} をvarsの値に置き換える。keyが未知の場合は元のまま残す。
+function substituteVars(
+  text: string,
+  vars: Record<string, string>,
+  fallback: Record<string, string> = {},
+): string {
+  return text.replace(/\{(\w+)\}/g, (match, key: string) =>
+    key in vars ? vars[key] || fallback[key] || "" : match,
+  );
+}
+
+// `[...]` で囲んだ区間は、中で参照している変数がすべて空なら区間ごと非表示になる
 // （例: `[ / 出身団体: {origin}]` は origin が空なら丸ごと消える）。
-// `[...]` の外にある変数は、空の場合 fallback の値（無ければ空文字）に置き換わる。
+// `[...]` の外の変数は、空なら fallback の値に置き換わる。
+// フロントの IntroTemplateCard.tsx にプレビュー用の同一ロジックがあるため、変更時は両方揃える。
 function renderTemplate(
   template: string,
   vars: Record<string, string>,
@@ -53,14 +64,10 @@ function renderTemplate(
     const referenced = [...inner.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
     if (referenced.length === 0) return inner;
     const hasValue = referenced.some((name) => vars[name]);
-    if (!hasValue) return "";
-    return inner.replace(/\{(\w+)\}/g, (m, key: string) => (key in vars ? vars[key] : m));
+    return hasValue ? substituteVars(inner, vars) : "";
   });
 
-  return afterOptionalSegments.replace(/\{(\w+)\}/g, (match, key: string) => {
-    if (!(key in vars)) return match;
-    return vars[key] || fallback[key] || "";
-  });
+  return substituteVars(afterOptionalSegments, vars, fallback);
 }
 
 function buildIntroDraft(
@@ -110,6 +117,34 @@ async function notifyAdmins(org: Organization, application: VisitorApplication):
   } catch (err) {
     logger.error("[visitor-applications] 通知メール送信失敗:", err);
   }
+}
+
+type ReviewResult =
+  | { ok: true; application: VisitorApplication }
+  | { ok: false; code: "NOT_FOUND" | "CONFLICT"; message: string; status: 404 | 409 };
+
+// 承認・却下の共通処理（対象の存在確認・pending状態チェック・ステータス更新）
+async function reviewApplication(
+  org: Organization,
+  actingMember: Member,
+  id: string,
+  status: "approved" | "rejected",
+): Promise<ReviewResult> {
+  const application = await prisma.visitorApplication.findFirst({
+    where: { id, orgId: org.id },
+  });
+  if (!application) {
+    return { ok: false, code: "NOT_FOUND", message: "見学申込が見つかりません", status: 404 };
+  }
+  if (application.status !== "pending") {
+    return { ok: false, code: "CONFLICT", message: "既に処理済みの申込です", status: 409 };
+  }
+
+  const updated = await prisma.visitorApplication.update({
+    where: { id },
+    data: { status, reviewedById: actingMember.id, reviewedAt: new Date() },
+  });
+  return { ok: true, application: updated };
 }
 
 const createApplicationSchema = z.object({
@@ -195,23 +230,16 @@ export const visitorApplicationsRouter = new Hono<TenantEnv>()
       return c.json({ error: { code: "FORBIDDEN", message: "管理者権限が必要です" } }, 403);
     }
 
-    const application = await prisma.visitorApplication.findFirst({
-      where: { id, orgId: org.id },
-    });
-    if (!application) {
-      return c.json({ error: { code: "NOT_FOUND", message: "見学申込が見つかりません" } }, 404);
+    const result = await reviewApplication(org, actingMember, id, "approved");
+    if (!result.ok) {
+      return c.json({ error: { code: result.code, message: result.message } }, result.status);
     }
-    if (application.status !== "pending") {
-      return c.json({ error: { code: "CONFLICT", message: "既に処理済みの申込です" } }, 409);
-    }
-
-    const updated = await prisma.visitorApplication.update({
-      where: { id },
-      data: { status: "approved", reviewedById: actingMember.id, reviewedAt: new Date() },
-    });
 
     return c.json({
-      data: { application: formatApplication(updated), draft: buildIntroDraft(org, [updated]) },
+      data: {
+        application: formatApplication(result.application),
+        draft: buildIntroDraft(org, [result.application]),
+      },
     });
   })
 
@@ -225,22 +253,12 @@ export const visitorApplicationsRouter = new Hono<TenantEnv>()
       return c.json({ error: { code: "FORBIDDEN", message: "管理者権限が必要です" } }, 403);
     }
 
-    const application = await prisma.visitorApplication.findFirst({
-      where: { id, orgId: org.id },
-    });
-    if (!application) {
-      return c.json({ error: { code: "NOT_FOUND", message: "見学申込が見つかりません" } }, 404);
-    }
-    if (application.status !== "pending") {
-      return c.json({ error: { code: "CONFLICT", message: "既に処理済みの申込です" } }, 409);
+    const result = await reviewApplication(org, actingMember, id, "rejected");
+    if (!result.ok) {
+      return c.json({ error: { code: result.code, message: result.message } }, result.status);
     }
 
-    const updated = await prisma.visitorApplication.update({
-      where: { id },
-      data: { status: "rejected", reviewedById: actingMember.id, reviewedAt: new Date() },
-    });
-
-    return c.json({ data: formatApplication(updated) });
+    return c.json({ data: formatApplication(result.application) });
   })
 
   // ── POST /visitor-applications/bulk-approve ──

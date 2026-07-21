@@ -17,6 +17,9 @@ vi.mock("@/lib/settings-api", async () => {
     settingsApi: {
       getVisitorWebhookToken: vi.fn(),
       regenerateVisitorWebhookToken: vi.fn(),
+      // このページはIntroTemplateCardも描画するため、そちらが呼ぶAPIもモックしておく（既定値はbeforeEachで設定）
+      getVisitorIntroTemplate: vi.fn(),
+      updateVisitorIntroTemplate: vi.fn(),
     },
   };
 });
@@ -44,6 +47,11 @@ function stubClipboard() {
 beforeEach(() => {
   vi.resetAllMocks();
   stubClipboard();
+  vi.mocked(settingsApi.getVisitorIntroTemplate).mockResolvedValue({
+    subjectTemplate: "見学者のご紹介",
+    bodyTemplate: "以下の方が見学にいらっしゃいます。\n\n{lines}",
+    lineTemplate: "・{name}さん（希望パート: {part}[ / 出身団体: {origin}]）",
+  });
 });
 
 describe("VisitorWebhookPage", () => {
@@ -75,6 +83,22 @@ describe("VisitorWebhookPage", () => {
     await waitFor(() => {
       expect(screen.getByDisplayValue("new-token")).toBeInTheDocument();
     });
+  });
+
+  it("発行に失敗した場合はエラーメッセージを表示する", async () => {
+    vi.mocked(settingsApi.getVisitorWebhookToken).mockResolvedValue({ token: null });
+    vi.mocked(settingsApi.regenerateVisitorWebhookToken).mockRejectedValue(
+      new Error("network error"),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("発行する");
+    await user.click(screen.getByText("発行する"));
+
+    expect(
+      await screen.findByText("トークンの発行に失敗しました。もう一度お試しください。"),
+    ).toBeInTheDocument();
   });
 
   it("Webhook URLをコピーできる", async () => {

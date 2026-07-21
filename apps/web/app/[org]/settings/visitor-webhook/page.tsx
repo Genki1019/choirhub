@@ -8,6 +8,7 @@ import { settingsApi } from "@/lib/settings-api";
 import { settingsKeys } from "@/lib/query-keys";
 import { settingsPageTitle, SETTINGS_MAIN_CLASS_NAME } from "@/lib/settings-nav";
 import { useMember } from "@/contexts/MemberContext";
+import { useClipboardCopy } from "@/hooks/useClipboardCopy";
 import { PageWithHeader } from "@/components/PageWithHeader";
 import { IntroTemplateCard } from "./_components/IntroTemplateCard";
 
@@ -17,7 +18,8 @@ export default function VisitorWebhookPage() {
   const queryClient = useQueryClient();
   const isAdmin = roles.includes("admin");
   const [regenerating, setRegenerating] = useState(false);
-  const [copied, setCopied] = useState<"url" | "token" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const { copiedKey, copy } = useClipboardCopy();
   // Next.jsのrewriteで /api/v1/* は常にAPIへプロキシされるため、
   // NEXT_PUBLIC_API_URL未設定環境でも同一オリジンのURLがそのまま使える
   const [webhookUrl, setWebhookUrl] = useState("/api/v1/public/visitor-applications");
@@ -36,18 +38,15 @@ export default function VisitorWebhookPage() {
 
   const handleRegenerate = async () => {
     setRegenerating(true);
+    setError(null);
     try {
       const updated = await settingsApi.regenerateVisitorWebhookToken(org);
       queryClient.setQueryData(settingsKeys.visitorWebhook(org), updated);
+    } catch {
+      setError("トークンの発行に失敗しました。もう一度お試しください。");
     } finally {
       setRegenerating(false);
     }
-  };
-
-  const copy = (value: string, key: "url" | "token") => {
-    navigator.clipboard.writeText(value);
-    setCopied(key);
-    setTimeout(() => setCopied(null), 2000);
   };
 
   return (
@@ -98,7 +97,7 @@ export default function VisitorWebhookPage() {
               </button>
             )}
           </div>
-          {copied && <p className="mt-1 text-xs text-teal-600">コピーしました</p>}
+          {copiedKey && <p className="mt-1 text-xs text-teal-600">コピーしました</p>}
         </div>
 
         <button
@@ -114,6 +113,7 @@ export default function VisitorWebhookPage() {
             再発行すると、これまでのトークンを使ったWebhookは無効になります。
           </p>
         )}
+        {error && <p className="text-xs text-red-500">{error}</p>}
       </div>
 
       <IntroTemplateCard org={org} />

@@ -149,6 +149,35 @@ describe("VisitorApplicationsPage", () => {
     });
   });
 
+  it("承認に失敗した場合はエラーメッセージを表示する", async () => {
+    vi.mocked(visitorApplicationsApi.listPending).mockResolvedValue(makeApplications());
+    vi.mocked(visitorApplicationsApi.approve).mockRejectedValue(new Error("network error"));
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("見学 太郎");
+    await user.click(screen.getAllByText("承認")[0]);
+
+    expect(
+      await screen.findByText("操作に失敗しました。もう一度お試しください。"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("見学 太郎")).toBeInTheDocument();
+  });
+
+  it("却下に失敗した場合はエラーメッセージを表示する", async () => {
+    vi.mocked(visitorApplicationsApi.listPending).mockResolvedValue(makeApplications());
+    vi.mocked(visitorApplicationsApi.reject).mockRejectedValue(new Error("network error"));
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("見学 太郎");
+    await user.click(screen.getAllByText("却下")[0]);
+
+    expect(
+      await screen.findByText("操作に失敗しました。もう一度お試しください。"),
+    ).toBeInTheDocument();
+  });
+
   it("チェックボックスで複数選択し、一括承認できる", async () => {
     vi.mocked(visitorApplicationsApi.listPending).mockResolvedValue(makeApplications());
     vi.mocked(visitorApplicationsApi.bulkApprove).mockResolvedValue({
@@ -178,6 +207,23 @@ describe("VisitorApplicationsPage", () => {
       expect(screen.queryByText("見学 太郎")).not.toBeInTheDocument();
       expect(screen.queryByText("見学 花子")).not.toBeInTheDocument();
     });
+  });
+
+  it("一括承認に失敗した場合はエラーメッセージを表示する", async () => {
+    vi.mocked(visitorApplicationsApi.listPending).mockResolvedValue(makeApplications());
+    vi.mocked(visitorApplicationsApi.bulkApprove).mockRejectedValue(new Error("network error"));
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("見学 太郎");
+    const checkboxes = screen.getAllByRole("checkbox");
+    await user.click(checkboxes[0]);
+    await user.click(screen.getByText("選択した1件を一括承認"));
+
+    expect(
+      await screen.findByText("操作に失敗しました。もう一度お試しください。"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("見学 太郎")).toBeInTheDocument();
   });
 
   it("テキストをコピーするとクリップボードに整形テキストが入る", async () => {

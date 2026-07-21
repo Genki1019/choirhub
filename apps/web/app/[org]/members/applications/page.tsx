@@ -7,10 +7,13 @@ import { Check, X, Loader2, Copy, Mail } from "lucide-react";
 import { visitorApplicationsApi } from "@/lib/visitor-applications-api";
 import { membersApi } from "@/lib/members-api";
 import { useMember } from "@/contexts/MemberContext";
+import { useClipboardCopy } from "@/hooks/useClipboardCopy";
 import { memberKeys, visitorApplicationKeys } from "@/lib/query-keys";
 import type { VisitorApplication, VisitorApplicationDraft } from "@/lib/api-types";
 import { PageWithHeader } from "@/components/PageWithHeader";
 import { ComposeModal } from "../../mailing/_components/ComposeModal";
+
+const ERROR_MESSAGE = "操作に失敗しました。もう一度お試しください。";
 
 // 「テキストをコピーする」だけで紹介メールをまだ送っていない下書きを、
 // 画面遷移で見失わないようセッション中は保持しておく
@@ -40,7 +43,8 @@ export default function VisitorApplicationsPage() {
   const [processing, setProcessing] = useState<string | null>(null);
   const [draft, setDraft] = useState<VisitorApplicationDraft | null>(() => loadStoredDraft(org));
   const [showCompose, setShowCompose] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { copiedKey, copy, reset: resetCopied } = useClipboardCopy();
 
   useEffect(() => {
     const key = draftStorageKey(org);
@@ -82,11 +86,14 @@ export default function VisitorApplicationsPage() {
 
   const handleApprove = async (id: string) => {
     setProcessing(id);
+    setError(null);
     try {
       const result = await visitorApplicationsApi.approve(org, id);
       removeFromList([id]);
       setDraft(result.draft);
-      setCopied(false);
+      resetCopied();
+    } catch {
+      setError(ERROR_MESSAGE);
     } finally {
       setProcessing(null);
     }
@@ -94,9 +101,12 @@ export default function VisitorApplicationsPage() {
 
   const handleReject = async (id: string) => {
     setProcessing(id);
+    setError(null);
     try {
       await visitorApplicationsApi.reject(org, id);
       removeFromList([id]);
+    } catch {
+      setError(ERROR_MESSAGE);
     } finally {
       setProcessing(null);
     }
@@ -106,11 +116,14 @@ export default function VisitorApplicationsPage() {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     setProcessing("bulk");
+    setError(null);
     try {
       const result = await visitorApplicationsApi.bulkApprove(org, ids);
       removeFromList(ids);
       setDraft(result.draft);
-      setCopied(false);
+      resetCopied();
+    } catch {
+      setError(ERROR_MESSAGE);
     } finally {
       setProcessing(null);
     }
@@ -171,17 +184,20 @@ export default function VisitorApplicationsPage() {
               今すぐ紹介メールを送る
             </button>
             <button
-              onClick={() => {
-                navigator.clipboard.writeText(draft.body);
-                setCopied(true);
-              }}
+              onClick={() => copy(draft.body, "draft")}
               className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
             >
               <Copy size={14} />
-              {copied ? "コピーしました" : "テキストをコピーする"}
+              {copiedKey === "draft" ? "コピーしました" : "テキストをコピーする"}
             </button>
           </div>
         </div>
+      )}
+
+      {error && (
+        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+          {error}
+        </p>
       )}
 
       {applications.length === 0 ? (

@@ -17,8 +17,18 @@ const PREVIEW_SAMPLE = [
   { name: "見学 花子", part: "", origin: "" },
 ];
 
-// バックエンドの renderTemplate と同じ規則:
-// `[...]` は中の変数がすべて空なら区間ごと非表示、`[...]` の外の変数は空なら fallback（無ければ空文字）
+// プレビュー専用の簡易実装。ロジックは apps/api/src/routes/visitor-applications.ts の
+// renderTemplate と同一のルールに揃えてあるため、どちらかを変更したら両方直すこと。
+function substituteVars(
+  text: string,
+  vars: Record<string, string>,
+  fallback: Record<string, string> = {},
+): string {
+  return text.replace(/\{(\w+)\}/g, (match, key: string) =>
+    key in vars ? vars[key] || fallback[key] || "" : match,
+  );
+}
+
 function renderTemplate(
   template: string,
   vars: Record<string, string>,
@@ -28,14 +38,10 @@ function renderTemplate(
     const referenced = [...inner.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
     if (referenced.length === 0) return inner;
     const hasValue = referenced.some((name) => vars[name]);
-    if (!hasValue) return "";
-    return inner.replace(/\{(\w+)\}/g, (m, key: string) => (key in vars ? vars[key] : m));
+    return hasValue ? substituteVars(inner, vars) : "";
   });
 
-  return afterOptionalSegments.replace(/\{(\w+)\}/g, (match, key: string) => {
-    if (!(key in vars)) return match;
-    return vars[key] || fallback[key] || "";
-  });
+  return substituteVars(afterOptionalSegments, vars, fallback);
 }
 
 function buildPreview(template: VisitorIntroTemplate): { subject: string; body: string } {

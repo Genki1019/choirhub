@@ -12,6 +12,23 @@ import type { VisitorApplication, VisitorApplicationDraft } from "@/lib/api-type
 import { PageWithHeader } from "@/components/PageWithHeader";
 import { ComposeModal } from "../../mailing/_components/ComposeModal";
 
+// 「テキストをコピーする」だけで紹介メールをまだ送っていない下書きを、
+// 画面遷移で見失わないようセッション中は保持しておく
+function draftStorageKey(org: string): string {
+  return `visitorApplicationDraft:${org}`;
+}
+
+function loadStoredDraft(org: string): VisitorApplicationDraft | null {
+  if (typeof window === "undefined") return null;
+  const stored = sessionStorage.getItem(draftStorageKey(org));
+  if (!stored) return null;
+  try {
+    return JSON.parse(stored) as VisitorApplicationDraft;
+  } catch {
+    return null;
+  }
+}
+
 export default function VisitorApplicationsPage() {
   const { org } = useParams<{ org: string }>();
   const router = useRouter();
@@ -21,9 +38,18 @@ export default function VisitorApplicationsPage() {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [processing, setProcessing] = useState<string | null>(null);
-  const [draft, setDraft] = useState<VisitorApplicationDraft | null>(null);
+  const [draft, setDraft] = useState<VisitorApplicationDraft | null>(() => loadStoredDraft(org));
   const [showCompose, setShowCompose] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const key = draftStorageKey(org);
+    if (draft) {
+      sessionStorage.setItem(key, JSON.stringify(draft));
+    } else {
+      sessionStorage.removeItem(key);
+    }
+  }, [draft, org]);
 
   const { data: applications = [], isLoading } = useQuery({
     queryKey: visitorApplicationKeys.pending(org),
@@ -123,7 +149,19 @@ export default function VisitorApplicationsPage() {
     >
       {draft && (
         <div className="mb-4 space-y-3 rounded-xl border border-teal-200 bg-teal-50 p-4">
-          <p className="text-sm font-medium text-teal-700">承認しました。団員へ共有しますか？</p>
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-medium text-teal-700">承認しました。団員へ共有しますか？</p>
+            <button
+              onClick={() => setDraft(null)}
+              aria-label="閉じる"
+              className="shrink-0 text-teal-500 transition-colors hover:text-teal-700"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <p className="text-xs text-teal-600">
+            画面を移動してもこの案内は消えません。団員へ共有し終えたら「閉じる」を押してください。
+          </p>
           <div className="flex gap-2">
             <button
               onClick={() => setShowCompose(true)}

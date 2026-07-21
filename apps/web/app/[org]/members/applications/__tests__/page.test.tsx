@@ -87,6 +87,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(membersApi.parts).mockResolvedValue([]);
   stubClipboard();
+  sessionStorage.clear();
 });
 
 describe("VisitorApplicationsPage", () => {
@@ -217,5 +218,56 @@ describe("VisitorApplicationsPage", () => {
 
     expect(await screen.findByDisplayValue("見学者のご紹介")).toBeInTheDocument();
     expect(screen.getByDisplayValue("・見学 太郎さん（希望パート: テノール）")).toBeInTheDocument();
+  });
+
+  it("コピーだけして画面を離れても、戻ると案内バナーが残っている（セッション保持）", async () => {
+    vi.mocked(visitorApplicationsApi.listPending).mockResolvedValue(makeApplications());
+    vi.mocked(visitorApplicationsApi.approve).mockResolvedValue({
+      application: { ...makeApplications()[0], status: "approved" },
+      draft: { subject: "見学者のご紹介", body: "・見学 太郎さん（希望パート: テノール）" },
+    });
+    const user = userEvent.setup();
+    const { unmount } = renderPage();
+
+    await screen.findByText("見学 太郎");
+    await user.click(screen.getAllByText("承認")[0]);
+    await screen.findByText("承認しました。団員へ共有しますか？");
+    await user.click(screen.getByText("テキストをコピーする"));
+    await screen.findByText("コピーしました");
+
+    // 画面遷移相当（コンポーネントのアンマウント→別画面での再マウント）
+    unmount();
+    renderPage();
+
+    expect(await screen.findByText("承認しました。団員へ共有しますか？")).toBeInTheDocument();
+
+    // 再マウント後も同じ下書き内容が保持されていることを、ComposeModalへの引き継ぎで確認
+    await user.click(screen.getByText("今すぐ紹介メールを送る"));
+    expect(await screen.findByDisplayValue("見学者のご紹介")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("・見学 太郎さん（希望パート: テノール）")).toBeInTheDocument();
+  });
+
+  it("案内バナーの「閉じる」を押すと消え、再訪しても復活しない", async () => {
+    vi.mocked(visitorApplicationsApi.listPending).mockResolvedValue(makeApplications());
+    vi.mocked(visitorApplicationsApi.approve).mockResolvedValue({
+      application: { ...makeApplications()[0], status: "approved" },
+      draft: { subject: "見学者のご紹介", body: "・見学 太郎さん（希望パート: テノール）" },
+    });
+    const user = userEvent.setup();
+    const { unmount } = renderPage();
+
+    await screen.findByText("見学 太郎");
+    await user.click(screen.getAllByText("承認")[0]);
+    await screen.findByText("承認しました。団員へ共有しますか？");
+
+    await user.click(screen.getByLabelText("閉じる"));
+    expect(screen.queryByText("承認しました。団員へ共有しますか？")).not.toBeInTheDocument();
+
+    unmount();
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.queryByText("承認しました。団員へ共有しますか？")).not.toBeInTheDocument();
+    });
   });
 });

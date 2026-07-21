@@ -38,3 +38,23 @@ export interface InviteResult {
   inviteToken: string;
   expiresAt: string;
 }
+
+export interface VisitorApplication {
+  id: string;
+  name: string;
+  partHope: string | null;
+  originGroup: string | null;
+  contact: string | null;
+  message: string | null;
+  source: "manual" | "google_form";
+  status: "pending" | "approved" | "rejected";
+  createdByName: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
+export interface VisitorApplicationDraft {
+  subject: string;
+  body: string;
+}

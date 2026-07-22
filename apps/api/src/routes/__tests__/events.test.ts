@@ -67,6 +67,7 @@ const makeMember = (roles: string[], id = "member-1"): Member => ({
   deletedAt: null,
   phone: null,
   adminMemo: null,
+  calendarFeedToken: null,
   createdAt: new Date("2022-04-01"),
 });
 

@@ -92,6 +92,7 @@ const makeAdminMember = (): Member => ({
   deletedAt: null,
   phone: "090-1234-5678",
   adminMemo: "メモ",
+  calendarFeedToken: null,
   createdAt: new Date("2020-04-01"),
 });
 
@@ -111,6 +112,7 @@ const makeNormalMember = (id = "member-1"): Member => ({
   deletedAt: null,
   phone: "080-9999-9999",
   adminMemo: "メモ",
+  calendarFeedToken: null,
   createdAt: new Date("2022-04-01"),
 });
 

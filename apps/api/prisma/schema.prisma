@@ -185,22 +185,23 @@ model Part {
 }
 
 model Member {
-  id           String       @id @default(cuid())
-  userId       String       @map("user_id")
-  orgId        String       @map("org_id")
-  partId       String?      @map("part_id")
-  memberTypeId String?      @map("member_type_id")
-  roles        String[]     @default(["member"])
-  status       MemberStatus @default(active)
-  bio          String?
-  job          String?
-  interests    String?
-  originGroup  String?      @map("origin_group")
-  joinedAt     DateTime?    @map("joined_at") @db.Date
-  deletedAt    DateTime?    @map("deleted_at")
-  phone        String?
-  adminMemo    String?      @map("admin_memo")
-  createdAt    DateTime     @default(now()) @map("created_at")
+  id                String       @id @default(cuid())
+  userId            String       @map("user_id")
+  orgId             String       @map("org_id")
+  partId            String?      @map("part_id")
+  memberTypeId      String?      @map("member_type_id")
+  roles             String[]     @default(["member"])
+  status            MemberStatus @default(active)
+  bio               String?
+  job               String?
+  interests         String?
+  originGroup       String?      @map("origin_group")
+  joinedAt          DateTime?    @map("joined_at") @db.Date
+  deletedAt         DateTime?    @map("deleted_at")
+  phone             String?
+  adminMemo         String?      @map("admin_memo")
+  calendarFeedToken String?      @unique @map("calendar_feed_token")
+  createdAt         DateTime     @default(now()) @map("created_at")
 
   org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   userRef    User         @relation(fields: [userId], references: [id], onDelete: Cascade)

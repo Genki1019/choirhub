@@ -1,4 +1,5 @@
 import { apiClient } from "./api-client";
+import type { TokenResponse } from "./api-types";
 
 export type AttendanceStatus = "attending" | "absent" | "maybe" | "undecided";
 
@@ -127,4 +128,10 @@ export const eventsApi = {
       dayMemo: string | null;
       updatedAt: string;
     }>(`/${orgSlug}/events/${eventId}/attendance/me`, body),
+
+  getCalendarFeedToken: (orgSlug: string) =>
+    apiClient.get<TokenResponse>(`/${orgSlug}/calendar-feed-token`),
+
+  regenerateCalendarFeedToken: (orgSlug: string) =>
+    apiClient.post<TokenResponse>(`/${orgSlug}/calendar-feed-token/regenerate`, {}),
 };

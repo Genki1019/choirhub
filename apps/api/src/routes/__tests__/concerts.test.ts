@@ -211,6 +211,41 @@ describe("POST /concerts", () => {
     });
   });
 
+  it("otherNotesを指定: 連携EventのotherNotesに反映される", async () => {
+    vi.mocked(prisma.concert.create).mockResolvedValue({
+      id: "concert-1",
+      title: "第20回定期演奏会",
+      heldOn: new Date("2026-11-23T00:00:00.000Z"),
+      venue: "○○ホール",
+      status: "draft",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.eventCategory.findFirst).mockResolvedValue(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.eventCategory.create).mockResolvedValue({ id: "category-1" } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.event.create).mockResolvedValue({ id: "event-1" } as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/concerts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "第20回定期演奏会",
+        heldOn: "2026-11-23T00:00:00Z",
+        venue: "○○ホール",
+        otherNotes: "パンフレット掲載の挨拶文は事前に確認してください",
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    expect(prisma.event.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        otherNotes: "パンフレット掲載の挨拶文は事前に確認してください",
+      }),
+    });
+  });
+
   it("正常（concertカテゴリ既存）: eventCategory.createは呼ばれない", async () => {
     vi.mocked(prisma.concert.create).mockResolvedValue({
       id: "concert-1",

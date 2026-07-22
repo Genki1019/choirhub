@@ -157,6 +157,32 @@ describe("NewSchedulePage（送信）", () => {
     expect(pushMock).toHaveBeenCalledWith("/tokyo-men-choir/schedule");
   });
 
+  it("構造化備考フィールドを入力して送信: eventsApi.createに反映される", async () => {
+    vi.mocked(eventsApi.create).mockResolvedValue({} as never);
+    const user = userEvent.setup();
+    renderPage(["admin"]);
+
+    await screen.findByText("練習");
+    await user.type(screen.getByPlaceholderText("タイトルを追加 *"), "第12回定期練習");
+    await user.type(screen.getByPlaceholderText(/新曲『○○』の初見合わせ/), "新曲の初見合わせ");
+    await user.type(screen.getByPlaceholderText(/集合 \/ 18:15 発声/), "18:00 集合");
+    await user.type(screen.getByPlaceholderText(/3階 大会議室/), "2階 練習室");
+    await user.type(screen.getByPlaceholderText(/個人ボイトレ希望者/), "楽譜を持参してください");
+    await user.click(screen.getByText("作成する"));
+
+    await waitFor(() => {
+      expect(eventsApi.create).toHaveBeenCalledWith(
+        "tokyo-men-choir",
+        expect.objectContaining({
+          rehearsalContent: "新曲の初見合わせ",
+          timeSchedule: "18:00 集合",
+          practiceVenue: "2階 練習室",
+          otherNotes: "楽譜を持参してください",
+        }),
+      );
+    });
+  });
+
   it("送信失敗時はエラーメッセージを表示する", async () => {
     vi.mocked(eventsApi.create).mockRejectedValue(new Error("作成に失敗しました。"));
     const user = userEvent.setup();

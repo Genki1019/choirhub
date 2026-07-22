@@ -143,7 +143,7 @@ export interface CreateConcertInput {
   targetRoles?: string[] | null;
   targetPartIds?: string[] | null;
   deadline?: string | null;
-  pageMemo?: string | null;
+  otherNotes?: string | null;
 }
 
 export interface AddStageInput {

@@ -271,7 +271,7 @@ export interface Event {
   location?: string;
   locationUrl?: string;
   deadline?: string;
-  pageMemo?: string;
+  otherNotes?: string;
   isLocked: boolean;
 }
 
@@ -294,7 +294,7 @@ export const EVENTS: Event[] = [
     location: "○○文化センター 練習室3",
     locationUrl: "https://maps.google.com/",
     deadline: "2026-06-05T23:59:59",
-    pageMemo:
+    otherNotes:
       "今回は定演前最後の合同練習です。第2ステージを中心に通し練習を行います。楽譜必携。16時からパート練習あり。",
     isLocked: false,
   },

@@ -90,7 +90,10 @@ const testEvent = {
   location: "○○公民館",
   locationUrl: null,
   deadline: null,
-  pageMemo: null,
+  rehearsalContent: null,
+  timeSchedule: null,
+  practiceVenue: null,
+  otherNotes: null,
   isLocked: false,
   targetRoles: [],
   targetPartIds: [],
@@ -464,6 +467,53 @@ describe("POST /events", () => {
     expect(res.status).toBe(201);
     expect(prisma.collection.create).not.toHaveBeenCalled();
   });
+
+  it("正常: 構造化備考フィールド（練習内容・タイムスケジュール・練習会場・その他備考）が保存される", async () => {
+    const noteFields = {
+      rehearsalContent: "新曲『○○』の初見合わせ",
+      timeSchedule: "18:00 集合 / 18:15 発声",
+      practiceVenue: "3階 大会議室",
+      otherNotes: "個人ボイトレ希望者は事前連絡",
+    };
+
+    vi.mocked(prisma.eventCategory.findUnique).mockResolvedValue(testCategory);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.event.create).mockResolvedValue({ id: "event-new" } as any);
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({
+      ...testEvent,
+      id: "event-new",
+      ...noteFields,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const orgNoFee = { ...testOrg, defaultFeeAmount: null };
+    const app = new Hono<TenantEnv>();
+    app.use("*", (c, next) => {
+      c.set("org", orgNoFee);
+      c.set("member", makeMember(["tech"]));
+      return next();
+    });
+    app.route("/", eventsRouter);
+
+    const res = await app.request("/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "定期練習",
+        categoryId: "ccategoryone",
+        startsAt: "2026-06-20T18:00:00+09:00",
+        endsAt: "2026-06-20T20:00:00+09:00",
+        ...noteFields,
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    const body = await json(res);
+    expect(body.data).toEqual(expect.objectContaining(noteFields));
+    expect(prisma.event.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining(noteFields) }),
+    );
+  });
 });
 
 describe("GET /events/:id", () => {
@@ -722,6 +772,37 @@ describe("PATCH /events/:id", () => {
       where: { id: "concert-1", orgId: testOrg.id },
       data: { title: "改題後", venue: "△△ホール" },
     });
+  });
+
+  it("正常: 構造化備考フィールドが更新される", async () => {
+    const noteFields = {
+      rehearsalContent: "新曲『○○』の初見合わせ",
+      timeSchedule: "18:00 集合 / 18:15 発声",
+      practiceVenue: "3階 大会議室",
+      otherNotes: "個人ボイトレ希望者は事前連絡",
+    };
+
+    vi.mocked(prisma.event.findUnique)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .mockResolvedValueOnce(testEvent as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .mockResolvedValueOnce({ ...testEvent, ...noteFields } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.event.update).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request("/events/event-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(noteFields),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual(expect.objectContaining(noteFields));
+    expect(prisma.event.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining(noteFields) }),
+    );
   });
 });
 

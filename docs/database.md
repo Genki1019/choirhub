@@ -144,7 +144,10 @@ erDiagram
         datetime  endsAt
         string    location
         datetime  deadline
-        string    pageMemo
+        string    rehearsalContent
+        string    timeSchedule
+        string    practiceVenue
+        string    otherNotes
         boolean   isLocked
         string[]  targetRoles
         string[]  targetPartIds
@@ -508,23 +511,26 @@ erDiagram
 
 ### Event（イベント）
 
-| カラム        | 型        | 制約                         | 説明                                         |
-| ------------- | --------- | ---------------------------- | -------------------------------------------- |
-| id            | CUID      | PK                           |                                              |
-| orgId         | CUID      | NOT NULL, FK → Organization  |                                              |
-| title         | VARCHAR   | NOT NULL                     | 例: 第○回定期練習                            |
-| categoryId    | CUID      | NOT NULL, FK → EventCategory |                                              |
-| startsAt      | TIMESTAMP | NOT NULL                     | 開始日時                                     |
-| endsAt        | TIMESTAMP | NOT NULL                     | 終了日時                                     |
-| location      | VARCHAR   |                              | 場所名                                       |
-| locationUrl   | VARCHAR   |                              | Google Maps リンク等                         |
-| deadline      | TIMESTAMP |                              | 出欠回答締切                                 |
-| pageMemo      | TEXT      |                              | ページ全体備考（管理者記入）                 |
-| isLocked      | BOOLEAN   | NOT NULL, DEFAULT false      | 締切後ロック                                 |
-| targetRoles   | VARCHAR[] | NOT NULL, DEFAULT `[]`       | 対象ロール絞り込み（空 = 全員）              |
-| targetPartIds | VARCHAR[] | NOT NULL, DEFAULT `[]`       | 対象パート絞り込み（空 = 全パート）          |
-| concertId     | CUID      | UNIQUE, FK → Concert         | 演奏会リンク（1対1。演奏会作成時に自動生成） |
-| createdAt     | TIMESTAMP | NOT NULL, DEFAULT now()      |                                              |
+| カラム           | 型        | 制約                         | 説明                                         |
+| ---------------- | --------- | ---------------------------- | -------------------------------------------- |
+| id               | CUID      | PK                           |                                              |
+| orgId            | CUID      | NOT NULL, FK → Organization  |                                              |
+| title            | VARCHAR   | NOT NULL                     | 例: 第○回定期練習                            |
+| categoryId       | CUID      | NOT NULL, FK → EventCategory |                                              |
+| startsAt         | TIMESTAMP | NOT NULL                     | 開始日時                                     |
+| endsAt           | TIMESTAMP | NOT NULL                     | 終了日時                                     |
+| location         | VARCHAR   |                              | 場所名                                       |
+| locationUrl      | VARCHAR   |                              | Google Maps リンク等                         |
+| deadline         | TIMESTAMP |                              | 出欠回答締切                                 |
+| rehearsalContent | TEXT      |                              | 練習曲の内容                                 |
+| timeSchedule     | TEXT      |                              | タイムスケジュール                           |
+| practiceVenue    | TEXT      |                              | 練習会場（location とは別の補足自由記述）    |
+| otherNotes       | TEXT      |                              | その他備考（管理者記入）                     |
+| isLocked         | BOOLEAN   | NOT NULL, DEFAULT false      | 締切後ロック                                 |
+| targetRoles      | VARCHAR[] | NOT NULL, DEFAULT `[]`       | 対象ロール絞り込み（空 = 全員）              |
+| targetPartIds    | VARCHAR[] | NOT NULL, DEFAULT `[]`       | 対象パート絞り込み（空 = 全パート）          |
+| concertId        | CUID      | UNIQUE, FK → Concert         | 演奏会リンク（1対1。演奏会作成時に自動生成） |
+| createdAt        | TIMESTAMP | NOT NULL, DEFAULT now()      |                                              |
 
 ---
 

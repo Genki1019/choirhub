@@ -255,21 +255,24 @@ model EventCategory {
 }
 
 model Event {
-  id            String    @id @default(cuid())
-  orgId         String    @map("org_id")
-  title         String
-  categoryId    String    @map("category_id")
-  startsAt      DateTime  @map("starts_at")
-  endsAt        DateTime  @map("ends_at")
-  location      String?
-  locationUrl   String?   @map("location_url")
-  deadline      DateTime?
-  pageMemo      String?   @map("page_memo")
-  isLocked      Boolean   @default(false) @map("is_locked")
-  targetRoles   String[]  @default([]) @map("target_roles")
-  targetPartIds String[]  @default([]) @map("target_part_ids")
-  concertId     String?   @unique @map("concert_id")
-  createdAt     DateTime  @default(now()) @map("created_at")
+  id               String    @id @default(cuid())
+  orgId            String    @map("org_id")
+  title            String
+  categoryId       String    @map("category_id")
+  startsAt         DateTime  @map("starts_at")
+  endsAt           DateTime  @map("ends_at")
+  location         String?
+  locationUrl      String?   @map("location_url")
+  deadline         DateTime?
+  rehearsalContent String?   @map("rehearsal_content")
+  timeSchedule     String?   @map("time_schedule")
+  practiceVenue    String?   @map("practice_venue")
+  otherNotes       String?   @map("other_notes")
+  isLocked         Boolean   @default(false) @map("is_locked")
+  targetRoles      String[]  @default([]) @map("target_roles")
+  targetPartIds    String[]  @default([]) @map("target_part_ids")
+  concertId        String?   @unique @map("concert_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
 
   org         Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   category    EventCategory @relation(fields: [categoryId], references: [id])

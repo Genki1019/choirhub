@@ -40,7 +40,10 @@ function makeEvent(overrides: Partial<EventDetail> = {}): EventDetail {
     location: "○○公民館",
     locationUrl: null,
     deadline: null,
-    pageMemo: null,
+    rehearsalContent: null,
+    timeSchedule: null,
+    practiceVenue: null,
+    otherNotes: null,
     isLocked: false,
     targetRoles: null,
     targetPartIds: null,
@@ -175,20 +178,49 @@ describe("ScheduleDetailPage（編集・削除ボタンの権限）", () => {
   });
 });
 
-describe("ScheduleDetailPage（全体備考）", () => {
-  it("pageMemoが無い場合: 全体備考セクションを表示しない", async () => {
-    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent({ pageMemo: null }));
+describe("ScheduleDetailPage（構造化備考）", () => {
+  it("4項目すべて無い場合: 備考セクションを表示しない", async () => {
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent());
     renderPage();
 
     await screen.findByText("第12回定期練習");
-    expect(screen.queryByText("全体備考")).not.toBeInTheDocument();
+    expect(screen.queryByText("練習曲の内容")).not.toBeInTheDocument();
+    expect(screen.queryByText("タイムスケジュール")).not.toBeInTheDocument();
+    expect(screen.queryByText("練習会場")).not.toBeInTheDocument();
+    expect(screen.queryByText("その他備考")).not.toBeInTheDocument();
   });
 
-  it("pageMemoがある場合: 全体備考セクションを表示する", async () => {
-    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent({ pageMemo: "楽譜をご持参ください" }));
+  it("一部の項目のみある場合: 値が入っている項目のみ表示する", async () => {
+    vi.mocked(eventsApi.get).mockResolvedValue(
+      makeEvent({ rehearsalContent: "新曲『○○』の初見合わせ" }),
+    );
     renderPage();
 
-    expect(await screen.findByText("全体備考")).toBeInTheDocument();
+    expect(await screen.findByText("練習曲の内容")).toBeInTheDocument();
+    expect(screen.getByText("新曲『○○』の初見合わせ")).toBeInTheDocument();
+    expect(screen.queryByText("タイムスケジュール")).not.toBeInTheDocument();
+    expect(screen.queryByText("練習会場")).not.toBeInTheDocument();
+    expect(screen.queryByText("その他備考")).not.toBeInTheDocument();
+  });
+
+  it("4項目すべてある場合: すべて表示する", async () => {
+    vi.mocked(eventsApi.get).mockResolvedValue(
+      makeEvent({
+        rehearsalContent: "新曲『○○』の初見合わせ",
+        timeSchedule: "18:00 集合 / 18:15 発声",
+        practiceVenue: "3階 大会議室",
+        otherNotes: "楽譜をご持参ください",
+      }),
+    );
+    renderPage();
+
+    expect(await screen.findByText("練習曲の内容")).toBeInTheDocument();
+    expect(screen.getByText("新曲『○○』の初見合わせ")).toBeInTheDocument();
+    expect(screen.getByText("タイムスケジュール")).toBeInTheDocument();
+    expect(screen.getByText("18:00 集合 / 18:15 発声")).toBeInTheDocument();
+    expect(screen.getByText("練習会場")).toBeInTheDocument();
+    expect(screen.getByText("3階 大会議室")).toBeInTheDocument();
+    expect(screen.getByText("その他備考")).toBeInTheDocument();
     expect(screen.getByText("楽譜をご持参ください")).toBeInTheDocument();
   });
 });

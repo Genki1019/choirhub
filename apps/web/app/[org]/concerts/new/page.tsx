@@ -39,7 +39,7 @@ export default function NewConcertPage() {
   const [hasDeadline, setHasDeadline] = useState(false);
   const [deadlineDate, setDeadlineDate] = useState("");
   const [deadlineTime, setDeadlineTime] = useState("23:59");
-  const [pageMemo, setPageMemo] = useState("");
+  const [otherNotes, setOtherNotes] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -112,7 +112,7 @@ export default function NewConcertPage() {
         targetRoles: targetRoles.length > 0 ? targetRoles : null,
         targetPartIds: targetPartIds.length > 0 ? targetPartIds : null,
         deadline: hasDeadline && deadlineDate ? toJstIso(deadlineDate, deadlineTime) : null,
-        pageMemo: pageMemo || null,
+        otherNotes: otherNotes || null,
       });
       router.push(`/${org}/concerts/${created.id}`);
     } catch (err: unknown) {
@@ -238,8 +238,8 @@ export default function NewConcertPage() {
           <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
             <SectionLabel icon={<FileText size={15} />} label="全体備考（任意）" />
             <textarea
-              value={pageMemo}
-              onChange={(e) => setPageMemo(e.target.value)}
+              value={otherNotes}
+              onChange={(e) => setOtherNotes(e.target.value)}
               placeholder="メンバーへの連絡事項など"
               rows={3}
               className="focus:ring-brand-400 w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm placeholder-gray-300 focus:ring-1 focus:outline-none"

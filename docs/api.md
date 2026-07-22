@@ -951,18 +951,21 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 **Request Body:**
 
-| フィールド    | 型               | 必須 | 説明                                                       |
-| ------------- | ---------------- | ---- | ---------------------------------------------------------- |
-| title         | string           | ✓    | イベント名                                                 |
-| categoryId    | string (cuid)    | ✓    | イベント区分 ID（`GET /settings/event-categories` で取得） |
-| startsAt      | ISO8601          | ✓    | 開始日時                                                   |
-| endsAt        | ISO8601          | ✓    | 終了日時                                                   |
-| location      | string           |      | 場所名                                                     |
-| locationUrl   | string           |      | 地図URL等                                                  |
-| deadline      | ISO8601          |      | 出欠回答締切                                               |
-| pageMemo      | string           |      | 連絡事項                                                   |
-| targetRoles   | string[] \| null |      | 招待対象ロール（省略・null = 全員）                        |
-| targetPartIds | string[] \| null |      | 招待対象パートID（省略・null = 全パート）                  |
+| フィールド       | 型               | 必須 | 説明                                                       |
+| ---------------- | ---------------- | ---- | ---------------------------------------------------------- |
+| title            | string           | ✓    | イベント名                                                 |
+| categoryId       | string (cuid)    | ✓    | イベント区分 ID（`GET /settings/event-categories` で取得） |
+| startsAt         | ISO8601          | ✓    | 開始日時                                                   |
+| endsAt           | ISO8601          | ✓    | 終了日時                                                   |
+| location         | string           |      | 場所名                                                     |
+| locationUrl      | string           |      | 地図URL等                                                  |
+| deadline         | ISO8601          |      | 出欠回答締切                                               |
+| rehearsalContent | string           |      | 練習曲の内容（最大2000文字）                               |
+| timeSchedule     | string           |      | タイムスケジュール（最大2000文字）                         |
+| practiceVenue    | string           |      | 練習会場（`location`とは別の補足自由記述、最大2000文字）   |
+| otherNotes       | string           |      | その他備考（最大2000文字）                                 |
+| targetRoles      | string[] \| null |      | 招待対象ロール（省略・null = 全員）                        |
+| targetPartIds    | string[] \| null |      | 招待対象パートID（省略・null = 全パート）                  |
 
 ```json
 {
@@ -973,7 +976,10 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
   "location": "○○公民館 第2練習室",
   "locationUrl": "https://maps.google.com/...",
   "deadline": "2026-06-18T23:59:59+09:00",
-  "pageMemo": "パート譜を持参してください",
+  "rehearsalContent": "新曲『○○』の初見合わせ",
+  "timeSchedule": "18:00 集合 / 18:15 発声 / 19:00 パート練習",
+  "practiceVenue": "3階 大会議室",
+  "otherNotes": "パート譜を持参してください",
   "targetRoles": null,
   "targetPartIds": ["cuid_tenor1", "cuid_tenor2"]
 }
@@ -1010,7 +1016,10 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
     "location": "○○公民館 第2練習室",
     "locationUrl": "https://...",
     "deadline": "2026-06-18T23:59:59+09:00",
-    "pageMemo": "パート譜を持参してください",
+    "rehearsalContent": "新曲『○○』の初見合わせ",
+    "timeSchedule": "18:00 集合 / 18:15 発声 / 19:00 パート練習",
+    "practiceVenue": "3階 大会議室",
+    "otherNotes": "パート譜を持参してください",
     "isLocked": false,
     "targetRoles": null,
     "targetPartIds": ["cuid_tenor1", "cuid_tenor2"],
@@ -1695,7 +1704,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 | targetRoles   | string[] \| null |      | 対象ロール（連携Eventに使用）                |
 | targetPartIds | string[] \| null |      | 対象パートID（連携Eventに使用）              |
 | deadline      | string \| null   |      | 出欠回答締切（ISO8601 datetime）             |
-| pageMemo      | string \| null   |      | 連携Eventのページメモ                        |
+| otherNotes    | string \| null   |      | 連携Eventのその他備考                        |
 
 ```json
 {

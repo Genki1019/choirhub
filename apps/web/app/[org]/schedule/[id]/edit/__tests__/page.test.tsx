@@ -50,7 +50,10 @@ function makeEvent(overrides: Partial<EventDetail> = {}): EventDetail {
     location: "○○公民館",
     locationUrl: null,
     deadline: null,
-    pageMemo: null,
+    rehearsalContent: null,
+    timeSchedule: null,
+    practiceVenue: null,
+    otherNotes: null,
     isLocked: false,
     targetRoles: null,
     targetPartIds: null,
@@ -137,6 +140,23 @@ describe("EditSchedulePage（フォームの初期化）", () => {
     await screen.findByDisplayValue("第12回定期練習");
     expect(screen.getByLabelText("出欠締切を設定する")).toHaveAttribute("aria-checked", "true");
   });
+
+  it("構造化備考フィールドが取得したイベントデータで初期化される", async () => {
+    vi.mocked(eventsApi.get).mockResolvedValue(
+      makeEvent({
+        rehearsalContent: "新曲『○○』の初見合わせ",
+        timeSchedule: "18:00 集合 / 18:15 発声",
+        practiceVenue: "3階 大会議室",
+        otherNotes: "個人ボイトレ希望者は事前連絡",
+      }),
+    );
+    renderPage(["admin"]);
+
+    expect(await screen.findByDisplayValue("新曲『○○』の初見合わせ")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("18:00 集合 / 18:15 発声")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("3階 大会議室")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("個人ボイトレ希望者は事前連絡")).toBeInTheDocument();
+  });
 });
 
 describe("EditSchedulePage（バリデーション）", () => {
@@ -172,6 +192,32 @@ describe("EditSchedulePage（送信）", () => {
       );
     });
     expect(pushMock).toHaveBeenCalledWith("/tokyo-men-choir/schedule/event-1");
+  });
+
+  it("構造化備考フィールドを入力して送信: eventsApi.updateに反映される", async () => {
+    vi.mocked(eventsApi.update).mockResolvedValue({} as never);
+    const user = userEvent.setup();
+    renderPage(["admin"]);
+
+    await screen.findByDisplayValue("第12回定期練習");
+    await user.type(screen.getByPlaceholderText(/新曲『○○』の初見合わせ/), "新曲の初見合わせ");
+    await user.type(screen.getByPlaceholderText(/集合 \/ 18:15 発声/), "18:00 集合");
+    await user.type(screen.getByPlaceholderText(/3階 大会議室/), "2階 練習室");
+    await user.type(screen.getByPlaceholderText(/個人ボイトレ希望者/), "楽譜を持参してください");
+    await user.click(screen.getByText("保存する"));
+
+    await waitFor(() => {
+      expect(eventsApi.update).toHaveBeenCalledWith(
+        "tokyo-men-choir",
+        "event-1",
+        expect.objectContaining({
+          rehearsalContent: "新曲の初見合わせ",
+          timeSchedule: "18:00 集合",
+          practiceVenue: "2階 練習室",
+          otherNotes: "楽譜を持参してください",
+        }),
+      );
+    });
   });
 
   it("送信失敗時はエラーメッセージを表示する", async () => {

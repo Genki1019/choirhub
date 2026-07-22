@@ -19,7 +19,10 @@ export interface EventSummary {
   location: string | null;
   locationUrl: string | null;
   deadline: string | null;
-  pageMemo: string | null;
+  rehearsalContent: string | null;
+  timeSchedule: string | null;
+  practiceVenue: string | null;
+  otherNotes: string | null;
   isLocked: boolean;
   targetRoles: string[] | null;
   targetPartIds: string[] | null;
@@ -69,7 +72,10 @@ export interface CreateEventInput {
   location?: string | null;
   locationUrl?: string | null;
   deadline?: string | null;
-  pageMemo?: string | null;
+  rehearsalContent?: string | null;
+  timeSchedule?: string | null;
+  practiceVenue?: string | null;
+  otherNotes?: string | null;
   targetRoles?: string[] | null;
   targetPartIds?: string[] | null;
 }

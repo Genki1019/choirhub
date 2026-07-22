@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Calendar, MapPin, AlertCircle, FileText, Loader2 } from "lucide-react";
+import { Calendar, MapPin, AlertCircle, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { eventsApi } from "@/lib/events-api";
 import { membersApi } from "@/lib/members-api";
@@ -17,6 +17,10 @@ import { LocationSearch } from "@/components/LocationSearch";
 import { SectionLabel } from "../../_components/SectionLabel";
 import { TargetAudienceSection } from "../../_components/TargetAudienceSection";
 import { DeadlineSection } from "../../_components/DeadlineSection";
+import {
+  ScheduleNotesSection,
+  type ScheduleNotesValues,
+} from "../../_components/ScheduleNotesSection";
 import { PageMain } from "@/components/PageMain";
 import { PageHeader } from "@/components/PageHeader";
 import { PageErrorState } from "@/components/PageErrorState";
@@ -66,7 +70,12 @@ export default function NewSchedulePage() {
   const [hasDeadline, setHasDeadline] = useState(false);
   const [deadlineDate, setDeadlineDate] = useState("");
   const [deadlineTime, setDeadlineTime] = useState("23:59");
-  const [pageMemo, setPageMemo] = useState("");
+  const [notes, setNotes] = useState<ScheduleNotesValues>({
+    rehearsalContent: "",
+    timeSchedule: "",
+    practiceVenue: "",
+    otherNotes: "",
+  });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -155,7 +164,10 @@ export default function NewSchedulePage() {
         targetRoles: targetRoles.length > 0 ? targetRoles : null,
         targetPartIds: targetPartIds.length > 0 ? targetPartIds : null,
         deadline: hasDeadline && deadlineDate ? toJstIso(deadlineDate, deadlineTime) : null,
-        pageMemo: pageMemo || null,
+        rehearsalContent: notes.rehearsalContent || null,
+        timeSchedule: notes.timeSchedule || null,
+        practiceVenue: notes.practiceVenue || null,
+        otherNotes: notes.otherNotes || null,
       });
       router.push(`/${org}/schedule`);
     } catch (err: unknown) {
@@ -281,17 +293,11 @@ export default function NewSchedulePage() {
             onTimeChange={setDeadlineTime}
           />
 
-          {/* 全体備考 */}
-          <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
-            <SectionLabel icon={<FileText size={15} />} label="全体備考（任意）" />
-            <textarea
-              value={pageMemo}
-              onChange={(e) => setPageMemo(e.target.value)}
-              placeholder="メンバーへの連絡事項など"
-              rows={3}
-              className="focus:ring-brand-400 w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm placeholder-gray-300 focus:ring-1 focus:outline-none"
-            />
-          </div>
+          {/* 備考 */}
+          <ScheduleNotesSection
+            values={notes}
+            onChange={(key, value) => setNotes((prev) => ({ ...prev, [key]: value }))}
+          />
 
           {/* ボタン */}
           <div className="flex justify-end gap-3 pb-8">

@@ -26,6 +26,8 @@ function isInvited(member: Member, event: Event): boolean {
 // バリデーションスキーマ
 // ────────────────────────────
 
+const notesField = z.string().max(2000).optional().nullable();
+
 const eventBodySchema = z.object({
   title: z.string().min(1),
   categoryId: z.string().cuid(),
@@ -34,7 +36,10 @@ const eventBodySchema = z.object({
   location: z.string().optional().nullable(),
   locationUrl: z.string().url().optional().nullable(),
   deadline: z.string().datetime({ offset: true }).optional().nullable(),
-  pageMemo: z.string().optional().nullable(),
+  rehearsalContent: notesField,
+  timeSchedule: notesField,
+  practiceVenue: notesField,
+  otherNotes: notesField,
   targetRoles: z.array(z.string()).optional().nullable(),
   targetPartIds: z.array(z.string()).optional().nullable(),
 });
@@ -65,7 +70,10 @@ function formatEvent(event: Event & { concertId?: string | null; category: Event
     location: event.location,
     locationUrl: event.locationUrl,
     deadline: event.deadline?.toISOString() ?? null,
-    pageMemo: event.pageMemo,
+    rehearsalContent: event.rehearsalContent,
+    timeSchedule: event.timeSchedule,
+    practiceVenue: event.practiceVenue,
+    otherNotes: event.otherNotes,
     isLocked: event.isLocked,
     targetRoles: event.targetRoles.length > 0 ? event.targetRoles : null,
     targetPartIds: event.targetPartIds.length > 0 ? event.targetPartIds : null,
@@ -177,7 +185,10 @@ export const eventsRouter = new Hono<TenantEnv>()
           location: ct.venue ?? null,
           locationUrl: null,
           deadline: null,
-          pageMemo: null,
+          rehearsalContent: null,
+          timeSchedule: null,
+          practiceVenue: null,
+          otherNotes: null,
           isLocked: false,
           targetRoles: null,
           targetPartIds: null,
@@ -222,6 +233,23 @@ export const eventsRouter = new Hono<TenantEnv>()
         );
       }
 
+      const eventData = {
+        orgId: org.id,
+        title: body.title,
+        categoryId: body.categoryId,
+        startsAt: new Date(body.startsAt),
+        endsAt: new Date(body.endsAt),
+        location: body.location ?? null,
+        locationUrl: body.locationUrl ?? null,
+        deadline: body.deadline ? new Date(body.deadline) : null,
+        rehearsalContent: body.rehearsalContent ?? null,
+        timeSchedule: body.timeSchedule ?? null,
+        practiceVenue: body.practiceVenue ?? null,
+        otherNotes: body.otherNotes ?? null,
+        targetRoles: body.targetRoles ?? [],
+        targetPartIds: body.targetPartIds ?? [],
+      };
+
       if (selectedCategory.slug === "concert") {
         const concert = await prisma.concert.create({
           data: {
@@ -232,20 +260,7 @@ export const eventsRouter = new Hono<TenantEnv>()
           },
         });
         await prisma.event.create({
-          data: {
-            orgId: org.id,
-            title: body.title,
-            categoryId: body.categoryId,
-            startsAt: new Date(body.startsAt),
-            endsAt: new Date(body.endsAt),
-            location: body.location ?? null,
-            locationUrl: body.locationUrl ?? null,
-            deadline: body.deadline ? new Date(body.deadline) : null,
-            pageMemo: body.pageMemo ?? null,
-            targetRoles: body.targetRoles ?? [],
-            targetPartIds: body.targetPartIds ?? [],
-            concertId: concert.id,
-          },
+          data: { ...eventData, concertId: concert.id },
         });
         const result = await prisma.event.findFirst({
           where: { concertId: concert.id },
@@ -254,21 +269,7 @@ export const eventsRouter = new Hono<TenantEnv>()
         return c.json({ data: formatEvent(result!) }, 201);
       }
 
-      const ev = await prisma.event.create({
-        data: {
-          orgId: org.id,
-          title: body.title,
-          categoryId: body.categoryId,
-          startsAt: new Date(body.startsAt),
-          endsAt: new Date(body.endsAt),
-          location: body.location ?? null,
-          locationUrl: body.locationUrl ?? null,
-          deadline: body.deadline ? new Date(body.deadline) : null,
-          pageMemo: body.pageMemo ?? null,
-          targetRoles: body.targetRoles ?? [],
-          targetPartIds: body.targetPartIds ?? [],
-        },
-      });
+      const ev = await prisma.event.create({ data: eventData });
 
       // per_rehearsal モードの練習イベントは徴収を自動生成
       if (
@@ -418,7 +419,12 @@ export const eventsRouter = new Hono<TenantEnv>()
           ...(body.deadline !== undefined && {
             deadline: body.deadline ? new Date(body.deadline) : null,
           }),
-          ...(body.pageMemo !== undefined && { pageMemo: body.pageMemo }),
+          ...(body.rehearsalContent !== undefined && {
+            rehearsalContent: body.rehearsalContent,
+          }),
+          ...(body.timeSchedule !== undefined && { timeSchedule: body.timeSchedule }),
+          ...(body.practiceVenue !== undefined && { practiceVenue: body.practiceVenue }),
+          ...(body.otherNotes !== undefined && { otherNotes: body.otherNotes }),
           ...(body.targetRoles !== undefined && { targetRoles: body.targetRoles ?? [] }),
           ...(body.targetPartIds !== undefined && { targetPartIds: body.targetPartIds ?? [] }),
         },

@@ -29,7 +29,7 @@ export const concertsRouter = new Hono<TenantEnv>()
         targetRoles: z.array(z.string()).optional().nullable(),
         targetPartIds: z.array(z.string()).optional().nullable(),
         deadline: z.string().datetime({ offset: true }).optional().nullable(),
-        pageMemo: z.string().optional().nullable(),
+        otherNotes: z.string().optional().nullable(),
       }),
       (r, c) => {
         if (!r.success)
@@ -56,7 +56,7 @@ export const concertsRouter = new Hono<TenantEnv>()
         targetRoles,
         targetPartIds,
         deadline,
-        pageMemo,
+        otherNotes,
       } = c.req.valid("json");
 
       const concert = await prisma.concert.create({
@@ -86,7 +86,7 @@ export const concertsRouter = new Hono<TenantEnv>()
           targetRoles: targetRoles ?? [],
           targetPartIds: targetPartIds ?? [],
           deadline: deadline ? new Date(deadline) : null,
-          pageMemo: pageMemo ?? null,
+          otherNotes: otherNotes ?? null,
           concertId: concert.id,
         },
       });

@@ -1144,6 +1144,58 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 ---
 
+<a id="calendar-feed-token"></a>
+
+### GET `/api/v1/:orgSlug/calendar-feed-token`
+
+ログインメンバー自身のiCalフィード用トークンを取得する（未発行なら`null`）。
+
+**権限**: ログイン済み
+
+**Response** `200`
+
+```json
+{ "data": { "token": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" } }
+```
+
+---
+
+<a id="calendar-feed-token-regenerate"></a>
+
+### POST `/api/v1/:orgSlug/calendar-feed-token/regenerate`
+
+iCalフィード用トークンを新規発行/再発行する。再発行すると旧トークンでのフィードURLは無効になる。
+
+**権限**: ログイン済み
+
+**Response** `200`
+
+```json
+{ "data": { "token": "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy" } }
+```
+
+---
+
+<a id="calendar-feed"></a>
+
+### GET `/api/v1/calendar/:orgSlug/feed.ics`
+
+`token`クエリパラメータからメンバーを特定し、そのメンバーが招待されているイベント（`Event`＋`linkedEvent`のない`Concert`の疑似イベント）をiCalendar形式で返す。
+
+**権限**: なし（公開。`token`自体が認証情報）
+
+**Query Parameters:**
+
+| パラメータ | 型     | 必須 | 説明                                    |
+| ---------- | ------ | ---- | --------------------------------------- |
+| token      | string | ✓    | `calendar-feed-token`で発行したトークン |
+
+> レスポンスは`Content-Type: text/calendar; charset=utf-8`。各イベントの`UID`は`Event.id`/`Concert.id`と一致させ、外部カレンダー側の更新検知・重複排除に使う。
+
+**Errors:**: `400` `VALIDATION_ERROR` `token`未指定 / `404` `NOT_FOUND` `orgSlug`が存在しない / `404` `NOT_FOUND` `token`に一致するメンバーが存在しない
+
+---
+
 ## 6. 楽譜管理 API
 
 <a id="scores-list"></a>

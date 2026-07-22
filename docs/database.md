@@ -471,23 +471,24 @@ erDiagram
 
 > 所属エンティティ。1ユーザーが複数団体に所属する場合、団体ごとに1レコード持つ。
 
-| カラム       | 型        | 制約                           | 説明                                   |
-| ------------ | --------- | ------------------------------ | -------------------------------------- |
-| id           | CUID      | PK                             |                                        |
-| userId       | CUID      | NOT NULL, FK → User            |                                        |
-| orgId        | CUID      | NOT NULL, FK → Organization    |                                        |
-| partId       | CUID      | FK → Part                      |                                        |
-| memberTypeId | CUID      | FK → MemberType                | メンバー区分（任意）                   |
-| roles        | VARCHAR[] | NOT NULL, DEFAULT `['member']` | この団でのロール一覧（下記参照）       |
-| status       | ENUM      | NOT NULL, DEFAULT `active`     | active / offstage / alumni / suspended |
-| bio          | TEXT      |                                | 一言自己紹介（全員閲覧可）             |
-| job          | VARCHAR   |                                | 職業（全員閲覧可）                     |
-| interests    | VARCHAR   |                                | 好きなもの（全員閲覧可）               |
-| originGroup  | VARCHAR   |                                | 出身団体（全員閲覧可）                 |
-| joinedAt     | DATE      |                                | 入団日（この団への）                   |
-| phone        | VARCHAR   |                                | 電話番号（**admin のみ閲覧**）         |
-| adminMemo    | TEXT      |                                | 管理者メモ（**admin のみ閲覧**）       |
-| createdAt    | TIMESTAMP | NOT NULL, DEFAULT now()        |                                        |
+| カラム            | 型        | 制約                           | 説明                                   |
+| ----------------- | --------- | ------------------------------ | -------------------------------------- |
+| id                | CUID      | PK                             |                                        |
+| userId            | CUID      | NOT NULL, FK → User            |                                        |
+| orgId             | CUID      | NOT NULL, FK → Organization    |                                        |
+| partId            | CUID      | FK → Part                      |                                        |
+| memberTypeId      | CUID      | FK → MemberType                | メンバー区分（任意）                   |
+| roles             | VARCHAR[] | NOT NULL, DEFAULT `['member']` | この団でのロール一覧（下記参照）       |
+| status            | ENUM      | NOT NULL, DEFAULT `active`     | active / offstage / alumni / suspended |
+| bio               | TEXT      |                                | 一言自己紹介（全員閲覧可）             |
+| job               | VARCHAR   |                                | 職業（全員閲覧可）                     |
+| interests         | VARCHAR   |                                | 好きなもの（全員閲覧可）               |
+| originGroup       | VARCHAR   |                                | 出身団体（全員閲覧可）                 |
+| joinedAt          | DATE      |                                | 入団日（この団への）                   |
+| phone             | VARCHAR   |                                | 電話番号（**admin のみ閲覧**）         |
+| adminMemo         | TEXT      |                                | 管理者メモ（**admin のみ閲覧**）       |
+| calendarFeedToken | VARCHAR   | UNIQUE                         | 個人用iCalフィード認証トークン         |
+| createdAt         | TIMESTAMP | NOT NULL, DEFAULT now()        |                                        |
 
 **UNIQUE**: `(userId, orgId)`
 

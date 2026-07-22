@@ -11,7 +11,7 @@ import { Prisma } from "../generated/prisma/index.js";
 // 招待判定ヘルパー
 // ────────────────────────────
 
-function isInvited(member: Member, event: Event): boolean {
+export function isInvited(member: Member, event: Event): boolean {
   const roleMatch =
     event.targetRoles.length === 0 || event.targetRoles.some((r) => member.roles.includes(r));
 
@@ -82,13 +82,115 @@ function formatEvent(event: Event & { concertId?: string | null; category: Event
 }
 
 // ────────────────────────────
+// スケジュール項目取得（イベント一覧・iCalフィードで共用）
+// ────────────────────────────
+
+export type ScheduleItem = ReturnType<typeof formatEvent> & { myAttendance: string };
+
+// イベント一覧 + Concert テーブル（linkedEvent のない本番）をマージし、
+// リクエストメンバーが招待されている項目のみ返す（adminは全件）。
+export async function getScheduleItems(
+  orgId: string,
+  member: Member,
+  options: { dateRange?: Prisma.DateTimeFilter; type?: string } = {},
+): Promise<ScheduleItem[]> {
+  const { dateRange, type } = options;
+
+  const where: Prisma.EventWhereInput = { orgId };
+  if (dateRange) where.startsAt = dateRange;
+  if (type) {
+    const cat = await prisma.eventCategory.findFirst({ where: { orgId, slug: type } });
+    if (!cat) return [];
+    where.categoryId = cat.id;
+  }
+
+  // Concert テーブル: linkedEvent のないもの（= スケジュールと紐付いていない直接登録分）のみ追加
+  const includeConcerts = !type || type === "concert";
+  const concertWhere: Prisma.ConcertWhereInput = { orgId, linkedEvent: null };
+  if (dateRange) concertWhere.heldOn = dateRange;
+
+  // イベント本体とConcert関連の取得は互いに依存しないため並行実行する
+  const [events, concerts, concertCategory] = await Promise.all([
+    prisma.event.findMany({ where, include: { category: true }, orderBy: { startsAt: "asc" } }),
+    includeConcerts
+      ? prisma.concert.findMany({ where: concertWhere, orderBy: { heldOn: "asc" } })
+      : Promise.resolve([]),
+    includeConcerts
+      ? prisma.eventCategory.findFirst({ where: { orgId, slug: "concert" } })
+      : Promise.resolve(null),
+  ]);
+
+  const visible = isAdmin(member) ? events : events.filter((ev) => isInvited(member, ev));
+
+  const [myAttendances, myOnStage] = await Promise.all([
+    prisma.attendance.findMany({
+      where: { memberId: member.id, eventId: { in: visible.map((e) => e.id) } },
+    }),
+    includeConcerts
+      ? prisma.onStageAssignment.findMany({
+          where: { concertId: { in: concerts.map((ct) => ct.id) }, memberId: member.id },
+          select: { concertId: true },
+        })
+      : Promise.resolve([]),
+  ]);
+  const attMap = new Map(myAttendances.map((a) => [a.eventId, a.status]));
+  const onStageSet = new Set(myOnStage.map((a) => a.concertId));
+
+  const eventItems: ScheduleItem[] = visible.map((ev) => ({
+    ...formatEvent(ev),
+    myAttendance: (attMap.get(ev.id) ?? "undecided") as string,
+  }));
+
+  const concertItems: ScheduleItem[] = [];
+  if (includeConcerts) {
+    const catFallback = concertCategory ?? {
+      id: "",
+      name: "本番",
+      slug: "concert",
+      color: "#F97316",
+    };
+
+    for (const ct of concerts) {
+      concertItems.push({
+        id: ct.id,
+        title: ct.title,
+        category: {
+          id: catFallback.id,
+          name: catFallback.name,
+          slug: catFallback.slug,
+          color: catFallback.color,
+        },
+        startsAt: ct.heldOn.toISOString(),
+        endsAt: ct.heldOn.toISOString(),
+        location: ct.venue ?? null,
+        locationUrl: null,
+        deadline: null,
+        rehearsalContent: null,
+        timeSchedule: null,
+        practiceVenue: null,
+        otherNotes: null,
+        isLocked: false,
+        targetRoles: null,
+        targetPartIds: null,
+        concertId: ct.id,
+        myAttendance: onStageSet.has(ct.id) ? "attending" : "undecided",
+      });
+    }
+  }
+
+  return [...eventItems, ...concertItems]
+    .map((item) => ({ item, sortKey: new Date(item.startsAt).getTime() }))
+    .sort((a, b) => a.sortKey - b.sortKey)
+    .map(({ item }) => item);
+}
+
+// ────────────────────────────
 // Router
 // ────────────────────────────
 
 export const eventsRouter = new Hono<TenantEnv>()
 
   // ── GET /events ──────────────────────────────────────────────────────────
-  // イベント一覧 + Concert テーブル（linkedEvent のない本番）をマージして返す
   .get("/events", async (c) => {
     const org = c.get("org");
     const member = c.get("member");
@@ -115,92 +217,7 @@ export const eventsRouter = new Hono<TenantEnv>()
           }
         : undefined;
 
-    const where: Prisma.EventWhereInput = { orgId: org.id };
-    if (dateRange) where.startsAt = dateRange;
-    if (type) {
-      const cat = await prisma.eventCategory.findFirst({ where: { orgId: org.id, slug: type } });
-      if (!cat) return c.json({ data: [] });
-      where.categoryId = cat.id;
-    }
-
-    const events = await prisma.event.findMany({
-      where,
-      include: { category: true },
-      orderBy: { startsAt: "asc" },
-    });
-
-    const visible = isAdmin(member) ? events : events.filter((ev) => isInvited(member, ev));
-
-    const myAttendances = await prisma.attendance.findMany({
-      where: { memberId: member.id, eventId: { in: visible.map((e) => e.id) } },
-    });
-    const attMap = new Map(myAttendances.map((a) => [a.eventId, a.status]));
-
-    const eventItems = visible.map((ev) => ({
-      ...formatEvent(ev),
-      myAttendance: (attMap.get(ev.id) ?? "undecided") as string,
-    }));
-
-    // Concert テーブル: linkedEvent のないもの（= スケジュールと紐付いていない直接登録分）のみ追加
-    const includeConcerts = !type || type === "concert";
-    const concertItems: typeof eventItems = [];
-
-    if (includeConcerts) {
-      const concertWhere: Prisma.ConcertWhereInput = {
-        orgId: org.id,
-        linkedEvent: null,
-      };
-      if (dateRange) concertWhere.heldOn = dateRange;
-
-      const [concerts, concertCategory] = await Promise.all([
-        prisma.concert.findMany({ where: concertWhere, orderBy: { heldOn: "asc" } }),
-        prisma.eventCategory.findFirst({ where: { orgId: org.id, slug: "concert" } }),
-      ]);
-
-      const myOnStage = await prisma.onStageAssignment.findMany({
-        where: { concertId: { in: concerts.map((ct) => ct.id) }, memberId: member.id },
-        select: { concertId: true },
-      });
-      const onStageSet = new Set(myOnStage.map((a) => a.concertId));
-
-      const catFallback = concertCategory ?? {
-        id: "",
-        name: "本番",
-        slug: "concert",
-        color: "#F97316",
-      };
-
-      for (const ct of concerts) {
-        concertItems.push({
-          id: ct.id,
-          title: ct.title,
-          category: {
-            id: catFallback.id,
-            name: catFallback.name,
-            slug: catFallback.slug,
-            color: catFallback.color,
-          },
-          startsAt: ct.heldOn.toISOString(),
-          endsAt: ct.heldOn.toISOString(),
-          location: ct.venue ?? null,
-          locationUrl: null,
-          deadline: null,
-          rehearsalContent: null,
-          timeSchedule: null,
-          practiceVenue: null,
-          otherNotes: null,
-          isLocked: false,
-          targetRoles: null,
-          targetPartIds: null,
-          concertId: ct.id,
-          myAttendance: onStageSet.has(ct.id) ? "attending" : "undecided",
-        });
-      }
-    }
-
-    const merged = [...eventItems, ...concertItems].sort(
-      (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
-    );
+    const merged = await getScheduleItems(org.id, member, { dateRange, type });
 
     return c.json({ data: merged });
   })

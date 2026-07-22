@@ -13,6 +13,7 @@ import { canManageSchedule } from "@/lib/roles";
 import { eventKeys, memberKeys } from "@/lib/query-keys";
 import { AttendanceTable, type LocalAttendance } from "./_components/AttendanceTable";
 import { DeleteConfirmModal } from "./_components/DeleteConfirmModal";
+import { ScheduleNotesDisplay } from "../../_components/ScheduleNotesSection";
 import { PageMain } from "@/components/PageMain";
 import { PageHeader } from "@/components/PageHeader";
 import { PageErrorState } from "@/components/PageErrorState";
@@ -255,12 +256,14 @@ export default function ScheduleDetailPage() {
       )}
 
       <PageMain className="space-y-4">
-        {event.pageMemo && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-3">
-            <p className="mb-1 text-xs font-semibold text-amber-700">全体備考</p>
-            <p className="text-sm leading-relaxed text-gray-700">{event.pageMemo}</p>
-          </div>
-        )}
+        <ScheduleNotesDisplay
+          values={{
+            rehearsalContent: event.rehearsalContent,
+            timeSchedule: event.timeSchedule,
+            practiceVenue: event.practiceVenue,
+            otherNotes: event.otherNotes,
+          }}
+        />
 
         <AttendanceTable
           partGroups={partGroups}

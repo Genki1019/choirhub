@@ -92,6 +92,7 @@ const makeAdminMember = (): Member => ({
   deletedAt: null,
   phone: "090-1234-5678",
   adminMemo: "メモ",
+  calendarFeedToken: null,
   createdAt: new Date("2020-04-01"),
 });
 
@@ -111,6 +112,7 @@ const makeNormalMember = (id = "member-1"): Member => ({
   deletedAt: null,
   phone: "080-9999-9999",
   adminMemo: "メモ",
+  calendarFeedToken: null,
   createdAt: new Date("2022-04-01"),
 });
 
@@ -204,10 +206,10 @@ describe("GET /members", () => {
 
   it("status クエリパラメータでフィルタされる", async () => {
     const app = createTestApp(makeNormalMember());
-    await app.request("/members?status=alumni");
+    await app.request("/members?status=offstage");
     expect(prisma.member.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ status: "alumni" }),
+        where: expect.objectContaining({ status: "offstage" }),
       }),
     );
   });
@@ -233,6 +235,17 @@ describe("GET /members/me", () => {
     expect(body.data.id).toBe("member-1");
     expect(body.data.phone).toBe("080-9999-9999");
     expect(body.data.adminMemo).toBe("メモ");
+  });
+
+  it("対応するMemberレコードが存在しない: 404を返す", async () => {
+    vi.mocked(prisma.member.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeNormalMember());
+    const res = await app.request("/members/me");
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
   });
 });
 

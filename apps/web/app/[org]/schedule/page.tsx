@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Plus, Loader2, AlertCircle } from "lucide-react";
+import { Plus, Loader2, AlertCircle, CalendarPlus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { eventsApi } from "@/lib/events-api";
 import { monthStart } from "@/lib/date";
 import { eventKeys } from "@/lib/query-keys";
 import { Calendar } from "./_components/Calendar";
 import { EventList } from "./_components/EventList";
+import { CalendarFeedModal } from "./_components/CalendarFeedModal";
 import { PageMain } from "@/components/PageMain";
 import { PageHeader } from "@/components/PageHeader";
 import { useMember } from "@/contexts/MemberContext";
@@ -22,6 +23,7 @@ export default function SchedulePage() {
   const { roles } = useMember();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
+  const [showCalendarFeedModal, setShowCalendarFeedModal] = useState(false);
 
   const from = monthStart(year, month);
   const to = month === 12 ? monthStart(year + 1, 1) : monthStart(year, month + 1);
@@ -57,17 +59,29 @@ export default function SchedulePage() {
       <PageHeader
         title="スケジュール"
         actions={
-          canCreateEvent ? (
-            <Link
-              href={`/${org}/schedule/new`}
-              prefetch={false}
-              className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCalendarFeedModal(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
             >
-              <Plus size={14} /> イベントを追加
-            </Link>
-          ) : undefined
+              <CalendarPlus size={14} /> 外部カレンダーに連携
+            </button>
+            {canCreateEvent && (
+              <Link
+                href={`/${org}/schedule/new`}
+                prefetch={false}
+                className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
+              >
+                <Plus size={14} /> イベントを追加
+              </Link>
+            )}
+          </div>
         }
       />
+
+      {showCalendarFeedModal && (
+        <CalendarFeedModal orgSlug={org} onClose={() => setShowCalendarFeedModal(false)} />
+      )}
 
       {loading && (
         <div className="flex flex-1 items-center justify-center gap-2 text-gray-400">

@@ -60,6 +60,7 @@ const makeMember = (roles: string[], id = "member-1", partId: string | null = nu
   deletedAt: null,
   phone: null,
   adminMemo: null,
+  calendarFeedToken: null,
   createdAt: new Date("2022-04-01"),
 });
 

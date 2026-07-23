@@ -18,6 +18,7 @@ export const eventKeys = {
   list: (org: string, year: number, month: number) => ["events", org, year, month] as const,
   detail: (org: string, id: string) => ["event", org, id] as const,
   categories: (org: string) => ["eventCategories", org] as const,
+  calendarFeedToken: (org: string) => ["events", org, "calendarFeedToken"] as const,
 };
 
 export const scoresKeys = {

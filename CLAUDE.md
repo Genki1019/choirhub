@@ -14,15 +14,15 @@
 
 - **Next.js 16 (App Router)** + TypeScript 5
 - **Tailwind CSS v4** + shadcn/ui（Radixベース）
-- TanStack Query v5（サーバーステート）/ Zustand（クライアントステート）
+- TanStack Query v5（サーバーステート）/ React Context・`useState`（クライアントステート）
 - React Hook Form + Zod（フォーム・バリデーション）
-- TanStack Table v8（出欠表・メンバー一覧）
+- @dnd-kit（本番・オンステ管理のドラッグ&ドロップ）
 
 ### バックエンド（`apps/api`）
 
 - **Hono**（軽量APIフレームワーク）+ TypeScript
 - **Prisma** ORM + PostgreSQL 16
-- Lucia v3（認証・セッション管理）
+- 自前セッション管理（`lib/session.ts`、Prisma `Session`テーブル + Cookie）+ argon2（パスワードハッシュ）
 - Cloudflare R2（ファイルストレージ・S3互換）
 - Resend（メール送信）
 - Upstash Redis（セッション・レートリミット）
@@ -72,6 +72,8 @@ choirhub/
 │   ├── web/app/
 │   │   ├── (auth)/login/
 │   │   ├── (auth)/invite/[token]/
+│   │   ├── (auth)/password-reset/
+│   │   ├── (auth)/select-org/
 │   │   └── [org]/           # テナント別ルート（layout.tsx で orgId 解決）
 │   │       ├── page.tsx     # ホーム
 │   │       ├── members/
@@ -80,6 +82,7 @@ choirhub/
 │   │       ├── concerts/
 │   │       ├── mailing/
 │   │       ├── tickets/
+│   │       ├── accounting/
 │   │       └── settings/
 │   └── api/src/
 │       ├── routes/          # Honoルートハンドラ
@@ -92,7 +95,7 @@ choirhub/
 
 - **型**: `any` 禁止。API境界はZodで検証し型を推論する
 - **Prisma**: クエリには必ず `where: { orgId }` を含める（マルチテナント漏えい防止）
-- **ファイルDL**: S3/R2直リンク禁止。必ずPresigned URLを発行する
+- **ファイルDL**: S3/R2直リンク禁止。必ずPresigned URLを発行する（例外: アバター画像は非機密情報のため`R2_PUBLIC_URL`設定時にCDN直リンクを許容）
 - **権限チェック**: ミドルウェアで完結させ、各ルートハンドラでロール確認を重複させない
 - **楽譜アクセス**: visitor（共有）→ access_level 問わず全楽譜PDF閲覧可（MIDI不可）; 一般団員 → 購入記録があるもののみDL可（public含む）; secret → 特権ユーザー（admin/score/tech/conductor）のみ（visitor は例外として secret PDF も閲覧可）
 

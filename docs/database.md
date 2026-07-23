@@ -36,6 +36,8 @@ erDiagram
     Organization ||--o{ ExpenseCategory  : "has"
     Organization ||--o{ MemberType       : "has"
     Organization ||--o{ Collection             : "has"
+    Organization ||--o{ EventCategory          : "has"
+    Organization ||--o{ VisitorApplication     : "has"
 
     Part             ||--o{ Member : "belongs to"
     MemberType ||--o{ Member : "categorizes"
@@ -54,6 +56,12 @@ erDiagram
     Event  ||--o{ Attendance    : "has"
     Event  ||--o{ Expense       : "linked to"
     Event  ||--o{ Collection    : "linked to"
+    EventCategory ||--o{ Event  : "categorizes"
+
+    Concert ||--o{ OutreachActivity : "has"
+    Member  ||--o{ OutreachActivity : "creates"
+    OutreachActivity ||--o{ OutreachParticipant : "has"
+    Member  ||--o{ OutreachParticipant : "participates"
 
     Score  ||--o{ ScoreFile      : "has"
     Score  ||--o{ ScoreAccessLog : "logged"
@@ -135,11 +143,19 @@ erDiagram
 
 ```mermaid
 erDiagram
+    EventCategory {
+        string id PK
+        string orgId FK
+        string name
+        string slug
+        string color
+        int    sortOrder
+    }
     Event {
         string    id PK
         string    orgId FK
         string    title
-        EventType eventType
+        string    categoryId FK
         datetime  startsAt
         datetime  endsAt
         string    location
@@ -162,8 +178,9 @@ erDiagram
         string           dayMemo
     }
 
-    Event  ||--o{ Attendance : "has"
-    Member ||--o{ Attendance : "answers"
+    EventCategory ||--o{ Event      : "categorizes"
+    Event         ||--o{ Attendance : "has"
+    Member        ||--o{ Attendance : "answers"
 ```
 
 ### 1.4 楽譜管理
@@ -471,23 +488,25 @@ erDiagram
 
 > 所属エンティティ。1ユーザーが複数団体に所属する場合、団体ごとに1レコード持つ。
 
-| カラム       | 型        | 制約                           | 説明                                   |
-| ------------ | --------- | ------------------------------ | -------------------------------------- |
-| id           | CUID      | PK                             |                                        |
-| userId       | CUID      | NOT NULL, FK → User            |                                        |
-| orgId        | CUID      | NOT NULL, FK → Organization    |                                        |
-| partId       | CUID      | FK → Part                      |                                        |
-| memberTypeId | CUID      | FK → MemberType                | メンバー区分（任意）                   |
-| roles        | VARCHAR[] | NOT NULL, DEFAULT `['member']` | この団でのロール一覧（下記参照）       |
-| status       | ENUM      | NOT NULL, DEFAULT `active`     | active / offstage / alumni / suspended |
-| bio          | TEXT      |                                | 一言自己紹介（全員閲覧可）             |
-| job          | VARCHAR   |                                | 職業（全員閲覧可）                     |
-| interests    | VARCHAR   |                                | 好きなもの（全員閲覧可）               |
-| originGroup  | VARCHAR   |                                | 出身団体（全員閲覧可）                 |
-| joinedAt     | DATE      |                                | 入団日（この団への）                   |
-| phone        | VARCHAR   |                                | 電話番号（**admin のみ閲覧**）         |
-| adminMemo    | TEXT      |                                | 管理者メモ（**admin のみ閲覧**）       |
-| createdAt    | TIMESTAMP | NOT NULL, DEFAULT now()        |                                        |
+| カラム            | 型        | 制約                           | 説明                                     |
+| ----------------- | --------- | ------------------------------ | ---------------------------------------- |
+| id                | CUID      | PK                             |                                          |
+| userId            | CUID      | NOT NULL, FK → User            |                                          |
+| orgId             | CUID      | NOT NULL, FK → Organization    |                                          |
+| partId            | CUID      | FK → Part                      |                                          |
+| memberTypeId      | CUID      | FK → MemberType                | メンバー区分（任意）                     |
+| roles             | VARCHAR[] | NOT NULL, DEFAULT `['member']` | この団でのロール一覧（下記参照）         |
+| status            | ENUM      | NOT NULL, DEFAULT `active`     | active / offstage                        |
+| bio               | TEXT      |                                | 一言自己紹介（全員閲覧可）               |
+| job               | VARCHAR   |                                | 職業（全員閲覧可）                       |
+| interests         | VARCHAR   |                                | 好きなもの（全員閲覧可）                 |
+| originGroup       | VARCHAR   |                                | 出身団体（全員閲覧可）                   |
+| joinedAt          | DATE      |                                | 入団日（この団への）                     |
+| deletedAt         | TIMESTAMP |                                | 退団処理日時（論理削除。NULLなら在籍中） |
+| phone             | VARCHAR   |                                | 電話番号（**admin のみ閲覧**）           |
+| adminMemo         | TEXT      |                                | 管理者メモ（**admin のみ閲覧**）         |
+| calendarFeedToken | VARCHAR   | UNIQUE                         | 個人用iCalフィード認証トークン           |
+| createdAt         | TIMESTAMP | NOT NULL, DEFAULT now()        |                                          |
 
 **UNIQUE**: `(userId, orgId)`
 
@@ -779,17 +798,18 @@ draft → survey_open → confirmed → past
 
 ### TicketBatch（チケット席種）
 
-| カラム          | 型        | 制約                   | 説明                                                         |
-| --------------- | --------- | ---------------------- | ------------------------------------------------------------ |
-| id              | CUID      | PK                     |                                                              |
-| concertId       | CUID      | NOT NULL, FK → Concert |                                                              |
-| name            | VARCHAR   | NOT NULL               | 席種名（例: 一般・学生・招待）                               |
-| price           | INT       | NOT NULL               | 大人販売価格（円）                                           |
-| priceStudent    | INT       |                        | 学生販売価格（円、NULL = 大人と同額）                        |
-| totalCount      | INT       | NOT NULL               | 総発行枚数                                                   |
-| saleStart       | TIMESTAMP |                        | 販売開始日時                                                 |
-| saleEnd         | TIMESTAMP |                        | 販売終了日時                                                 |
-| racePublishedAt | TIMESTAMP |                        | 席種別パートレース公開日時（Concert.racePublishedAt が優先） |
+| カラム          | 型        | 制約                    | 説明                                                         |
+| --------------- | --------- | ----------------------- | ------------------------------------------------------------ |
+| id              | CUID      | PK                      |                                                              |
+| concertId       | CUID      | NOT NULL, FK → Concert  |                                                              |
+| name            | VARCHAR   | NOT NULL                | 席種名（例: 一般・学生・招待）                               |
+| price           | INT       | NOT NULL                | 大人販売価格（円）                                           |
+| priceStudent    | INT       |                         | 学生販売価格（円、NULL = 大人と同額）                        |
+| totalCount      | INT       | NOT NULL                | 総発行枚数                                                   |
+| saleStart       | TIMESTAMP |                         | 販売開始日時                                                 |
+| saleEnd         | TIMESTAMP |                         | 販売終了日時                                                 |
+| racePublishedAt | TIMESTAMP |                         | 席種別パートレース公開日時（Concert.racePublishedAt が優先） |
+| createdAt       | TIMESTAMP | NOT NULL, DEFAULT now() |                                                              |
 
 ---
 
@@ -811,6 +831,7 @@ draft → survey_open → confirmed → past
 | isOutreachExpensePaid | BOOLEAN   | NOT NULL, DEFAULT false    | 情宣交通費支払済みフラグ                |
 | outreachExpensePaidAt | TIMESTAMP |                            | 情宣交通費支払日時                      |
 | reportedAt            | TIMESTAMP |                            | 回収報告日時                            |
+| createdAt             | TIMESTAMP | NOT NULL, DEFAULT now()    |                                         |
 
 ---
 
@@ -971,7 +992,7 @@ draft → survey_open → confirmed → past
 | Member             | userId                         | INDEX  | ユーザーの所属団体一覧取得          |
 | Member             | orgId                          | INDEX  | テナント絞り込み                    |
 | Member             | (orgId, partId)                | INDEX  | パート別メンバー一覧                |
-| InviteToken        | token                          | INDEX  | トークン検索                        |
+| InviteToken        | token                          | UNIQUE | トークン検索                        |
 | PasswordResetToken | token                          | UNIQUE | トークン検索                        |
 | PasswordResetToken | userId                         | INDEX  | ユーザー別トークン取得              |
 | Event              | (orgId, startsAt)              | INDEX  | 月カレンダー表示                    |
@@ -990,7 +1011,7 @@ draft → survey_open → confirmed → past
 | FormationSlot      | patternId                      | INDEX  | パターンに紐づくスロット取得        |
 | FormationSlot      | boxId                          | INDEX  | 枠に紐づくスロット取得              |
 | MailLog            | (orgId, sentAt)                | INDEX  | メール履歴の時系列取得              |
-| TicketAllocation   | (batchId, memberId)            | INDEX  | 団員別チケット集計                  |
+| TicketAllocation   | (batchId, memberId)            | UNIQUE | 団員別チケット集計・重複配布防止    |
 | Collection         | orgId                          | INDEX  | 団ごとの徴収一覧取得                |
 | Collection         | (orgId, yearMonth)             | INDEX  | 月会費の月次検索                    |
 | Collection         | scoreId                        | INDEX  | 楽譜別の徴収取得                    |
@@ -1021,9 +1042,9 @@ draft → survey_open → confirmed → past
 - APIミドルウェアが `orgSlug → orgId` を解決し、以降の全クエリに自動付与する
 - アプリケーション層でテナント分離を保証する（PostgreSQL RLS は補助的に検討）
 
-### 4.3 論理削除を使わない方針
+### 4.3 削除方針
 
-- メンバーの「退団」は `status = alumni` で表現する（物理削除しない）
+- メンバーの「退団」は `Member.deletedAt` による論理削除で表現する（物理削除しない。`status` は在籍中の active/offstage のみを表す）
 - イベントや楽譜の削除は物理削除とするが、関連する Attendance・ScoreAccessLog は保持する
 
 ### 4.4 ファイルストレージ
@@ -1043,7 +1064,7 @@ draft → survey_open → confirmed → past
 
 | ENUM名                   | 値                                             |
 | ------------------------ | ---------------------------------------------- |
-| MemberStatus             | active / offstage / alumni / suspended         |
+| MemberStatus             | active / offstage                              |
 | AttendanceStatus         | attending / absent / maybe / undecided         |
 | AccessLevel              | secret / restricted / public                   |
 | FileType                 | full_score / part_score / midi / audio / other |

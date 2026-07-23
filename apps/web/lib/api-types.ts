@@ -39,6 +39,10 @@ export interface InviteResult {
   expiresAt: string;
 }
 
+export interface TokenResponse {
+  token: string | null;
+}
+
 export interface VisitorApplication {
   id: string;
   name: string;

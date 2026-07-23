@@ -2,23 +2,20 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, RefreshCw, Copy } from "lucide-react";
 import { settingsApi } from "@/lib/settings-api";
 import { settingsKeys } from "@/lib/query-keys";
 import { settingsPageTitle, SETTINGS_MAIN_CLASS_NAME } from "@/lib/settings-nav";
 import { useMember } from "@/contexts/MemberContext";
 import { useClipboardCopy } from "@/hooks/useClipboardCopy";
+import { useTokenIssuance } from "@/hooks/useTokenIssuance";
 import { PageWithHeader } from "@/components/PageWithHeader";
 import { IntroTemplateCard } from "./_components/IntroTemplateCard";
 
 export default function VisitorWebhookPage() {
   const { org } = useParams<{ org: string }>();
   const { roles } = useMember();
-  const queryClient = useQueryClient();
   const isAdmin = roles.includes("admin");
-  const [regenerating, setRegenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const { copiedKey, copy } = useClipboardCopy();
   // Next.jsのrewriteで /api/v1/* は常にAPIへプロキシされるため、
   // NEXT_PUBLIC_API_URL未設定環境でも同一オリジンのURLがそのまま使える
@@ -30,24 +27,12 @@ export default function VisitorWebhookPage() {
     resolve();
   }, []);
 
-  const { data, isLoading } = useQuery({
-    queryKey: settingsKeys.visitorWebhook(org),
-    queryFn: () => settingsApi.getVisitorWebhookToken(org),
-    enabled: isAdmin,
-  });
-
-  const handleRegenerate = async () => {
-    setRegenerating(true);
-    setError(null);
-    try {
-      const updated = await settingsApi.regenerateVisitorWebhookToken(org);
-      queryClient.setQueryData(settingsKeys.visitorWebhook(org), updated);
-    } catch {
-      setError("トークンの発行に失敗しました。もう一度お試しください。");
-    } finally {
-      setRegenerating(false);
-    }
-  };
+  const { data, isLoading, regenerating, error, handleRegenerate } = useTokenIssuance(
+    settingsKeys.visitorWebhook(org),
+    () => settingsApi.getVisitorWebhookToken(org),
+    () => settingsApi.regenerateVisitorWebhookToken(org),
+    { enabled: isAdmin },
+  );
 
   return (
     <PageWithHeader

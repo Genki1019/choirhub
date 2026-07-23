@@ -1,6 +1,7 @@
 import { apiClient } from "./api-client";
 import type { PartSummary } from "./members-api";
 import type { ExpenseCategory } from "./accounting-api";
+import type { TokenResponse } from "./api-types";
 
 export interface EventCategory {
   id: string;
@@ -26,10 +27,6 @@ export interface OrgSettings {
 export interface FeeSettings {
   feeType: "per_rehearsal" | "monthly";
   defaultFeeAmount: number | null;
-}
-
-export interface VisitorWebhookSettings {
-  token: string | null;
 }
 
 export interface VisitorIntroTemplate {
@@ -110,10 +107,10 @@ export const settingsApi = {
     apiClient.delete(`/${orgSlug}/settings/event-categories/${categoryId}`),
 
   getVisitorWebhookToken: (orgSlug: string) =>
-    apiClient.get<VisitorWebhookSettings>(`/${orgSlug}/settings/visitor-webhook`),
+    apiClient.get<TokenResponse>(`/${orgSlug}/settings/visitor-webhook`),
 
   regenerateVisitorWebhookToken: (orgSlug: string) =>
-    apiClient.post<VisitorWebhookSettings>(`/${orgSlug}/settings/visitor-webhook/regenerate`, {}),
+    apiClient.post<TokenResponse>(`/${orgSlug}/settings/visitor-webhook/regenerate`, {}),
 
   getVisitorIntroTemplate: (orgSlug: string) =>
     apiClient.get<VisitorIntroTemplate>(`/${orgSlug}/settings/visitor-intro-template`),

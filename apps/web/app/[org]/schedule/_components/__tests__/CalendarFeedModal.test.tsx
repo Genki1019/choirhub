@@ -94,4 +94,18 @@ describe("CalendarFeedModal", () => {
       expect(screen.getByDisplayValue(/feed\.ics\?token=regenerated-token/)).toBeInTheDocument();
     });
   });
+
+  it("発行に失敗した場合はエラーメッセージを表示する", async () => {
+    vi.mocked(eventsApi.getCalendarFeedToken).mockResolvedValue({ token: null });
+    vi.mocked(eventsApi.regenerateCalendarFeedToken).mockRejectedValue(new Error("network error"));
+    const user = userEvent.setup();
+    renderModal();
+
+    await screen.findByText("発行する");
+    await user.click(screen.getByText("発行する"));
+
+    expect(
+      await screen.findByText("トークンの発行に失敗しました。もう一度お試しください。"),
+    ).toBeInTheDocument();
+  });
 });

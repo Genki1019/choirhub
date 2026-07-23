@@ -312,6 +312,27 @@ describe("handleCalendarFeed", () => {
     expect(text).toContain("タイムスケジュール");
   });
 
+  it("備考が全てnullの場合はDESCRIPTIONが省略される", async () => {
+    mockValidTokenFeed({
+      events: [
+        {
+          ...testEvent,
+          rehearsalContent: null,
+          timeSchedule: null,
+          practiceVenue: null,
+          otherNotes: null,
+        },
+      ],
+    });
+
+    const app = createPublicApp();
+    const res = await app.request("/public/calendar/tokyo-men-choir/feed.ics?token=valid-token");
+
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).not.toContain("DESCRIPTION");
+  });
+
   it("別団体のorgSlugではその団体のイベントが返らない", async () => {
     const otherOrg: Organization = { ...testOrg, id: "org-2", slug: "other-choir" };
     vi.mocked(prisma.organization.findUnique).mockResolvedValue(otherOrg);

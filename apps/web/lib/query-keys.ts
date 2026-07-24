@@ -24,6 +24,7 @@ export const eventKeys = {
 export const scoresKeys = {
   grouped: (org: string) => ["scores", org, "grouped"] as const,
   detail: (org: string, id: string) => ["score", org, id] as const,
+  list: (org: string, q: string) => ["scores", org, "list", q] as const,
 };
 
 export const concertKeys = {

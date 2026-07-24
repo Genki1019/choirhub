@@ -29,7 +29,6 @@ import { useMember } from "@/contexts/MemberContext";
 import { MEMBER_LEVEL_ROLES } from "@/lib/roles";
 import { StagesTab } from "./_components/StagesTab";
 import { AddStageModal } from "./_components/AddStageModal";
-import { AddProgramModal } from "./_components/AddProgramModal";
 import { MoveCopyModal, type MoveCopyTarget } from "./_components/MoveCopyModal";
 import { SurveyTab } from "./_components/SurveyTab";
 import { OnstageTab } from "./_components/OnstageTab";
@@ -71,7 +70,6 @@ export default function ConcertDetailPage() {
   const backHref = fromParam === "schedule" ? `/${org}/schedule` : `/${org}/concerts`;
 
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
-  const [addProgramStageId, setAddProgramStageId] = useState<string | null>(null);
   const [showAddStageModal, setShowAddStageModal] = useState(false);
   const [moveCopySource, setMoveCopySource] = useState<{
     stageId: string;
@@ -242,19 +240,6 @@ export default function ConcertDetailPage() {
     }
   };
 
-  const handleProgramAdded = (stageId: string, program: ProgramDetail) => {
-    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        stages: prev.stages.map((s) =>
-          s.id === stageId ? { ...s, programs: [...s.programs, program] } : s,
-        ),
-      };
-    });
-    setAddProgramStageId(null);
-  };
-
   const handleProgramEdited = (stageId: string, updated: ProgramDetail) => {
     queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) => {
       if (!prev) return prev;
@@ -386,7 +371,9 @@ export default function ConcertDetailPage() {
           <StagesTab
             concert={concert}
             isAdmin={isAdmin}
-            onAddClick={setAddProgramStageId}
+            onAddClick={(stageId) =>
+              router.push(`/${org}/concerts/${id}/programs/new?stageId=${stageId}`)
+            }
             onAddStage={() => setShowAddStageModal(true)}
             onMoveStage={handleMoveStage}
             onMoveProgram={handleMoveProgram}
@@ -424,16 +411,6 @@ export default function ConcertDetailPage() {
           stageCount={concert.stages.length}
           onClose={() => setShowAddStageModal(false)}
           onCreated={handleStageAdded}
-        />
-      )}
-
-      {addProgramStageId && (
-        <AddProgramModal
-          orgSlug={org}
-          concertId={id}
-          stageId={addProgramStageId}
-          onClose={() => setAddProgramStageId(null)}
-          onCreated={(program) => handleProgramAdded(addProgramStageId, program)}
         />
       )}
 

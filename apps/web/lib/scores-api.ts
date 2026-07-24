@@ -113,6 +113,10 @@ export interface ScoreListItem {
   arranger: string | null;
 }
 
+export interface ScoreListQuery {
+  q?: string;
+}
+
 export const scoresApi = {
   grouped: (orgSlug: string) => apiClient.get<GroupedScores>(`/${orgSlug}/scores/grouped`),
 
@@ -122,7 +126,12 @@ export const scoresApi = {
   updateMeta: (orgSlug: string, scoreId: string, data: UpdateScoreMetaInput) =>
     apiClient.patch<ScoreMetaResponse>(`/${orgSlug}/scores/${scoreId}`, data),
 
-  list: (orgSlug: string) => apiClient.get<ScoreListItem[]>(`/${orgSlug}/scores`),
+  list: (orgSlug: string, query?: ScoreListQuery) => {
+    const params = new URLSearchParams();
+    if (query?.q) params.set("q", query.q);
+    const qs = params.toString();
+    return apiClient.get<ScoreListItem[]>(`/${orgSlug}/scores${qs ? `?${qs}` : ""}`);
+  },
 
   create: (orgSlug: string, data: CreateScoreInput) =>
     apiClient.post<ScoreSummary>(`/${orgSlug}/scores`, data),

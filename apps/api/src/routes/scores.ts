@@ -90,8 +90,22 @@ export const scoresRouter = new Hono<TenantEnv>()
   // ── GET /scores ── フラット一覧（曲目選択ピッカー用）
   .get("/scores", async (c) => {
     const org = c.get("org");
+    const { q } = c.req.query();
+    const keyword = q?.trim();
+
     const scores = await prisma.score.findMany({
-      where: { orgId: org.id },
+      where: {
+        orgId: org.id,
+        ...(keyword
+          ? {
+              OR: [
+                { title: { contains: keyword, mode: "insensitive" } },
+                { composer: { contains: keyword, mode: "insensitive" } },
+                { arranger: { contains: keyword, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
       orderBy: { title: "asc" },
       select: { id: true, title: true, composer: true, arranger: true },
     });

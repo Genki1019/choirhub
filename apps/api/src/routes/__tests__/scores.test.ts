@@ -156,6 +156,57 @@ describe("GET /scores", () => {
     const body = await json(res);
     expect(body.data).toEqual([]);
   });
+
+  it.each([
+    ["title", "曲A"],
+    ["composer", "作曲家A"],
+    ["arranger", "編曲家A"],
+  ])("q指定時: %sの部分一致検索条件をorgIdと併せて渡す", async (_field, keyword) => {
+    vi.mocked(prisma.score.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["member"]));
+    await app.request(`/scores?q=${encodeURIComponent(keyword)}`);
+
+    expect(prisma.score.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          orgId: testOrg.id,
+          OR: [
+            { title: { contains: keyword, mode: "insensitive" } },
+            { composer: { contains: keyword, mode: "insensitive" } },
+            { arranger: { contains: keyword, mode: "insensitive" } },
+          ],
+        },
+      }),
+    );
+  });
+
+  it("q指定時: 大文字小文字を跨いで一致する結果を返す", async () => {
+    vi.mocked(prisma.score.findMany).mockResolvedValue([
+      { id: "score-1", title: "Ave Maria", composer: null, arranger: null },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/scores?q=ave");
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual([
+      { id: "score-1", title: "Ave Maria", composer: null, arranger: null },
+    ]);
+  });
+
+  it("q が空白のみ: 全件検索条件（絞り込みなし）で扱う", async () => {
+    vi.mocked(prisma.score.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["member"]));
+    await app.request("/scores?q=%20%20");
+
+    expect(prisma.score.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { orgId: testOrg.id } }),
+    );
+  });
 });
 
 describe("GET /scores/grouped", () => {

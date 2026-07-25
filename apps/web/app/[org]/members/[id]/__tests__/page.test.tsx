@@ -5,29 +5,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import MemberDetailPage from "../page";
 import { MemberProvider } from "@/contexts/MemberContext";
 import { membersApi } from "@/lib/members-api";
-import { settingsApi } from "@/lib/settings-api";
 import type { MemberProfile } from "@/lib/api-types";
-
-const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ org: "tokyo-men-choir", id: "member-2" }),
-  useRouter: () => ({ push: pushMock }),
 }));
 
 vi.mock("@/lib/members-api", () => ({
   membersApi: {
     get: vi.fn(),
-    parts: vi.fn(),
     updateMe: vi.fn(),
-    updateById: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
-
-vi.mock("@/lib/settings-api", () => ({
-  settingsApi: {
-    listMemberTypes: vi.fn(),
   },
 }));
 
@@ -67,10 +54,6 @@ function renderPage(opts: { myMemberId?: string; roles?: string[] } = {}) {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(membersApi.parts).mockResolvedValue([
-    { id: "part-1", name: "Tenor I", voiceType: "tenor", sortOrder: 1 },
-  ]);
-  vi.mocked(settingsApi.listMemberTypes).mockResolvedValue([]);
 });
 
 describe("MemberDetailPage（表示状態）", () => {
@@ -113,25 +96,20 @@ describe("MemberDetailPage（権限分岐）", () => {
     expect(screen.queryByText("編集")).not.toBeInTheDocument();
   });
 
-  it("admin: AdminPanelを表示し、parts・memberTypesを取得する", async () => {
+  it("admin: ヘッダーに「管理者操作」への導線を表示する", async () => {
     vi.mocked(membersApi.get).mockResolvedValue(makeMember());
     renderPage({ myMemberId: "member-self", roles: ["admin"] });
 
-    expect(await screen.findByText("管理者操作")).toBeInTheDocument();
-    await waitFor(() => {
-      expect(membersApi.parts).toHaveBeenCalled();
-      expect(settingsApi.listMemberTypes).toHaveBeenCalled();
-    });
+    const manageLink = await screen.findByRole("link", { name: /管理者操作/ });
+    expect(manageLink).toHaveAttribute("href", "/tokyo-men-choir/members/member-2/manage");
   });
 
-  it("admin以外: AdminPanelを表示せず、parts・memberTypesも取得しない", async () => {
+  it("admin以外: 「管理者操作」への導線を表示しない", async () => {
     vi.mocked(membersApi.get).mockResolvedValue(makeMember());
     renderPage({ myMemberId: "member-self", roles: ["member"] });
 
     await screen.findByText("山田太郎");
-    expect(screen.queryByText("管理者操作")).not.toBeInTheDocument();
-    expect(membersApi.parts).not.toHaveBeenCalled();
-    expect(settingsApi.listMemberTypes).not.toHaveBeenCalled();
+    expect(screen.queryByRole("link", { name: /管理者操作/ })).not.toBeInTheDocument();
   });
 });
 
@@ -167,54 +145,5 @@ describe("MemberDetailPage（自己編集フロー）", () => {
       queryKey: ["members", "tokyo-men-choir"],
     });
     expect(screen.queryByText("プロフィール編集")).not.toBeInTheDocument();
-  });
-});
-
-describe("MemberDetailPage（管理者操作）", () => {
-  it("変更を保存すると、一覧無効化後にステータス付きの一覧へ遷移する", async () => {
-    vi.mocked(membersApi.get).mockResolvedValue(makeMember({ status: "active" }));
-    vi.mocked(membersApi.updateById).mockResolvedValue(makeMember());
-    const user = userEvent.setup();
-    const { invalidateSpy } = renderPage({ myMemberId: "member-self", roles: ["admin"] });
-
-    await user.click(await screen.findByText("変更を保存"));
-
-    await waitFor(() => {
-      expect(membersApi.updateById).toHaveBeenCalled();
-    });
-    expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: ["members", "tokyo-men-choir"],
-    });
-    expect(pushMock).toHaveBeenCalledWith("/tokyo-men-choir/members?status=active");
-  });
-
-  it("退団処理: confirmでキャンセルした場合はAPIを呼ばない", async () => {
-    vi.mocked(membersApi.get).mockResolvedValue(makeMember());
-    vi.spyOn(window, "confirm").mockReturnValue(false);
-    const user = userEvent.setup();
-    renderPage({ myMemberId: "member-self", roles: ["admin"] });
-
-    await user.click(await screen.findByText("退団処理"));
-
-    expect(membersApi.delete).not.toHaveBeenCalled();
-    expect(pushMock).not.toHaveBeenCalled();
-  });
-
-  it("退団処理: confirmでOKした場合は削除後に一覧へ遷移する", async () => {
-    vi.mocked(membersApi.get).mockResolvedValue(makeMember());
-    vi.mocked(membersApi.delete).mockResolvedValue(undefined);
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    const user = userEvent.setup();
-    const { invalidateSpy } = renderPage({ myMemberId: "member-self", roles: ["admin"] });
-
-    await user.click(await screen.findByText("退団処理"));
-
-    await waitFor(() => {
-      expect(membersApi.delete).toHaveBeenCalledWith("tokyo-men-choir", "member-2");
-    });
-    expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: ["members", "tokyo-men-choir"],
-    });
-    expect(pushMock).toHaveBeenCalledWith("/tokyo-men-choir/members");
   });
 });

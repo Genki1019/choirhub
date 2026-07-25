@@ -259,4 +259,42 @@ describe("AdminPanel（操作）", () => {
       expect(screen.getByText("退団処理").closest("button")).toBeEnabled();
     });
   });
+
+  it("保存が失敗した場合、エラーメッセージを表示する", async () => {
+    const onUpdate = vi.fn().mockRejectedValue(new Error("権限がありません"));
+    const user = userEvent.setup();
+    render(
+      <AdminPanel
+        member={makeMember()}
+        parts={parts}
+        memberTypes={memberTypes}
+        onUpdate={onUpdate}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByText("変更を保存"));
+
+    expect(await screen.findByText("権限がありません")).toBeInTheDocument();
+    expect(screen.getByText("変更を保存").closest("button")).toBeEnabled();
+  });
+
+  it("退団処理が失敗した場合、エラーメッセージを表示する", async () => {
+    const onDelete = vi.fn().mockRejectedValue(new Error("退団処理に失敗しました"));
+    const user = userEvent.setup();
+    render(
+      <AdminPanel
+        member={makeMember()}
+        parts={parts}
+        memberTypes={memberTypes}
+        onUpdate={vi.fn()}
+        onDelete={onDelete}
+      />,
+    );
+
+    await user.click(screen.getByText("退団処理"));
+
+    expect(await screen.findByText("退団処理に失敗しました")).toBeInTheDocument();
+    expect(screen.getByText("退団処理").closest("button")).toBeEnabled();
+  });
 });

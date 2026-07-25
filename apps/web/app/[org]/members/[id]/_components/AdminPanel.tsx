@@ -7,6 +7,7 @@ import type { MemberType } from "@/lib/settings-api";
 import { MEMBER_STATUS_OPTIONS } from "@/lib/api-types";
 import type { MemberStatus } from "@/lib/api-types";
 import { MANAGEABLE_ROLES } from "@/lib/roles";
+import { RolePermissionPopover } from "./RolePermissionPopover";
 
 interface AdminPanelProps {
   member: MemberProfile;
@@ -63,7 +64,10 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
       </div>
 
       <div>
-        <label className="mb-2 block text-xs font-medium text-gray-600">ロール</label>
+        <div className="mb-2 flex items-center gap-1">
+          <label className="block text-xs font-medium text-gray-600">ロール</label>
+          <RolePermissionPopover roles={MANAGEABLE_ROLES} />
+        </div>
         <div className="flex flex-wrap gap-2">
           {MANAGEABLE_ROLES.map(({ value, label }) => (
             <button

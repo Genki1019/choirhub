@@ -89,6 +89,19 @@ describe("AdminPanel（表示）", () => {
     );
     expect(screen.queryByRole("button", { name: "一般" })).not.toBeInTheDocument();
   });
+
+  it("「ロール」ラベルの横に権限説明ポップオーバーのトリガーを1つ表示する", () => {
+    render(
+      <AdminPanel
+        member={makeMember()}
+        parts={parts}
+        memberTypes={memberTypes}
+        onUpdate={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "ロールの権限を表示" })).toBeInTheDocument();
+  });
 });
 
 describe("AdminPanel（操作）", () => {

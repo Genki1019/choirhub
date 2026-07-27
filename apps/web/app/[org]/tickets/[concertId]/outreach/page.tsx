@@ -96,7 +96,7 @@ export default function OutreachPage() {
                   (prev) => (prev ? prev.filter((x) => x.id !== id) : prev),
                 )
               }
-              onPaid={(updated) =>
+              onStatusChanged={(updated) =>
                 queryClient.setQueryData<OutreachActivityRow[]>(
                   ticketKeys.outreach(org, concertId),
                   (prev) => (prev ? prev.map((x) => (x.id === updated.id ? updated : x)) : prev),

@@ -20,6 +20,7 @@ vi.mock("@/lib/tickets-api", async () => {
       get: vi.fn(),
       deleteOutreachActivity: vi.fn(),
       payOutreachActivity: vi.fn(),
+      unpayOutreachActivity: vi.fn(),
     },
   };
 });
@@ -119,7 +120,7 @@ describe("OutreachPage（表示）", () => {
   });
 });
 
-describe("OutreachPage（支払い操作）", () => {
+describe("OutreachPage（支払い・取り消し操作）", () => {
   it("「支払済みにする」クリック後、一覧のキャッシュがpaidに更新される", async () => {
     vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue([makeActivity()]);
     vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
@@ -131,6 +132,25 @@ describe("OutreachPage（支払い操作）", () => {
     await user.click(screen.getByLabelText("渋谷駅前を支払済みにする"));
 
     expect(await screen.findByText("支払済")).toBeInTheDocument();
+  });
+
+  it("「未払いに戻す」クリック後、一覧のキャッシュがpendingに更新される", async () => {
+    vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue([
+      makeActivity({ status: "paid" }),
+    ]);
+    vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
+    vi.mocked(ticketsApi.unpayOutreachActivity).mockResolvedValue(
+      makeActivity({ status: "pending" }),
+    );
+    const user = userEvent.setup();
+    renderPage(["ticket"]);
+
+    await screen.findByText("渋谷駅前");
+    expect(screen.getByText("支払済")).toBeInTheDocument();
+    await user.click(screen.getByLabelText("渋谷駅前を未払いに戻す"));
+
+    expect(await screen.findByLabelText("渋谷駅前を支払済みにする")).toBeInTheDocument();
+    expect(screen.queryByText("支払済")).not.toBeInTheDocument();
   });
 });
 

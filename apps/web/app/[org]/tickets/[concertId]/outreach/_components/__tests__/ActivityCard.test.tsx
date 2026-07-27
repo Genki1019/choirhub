@@ -11,6 +11,7 @@ vi.mock("@/lib/tickets-api", async () => {
     ticketsApi: {
       deleteOutreachActivity: vi.fn(),
       payOutreachActivity: vi.fn(),
+      unpayOutreachActivity: vi.fn(),
     },
   };
 });
@@ -56,7 +57,7 @@ describe("ActivityCard（表示）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
-        onPaid={vi.fn()}
+        onStatusChanged={vi.fn()}
       />,
     );
 
@@ -76,7 +77,7 @@ describe("ActivityCard（表示）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
-        onPaid={vi.fn()}
+        onStatusChanged={vi.fn()}
       />,
     );
 
@@ -92,7 +93,7 @@ describe("ActivityCard（表示）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
-        onPaid={vi.fn()}
+        onStatusChanged={vi.fn()}
       />,
     );
 
@@ -108,7 +109,7 @@ describe("ActivityCard（表示）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
-        onPaid={vi.fn()}
+        onStatusChanged={vi.fn()}
       />,
     );
 
@@ -127,7 +128,7 @@ describe("ActivityCard（展開）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
-        onPaid={vi.fn()}
+        onStatusChanged={vi.fn()}
       />,
     );
 
@@ -150,7 +151,7 @@ describe("ActivityCard（削除操作）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
-        onPaid={vi.fn()}
+        onStatusChanged={vi.fn()}
       />,
     );
 
@@ -171,7 +172,7 @@ describe("ActivityCard（削除操作）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={onDeleted}
-        onPaid={vi.fn()}
+        onStatusChanged={vi.fn()}
       />,
     );
 
@@ -193,7 +194,7 @@ describe("ActivityCard（削除操作）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
-        onPaid={vi.fn()}
+        onStatusChanged={vi.fn()}
       />,
     );
 
@@ -202,7 +203,7 @@ describe("ActivityCard（削除操作）", () => {
   });
 });
 
-describe("ActivityCard（支払い操作）", () => {
+describe("ActivityCard（支払い・取り消し操作）", () => {
   it("adminかつpending時のみ「支払済みにする」ボタンを表示する", () => {
     render(
       <ActivityCard
@@ -212,7 +213,7 @@ describe("ActivityCard（支払い操作）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
-        onPaid={vi.fn()}
+        onStatusChanged={vi.fn()}
       />,
     );
 
@@ -228,7 +229,7 @@ describe("ActivityCard（支払い操作）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
-        onPaid={vi.fn()}
+        onStatusChanged={vi.fn()}
       />,
     );
 
@@ -244,17 +245,17 @@ describe("ActivityCard（支払い操作）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
-        onPaid={vi.fn()}
+        onStatusChanged={vi.fn()}
       />,
     );
 
     expect(screen.queryByLabelText("渋谷駅前を支払済みにする")).not.toBeInTheDocument();
   });
 
-  it("クリックでpayOutreachActivityが呼ばれ、成功後にonPaidが呼ばれる", async () => {
+  it("クリックでpayOutreachActivityが呼ばれ、成功後にonStatusChangedが呼ばれる", async () => {
     const updated = makeActivity({ status: "paid" });
     vi.mocked(ticketsApi.payOutreachActivity).mockResolvedValue(updated);
-    const onPaid = vi.fn();
+    const onStatusChanged = vi.fn();
     const user = userEvent.setup();
     render(
       <ActivityCard
@@ -264,14 +265,14 @@ describe("ActivityCard（支払い操作）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
-        onPaid={onPaid}
+        onStatusChanged={onStatusChanged}
       />,
     );
 
     await user.click(screen.getByLabelText("渋谷駅前を支払済みにする"));
 
     expect(ticketsApi.payOutreachActivity).toHaveBeenCalledWith("o", "concert-1", "activity-1");
-    await waitFor(() => expect(onPaid).toHaveBeenCalledWith(updated));
+    await waitFor(() => expect(onStatusChanged).toHaveBeenCalledWith(updated));
   });
 
   it("支払い記録に失敗した場合、エラーメッセージを表示する", async () => {
@@ -285,7 +286,7 @@ describe("ActivityCard（支払い操作）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
-        onPaid={vi.fn()}
+        onStatusChanged={vi.fn()}
       />,
     );
 
@@ -309,7 +310,7 @@ describe("ActivityCard（支払い操作）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
-        onPaid={vi.fn()}
+        onStatusChanged={vi.fn()}
       />,
     );
 
@@ -320,5 +321,126 @@ describe("ActivityCard（支払い操作）", () => {
 
     resolvePay!(makeActivity({ status: "paid" }));
     await waitFor(() => expect(screen.getByLabelText("渋谷駅前を支払済みにする")).toBeEnabled());
+  });
+
+  it("adminかつpaid時のみ「未払いに戻す」ボタンを表示する", () => {
+    render(
+      <ActivityCard
+        activity={makeActivity({ status: "paid" })}
+        myMemberId="member-1"
+        isAdmin={true}
+        orgSlug="o"
+        concertId="concert-1"
+        onDeleted={vi.fn()}
+        onStatusChanged={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("渋谷駅前を未払いに戻す")).toBeInTheDocument();
+  });
+
+  it("adminでない場合は「未払いに戻す」ボタンを表示しない", () => {
+    render(
+      <ActivityCard
+        activity={makeActivity({ status: "paid" })}
+        myMemberId="member-1"
+        isAdmin={false}
+        orgSlug="o"
+        concertId="concert-1"
+        onDeleted={vi.fn()}
+        onStatusChanged={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText("渋谷駅前を未払いに戻す")).not.toBeInTheDocument();
+  });
+
+  it("pending(未払い)の場合は「未払いに戻す」ボタンを表示しない", () => {
+    render(
+      <ActivityCard
+        activity={makeActivity({ status: "pending" })}
+        myMemberId="member-1"
+        isAdmin={true}
+        orgSlug="o"
+        concertId="concert-1"
+        onDeleted={vi.fn()}
+        onStatusChanged={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText("渋谷駅前を未払いに戻す")).not.toBeInTheDocument();
+  });
+
+  it("クリックでunpayOutreachActivityが呼ばれ、成功後にonStatusChangedが呼ばれる", async () => {
+    const updated = makeActivity({ status: "pending" });
+    vi.mocked(ticketsApi.unpayOutreachActivity).mockResolvedValue(updated);
+    const onStatusChanged = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ActivityCard
+        activity={makeActivity({ status: "paid" })}
+        myMemberId="member-1"
+        isAdmin={true}
+        orgSlug="o"
+        concertId="concert-1"
+        onDeleted={vi.fn()}
+        onStatusChanged={onStatusChanged}
+      />,
+    );
+
+    await user.click(screen.getByLabelText("渋谷駅前を未払いに戻す"));
+
+    expect(ticketsApi.unpayOutreachActivity).toHaveBeenCalledWith("o", "concert-1", "activity-1");
+    await waitFor(() => expect(onStatusChanged).toHaveBeenCalledWith(updated));
+  });
+
+  it("取り消しに失敗した場合、エラーメッセージを表示する", async () => {
+    vi.mocked(ticketsApi.unpayOutreachActivity).mockRejectedValue(
+      new Error("取り消しに失敗しました"),
+    );
+    const user = userEvent.setup();
+    render(
+      <ActivityCard
+        activity={makeActivity({ status: "paid" })}
+        myMemberId="member-1"
+        isAdmin={true}
+        orgSlug="o"
+        concertId="concert-1"
+        onDeleted={vi.fn()}
+        onStatusChanged={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByLabelText("渋谷駅前を未払いに戻す"));
+    expect(await screen.findByText("取り消しに失敗しました")).toBeInTheDocument();
+  });
+
+  it("取り消し処理中は未払いに戻すボタン・削除ボタンの両方がdisabledになる", async () => {
+    let resolveUnpay: (activity: OutreachActivityRow) => void;
+    vi.mocked(ticketsApi.unpayOutreachActivity).mockReturnValue(
+      new Promise((resolve) => {
+        resolveUnpay = resolve;
+      }),
+    );
+    const user = userEvent.setup();
+    render(
+      <ActivityCard
+        activity={makeActivity({ status: "paid" })}
+        myMemberId="member-1"
+        isAdmin={true}
+        orgSlug="o"
+        concertId="concert-1"
+        onDeleted={vi.fn()}
+        onStatusChanged={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByLabelText("渋谷駅前を未払いに戻す"));
+
+    expect(screen.getByLabelText("渋谷駅前を未払いに戻す")).toBeDisabled();
+    expect(screen.getByLabelText("渋谷駅前を削除")).toBeDisabled();
+
+    resolveUnpay!(makeActivity({ status: "pending" }));
+    await waitFor(() => expect(screen.getByLabelText("渋谷駅前を未払いに戻す")).toBeEnabled());
   });
 });

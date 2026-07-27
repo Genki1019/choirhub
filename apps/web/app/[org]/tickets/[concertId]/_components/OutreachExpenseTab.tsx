@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Check, Trash2, Loader2, Bus } from "lucide-react";
+import { Check, Undo2, Trash2, Loader2, Bus, AlertCircle } from "lucide-react";
 import { ticketsApi, type OutreachActivityRow } from "@/lib/tickets-api";
 
 interface OutreachExpenseTabProps {
@@ -12,7 +12,8 @@ interface OutreachExpenseTabProps {
 export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabProps) {
   const [activities, setActivities] = useState<OutreachActivityRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [paying, setPaying] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [activitiesError, setActivitiesError] = useState<string | null>(null);
 
   useEffect(() => {
     ticketsApi
@@ -22,19 +23,40 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
   }, [orgSlug, concertId]);
 
   const handlePay = async (activityId: string) => {
-    setPaying(activityId);
+    setUpdatingId(activityId);
+    setActivitiesError(null);
     try {
       const updated = await ticketsApi.payOutreachActivity(orgSlug, concertId, activityId);
       setActivities((prev) => prev.map((a) => (a.id === activityId ? updated : a)));
+    } catch (err: unknown) {
+      setActivitiesError(err instanceof Error ? err.message : "支払い記録に失敗しました");
     } finally {
-      setPaying(null);
+      setUpdatingId(null);
+    }
+  };
+
+  const handleUnpay = async (activityId: string) => {
+    setUpdatingId(activityId);
+    setActivitiesError(null);
+    try {
+      const updated = await ticketsApi.unpayOutreachActivity(orgSlug, concertId, activityId);
+      setActivities((prev) => prev.map((a) => (a.id === activityId ? updated : a)));
+    } catch (err: unknown) {
+      setActivitiesError(err instanceof Error ? err.message : "取り消しに失敗しました");
+    } finally {
+      setUpdatingId(null);
     }
   };
 
   const handleDelete = async (activityId: string) => {
     if (!confirm("この情宣活動を削除しますか？")) return;
-    await ticketsApi.deleteOutreachActivity(orgSlug, concertId, activityId);
-    setActivities((prev) => prev.filter((a) => a.id !== activityId));
+    setActivitiesError(null);
+    try {
+      await ticketsApi.deleteOutreachActivity(orgSlug, concertId, activityId);
+      setActivities((prev) => prev.filter((a) => a.id !== activityId));
+    } catch (err: unknown) {
+      setActivitiesError(err instanceof Error ? err.message : "削除に失敗しました");
+    }
   };
 
   const pending = activities.filter((a) => a.status === "pending");
@@ -57,7 +79,7 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
   }
 
   return (
-    <div className="max-w-2xl space-y-5">
+    <div className="mx-auto max-w-2xl space-y-5">
       <div className="flex flex-wrap items-center gap-4">
         <div className="rounded-xl border border-gray-200 bg-white px-5 py-3 text-center">
           <p className="mb-0.5 text-xs text-gray-400">申請件数</p>
@@ -80,6 +102,13 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
           </div>
         )}
       </div>
+
+      {activitiesError && (
+        <div className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+          <AlertCircle size={12} className="shrink-0" />
+          {activitiesError}
+        </div>
+      )}
 
       {activities.length === 0 ? (
         <div className="py-12 text-center text-sm text-gray-400">
@@ -119,21 +148,37 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {a.status === "pending" && (
+                    {a.status === "pending" ? (
                       <button
+                        type="button"
                         onClick={() => handlePay(a.id)}
-                        disabled={paying === a.id}
+                        disabled={updatingId === a.id}
                         className="flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-xs text-white hover:bg-green-700 disabled:opacity-60"
                       >
-                        {paying === a.id ? (
+                        {updatingId === a.id ? (
                           <Loader2 size={11} className="animate-spin" />
                         ) : (
                           <Check size={11} />
                         )}
                         支払済みにする
                       </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleUnpay(a.id)}
+                        disabled={updatingId === a.id}
+                        className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-60"
+                      >
+                        {updatingId === a.id ? (
+                          <Loader2 size={11} className="animate-spin" />
+                        ) : (
+                          <Undo2 size={11} />
+                        )}
+                        未払いに戻す
+                      </button>
                     )}
                     <button
+                      type="button"
                       onClick={() => handleDelete(a.id)}
                       className="p-1 text-gray-300 transition-colors hover:text-red-400"
                     >

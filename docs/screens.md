@@ -1469,7 +1469,7 @@
 **情宣交通費タブ**（`OutreachExpenseTab`、ticket+）
 
 - 申請件数・未払い件数・未払い交通費合計をサマリー表示
-- 情宣活動（`/outreach`ページで団員が申請したもの）を一覧表示し、各活動の「支払済みにする」ボタンで個別に支払い記録、🗑️で削除（`window.confirm`の標準確認ダイアログ）
+- 情宣活動（`/outreach`ページで団員が申請したもの）を一覧表示し、各活動の「支払済みにする」ボタンで個別に支払い記録、支払済みの活動には「未払いに戻す」ボタンで取り消し、🗑️で削除（`window.confirm`の標準確認ダイアログ）
 - 活動の新規作成はこのタブでは行わない（一般団員が`/outreach`ページから申請する）
 
 ---
@@ -1535,6 +1535,8 @@
 #### インタラクション
 
 - カードタップ → 参加者ごとの内訳（パート・名前・販売枚数・交通費）を展開/折りたたみ
+- 「支払済みにする」（ticket+ のみ・`pending`時のみ表示）→ PATCH `/tickets/:concertId/outreach/:activityId/pay` → `paid`に更新
+- 「未払いに戻す」（ticket+ のみ・`paid`時のみ表示）→ DELETE `/tickets/:concertId/outreach/:activityId/pay` → `pending`に戻す
 - 🗑️（申請者本人 または ticket+ のみ表示）→ `window.confirm`の標準確認ダイアログ → 削除
 - 「新規申請」→ `CreateModal`
 

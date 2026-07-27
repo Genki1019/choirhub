@@ -308,6 +308,11 @@ export const ticketsApi = {
       {},
     ),
 
+  unpayOutreachActivity: (orgSlug: string, concertId: string, activityId: string) =>
+    apiClient.delete<OutreachActivityRow>(
+      `/${orgSlug}/tickets/${concertId}/outreach/${activityId}/pay`,
+    ),
+
   deleteOutreachActivity: (orgSlug: string, concertId: string, activityId: string) =>
     apiClient.delete(`/${orgSlug}/tickets/${concertId}/outreach/${activityId}`),
 };

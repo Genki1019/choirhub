@@ -361,6 +361,81 @@ describe("PATCH /tickets/:concertId/outreach/:activityId/pay", () => {
   });
 });
 
+describe("DELETE /tickets/:concertId/outreach/:activityId/pay", () => {
+  it("ticket担当者/admin以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/tickets/${testConcert.id}/outreach/activity-1/pay`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("演奏会が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findFirst).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request("/tickets/nonexistent/outreach/activity-1/pay", {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("情宣活動が存在しない/別演奏会: 404を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findFirst).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.outreachActivity.findFirst).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/outreach/nonexistent/pay`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: status:pending・paidAtがnullに戻る", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findFirst).mockResolvedValue(testConcert as any);
+    const activity = makeActivity({
+      id: "activity-1",
+      createdById: "member-2",
+      participantIds: ["member-2"],
+      status: "paid",
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.outreachActivity.findFirst).mockResolvedValue(activity as any);
+    vi.mocked(prisma.outreachActivity.update).mockResolvedValue({
+      ...activity,
+      status: "pending",
+      paidAt: null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/outreach/activity-1/pay`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.status).toBe("pending");
+    expect(prisma.outreachActivity.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "activity-1" },
+        data: { status: "pending", paidAt: null },
+      }),
+    );
+  });
+});
+
 describe("DELETE /tickets/:concertId/outreach/:activityId", () => {
   it("演奏会が存在しない/別テナント: 404を返す", async () => {
     vi.mocked(prisma.concert.findFirst).mockResolvedValue(null);

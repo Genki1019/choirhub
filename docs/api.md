@@ -155,6 +155,7 @@
 | [情宣活動一覧取得](#outreach-list)                          | GET    | `/:orgSlug/tickets/:concertId/outreach`                 | 認証済み全員                          |
 | [情宣活動申請](#outreach-create)                            | POST   | `/:orgSlug/tickets/:concertId/outreach`                 | member+                               |
 | [交通費支払い承認](#outreach-pay)                           | PATCH  | `/:orgSlug/tickets/:concertId/outreach/:activityId/pay` | ticket or admin                       |
+| [交通費支払い取消](#outreach-unpay)                         | DELETE | `/:orgSlug/tickets/:concertId/outreach/:activityId/pay` | ticket or admin                       |
 | [情宣活動削除](#outreach-delete)                            | DELETE | `/:orgSlug/tickets/:concertId/outreach/:activityId`     | 申請者 or ticket or admin             |
 
 ### 設定
@@ -4117,6 +4118,20 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 ### PATCH `/api/v1/:orgSlug/tickets/:concertId/outreach/:activityId/pay`
 
 情宣活動の交通費を支払済みにする。
+
+**権限**: `ticket` ロールまたは `admin`
+
+**Response** `200` 更新後の活動オブジェクト
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` 情宣活動が存在しない・指定の演奏会に属していない
+
+---
+
+<a id="outreach-unpay"></a>
+
+### DELETE `/api/v1/:orgSlug/tickets/:concertId/outreach/:activityId/pay`
+
+情宣活動の支払済みを取り消し、未払いに戻す。
 
 **権限**: `ticket` ロールまたは `admin`
 

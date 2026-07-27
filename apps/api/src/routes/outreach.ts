@@ -208,6 +208,57 @@ export const outreachRouter = new Hono<TenantEnv>()
     return c.json({ data: formatActivity(updated) });
   })
 
+  // DELETE /tickets/:concertId/outreach/:activityId/pay ── 支払済みの取り消し
+  .delete("/tickets/:concertId/outreach/:activityId/pay", async (c) => {
+    const actingMember = c.get("member");
+    const org = c.get("org");
+    const { concertId, activityId } = c.req.param();
+
+    if (!isTicketManager(actingMember)) {
+      return c.json(
+        { error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } },
+        403,
+      );
+    }
+
+    const concert = await prisma.concert.findFirst({
+      where: { id: concertId, orgId: org.id },
+    });
+    if (!concert)
+      return c.json({ error: { code: "NOT_FOUND", message: "演奏会が見つかりません" } }, 404);
+
+    const activity = await prisma.outreachActivity.findFirst({
+      where: { id: activityId, concertId, concert: { orgId: org.id } },
+    });
+    if (!activity)
+      return c.json({ error: { code: "NOT_FOUND", message: "情宣活動が見つかりません" } }, 404);
+
+    const updated = await prisma.outreachActivity.update({
+      where: { id: activityId },
+      data: {
+        status: "pending",
+        paidAt: null,
+      },
+      include: {
+        creator: { select: { id: true, userRef: { select: { nameJa: true } } } },
+        participants: {
+          include: {
+            member: {
+              select: {
+                id: true,
+                partId: true,
+                userRef: { select: { nameJa: true } },
+                part: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return c.json({ data: formatActivity(updated) });
+  })
+
   // DELETE /tickets/:concertId/outreach/:activityId
   .delete("/tickets/:concertId/outreach/:activityId", async (c) => {
     const actingMember = c.get("member");

@@ -10,6 +10,8 @@ import {
   ChevronUp,
   BadgeCheck,
   Loader2,
+  Check,
+  AlertCircle,
 } from "lucide-react";
 import {
   ticketsApi,
@@ -32,6 +34,7 @@ interface ActivityCardProps {
   orgSlug: string;
   concertId: string;
   onDeleted: (id: string) => void;
+  onPaid: (activity: OutreachActivityRow) => void;
 }
 
 export function ActivityCard({
@@ -41,9 +44,12 @@ export function ActivityCard({
   orgSlug,
   concertId,
   onDeleted,
+  onPaid,
 }: ActivityCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const canDelete = activity.createdById === myMemberId || isAdmin;
   const totalExpense = activity.participants.reduce((s, p) => s + (p.expense ?? 0), 0);
@@ -52,11 +58,27 @@ export function ActivityCard({
   const handleDelete = async () => {
     if (!confirm("この情宣活動を削除しますか？")) return;
     setDeleting(true);
+    setError(null);
     try {
       await ticketsApi.deleteOutreachActivity(orgSlug, concertId, activity.id);
       onDeleted(activity.id);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "削除に失敗しました");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handlePay = async () => {
+    setPaying(true);
+    setError(null);
+    try {
+      const updated = await ticketsApi.payOutreachActivity(orgSlug, concertId, activity.id);
+      onPaid(updated);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "支払い記録に失敗しました");
+    } finally {
+      setPaying(false);
     }
   };
 
@@ -92,6 +114,21 @@ export function ActivityCard({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {isAdmin && activity.status === "pending" && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePay();
+              }}
+              disabled={paying || deleting}
+              aria-label={`${activity.destination}を支払済みにする`}
+              className="flex items-center gap-1 rounded-lg bg-green-600 px-2.5 py-1 text-xs text-white transition-colors hover:bg-green-700 disabled:opacity-60"
+            >
+              {paying ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+              支払済みにする
+            </button>
+          )}
           {canDelete && (
             <button
               type="button"
@@ -99,7 +136,7 @@ export function ActivityCard({
                 e.stopPropagation();
                 handleDelete();
               }}
-              disabled={deleting}
+              disabled={deleting || paying}
               aria-label={`${activity.destination}を削除`}
               className="p-1 text-gray-300 transition-colors hover:text-red-400"
             >
@@ -113,6 +150,13 @@ export function ActivityCard({
           )}
         </div>
       </div>
+
+      {error && (
+        <div className="flex items-center gap-1.5 border-t border-red-100 bg-red-50 px-4 py-2 text-xs text-red-600">
+          <AlertCircle size={12} className="shrink-0" />
+          {error}
+        </div>
+      )}
 
       {expanded && (
         <div className="border-t border-gray-100 px-4 pt-3 pb-4">

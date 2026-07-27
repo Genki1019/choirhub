@@ -19,6 +19,7 @@ vi.mock("@/lib/tickets-api", async () => {
       listOutreachActivities: vi.fn(),
       get: vi.fn(),
       deleteOutreachActivity: vi.fn(),
+      payOutreachActivity: vi.fn(),
     },
   };
 });
@@ -115,6 +116,21 @@ describe("OutreachPage（表示）", () => {
 
     expect(await screen.findByText("第20回定期演奏会")).toBeInTheDocument();
     expect(screen.getByText("渋谷駅前")).toBeInTheDocument();
+  });
+});
+
+describe("OutreachPage（支払い操作）", () => {
+  it("「支払済みにする」クリック後、一覧のキャッシュがpaidに更新される", async () => {
+    vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue([makeActivity()]);
+    vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
+    vi.mocked(ticketsApi.payOutreachActivity).mockResolvedValue(makeActivity({ status: "paid" }));
+    const user = userEvent.setup();
+    renderPage(["ticket"]);
+
+    await screen.findByText("渋谷駅前");
+    await user.click(screen.getByLabelText("渋谷駅前を支払済みにする"));
+
+    expect(await screen.findByText("支払済")).toBeInTheDocument();
   });
 });
 

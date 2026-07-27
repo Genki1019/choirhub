@@ -10,6 +10,7 @@ vi.mock("@/lib/tickets-api", async () => {
     ...actual,
     ticketsApi: {
       deleteOutreachActivity: vi.fn(),
+      payOutreachActivity: vi.fn(),
     },
   };
 });
@@ -55,6 +56,7 @@ describe("ActivityCard（表示）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
+        onPaid={vi.fn()}
       />,
     );
 
@@ -74,6 +76,7 @@ describe("ActivityCard（表示）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
+        onPaid={vi.fn()}
       />,
     );
 
@@ -89,6 +92,7 @@ describe("ActivityCard（表示）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
+        onPaid={vi.fn()}
       />,
     );
 
@@ -104,6 +108,7 @@ describe("ActivityCard（表示）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
+        onPaid={vi.fn()}
       />,
     );
 
@@ -122,6 +127,7 @@ describe("ActivityCard（展開）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
+        onPaid={vi.fn()}
       />,
     );
 
@@ -144,6 +150,7 @@ describe("ActivityCard（削除操作）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
+        onPaid={vi.fn()}
       />,
     );
 
@@ -164,6 +171,7 @@ describe("ActivityCard（削除操作）", () => {
         orgSlug="o"
         concertId="concert-1"
         onDeleted={onDeleted}
+        onPaid={vi.fn()}
       />,
     );
 
@@ -171,5 +179,146 @@ describe("ActivityCard（削除操作）", () => {
 
     expect(ticketsApi.deleteOutreachActivity).toHaveBeenCalledWith("o", "concert-1", "activity-1");
     await waitFor(() => expect(onDeleted).toHaveBeenCalledWith("activity-1"));
+  });
+
+  it("削除に失敗した場合、エラーメッセージを表示する", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.mocked(ticketsApi.deleteOutreachActivity).mockRejectedValue(new Error("削除できません"));
+    const user = userEvent.setup();
+    render(
+      <ActivityCard
+        activity={makeActivity()}
+        myMemberId="member-1"
+        isAdmin={false}
+        orgSlug="o"
+        concertId="concert-1"
+        onDeleted={vi.fn()}
+        onPaid={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByLabelText("渋谷駅前を削除"));
+    expect(await screen.findByText("削除できません")).toBeInTheDocument();
+  });
+});
+
+describe("ActivityCard（支払い操作）", () => {
+  it("adminかつpending時のみ「支払済みにする」ボタンを表示する", () => {
+    render(
+      <ActivityCard
+        activity={makeActivity({ status: "pending" })}
+        myMemberId="member-1"
+        isAdmin={true}
+        orgSlug="o"
+        concertId="concert-1"
+        onDeleted={vi.fn()}
+        onPaid={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("渋谷駅前を支払済みにする")).toBeInTheDocument();
+  });
+
+  it("adminでない場合は「支払済みにする」ボタンを表示しない", () => {
+    render(
+      <ActivityCard
+        activity={makeActivity({ status: "pending" })}
+        myMemberId="member-1"
+        isAdmin={false}
+        orgSlug="o"
+        concertId="concert-1"
+        onDeleted={vi.fn()}
+        onPaid={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText("渋谷駅前を支払済みにする")).not.toBeInTheDocument();
+  });
+
+  it("支払済み(paid)の場合は「支払済みにする」ボタンを表示しない", () => {
+    render(
+      <ActivityCard
+        activity={makeActivity({ status: "paid" })}
+        myMemberId="member-1"
+        isAdmin={true}
+        orgSlug="o"
+        concertId="concert-1"
+        onDeleted={vi.fn()}
+        onPaid={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText("渋谷駅前を支払済みにする")).not.toBeInTheDocument();
+  });
+
+  it("クリックでpayOutreachActivityが呼ばれ、成功後にonPaidが呼ばれる", async () => {
+    const updated = makeActivity({ status: "paid" });
+    vi.mocked(ticketsApi.payOutreachActivity).mockResolvedValue(updated);
+    const onPaid = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ActivityCard
+        activity={makeActivity({ status: "pending" })}
+        myMemberId="member-1"
+        isAdmin={true}
+        orgSlug="o"
+        concertId="concert-1"
+        onDeleted={vi.fn()}
+        onPaid={onPaid}
+      />,
+    );
+
+    await user.click(screen.getByLabelText("渋谷駅前を支払済みにする"));
+
+    expect(ticketsApi.payOutreachActivity).toHaveBeenCalledWith("o", "concert-1", "activity-1");
+    await waitFor(() => expect(onPaid).toHaveBeenCalledWith(updated));
+  });
+
+  it("支払い記録に失敗した場合、エラーメッセージを表示する", async () => {
+    vi.mocked(ticketsApi.payOutreachActivity).mockRejectedValue(new Error("権限がありません"));
+    const user = userEvent.setup();
+    render(
+      <ActivityCard
+        activity={makeActivity({ status: "pending" })}
+        myMemberId="member-1"
+        isAdmin={true}
+        orgSlug="o"
+        concertId="concert-1"
+        onDeleted={vi.fn()}
+        onPaid={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByLabelText("渋谷駅前を支払済みにする"));
+    expect(await screen.findByText("権限がありません")).toBeInTheDocument();
+  });
+
+  it("支払い処理中は支払済みボタン・削除ボタンの両方がdisabledになる", async () => {
+    let resolvePay: (activity: OutreachActivityRow) => void;
+    vi.mocked(ticketsApi.payOutreachActivity).mockReturnValue(
+      new Promise((resolve) => {
+        resolvePay = resolve;
+      }),
+    );
+    const user = userEvent.setup();
+    render(
+      <ActivityCard
+        activity={makeActivity({ status: "pending" })}
+        myMemberId="member-1"
+        isAdmin={true}
+        orgSlug="o"
+        concertId="concert-1"
+        onDeleted={vi.fn()}
+        onPaid={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByLabelText("渋谷駅前を支払済みにする"));
+
+    expect(screen.getByLabelText("渋谷駅前を支払済みにする")).toBeDisabled();
+    expect(screen.getByLabelText("渋谷駅前を削除")).toBeDisabled();
+
+    resolvePay!(makeActivity({ status: "paid" }));
+    await waitFor(() => expect(screen.getByLabelText("渋谷駅前を支払済みにする")).toBeEnabled());
   });
 });

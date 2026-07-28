@@ -17,17 +17,18 @@ vi.mock("@/lib/tickets-api", async () => {
       race: vi.fn(),
       publishRace: vi.fn(),
       unpublishRace: vi.fn(),
+      updateScoringConfig: vi.fn(),
     },
   };
 });
 
 function makeScoring() {
   return {
-    avgSales: { label: "平均販売", points: [10, 6, 3] },
-    speed5: { label: "速5枚", threshold: 5, minCount: 3, points: [10, 6, 3] },
-    speed10: { label: "速10枚", threshold: 10, minCount: 3, points: [10, 6, 3] },
-    zeroRatio: { label: "ゼロ率", points: [10, 6, 3] },
-    outreach: { label: "情宣", points: [10, 6, 3] },
+    avgSales: { label: "平均販売", enabled: true, points: [10, 6, 3] },
+    speed5: { label: "速5枚", enabled: true, threshold: 5, minCount: 3, points: [10, 6, 3] },
+    speed10: { label: "速10枚", enabled: true, threshold: 10, minCount: 3, points: [10, 6, 3] },
+    zeroRatio: { label: "ゼロ率", enabled: true, points: [10, 6, 3] },
+    outreach: { label: "情宣", enabled: true, points: [10, 6, 3] },
   };
 }
 
@@ -139,6 +140,37 @@ describe("RacePage（表示）", () => {
 
     await screen.findByText("テノール1");
     expect(screen.queryByText("全体に公開")).not.toBeInTheDocument();
+    expect(screen.queryByText("採点設定")).not.toBeInTheDocument();
+  });
+});
+
+describe("RacePage（採点設定）", () => {
+  it("レース公開後は「採点設定」ボタンが非活性になる", async () => {
+    vi.mocked(ticketsApi.race).mockResolvedValue(
+      makeRaceData({ racePublishedAt: "2026-06-01T00:00:00+09:00" }),
+    );
+    renderPage();
+
+    const button = await screen.findByRole("button", { name: /採点設定/ });
+    expect(button).toBeDisabled();
+  });
+
+  it("「採点設定」クリックでモーダルが開き、保存するとupdateScoringConfigが呼ばれる", async () => {
+    vi.mocked(ticketsApi.race).mockResolvedValue(makeRaceData());
+    vi.mocked(ticketsApi.updateScoringConfig).mockResolvedValue({ scoring: makeScoring() });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: /採点設定/ }));
+    expect(screen.getByText("採点設定", { selector: "h2" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(ticketsApi.updateScoringConfig).toHaveBeenCalledWith(
+      "tokyo-men-choir",
+      "concert-1",
+      expect.objectContaining({ avgSales: { enabled: true, points: [10, 6, 3] } }),
+    );
   });
 });
 

@@ -1,13 +1,11 @@
+import { SCORING_CRITERIA } from "@/lib/scoring-criteria";
 import type { RaceScoringConfig } from "@/lib/tickets-api";
 
 export function ScoringRules({ scoring }: { scoring: RaceScoringConfig }) {
-  const rules = [
-    { label: scoring.avgSales.label, pts: scoring.avgSales.points },
-    { label: scoring.speed5.label, pts: scoring.speed5.points },
-    { label: scoring.speed10.label, pts: scoring.speed10.points },
-    { label: scoring.zeroRatio.label, pts: scoring.zeroRatio.points },
-    { label: scoring.outreach.label, pts: scoring.outreach.points },
-  ];
+  const rules = SCORING_CRITERIA.filter((c) => scoring[c.key].enabled).map((c) => ({
+    label: scoring[c.key].label,
+    pts: scoring[c.key].points,
+  }));
   return (
     <details className="bg-brand-50 border-brand-100 text-brand-700 rounded-xl border px-4 py-3 text-xs">
       <summary className="cursor-pointer font-semibold select-none">ポイントルール</summary>

@@ -1,3 +1,4 @@
+import { SCORING_CRITERIA } from "@/lib/scoring-criteria";
 import type { RacePart, RaceScoringConfig } from "@/lib/tickets-api";
 import { RankBadge } from "./RankBadge";
 
@@ -24,12 +25,8 @@ function BreakdownChip({ label, points, max }: { label: string; points: number; 
 export function PartCard({ part, scoring }: { part: RacePart; scoring: RaceScoringConfig }) {
   const bd = part.breakdown;
   const st = part.stats;
-  const maxPoints =
-    (scoring.avgSales.points[0] ?? 0) +
-    (scoring.speed5.points[0] ?? 0) +
-    (scoring.speed10.points[0] ?? 0) +
-    (scoring.zeroRatio.points[0] ?? 0) +
-    (scoring.outreach.points[0] ?? 0);
+  const activeCriteria = SCORING_CRITERIA.filter((c) => scoring[c.key].enabled);
+  const maxPoints = activeCriteria.reduce((s, c) => s + (scoring[c.key].points[0] ?? 0), 0);
 
   return (
     <div
@@ -57,31 +54,14 @@ export function PartCard({ part, scoring }: { part: RacePart; scoring: RaceScori
             </p>
           </div>
           <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
-            <BreakdownChip
-              label="平均販売"
-              points={bd.avgSalesPoints}
-              max={scoring.avgSales.points[0] ?? 0}
-            />
-            <BreakdownChip
-              label="速5枚"
-              points={bd.speed5Points}
-              max={scoring.speed5.points[0] ?? 0}
-            />
-            <BreakdownChip
-              label="速10枚"
-              points={bd.speed10Points}
-              max={scoring.speed10.points[0] ?? 0}
-            />
-            <BreakdownChip
-              label="ゼロ率"
-              points={bd.zeroRatioPoints}
-              max={scoring.zeroRatio.points[0] ?? 0}
-            />
-            <BreakdownChip
-              label="情宣"
-              points={bd.outreachPoints}
-              max={scoring.outreach.points[0] ?? 0}
-            />
+            {activeCriteria.map((c) => (
+              <BreakdownChip
+                key={c.key}
+                label={c.chipLabel}
+                points={bd[c.breakdownKey]}
+                max={scoring[c.key].points[0] ?? 0}
+              />
+            ))}
           </div>
           <div className="mt-2 flex gap-4 text-xs text-gray-400">
             <span>平均{fmt(st.avgSold)}枚</span>

@@ -3,13 +3,14 @@ import { render, screen } from "@testing-library/react";
 import { PartCard } from "../PartCard";
 import type { RacePart, RaceScoringConfig } from "@/lib/tickets-api";
 
-function makeScoring(): RaceScoringConfig {
+function makeScoring(overrides: Partial<RaceScoringConfig> = {}): RaceScoringConfig {
   return {
-    avgSales: { label: "平均販売", points: [10, 6, 3] },
-    speed5: { label: "速5枚", threshold: 5, minCount: 3, points: [10, 6, 3] },
-    speed10: { label: "速10枚", threshold: 10, minCount: 3, points: [10, 6, 3] },
-    zeroRatio: { label: "ゼロ率", points: [10, 6, 3] },
-    outreach: { label: "情宣", points: [10, 6, 3] },
+    avgSales: { label: "平均販売", enabled: true, points: [10, 6, 3] },
+    speed5: { label: "速5枚", enabled: true, threshold: 5, minCount: 3, points: [10, 6, 3] },
+    speed10: { label: "速10枚", enabled: true, threshold: 10, minCount: 3, points: [10, 6, 3] },
+    zeroRatio: { label: "ゼロ率", enabled: true, points: [10, 6, 3] },
+    outreach: { label: "情宣", enabled: true, points: [10, 6, 3] },
+    ...overrides,
   };
 }
 
@@ -74,5 +75,18 @@ describe("PartCard（表示）", () => {
 
     expect(screen.getByText(/5枚×3名:/)).toBeInTheDocument();
     expect(screen.queryByText(/10枚×3名:/)).not.toBeInTheDocument();
+  });
+
+  it("無効化された基準はチップ非表示・maxPointsにも加算されない", () => {
+    render(
+      <PartCard
+        part={makePart()}
+        scoring={makeScoring({ outreach: { label: "情宣", enabled: false, points: [10, 6, 3] } })}
+      />,
+    );
+
+    expect(screen.queryByText("情宣")).not.toBeInTheDocument();
+    // maxPointsは10(avgSales)+10(speed5)+10(speed10)+10(zeroRatio) = 40（outreachの10は含まない）
+    expect(screen.getByText("/40pt")).toBeInTheDocument();
   });
 });

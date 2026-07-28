@@ -69,11 +69,31 @@ export interface TicketDetail {
 }
 
 export interface RaceScoringConfig {
-  avgSales: { label: string; points: number[] };
-  speed5: { label: string; threshold: number; minCount: number; points: number[] };
-  speed10: { label: string; threshold: number; minCount: number; points: number[] };
-  zeroRatio: { label: string; points: number[] };
-  outreach: { label: string; points: number[] };
+  avgSales: { label: string; enabled: boolean; points: number[] };
+  speed5: {
+    label: string;
+    enabled: boolean;
+    threshold: number;
+    minCount: number;
+    points: number[];
+  };
+  speed10: {
+    label: string;
+    enabled: boolean;
+    threshold: number;
+    minCount: number;
+    points: number[];
+  };
+  zeroRatio: { label: string; enabled: boolean; points: number[] };
+  outreach: { label: string; enabled: boolean; points: number[] };
+}
+
+export interface ScoringConfigInput {
+  avgSales: { enabled: boolean; points: number[] };
+  speed5: { enabled: boolean; threshold: number; minCount: number; points: number[] };
+  speed10: { enabled: boolean; threshold: number; minCount: number; points: number[] };
+  zeroRatio: { enabled: boolean; points: number[] };
+  outreach: { enabled: boolean; points: number[] };
 }
 
 export interface RacePartBreakdown {
@@ -265,6 +285,12 @@ export const ticketsApi = {
 
   unpublishRace: (orgSlug: string, concertId: string) =>
     apiClient.delete(`/${orgSlug}/tickets/${concertId}/race/publish`),
+
+  updateScoringConfig: (orgSlug: string, concertId: string, config: ScoringConfigInput) =>
+    apiClient.patch<{ scoring: RaceScoringConfig }>(
+      `/${orgSlug}/tickets/${concertId}/scoring`,
+      config,
+    ),
 
   closeTicketInput: (orgSlug: string, concertId: string) =>
     apiClient.post<{ ticketInputClosedAt: string | null }>(

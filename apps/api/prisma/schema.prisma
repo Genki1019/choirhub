@@ -382,6 +382,7 @@ model Concert {
   ticketInputClosedAt    DateTime?     @map("ticket_input_closed_at")
   outreachExpensePerTrip Int?          @map("outreach_expense_per_trip")
   appliedSurveyId        String?       @map("applied_survey_id")
+  scoringConfig          Json?         @map("scoring_config")
   createdAt              DateTime      @default(now()) @map("created_at")
 
   org                Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)

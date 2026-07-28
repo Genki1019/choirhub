@@ -1183,6 +1183,102 @@ describe("PATCH /tickets/:concertId/outreach-expense-rate", () => {
   });
 });
 
+describe("PATCH /tickets/:concertId/scoring", () => {
+  const validPayload = {
+    avgSales: { enabled: true, points: [10, 8, 6, 4] },
+    speed5: { enabled: true, points: [5, 4, 3, 2], threshold: 5, minCount: 3 },
+    speed10: { enabled: true, points: [5, 4, 3, 2], threshold: 10, minCount: 3 },
+    zeroRatio: { enabled: true, points: [4, 3, 2, 1] },
+    outreach: { enabled: false, points: [5, 4, 3, 2] },
+  };
+
+  it("バリデーションエラー: pointsが空配列は400を返す", async () => {
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/scoring`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...validPayload, avgSales: { enabled: true, points: [] } }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("ticket担当者/admin以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/tickets/${testConcert.id}/scoring`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validPayload),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("演奏会が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request("/tickets/nonexistent/scoring", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validPayload),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("レース公開済み: 409を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue({
+      ...testConcert,
+      racePublishedAt: new Date("2026-11-01T00:00:00Z"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/scoring`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validPayload),
+    });
+
+    expect(res.status).toBe(409);
+    const body = await json(res);
+    expect(body.error.code).toBe("CONFLICT");
+  });
+
+  it("正常: 採点設定を更新し、labelを付与したレスポンスを返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.update).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/scoring`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validPayload),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.scoring.outreach).toEqual({
+      label: "情宣回数",
+      enabled: false,
+      points: [5, 4, 3, 2],
+    });
+    expect(prisma.concert.update).toHaveBeenCalledWith({
+      where: { id: testConcert.id },
+      data: { scoringConfig: validPayload },
+    });
+  });
+});
+
 describe("GET /tickets/:concertId/race", () => {
   const makeAllocation = (opts: {
     memberId: string;
@@ -1251,6 +1347,34 @@ describe("GET /tickets/:concertId/race", () => {
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.data.isTicketManager).toBe(false);
+  });
+
+  it("パート未設定の団員がいても500にならず「パート未設定」として集計される", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([
+      {
+        allocations: [
+          makeAllocation({
+            memberId: "member-1",
+            nameJa: "団員A",
+            partId: null,
+            partName: null,
+            allocatedCount: 10,
+            sold: 5,
+          }),
+        ],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race`);
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.parts[0].partName).toBe("パート未設定");
+    expect(body.data.parts[0].stats.allocated).toBe(10);
   });
 
   it("allocatedが0の団員は集計から除外される", async () => {
@@ -1475,6 +1599,151 @@ describe("GET /tickets/:concertId/race", () => {
       "member-low",
     ]);
     expect(body.data.individuals[0].rank).toBe(1);
+  });
+
+  it("正常: scoringConfig未設定はデフォルト配点になる", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue({
+      ...testConcert,
+      scoringConfig: null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race`);
+
+    const body = await json(res);
+    expect(body.data.scoring.avgSales).toEqual({
+      label: "平均販売枚数",
+      enabled: true,
+      points: [10, 8, 6, 4],
+    });
+  });
+
+  it("正常: 基準を無効化するとbreakdown・totalPointsに反映されない", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue({
+      ...testConcert,
+      scoringConfig: {
+        avgSales: { enabled: true, points: [10, 8, 6, 4] },
+        speed5: { enabled: true, points: [5, 4, 3, 2], threshold: 5, minCount: 3 },
+        speed10: { enabled: true, points: [5, 4, 3, 2], threshold: 10, minCount: 3 },
+        zeroRatio: { enabled: true, points: [4, 3, 2, 1] },
+        outreach: { enabled: false, points: [5, 4, 3, 2] },
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([
+      {
+        allocations: [
+          makeAllocation({
+            memberId: "member-1",
+            nameJa: "団員A",
+            partId: "part-1",
+            partName: "Tenor I",
+            allocatedCount: 10,
+            sold: 5,
+            outreachCount: 3,
+          }),
+        ],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race`);
+
+    const body = await json(res);
+    expect(body.data.parts[0].breakdown.outreachPoints).toBe(0);
+    expect(body.data.scoring.outreach.enabled).toBe(false);
+  });
+
+  it("正常: avgSalesのカスタム配点が得点に反映される", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue({
+      ...testConcert,
+      scoringConfig: {
+        avgSales: { enabled: true, points: [20, 15, 10, 5] },
+        speed5: { enabled: true, points: [5, 4, 3, 2], threshold: 5, minCount: 3 },
+        speed10: { enabled: true, points: [5, 4, 3, 2], threshold: 10, minCount: 3 },
+        zeroRatio: { enabled: true, points: [4, 3, 2, 1] },
+        outreach: { enabled: true, points: [5, 4, 3, 2] },
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([
+      {
+        allocations: [
+          makeAllocation({
+            memberId: "member-1",
+            nameJa: "団員A",
+            partId: "part-1",
+            partName: "Tenor I",
+            allocatedCount: 10,
+            sold: 8,
+          }),
+        ],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race`);
+
+    const body = await json(res);
+    expect(body.data.parts[0].breakdown.avgSalesPoints).toBe(20);
+  });
+
+  it("正常: speed5のthreshold/minCountをカスタムすると判定タイミングが変わる", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue({
+      ...testConcert,
+      scoringConfig: {
+        avgSales: { enabled: true, points: [10, 8, 6, 4] },
+        speed5: { enabled: true, points: [5, 4, 3, 2], threshold: 3, minCount: 1 },
+        speed10: { enabled: true, points: [5, 4, 3, 2], threshold: 10, minCount: 3 },
+        zeroRatio: { enabled: true, points: [4, 3, 2, 1] },
+        outreach: { enabled: true, points: [5, 4, 3, 2] },
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([
+      {
+        allocations: [
+          makeAllocation({
+            memberId: "member-1",
+            nameJa: "団員A",
+            partId: "part-1",
+            partName: "Tenor I",
+            allocatedCount: 10,
+            sold: 3,
+            reportedAt: new Date("2026-10-01T00:00:00Z"),
+          }),
+        ],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race`);
+
+    const body = await json(res);
+    // デフォルト(threshold:5, minCount:3)なら未達だが、threshold:3/minCount:1に緩和すると1名到達で成立する
+    expect(body.data.parts[0].stats.speed5AchievedAt).not.toBeNull();
+    expect(body.data.parts[0].breakdown.speed5Points).toBe(5);
+  });
+
+  it("正常: 破損したscoringConfigは500にならずデフォルトにフォールバックする", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue({
+      ...testConcert,
+      scoringConfig: { unexpected: "shape" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race`);
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.scoring.avgSales.points).toEqual([10, 8, 6, 4]);
   });
 });
 

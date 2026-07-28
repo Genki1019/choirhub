@@ -641,19 +641,20 @@ erDiagram
 
 ### Concert（演奏会）
 
-| カラム                 | 型        | 制約                        | 説明                                         |
-| ---------------------- | --------- | --------------------------- | -------------------------------------------- |
-| id                     | CUID      | PK                          |                                              |
-| orgId                  | CUID      | NOT NULL, FK → Organization |                                              |
-| title                  | VARCHAR   | NOT NULL                    | 例: 第○回定期演奏会                          |
-| heldOn                 | TIMESTAMP | NOT NULL                    | 本番日時                                     |
-| venue                  | VARCHAR   |                             | 会場名                                       |
-| status                 | ENUM      | NOT NULL, DEFAULT `draft`   | draft / survey_open / confirmed / past       |
-| racePublishedAt        | TIMESTAMP |                             | パートレース公開日時（NULL = 未公開）        |
-| ticketInputClosedAt    | TIMESTAMP |                             | チケット入力締め切り日時（NULL = 入力可能）  |
-| outreachExpensePerTrip | INT       |                             | 情宣1回あたりの交通費（円）。NULL = 個別入力 |
-| appliedSurveyId        | CUID      | FK → ConcertSurvey          | オンステ確定に反映済みの調査。NULL = 未反映  |
-| createdAt              | TIMESTAMP | NOT NULL, DEFAULT now()     |                                              |
+| カラム                 | 型        | 制約                        | 説明                                                                                                     |
+| ---------------------- | --------- | --------------------------- | -------------------------------------------------------------------------------------------------------- |
+| id                     | CUID      | PK                          |                                                                                                          |
+| orgId                  | CUID      | NOT NULL, FK → Organization |                                                                                                          |
+| title                  | VARCHAR   | NOT NULL                    | 例: 第○回定期演奏会                                                                                      |
+| heldOn                 | TIMESTAMP | NOT NULL                    | 本番日時                                                                                                 |
+| venue                  | VARCHAR   |                             | 会場名                                                                                                   |
+| status                 | ENUM      | NOT NULL, DEFAULT `draft`   | draft / survey_open / confirmed / past                                                                   |
+| racePublishedAt        | TIMESTAMP |                             | パートレース公開日時（NULL = 未公開）                                                                    |
+| ticketInputClosedAt    | TIMESTAMP |                             | チケット入力締め切り日時（NULL = 入力可能）                                                              |
+| outreachExpensePerTrip | INT       |                             | 情宣1回あたりの交通費（円）。NULL = 個別入力                                                             |
+| appliedSurveyId        | CUID      | FK → ConcertSurvey          | オンステ確定に反映済みの調査。NULL = 未反映                                                              |
+| scoringConfig          | JSONB     |                             | チケットレース採点基準のカスタム設定。NULL = デフォルト値（各基準のenabled/points[/threshold/minCount]） |
+| createdAt              | TIMESTAMP | NOT NULL, DEFAULT now()     |                                                                                                          |
 
 #### status 遷移
 

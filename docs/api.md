@@ -148,6 +148,7 @@
 | [情宣交通費一括支払い記録](#tickets-outreach-expenses-bulk) | POST   | `/:orgSlug/tickets/:concertId/outreach-expenses/bulk`   | ticket or admin                       |
 | [情宣交通費単価設定](#tickets-outreach-expense-rate)        | PATCH  | `/:orgSlug/tickets/:concertId/outreach-expense-rate`    | ticket or admin                       |
 | [パートレース取得](#tickets-race)                           | GET    | `/:orgSlug/tickets/:concertId/race`                     | ticket or admin                       |
+| [採点設定更新](#tickets-race-scoring)                       | PATCH  | `/:orgSlug/tickets/:concertId/scoring`                  | ticket or admin                       |
 | [レース公開](#tickets-race-publish)                         | POST   | `/:orgSlug/tickets/:concertId/race/publish`             | ticket or admin                       |
 | [レース非公開](#tickets-race-unpublish)                     | DELETE | `/:orgSlug/tickets/:concertId/race/publish`             | ticket or admin                       |
 | [入力締め切り](#tickets-close)                              | POST   | `/:orgSlug/tickets/:concertId/close`                    | ticket or admin                       |
@@ -3083,21 +3084,23 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
     "isTicketManager": true,
     "racePublishedAt": null,
     "scoring": {
-      "avgSales": { "label": "平均販売枚数", "points": [10, 8, 6, 4] },
+      "avgSales": { "label": "平均販売枚数", "enabled": true, "points": [10, 8, 6, 4] },
       "speed5": {
         "label": "速さ（5枚×3名）",
+        "enabled": true,
         "threshold": 5,
         "minCount": 3,
         "points": [5, 4, 3, 2]
       },
       "speed10": {
         "label": "速さ（10枚×3名）",
+        "enabled": true,
         "threshold": 10,
         "minCount": 3,
         "points": [5, 4, 3, 2]
       },
-      "zeroRatio": { "label": "ゼロ販売割合（少順）", "points": [4, 3, 2, 1] },
-      "outreach": { "label": "情宣回数", "points": [5, 4, 3, 2] }
+      "zeroRatio": { "label": "ゼロ販売割合（少順）", "enabled": true, "points": [4, 3, 2, 1] },
+      "outreach": { "label": "情宣回数", "enabled": true, "points": [5, 4, 3, 2] }
     },
     "parts": [
       {
@@ -3145,8 +3148,64 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 > - 同率タイの場合、該当順位の得点の平均（四捨五入）が全員に付与される。
 > - 情宣回数はメンバーが複数席種に配布記録を持つ場合、合計ではなく最大値を採用する（重複計上防止）。
 > - `speed5`/`speed10`はパート内で該当枚数以上を売った団員が`minCount`人に達した時点の`reportedAt`（3人目の報告日時）。未達の場合`null`で得点0。
+> - `scoring`は`Concert.scoringConfig`（[採点設定更新](#tickets-race-scoring)で保存）が優先され、未設定時は上記デフォルト値を使用する。`enabled: false`の基準は`breakdown`・`totalPoints`に反映されず0点として扱われる。
 
 **Errors:**: `403` `FORBIDDEN` 未公開のレースに非担当者がアクセスしようとした / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="tickets-race-scoring"></a>
+
+### PATCH `/api/v1/:orgSlug/tickets/:concertId/scoring`
+
+チケットレースの採点基準（各基準の有効/無効・配点、speed系は枚数閾値・最低人数）を演奏会単位でカスタマイズする。
+
+**権限**: `ticket or admin`
+
+**Request Body:**
+
+```json
+{
+  "avgSales": { "enabled": true, "points": [10, 8, 6, 4] },
+  "speed5": { "enabled": true, "threshold": 5, "minCount": 3, "points": [5, 4, 3, 2] },
+  "speed10": { "enabled": true, "threshold": 10, "minCount": 3, "points": [5, 4, 3, 2] },
+  "zeroRatio": { "enabled": true, "points": [4, 3, 2, 1] },
+  "outreach": { "enabled": false, "points": [5, 4, 3, 2] }
+}
+```
+
+**Response** `200`
+
+```json
+{
+  "data": {
+    "scoring": {
+      "avgSales": { "label": "平均販売枚数", "enabled": true, "points": [10, 8, 6, 4] },
+      "speed5": {
+        "label": "速さ（5枚×3名）",
+        "enabled": true,
+        "threshold": 5,
+        "minCount": 3,
+        "points": [5, 4, 3, 2]
+      },
+      "speed10": {
+        "label": "速さ（10枚×3名）",
+        "enabled": true,
+        "threshold": 10,
+        "minCount": 3,
+        "points": [5, 4, 3, 2]
+      },
+      "zeroRatio": { "label": "ゼロ販売割合（少順）", "enabled": true, "points": [4, 3, 2, 1] },
+      "outreach": { "label": "情宣回数", "enabled": false, "points": [5, 4, 3, 2] }
+    }
+  }
+}
+```
+
+> - `label`は固定文言でありAPI経由では変更できない（レスポンスにはサーバー側定数から常に付与される）。
+> - `points`は1〜10要素の非負整数配列。5基準すべてを毎回フルオブジェクトで送信する（部分更新は不可）。
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `409` `CONFLICT` レース公開後のため変更不可
 
 ---
 

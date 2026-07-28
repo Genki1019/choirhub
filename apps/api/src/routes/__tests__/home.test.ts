@@ -290,6 +290,7 @@ describe("GET /home", () => {
       ticketInputClosedAt: null,
       outreachExpensePerTrip: null,
       appliedSurveyId: null,
+      scoringConfig: null,
       createdAt: new Date("2024-01-01"),
     });
     const app = createTestApp(makeMember(["member"]));

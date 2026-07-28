@@ -3,6 +3,12 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { isTicketManager } from "../services/access.js";
+import {
+  computePartScores,
+  resolveScoringConfig,
+  scoringConfigInputSchema,
+  withLabels,
+} from "../services/scoring.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 export const ticketsRouter = new Hono<TenantEnv>()
@@ -704,40 +710,7 @@ export const ticketsRouter = new Hono<TenantEnv>()
       );
     }
 
-    // ── スコアリング設定（可変） ──
-    const SCORING = {
-      avgSales: { label: "平均販売枚数", points: [10, 8, 6, 4] },
-      speed5: { label: "速さ（5枚×3名）", threshold: 5, minCount: 3, points: [5, 4, 3, 2] },
-      speed10: { label: "速さ（10枚×3名）", threshold: 10, minCount: 3, points: [5, 4, 3, 2] },
-      zeroRatio: { label: "ゼロ販売割合（少順）", points: [4, 3, 2, 1] },
-      outreach: { label: "情宣回数", points: [5, 4, 3, 2] },
-    };
-
-    // ランクに基づきポイント付与（同率タイ対応）
-    function assignRankedPoints(
-      items: Array<{ key: string; value: number }>,
-      points: number[],
-      higherIsBetter = true,
-    ): Map<string, number> {
-      const result = new Map<string, number>(items.map((i) => [i.key, 0]));
-      if (!items.length) return result;
-      const sorted = [...items].sort((a, b) =>
-        higherIsBetter ? b.value - a.value : a.value - b.value,
-      );
-      let i = 0;
-      while (i < sorted.length) {
-        const cur = sorted[i].value;
-        let j = i;
-        while (j < sorted.length && sorted[j].value === cur) j++;
-        const tiedPts = points.slice(i, j);
-        const avg = tiedPts.length
-          ? Math.round(tiedPts.reduce((s, p) => s + p, 0) / tiedPts.length)
-          : 0;
-        for (let k = i; k < j; k++) result.set(sorted[k].key, avg);
-        i = j;
-      }
-      return result;
-    }
+    const config = resolveScoringConfig(concert.scoringConfig);
 
     const batches = await prisma.ticketBatch.findMany({
       where: { concertId },
@@ -824,110 +797,28 @@ export const ticketsRouter = new Hono<TenantEnv>()
     }
     const parts = Array.from(partMap.values());
 
-    // 速さマイルストーン計算（Nth人がthresholdに達した日時）
-    function speedMilestoneTime(
-      partMembers: MemberRaw[],
-      threshold: number,
-      minCount: number,
-    ): number | null {
-      const eligible = partMembers
-        .filter((m) => m.sold >= threshold && m.reportedAt)
-        .sort((a, b) => a.reportedAt!.getTime() - b.reportedAt!.getTime());
-      if (eligible.length < minCount) return null;
-      return eligible[minCount - 1].reportedAt!.getTime();
-    }
-
-    // ── 各基準でポイント付与 ──
-
-    // 1. 平均販売枚数
-    const avgSalesMap = assignRankedPoints(
-      parts.map((p) => ({
-        key: p.partId,
-        value:
-          p.members.length > 0 ? p.members.reduce((s, m) => s + m.sold, 0) / p.members.length : 0,
-      })),
-      SCORING.avgSales.points,
-    );
-
-    // 2. 速さ（5枚×3名）
-    const speed5Timestamps = parts.map((p) => ({
-      key: p.partId,
-      value: speedMilestoneTime(p.members, SCORING.speed5.threshold, SCORING.speed5.minCount),
-    }));
-    const speed5Map = assignRankedPoints(
-      speed5Timestamps.filter((x): x is { key: string; value: number } => x.value !== null),
-      SCORING.speed5.points,
-      false, // 早い（小さい）順が上位
-    );
-    parts.forEach((p) => {
-      if (!speed5Map.has(p.partId)) speed5Map.set(p.partId, 0);
-    });
-
-    // 3. 速さ（10枚×3名）
-    const speed10Timestamps = parts.map((p) => ({
-      key: p.partId,
-      value: speedMilestoneTime(p.members, SCORING.speed10.threshold, SCORING.speed10.minCount),
-    }));
-    const speed10Map = assignRankedPoints(
-      speed10Timestamps.filter((x): x is { key: string; value: number } => x.value !== null),
-      SCORING.speed10.points,
-      false,
-    );
-    parts.forEach((p) => {
-      if (!speed10Map.has(p.partId)) speed10Map.set(p.partId, 0);
-    });
-
-    // 4. ゼロ販売割合（小さい順が上位）
-    const zeroRatioMap = assignRankedPoints(
-      parts.map((p) => ({
-        key: p.partId,
-        value:
-          p.members.length > 0
-            ? p.members.filter((m) => m.sold === 0).length / p.members.length
-            : 1,
-      })),
-      SCORING.zeroRatio.points,
-      false,
-    );
-
-    // 5. 情宣回数（合計）
-    const outreachMap = assignRankedPoints(
-      parts.map((p) => ({
-        key: p.partId,
-        value: p.members.reduce((s, m) => s + m.outreachCount, 0),
-      })),
-      SCORING.outreach.points,
-    );
-
-    // ── パート最終スコア組み立て ──
-    const scoredParts = parts
-      .map((p) => {
+    // ── 各基準でポイント付与・パート最終スコア組み立て ──
+    // computePartScores は parts と同じ順序・件数で結果を返すためインデックスで対応付ける
+    // （「パート未設定」グループは partId が "" のため Map の再引き直しはできない）
+    const scores = computePartScores(parts, config);
+    const scoredParts = scores
+      .map((score, i) => {
+        const p = parts[i];
         const allocated = p.members.reduce((s, m) => s + m.allocated, 0);
         const sold = p.members.reduce((s, m) => s + m.sold, 0);
-        const avgSalesPoints = avgSalesMap.get(p.partId) ?? 0;
-        const speed5Points = speed5Map.get(p.partId) ?? 0;
-        const speed10Points = speed10Map.get(p.partId) ?? 0;
-        const zeroRatioPoints = zeroRatioMap.get(p.partId) ?? 0;
-        const outreachPoints = outreachMap.get(p.partId) ?? 0;
-        const totalPoints =
-          avgSalesPoints + speed5Points + speed10Points + zeroRatioPoints + outreachPoints;
-        const speed5AchievedAt = speed5Timestamps.find((x) => x.key === p.partId)?.value ?? null;
-        const speed10AchievedAt = speed10Timestamps.find((x) => x.key === p.partId)?.value ?? null;
         return {
-          partId: p.partId,
-          partName: p.partName,
-          totalPoints,
-          breakdown: {
-            avgSalesPoints,
-            speed5Points,
-            speed10Points,
-            zeroRatioPoints,
-            outreachPoints,
-          },
+          partId: score.partId,
+          partName: score.partName,
+          totalPoints: score.totalPoints,
+          breakdown: score.breakdown,
           stats: {
             avgSold: p.members.length > 0 ? sold / p.members.length : 0,
-            speed5AchievedAt: speed5AchievedAt ? new Date(speed5AchievedAt).toISOString() : null,
-            speed10AchievedAt: speed10AchievedAt ? new Date(speed10AchievedAt).toISOString() : null,
+            speed5AchievedAt: score.speed5AchievedAt
+              ? new Date(score.speed5AchievedAt).toISOString()
+              : null,
+            speed10AchievedAt: score.speed10AchievedAt
+              ? new Date(score.speed10AchievedAt).toISOString()
+              : null,
             zeroSellerRatio:
               p.members.length > 0
                 ? p.members.filter((m) => m.sold === 0).length / p.members.length
@@ -962,12 +853,48 @@ export const ticketsRouter = new Hono<TenantEnv>()
         concert: { id: concert.id, title: concert.title },
         isTicketManager: isTicketManager(actingMember),
         racePublishedAt: concert.racePublishedAt?.toISOString() ?? null,
-        scoring: SCORING,
+        scoring: withLabels(config),
         parts: scoredParts,
         individuals,
       },
     });
   })
+
+  // ── PATCH /tickets/:concertId/scoring ── 採点基準のカスタム設定
+  .patch(
+    "/tickets/:concertId/scoring",
+    zValidator("json", scoringConfigInputSchema, (r, c) => {
+      if (!r.success)
+        return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+    }),
+    async (c) => {
+      const actingMember = c.get("member");
+      const org = c.get("org");
+      const { concertId } = c.req.param();
+
+      if (!isTicketManager(actingMember)) {
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } },
+          403,
+        );
+      }
+
+      const concert = await prisma.concert.findUnique({ where: { id: concertId } });
+      if (!concert || concert.orgId !== org.id) {
+        return c.json({ error: { code: "NOT_FOUND", message: "演奏会が見つかりません" } }, 404);
+      }
+      if (concert.racePublishedAt) {
+        return c.json(
+          { error: { code: "CONFLICT", message: "レース公開後は採点設定を変更できません" } },
+          409,
+        );
+      }
+
+      const scoringConfig = c.req.valid("json");
+      await prisma.concert.update({ where: { id: concertId }, data: { scoringConfig } });
+      return c.json({ data: { scoring: withLabels(scoringConfig) } });
+    },
+  )
 
   // ── POST /tickets/:concertId/race/publish ── チケットレース公開
   .post("/tickets/:concertId/race/publish", async (c) => {

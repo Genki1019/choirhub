@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { Loader2, AlertCircle, Users, User, Globe, EyeOff } from "lucide-react";
+import { Loader2, AlertCircle, Users, User, Globe, EyeOff, Settings } from "lucide-react";
 import { ticketsApi, type RaceData } from "@/lib/tickets-api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ticketKeys } from "@/lib/query-keys";
 import { PartCard } from "./_components/PartCard";
 import { IndividualTable } from "./_components/IndividualTable";
 import { ScoringRules } from "./_components/ScoringRules";
+import { ScoringSettingsModal } from "./_components/ScoringSettingsModal";
 import { PageBleedRow } from "@/components/PageBleedRow";
 import { PageHeader } from "@/components/PageHeader";
 
@@ -18,6 +19,7 @@ export default function RacePage() {
 
   const [tab, setTab] = useState<"parts" | "individuals">("parts");
   const [publishing, setPublishing] = useState(false);
+  const [showScoringModal, setShowScoringModal] = useState(false);
 
   const {
     data,
@@ -105,6 +107,18 @@ export default function RacePage() {
     )
   ) : undefined;
 
+  const scoringSettingsButton = data.isTicketManager && (
+    <button
+      onClick={() => setShowScoringModal(true)}
+      disabled={!!data.racePublishedAt}
+      title={data.racePublishedAt ? "レース公開後は変更できません" : undefined}
+      className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-40"
+    >
+      <Settings size={13} />
+      採点設定
+    </button>
+  );
+
   const publishedBanner = data.racePublishedAt && (
     <PageBleedRow className="pb-2">
       <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
@@ -143,7 +157,12 @@ export default function RacePage() {
         title="チケットレース"
         subtitle={<span className="text-sm text-gray-400">{data.concert.title}</span>}
         backHref={backHref}
-        actions={publishAction}
+        actions={
+          <div className="flex items-center gap-2">
+            {scoringSettingsButton}
+            {publishAction}
+          </div>
+        }
       >
         {publishedBanner}
         {tabsRow}
@@ -162,6 +181,19 @@ export default function RacePage() {
           <IndividualTable individuals={data.individuals} />
         )}
       </main>
+
+      {showScoringModal && (
+        <ScoringSettingsModal
+          initialScoring={data.scoring}
+          onClose={() => setShowScoringModal(false)}
+          onSubmit={async (config) => {
+            await ticketsApi.updateScoringConfig(org, concertId, config);
+            // 配点変更はパートごとのbreakdown/totalPointsの再計算を伴うため、部分パッチではなく再取得する
+            await queryClient.invalidateQueries({ queryKey: ticketKeys.race(org, concertId) });
+            setShowScoringModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }

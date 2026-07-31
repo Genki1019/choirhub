@@ -721,6 +721,20 @@ describe("POST /auth/orgs", () => {
     expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 
+  it("バリデーションエラー: slug形式不正時にカスタムメッセージを返す", async () => {
+    const app = createTestApp();
+    const res = await app.request("/auth/orgs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: testOrg.name, slug: "Invalid Slug!" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    expect(body.error.message).toBe("英小文字・数字・ハイフンのみ使用できます");
+  });
+
   it("Cookieなし: 401を返す", async () => {
     const app = createTestApp();
     const res = await app.request("/auth/orgs", {

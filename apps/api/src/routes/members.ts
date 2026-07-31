@@ -196,7 +196,7 @@ export const membersRouter = new Hono<TenantEnv>()
               error: {
                 code: "VALIDATION_ERROR",
                 message: "入力値が不正です",
-                details: result.error.flatten(),
+                details: z.flattenError(result.error),
               },
             },
             400,
@@ -306,7 +306,7 @@ export const membersRouter = new Hono<TenantEnv>()
               error: {
                 code: "VALIDATION_ERROR",
                 message: "入力値が不正です",
-                details: result.error.flatten(),
+                details: z.flattenError(result.error),
               },
             },
             400,
@@ -419,7 +419,7 @@ export const membersRouter = new Hono<TenantEnv>()
               error: {
                 code: "VALIDATION_ERROR",
                 message: "入力値が不正です",
-                details: result.error.flatten(),
+                details: z.flattenError(result.error),
               },
             },
             400,

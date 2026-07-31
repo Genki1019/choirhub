@@ -414,7 +414,7 @@ export const authRouter = new Hono()
             {
               error: {
                 code: "VALIDATION_ERROR",
-                message: r.error.errors[0]?.message ?? "入力値が不正です",
+                message: r.error.issues[0]?.message ?? "入力値が不正です",
               },
             },
             400,

@@ -8,6 +8,16 @@ updates:
       dependencies:
         patterns:
           - "*"
+    ignore:
+      # eslint-plugin-react（eslint-config-next経由）がESLint10未対応のため保留（issue #127）
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      # typescript-eslintがTS7未対応のため保留（issue #127）
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      # 6.0.0でVite8必須化、連鎖アップデートを避けるため保留（issue #133）
+      - dependency-name: "@vitejs/plugin-react"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

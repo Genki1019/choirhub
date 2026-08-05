@@ -29,7 +29,7 @@
     "@prisma/client-runtime-utils": "^7.9.1",
     "@upstash/redis": "^1.34.9",
     "argon2": "^0.44.0",
-    "hono": "^4.12.27",
+    "hono": "^4.12.34",
     "ical-generator": "^11.0.0",
     "resend": "^6.12.4",
     "zod": "^4.4.3"

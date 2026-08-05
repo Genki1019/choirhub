@@ -1,7 +1,5 @@
-import { PrismaClient } from "../src/generated/prisma/index.js";
+import { prisma } from "../src/lib/prisma.js";
 import { hash } from "argon2";
-
-const prisma = new PrismaClient();
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 function addDays(base: Date, days: number): Date {

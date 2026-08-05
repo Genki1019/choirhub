@@ -1,13 +1,13 @@
 import { PrismaClient } from "../generated/prisma/index.js";
 import { PrismaNeon } from "@prisma/adapter-neon";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_DIRECT_URL ?? process.env.DATABASE_URL!;
   const isLocal = connectionString.includes("localhost") || connectionString.includes("127.0.0.1");
-  if (isLocal) {
-    return new PrismaClient({ datasourceUrl: connectionString });
-  }
-  const adapter = new PrismaNeon({ connectionString });
+  const adapter = isLocal
+    ? new PrismaPg({ connectionString })
+    : new PrismaNeon({ connectionString });
   return new PrismaClient({ adapter });
 }
 

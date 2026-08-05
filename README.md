@@ -5,7 +5,7 @@
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
 ![Hono](https://img.shields.io/badge/Hono-4-orange?logo=hono)
-![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?logo=prisma)
+![Prisma](https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue?logo=postgresql)
 ![Cloudflare R2](https://img.shields.io/badge/Cloudflare-R2-F38020?logo=cloudflare)
 
@@ -129,13 +129,13 @@
 | Tailwind CSS    | v4         | スタイリング           |
 | lucide-react    | -          | アイコン               |
 | React Hook Form | v7         | フォーム管理           |
-| Zod             | v3         | スキーマバリデーション |
+| Zod             | v4         | スキーマバリデーション |
 
 ### バックエンド・インフラ
 
 | 技術                  | バージョン | 用途                       |
 | --------------------- | ---------- | -------------------------- |
-| Prisma ORM            | 6          | DB アクセス層              |
+| Prisma ORM            | 7          | DB アクセス層              |
 | PostgreSQL            | 16         | データベース               |
 | Argon2id              | -          | パスワードハッシュ         |
 | AWS SDK v3（S3 互換） | -          | Cloudflare R2 操作         |

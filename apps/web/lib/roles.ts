@@ -73,6 +73,7 @@ export const MEMBER_LEVEL_ROLES = new Set<string>(
 export const MANAGEABLE_ROLES = ROLES.filter((r) => r.key !== "member").map((r) => ({
   value: r.key,
   label: r.defaultName,
+  description: r.description,
 }));
 
 /** 招待モーダル・フィルターで使用するロール全件オプション */

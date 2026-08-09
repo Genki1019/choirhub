@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { ShieldCheck, Check, Loader2, UserMinus } from "lucide-react";
+import { ShieldCheck, Check, Loader2, UserMinus, AlertCircle } from "lucide-react";
 import type { MemberProfile, PartSummary } from "@/lib/members-api";
 import type { MemberType } from "@/lib/settings-api";
 import { MEMBER_STATUS_OPTIONS } from "@/lib/api-types";
 import type { MemberStatus } from "@/lib/api-types";
 import { MANAGEABLE_ROLES } from "@/lib/roles";
+import { RolePermissionPopover } from "./RolePermissionPopover";
 
 interface AdminPanelProps {
   member: MemberProfile;
@@ -24,6 +25,7 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
   const [localMemo, setLocalMemo] = useState(member.adminMemo ?? "");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const toggleRole = (role: string) =>
     setLocalRoles((prev) =>
@@ -32,6 +34,7 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
 
   const handleSave = async () => {
     setSaving(true);
+    setError(null);
     try {
       await onUpdate({
         roles: ["member", ...localRoles],
@@ -41,6 +44,8 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
         phone: member.phone || null,
         adminMemo: localMemo || null,
       });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "保存に失敗しました");
     } finally {
       setSaving(false);
     }
@@ -48,8 +53,11 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
 
   const handleDelete = async () => {
     setDeleting(true);
+    setError(null);
     try {
       await onDelete();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "退団処理に失敗しました");
     } finally {
       setDeleting(false);
     }
@@ -63,11 +71,15 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
       </div>
 
       <div>
-        <label className="mb-2 block text-xs font-medium text-gray-600">ロール</label>
+        <div className="mb-2 flex items-center gap-1">
+          <label className="block text-xs font-medium text-gray-600">ロール</label>
+          <RolePermissionPopover roles={MANAGEABLE_ROLES} />
+        </div>
         <div className="flex flex-wrap gap-2">
           {MANAGEABLE_ROLES.map(({ value, label }) => (
             <button
               key={value}
+              type="button"
               onClick={() => toggleRole(value)}
               className={[
                 "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
@@ -154,8 +166,16 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
         />
       </div>
 
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+          <AlertCircle size={14} className="shrink-0" />
+          {error}
+        </div>
+      )}
+
       <div className="flex items-center justify-between pt-1">
         <button
+          type="button"
           onClick={handleSave}
           disabled={saving || deleting}
           className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-60"
@@ -164,6 +184,7 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
           変更を保存
         </button>
         <button
+          type="button"
           onClick={handleDelete}
           disabled={saving || deleting}
           className="flex items-center gap-1.5 rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"

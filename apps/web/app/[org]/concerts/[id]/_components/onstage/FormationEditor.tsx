@@ -26,7 +26,7 @@ import {
 } from "@/lib/concerts-api";
 import { GridCell, PartColorLegend, SeatContainer } from "./Chips";
 import { AddBoxPopover, AddMemberPopover } from "./Popovers";
-import { useHoverPinPopover } from "./useHoverPinPopover";
+import { useHoverPinPopover } from "@/lib/useHoverPinPopover";
 import {
   GRID_STAGGER_OFFSET,
   assignmentToSlotItem,

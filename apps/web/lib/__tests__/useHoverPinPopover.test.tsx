@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRef } from "react";
-import { useHoverPinPopover } from "../useHoverPinPopover";
+import { useHoverPinPopover } from "@/lib/useHoverPinPopover";
 
 function sleep(ms: number) {
   return act(() => new Promise((resolve) => setTimeout(resolve, ms)));

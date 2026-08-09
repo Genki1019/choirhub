@@ -1,23 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { Pencil, Loader2, AlertCircle } from "lucide-react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import { Pencil, ShieldCheck, Loader2, AlertCircle } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { membersApi, type MemberProfile } from "@/lib/members-api";
 import { useMember } from "@/contexts/MemberContext";
-import { settingsApi } from "@/lib/settings-api";
 import { memberKeys } from "@/lib/query-keys";
 import { MEMBER_LEVEL_ROLES } from "@/lib/roles";
 import { ProfileCard } from "./_components/ProfileCard";
 import { ProfileInfoSection } from "./_components/ProfileInfoSection";
 import { EditForm } from "./_components/EditForm";
-import { AdminPanel } from "./_components/AdminPanel";
 import { PageHeader } from "@/components/PageHeader";
 
 export default function MemberDetailPage() {
   const { org, id } = useParams<{ org: string; id: string }>();
-  const router = useRouter();
   const queryClient = useQueryClient();
 
   const { roles: myRoles, memberId: myMemberId } = useMember();
@@ -35,18 +33,6 @@ export default function MemberDetailPage() {
     queryKey: memberKeys.detail(org, id),
     queryFn: () => membersApi.get(org, id),
   });
-  const { data: parts = [], isLoading: partsLoading } = useQuery({
-    queryKey: memberKeys.parts(org),
-    queryFn: () => membersApi.parts(org),
-    enabled: isAdmin,
-  });
-  const { data: memberTypes = [], isLoading: typesLoading } = useQuery({
-    queryKey: memberKeys.types(org),
-    queryFn: () => settingsApi.listMemberTypes(org),
-    enabled: isAdmin,
-  });
-
-  const loading = memberLoading || (isAdmin && (partsLoading || typesLoading));
 
   const handleSelfSave = async (data: Record<string, unknown>) => {
     const updated = await membersApi.updateMe(org, data as Partial<MemberProfile>);
@@ -55,21 +41,7 @@ export default function MemberDetailPage() {
     setIsEditing(false);
   };
 
-  const handleAdminSave = async (data: Record<string, unknown>) => {
-    await membersApi.updateById(org, id, data);
-    queryClient.invalidateQueries({ queryKey: memberKeys.list(org) });
-    const savedStatus = (data.status as string) ?? member?.status ?? "active";
-    router.push(`/${org}/members?status=${savedStatus}`);
-  };
-
-  const handleAdminDelete = async () => {
-    if (!confirm(`${member?.nameJa} を退団処理しますか？この操作は取り消せません。`)) return;
-    await membersApi.delete(org, id);
-    queryClient.invalidateQueries({ queryKey: memberKeys.list(org) });
-    router.push(`/${org}/members`);
-  };
-
-  if (loading) {
+  if (memberLoading) {
     return (
       <div className="flex h-full items-center justify-center gap-2 text-gray-400">
         <Loader2 size={18} className="animate-spin" />
@@ -89,19 +61,33 @@ export default function MemberDetailPage() {
     );
   }
 
+  const hasActions = (isSelf && !isEditing) || isAdmin;
+
   return (
     <div className="flex flex-col">
       <PageHeader
         title="メンバー詳細"
         backHref={`/${org}/members`}
         actions={
-          isSelf && !isEditing ? (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
-            >
-              <Pencil size={14} /> 編集
-            </button>
+          hasActions ? (
+            <>
+              {isSelf && !isEditing && (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+                >
+                  <Pencil size={14} /> 編集
+                </button>
+              )}
+              {isAdmin && (
+                <Link
+                  href={`/${org}/members/${id}/manage`}
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+                >
+                  <ShieldCheck size={14} /> 管理者操作
+                </Link>
+              )}
+            </>
           ) : undefined
         }
       />
@@ -119,16 +105,6 @@ export default function MemberDetailPage() {
             org={org}
             onSave={handleSelfSave}
             onCancel={() => setIsEditing(false)}
-          />
-        )}
-
-        {isAdmin && (
-          <AdminPanel
-            member={member}
-            parts={parts}
-            memberTypes={memberTypes}
-            onUpdate={handleAdminSave}
-            onDelete={handleAdminDelete}
           />
         )}
       </main>

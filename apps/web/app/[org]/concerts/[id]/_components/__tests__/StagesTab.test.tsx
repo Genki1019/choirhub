@@ -1,8 +1,13 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StagesTab } from "../StagesTab";
 import { type ConcertDetail } from "@/lib/concerts-api";
+import { dragAndDrop, mockPointerCapture } from "@/test-utils/dnd";
+
+beforeEach(() => {
+  mockPointerCapture();
+});
 
 function makeConcert(overrides: Partial<ConcertDetail> = {}): ConcertDetail {
   return {
@@ -40,8 +45,8 @@ function defaultProps(overrides = {}) {
     isAdmin: true,
     onAddClick: vi.fn(),
     onAddStage: vi.fn(),
-    onMoveStage: vi.fn(),
-    onMoveProgram: vi.fn(),
+    onReorderStages: vi.fn(),
+    onReorderPrograms: vi.fn(),
     onEditStageName: vi.fn().mockResolvedValue(undefined),
     onMoveCopyClick: vi.fn(),
     onEditProgramClick: vi.fn(),
@@ -84,25 +89,13 @@ describe("StagesTab（admin操作ボタン）", () => {
     expect(screen.queryByText("ステージを追加")).not.toBeInTheDocument();
   });
 
-  it("先頭ステージの「上へ」・末尾ステージの「下へ」は無効化される", () => {
-    render(<StagesTab concert={makeConcert()} {...defaultProps()} />);
+  it("非adminロール: ステージ・曲目のドラッグハンドルを表示しない", () => {
+    render(<StagesTab concert={makeConcert()} {...defaultProps({ isAdmin: false })} />);
 
-    const stage1Header = screen.getByText("第1ステージ").closest("div") as HTMLElement;
-    const stage2Header = screen.getByText("第2ステージ").closest("div") as HTMLElement;
-    expect(within(stage1Header).getByTitle("上へ")).toBeDisabled();
-    expect(within(stage2Header).getByTitle("下へ")).toBeDisabled();
-    expect(within(stage1Header).getByTitle("下へ")).not.toBeDisabled();
-  });
-
-  it("ステージの「下へ」クリックでonMoveStageが呼ばれる", async () => {
-    const onMoveStage = vi.fn();
-    const user = userEvent.setup();
-    render(<StagesTab concert={makeConcert()} {...defaultProps({ onMoveStage })} />);
-
-    const stage1Header = screen.getByText("第1ステージ").closest("div") as HTMLElement;
-    await user.click(within(stage1Header).getByTitle("下へ"));
-
-    expect(onMoveStage).toHaveBeenCalledWith("stage-1", 1);
+    expect(screen.queryByLabelText("第1ステージをドラッグして並び替え")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("男声合唱のための〇〇をドラッグして並び替え"),
+    ).not.toBeInTheDocument();
   });
 
   it("「曲目を追加」クリックでonAddClickが該当ステージIDで呼ばれる", async () => {
@@ -192,5 +185,46 @@ describe("StagesTab（ステージ名インライン編集）", () => {
     await user.click(screen.getByLabelText("保存"));
 
     expect(onEditStageName).not.toHaveBeenCalled();
+  });
+});
+
+// dnd-kitのドラッグ操作はjsdom上でpointer capture状態が後続テストのクリックに干渉するため、
+// D&D関連のテストはファイル末尾にまとめる（FormationEditor.test.tsxと同じ方針）
+describe("StagesTab（並び替え）", () => {
+  it("ステージをドラッグで並び替えるとonReorderStagesが呼ばれる", () => {
+    const onReorderStages = vi.fn();
+    render(<StagesTab concert={makeConcert()} {...defaultProps({ onReorderStages })} />);
+
+    dragAndDrop(
+      screen.getByLabelText("第1ステージをドラッグして並び替え"),
+      screen.getByLabelText("第2ステージをドラッグして並び替え"),
+    );
+
+    expect(onReorderStages).toHaveBeenCalledWith(["stage-2", "stage-1"]);
+  });
+
+  it("曲目をドラッグで並び替えるとonReorderProgramsが呼ばれる", () => {
+    const onReorderPrograms = vi.fn();
+    const concert = makeConcert({
+      stages: [
+        {
+          id: "stage-1",
+          name: "第1ステージ",
+          sortOrder: 0,
+          programs: [
+            { id: "program-1", title: "1曲目", sortOrder: 0, score: null },
+            { id: "program-2", title: "2曲目", sortOrder: 1, score: null },
+          ],
+        },
+      ],
+    });
+    render(<StagesTab concert={concert} {...defaultProps({ onReorderPrograms })} />);
+
+    dragAndDrop(
+      screen.getByLabelText("2曲目をドラッグして並び替え"),
+      screen.getByLabelText("1曲目をドラッグして並び替え"),
+    );
+
+    expect(onReorderPrograms).toHaveBeenCalledWith("stage-1", ["program-2", "program-1"]);
   });
 });

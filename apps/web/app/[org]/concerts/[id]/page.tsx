@@ -25,6 +25,7 @@ import {
 import { ApiClientError } from "@/lib/api-client";
 import { formatJaDate } from "@/lib/date";
 import { concertKeys } from "@/lib/query-keys";
+import { mergeOrderedIds } from "@/lib/sort-order";
 import { useMember } from "@/contexts/MemberContext";
 import { MEMBER_LEVEL_ROLES } from "@/lib/roles";
 import { StagesTab } from "./_components/StagesTab";
@@ -105,41 +106,31 @@ export default function ConcertDetailPage() {
     setShowAddStageModal(false);
   };
 
-  const handleMoveStage = (stageId: string, dir: -1 | 1) => {
-    let orderedIds: string[] = [];
-    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) => {
-      if (!prev) return prev;
-      const idx = prev.stages.findIndex((s) => s.id === stageId);
-      const newIdx = idx + dir;
-      if (newIdx < 0 || newIdx >= prev.stages.length) return prev;
-      const next = [...prev.stages];
-      [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
-      orderedIds = next.map((s) => s.id);
-      return { ...prev, stages: next };
+  const handleReorderStages = (orderedIds: string[]) => {
+    const snapshot = queryClient.getQueryData<ConcertDetail>(concertKeys.detail(org, id));
+    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) =>
+      prev ? { ...prev, stages: mergeOrderedIds(prev.stages, orderedIds) } : prev,
+    );
+    concertsApi.reorderStages(org, id, orderedIds).catch(() => {
+      queryClient.setQueryData(concertKeys.detail(org, id), snapshot);
     });
-    if (orderedIds.length > 0) concertsApi.reorderStages(org, id, orderedIds).catch(() => {});
   };
 
-  const handleMoveProgram = (stageId: string, programId: string, dir: -1 | 1) => {
-    let orderedIds: string[] = [];
+  const handleReorderPrograms = (stageId: string, orderedIds: string[]) => {
+    const snapshot = queryClient.getQueryData<ConcertDetail>(concertKeys.detail(org, id));
     queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) => {
       if (!prev) return prev;
       const stageIdx = prev.stages.findIndex((s) => s.id === stageId);
       if (stageIdx === -1) return prev;
-      const stage = prev.stages[stageIdx];
-      const pIdx = stage.programs.findIndex((p) => p.id === programId);
-      const newIdx = pIdx + dir;
-      if (newIdx < 0 || newIdx >= stage.programs.length) return prev;
-      const nextPrograms = [...stage.programs];
-      [nextPrograms[pIdx], nextPrograms[newIdx]] = [nextPrograms[newIdx], nextPrograms[pIdx]];
+      const nextPrograms = mergeOrderedIds(prev.stages[stageIdx].programs, orderedIds);
       const nextStages = prev.stages.map((s, i) =>
         i === stageIdx ? { ...s, programs: nextPrograms } : s,
       );
-      orderedIds = nextPrograms.map((p) => p.id);
       return { ...prev, stages: nextStages };
     });
-    if (orderedIds.length > 0)
-      concertsApi.reorderPrograms(org, id, stageId, orderedIds).catch(() => {});
+    concertsApi.reorderPrograms(org, id, stageId, orderedIds).catch(() => {
+      queryClient.setQueryData(concertKeys.detail(org, id), snapshot);
+    });
   };
 
   const handleEditStageName = async (stageId: string, name: string) => {
@@ -375,8 +366,8 @@ export default function ConcertDetailPage() {
               router.push(`/${org}/concerts/${id}/programs/new?stageId=${stageId}`)
             }
             onAddStage={() => setShowAddStageModal(true)}
-            onMoveStage={handleMoveStage}
-            onMoveProgram={handleMoveProgram}
+            onReorderStages={handleReorderStages}
+            onReorderPrograms={handleReorderPrograms}
             onEditStageName={handleEditStageName}
             onMoveCopyClick={(stageId, program) => setMoveCopySource({ stageId, program })}
             onEditProgramClick={(stageId, program) => setEditProgramTarget({ stageId, program })}

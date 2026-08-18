@@ -122,33 +122,36 @@ export function ExpenseCategoryCard({
                     className="flex items-center gap-3 px-5 py-3"
                   >
                     {editId === cat.id ? (
-                      <div className="flex flex-1 items-center gap-2">
-                        <input
-                          autoFocus
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") confirmEdit();
-                            if (e.key === "Escape") setEditId(null);
-                          }}
-                          className="border-brand-300 focus:ring-brand-400 flex-1 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
-                        />
-                        <button
-                          onClick={confirmEdit}
-                          disabled={busy}
-                          aria-label="保存"
-                          className="text-teal-600 hover:text-teal-700 disabled:opacity-40"
-                        >
-                          <Check size={15} />
-                        </button>
-                        <button
-                          onClick={() => setEditId(null)}
-                          aria-label="キャンセル"
-                          className="text-gray-400 hover:text-gray-600"
-                        >
-                          <X size={15} />
-                        </button>
-                      </div>
+                      <>
+                        <div className="w-7 shrink-0" />
+                        <div className="flex flex-1 items-center gap-2">
+                          <input
+                            autoFocus
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") confirmEdit();
+                              if (e.key === "Escape") setEditId(null);
+                            }}
+                            className="border-brand-300 focus:ring-brand-400 flex-1 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
+                          />
+                          <button
+                            onClick={confirmEdit}
+                            disabled={busy}
+                            aria-label="保存"
+                            className="text-teal-600 hover:text-teal-700 disabled:opacity-40"
+                          >
+                            <Check size={15} />
+                          </button>
+                          <button
+                            onClick={() => setEditId(null)}
+                            aria-label="キャンセル"
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            <X size={15} />
+                          </button>
+                        </div>
+                      </>
                     ) : (
                       <>
                         <DragHandle

@@ -155,42 +155,45 @@ export function MemberTypeCard({
                     className="flex items-center gap-3 px-5 py-3"
                   >
                     {editId === t.id ? (
-                      <div className="flex flex-1 items-center gap-2">
-                        <input
-                          autoFocus
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") confirmEdit();
-                            if (e.key === "Escape") setEditId(null);
-                          }}
-                          placeholder="区分名"
-                          className="border-brand-300 focus:ring-brand-400 flex-1 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
-                        />
-                        <input
-                          type="number"
-                          value={editAmount}
-                          onChange={(e) => setEditAmount(e.target.value)}
-                          placeholder="会費（円）"
-                          min={0}
-                          className="border-brand-300 focus:ring-brand-400 w-28 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
-                        />
-                        <button
-                          onClick={confirmEdit}
-                          disabled={busy}
-                          aria-label="保存"
-                          className="text-teal-600 hover:text-teal-700 disabled:opacity-40"
-                        >
-                          <Check size={15} />
-                        </button>
-                        <button
-                          onClick={() => setEditId(null)}
-                          aria-label="キャンセル"
-                          className="text-gray-400 hover:text-gray-600"
-                        >
-                          <X size={15} />
-                        </button>
-                      </div>
+                      <>
+                        {canEdit && <div className="w-6 shrink-0" />}
+                        <div className="flex flex-1 items-center gap-2">
+                          <input
+                            autoFocus
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") confirmEdit();
+                              if (e.key === "Escape") setEditId(null);
+                            }}
+                            placeholder="区分名"
+                            className="border-brand-300 focus:ring-brand-400 flex-1 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
+                          />
+                          <input
+                            type="number"
+                            value={editAmount}
+                            onChange={(e) => setEditAmount(e.target.value)}
+                            placeholder="会費（円）"
+                            min={0}
+                            className="border-brand-300 focus:ring-brand-400 w-28 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
+                          />
+                          <button
+                            onClick={confirmEdit}
+                            disabled={busy}
+                            aria-label="保存"
+                            className="text-teal-600 hover:text-teal-700 disabled:opacity-40"
+                          >
+                            <Check size={15} />
+                          </button>
+                          <button
+                            onClick={() => setEditId(null)}
+                            aria-label="キャンセル"
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            <X size={15} />
+                          </button>
+                        </div>
+                      </>
                     ) : (
                       <>
                         {canEdit && (

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FormationEditor } from "../FormationEditor";
 import {
@@ -8,40 +8,7 @@ import {
   type FormationPatternDetail,
 } from "@/lib/concerts-api";
 import { buildPartColorMap } from "../formation-model";
-
-// dnd-kitのPointerSensorをjsdomで動かすためのヘルパー・ポリフィル
-function mockRect(el: Element, rect: { x: number; y: number; width: number; height: number }) {
-  el.getBoundingClientRect = () =>
-    ({
-      x: rect.x,
-      y: rect.y,
-      width: rect.width,
-      height: rect.height,
-      top: rect.y,
-      left: rect.x,
-      right: rect.x + rect.width,
-      bottom: rect.y + rect.height,
-      toJSON() {
-        return this;
-      },
-    }) as DOMRect;
-}
-
-function dragAndDrop(source: Element, target: Element) {
-  mockRect(source, { x: 0, y: 0, width: 44, height: 44 });
-  mockRect(target, { x: 300, y: 0, width: 44, height: 44 });
-
-  fireEvent.pointerDown(source, {
-    pointerId: 1,
-    clientX: 22,
-    clientY: 22,
-    button: 0,
-    isPrimary: true,
-  });
-  fireEvent.pointerMove(document, { pointerId: 1, clientX: 322, clientY: 22, isPrimary: true });
-  fireEvent.pointerMove(document, { pointerId: 1, clientX: 322, clientY: 22, isPrimary: true });
-  fireEvent.pointerUp(document, { pointerId: 1, clientX: 322, clientY: 22, isPrimary: true });
-}
+import { dragAndDrop, mockPointerCapture } from "@/test-utils/dnd";
 
 vi.mock("@/lib/concerts-api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/concerts-api")>("@/lib/concerts-api");
@@ -110,9 +77,7 @@ function defaultProps(overrides: Partial<Parameters<typeof FormationEditor>[0]> 
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(concertsApi.saveFormationSlots).mockResolvedValue(undefined);
-  Element.prototype.setPointerCapture = vi.fn();
-  Element.prototype.releasePointerCapture = vi.fn();
-  Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
+  mockPointerCapture();
 });
 
 describe("FormationEditor（表示）", () => {

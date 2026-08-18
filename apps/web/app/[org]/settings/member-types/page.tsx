@@ -53,6 +53,7 @@ export default function MemberTypesPage() {
             prev ? [...prev, created] : prev,
           )
         }
+        onReordered={(reordered) => queryClient.setQueryData(memberKeys.types(org), reordered)}
         onToast={showToast}
       />
 

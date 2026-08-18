@@ -76,7 +76,7 @@ export default function EventCategoriesPage() {
         />
       )}
 
-      {canEdit && <p className="text-xs text-gray-400">↑↓ で表示順を変更できます。</p>}
+      {canEdit && <p className="text-xs text-gray-400">ドラッグして表示順を変更できます。</p>}
     </PageWithHeader>
   );
 }

@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemberTypeCard } from "../MemberTypeCard";
 import { settingsApi, type MemberType } from "@/lib/settings-api";
 import { ApiClientError } from "@/lib/api-client";
+import { dragAndDrop, mockPointerCapture } from "@/test-utils/dnd";
 
 vi.mock("@/lib/settings-api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/settings-api")>("@/lib/settings-api");
@@ -33,6 +34,7 @@ function renderCard(canEdit: boolean, overrides: Partial<Record<string, unknown>
       onUpdated={vi.fn()}
       onDeleted={vi.fn()}
       onCreated={vi.fn()}
+      onReordered={vi.fn()}
       onToast={vi.fn()}
       {...overrides}
     />,
@@ -41,6 +43,7 @@ function renderCard(canEdit: boolean, overrides: Partial<Record<string, unknown>
 
 beforeEach(() => {
   vi.resetAllMocks();
+  mockPointerCapture();
 });
 
 describe("MemberTypeCard（表示）", () => {
@@ -61,6 +64,7 @@ describe("MemberTypeCard（表示）", () => {
         onUpdated={vi.fn()}
         onDeleted={vi.fn()}
         onCreated={vi.fn()}
+        onReordered={vi.fn()}
         onToast={vi.fn()}
       />,
     );
@@ -127,12 +131,43 @@ describe("MemberTypeCard（canEdit: true）", () => {
 });
 
 describe("MemberTypeCard（canEdit: false）", () => {
-  it("追加ボタン・編集・削除ボタンを一切表示しない", () => {
+  it("追加ボタン・並び替え・編集・削除ボタンを一切表示しない", () => {
     renderCard(false);
 
     expect(screen.queryByText("追加")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("社会人をドラッグして並び替え")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("社会人を編集")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("社会人を削除")).not.toBeInTheDocument();
     expect(screen.getByText("社会人")).toBeInTheDocument();
+  });
+});
+
+describe("MemberTypeCard（並び替え）", () => {
+  it("ドラッグで並び替えるとupdateMemberTypeが変更された2件だけ呼ばれる", async () => {
+    vi.mocked(settingsApi.updateMemberType).mockResolvedValue(makeTypes()[0]);
+    renderCard(true);
+
+    dragAndDrop(
+      screen.getByLabelText("学生をドラッグして並び替え"),
+      screen.getByLabelText("社会人をドラッグして並び替え"),
+    );
+
+    expect(settingsApi.updateMemberType).toHaveBeenCalledWith("o", "type-2", { sortOrder: 1 });
+    expect(settingsApi.updateMemberType).toHaveBeenCalledWith("o", "type-1", { sortOrder: 2 });
+  });
+
+  it("並び替えに失敗したら元の順序にロールバックしトーストする", async () => {
+    vi.mocked(settingsApi.updateMemberType).mockRejectedValue(new Error("network error"));
+    const onToast = vi.fn();
+    renderCard(true, { onToast });
+
+    dragAndDrop(
+      screen.getByLabelText("学生をドラッグして並び替え"),
+      screen.getByLabelText("社会人をドラッグして並び替え"),
+    );
+
+    await vi.waitFor(() => {
+      expect(onToast).toHaveBeenCalledWith("並び替えに失敗しました");
+    });
   });
 });

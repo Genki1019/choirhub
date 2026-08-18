@@ -1,53 +1,58 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, ChevronUp, ChevronDown, Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
+import { DndContext } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { DragHandle, SortableItem, useListDndSensors } from "@/components/SortableRow";
 import { settingsApi } from "@/lib/settings-api";
 import { ApiClientError } from "@/lib/api-client";
+import { createSortDragEndHandler } from "@/lib/sort-order";
 import type { PartSummary } from "@/lib/members-api";
 
 interface PartCardProps {
-  initialParts: PartSummary[];
+  parts: PartSummary[];
   org: string;
   canEdit: boolean;
+  onUpdated: (updated: PartSummary) => void;
+  onDeleted: (id: string) => void;
+  onCreated: (created: PartSummary) => void;
+  onReordered: (reordered: PartSummary[]) => void;
   onToast: (msg: string) => void;
 }
 
-export function PartCard({ initialParts, org, canEdit, onToast }: PartCardProps) {
-  const [parts, setParts] = useState<PartSummary[]>(initialParts);
+export function PartCard({
+  parts,
+  org,
+  canEdit,
+  onUpdated,
+  onDeleted,
+  onCreated,
+  onReordered,
+  onToast,
+}: PartCardProps) {
   const [busy, setBusy] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState("");
 
-  const swap = async (idx: number, dir: -1 | 1) => {
-    const next = [...parts];
-    const other = idx + dir;
-    if (other < 0 || other >= next.length) return;
-    [next[idx], next[other]] = [next[other], next[idx]];
-    const reindexed = next.map((p, i) => ({ ...p, sortOrder: i + 1 }));
-    setParts(reindexed);
-    setBusy(true);
-    try {
-      await Promise.all([
-        settingsApi.updatePart(org, reindexed[idx].id, { sortOrder: reindexed[idx].sortOrder }),
-        settingsApi.updatePart(org, reindexed[other].id, { sortOrder: reindexed[other].sortOrder }),
-      ]);
-    } catch {
-      onToast("並び替えに失敗しました");
-      setParts(parts);
-    } finally {
-      setBusy(false);
-    }
-  };
+  const sensors = useListDndSensors();
+
+  const handleDragEnd = createSortDragEndHandler({
+    items: parts,
+    onReordered,
+    persistOne: (p) => settingsApi.updatePart(org, p.id, { sortOrder: p.sortOrder }),
+    onError: onToast,
+    setBusy,
+  });
 
   const confirmEdit = async () => {
     if (!editName.trim() || !editId) return;
     setBusy(true);
     try {
       const updated = await settingsApi.updatePart(org, editId, { name: editName.trim() });
-      setParts((prev) => prev.map((p) => (p.id === editId ? { ...p, name: updated.name } : p)));
+      onUpdated(updated);
       setEditId(null);
     } catch {
       onToast("更新に失敗しました");
@@ -60,9 +65,7 @@ export function PartCard({ initialParts, org, canEdit, onToast }: PartCardProps)
     setBusy(true);
     try {
       await settingsApi.deletePart(org, part.id);
-      setParts((prev) =>
-        prev.filter((p) => p.id !== part.id).map((p, i) => ({ ...p, sortOrder: i + 1 })),
-      );
+      onDeleted(part.id);
     } catch (err) {
       const msg =
         err instanceof ApiClientError && err.status === 409
@@ -79,7 +82,7 @@ export function PartCard({ initialParts, org, canEdit, onToast }: PartCardProps)
     setBusy(true);
     try {
       const created = await settingsApi.createPart(org, { name: newName.trim() });
-      setParts((prev) => [...prev, created]);
+      onCreated(created);
       setNewName("");
       setShowAdd(false);
     } catch {
@@ -108,89 +111,93 @@ export function PartCard({ initialParts, org, canEdit, onToast }: PartCardProps)
         )}
       </div>
 
-      <div className="divide-y divide-gray-100">
-        {parts.map((part, idx) => (
-          <div key={part.id} className="flex items-center gap-3 px-5 py-3">
-            {canEdit && (
-              <div className="flex shrink-0 flex-col">
-                <button
-                  onClick={() => swap(idx, -1)}
-                  disabled={idx === 0 || busy}
-                  aria-label={`${part.name}を上に移動`}
-                  className="p-0.5 text-gray-300 transition-colors hover:text-gray-500 disabled:opacity-20"
-                >
-                  <ChevronUp size={14} />
-                </button>
-                <button
-                  onClick={() => swap(idx, 1)}
-                  disabled={idx === parts.length - 1 || busy}
-                  aria-label={`${part.name}を下に移動`}
-                  className="p-0.5 text-gray-300 transition-colors hover:text-gray-500 disabled:opacity-20"
-                >
-                  <ChevronDown size={14} />
-                </button>
-              </div>
-            )}
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        <SortableContext items={parts.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+          <div className="divide-y divide-gray-100">
+            {parts.map((part) => (
+              <SortableItem key={part.id} id={part.id}>
+                {({ setNodeRef, style, attributes, listeners }) => (
+                  <div
+                    ref={setNodeRef}
+                    style={style}
+                    data-dnd-row=""
+                    className="flex items-center gap-3 px-5 py-3"
+                  >
+                    {canEdit && (
+                      <DragHandle
+                        label={part.name}
+                        attributes={attributes}
+                        listeners={listeners}
+                        disabled={busy}
+                      />
+                    )}
 
-            {editId === part.id ? (
-              <div className="flex flex-1 items-center gap-2">
-                <input
-                  autoFocus
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") confirmEdit();
-                    if (e.key === "Escape") setEditId(null);
-                  }}
-                  className="border-brand-300 focus:ring-brand-400 flex-1 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
-                />
-                <button
-                  onClick={confirmEdit}
-                  disabled={busy}
-                  aria-label="保存"
-                  className="text-teal-600 hover:text-teal-700 disabled:opacity-40"
-                >
-                  <Check size={15} />
-                </button>
-                <button
-                  onClick={() => setEditId(null)}
-                  aria-label="キャンセル"
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X size={15} />
-                </button>
-              </div>
-            ) : (
-              <>
-                <span className="flex-1 text-sm text-gray-800">{part.name}</span>
-                {canEdit && (
-                  <div className="flex shrink-0 items-center gap-0.5">
-                    <button
-                      onClick={() => {
-                        setEditId(part.id);
-                        setEditName(part.name);
-                      }}
-                      disabled={busy}
-                      aria-label={`${part.name}を編集`}
-                      className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors disabled:opacity-40"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                    <button
-                      onClick={() => deletePart(part)}
-                      disabled={busy}
-                      aria-label={`${part.name}を削除`}
-                      className="p-1.5 text-gray-300 transition-colors hover:text-red-500 disabled:opacity-40"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    {editId === part.id ? (
+                      <>
+                        {canEdit && <div className="w-7 shrink-0" />}
+                        <div className="flex flex-1 items-center gap-2">
+                          <input
+                            autoFocus
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") confirmEdit();
+                              if (e.key === "Escape") setEditId(null);
+                            }}
+                            className="border-brand-300 focus:ring-brand-400 flex-1 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
+                          />
+                          <button
+                            onClick={confirmEdit}
+                            disabled={busy}
+                            aria-label="保存"
+                            className="text-teal-600 hover:text-teal-700 disabled:opacity-40"
+                          >
+                            <Check size={15} />
+                          </button>
+                          <button
+                            onClick={() => setEditId(null)}
+                            aria-label="キャンセル"
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            <X size={15} />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <span className="flex-1 text-sm text-gray-800">{part.name}</span>
+                        {canEdit && (
+                          <div className="flex shrink-0 items-center gap-0.5">
+                            <button
+                              onClick={() => {
+                                setEditId(part.id);
+                                setEditName(part.name);
+                              }}
+                              disabled={busy}
+                              aria-label={`${part.name}を編集`}
+                              className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors disabled:opacity-40"
+                            >
+                              <Pencil size={13} />
+                            </button>
+                            <button
+                              onClick={() => deletePart(part)}
+                              disabled={busy}
+                              aria-label={`${part.name}を削除`}
+                              className="p-1.5 text-gray-300 transition-colors hover:text-red-500 disabled:opacity-40"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
-              </>
-            )}
+              </SortableItem>
+            ))}
           </div>
-        ))}
-      </div>
+        </SortableContext>
+      </DndContext>
 
       {canEdit && showAdd && (
         <div className="border-brand-100 bg-brand-50/40 flex items-center gap-2 border-t px-5 py-3">

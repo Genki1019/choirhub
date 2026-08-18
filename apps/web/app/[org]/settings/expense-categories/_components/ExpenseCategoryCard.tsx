@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 import { Plus, Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
+import { DndContext } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { DragHandle, SortableItem, useListDndSensors } from "@/components/SortableRow";
 import { settingsApi } from "@/lib/settings-api";
 import { ApiClientError } from "@/lib/api-client";
+import { createSortDragEndHandler } from "@/lib/sort-order";
 import type { ExpenseCategory } from "@/lib/accounting-api";
 
 interface ExpenseCategoryCardProps {
@@ -12,6 +16,7 @@ interface ExpenseCategoryCardProps {
   onUpdated: (updated: ExpenseCategory) => void;
   onDeleted: (id: string) => void;
   onCreated: (created: ExpenseCategory) => void;
+  onReordered: (reordered: ExpenseCategory[]) => void;
   onToast: (msg: string) => void;
 }
 
@@ -21,6 +26,7 @@ export function ExpenseCategoryCard({
   onUpdated,
   onDeleted,
   onCreated,
+  onReordered,
   onToast,
 }: ExpenseCategoryCardProps) {
   const [editId, setEditId] = useState<string | null>(null);
@@ -61,6 +67,16 @@ export function ExpenseCategoryCard({
     }
   };
 
+  const sensors = useListDndSensors();
+
+  const handleDragEnd = createSortDragEndHandler({
+    items: cats,
+    onReordered,
+    persistOne: (c) => settingsApi.updateExpenseCategory(org, c.id, { sortOrder: c.sortOrder }),
+    onError: onToast,
+    setBusy,
+  });
+
   const addCategory = async () => {
     if (!newName.trim()) return;
     setBusy(true);
@@ -93,70 +109,92 @@ export function ExpenseCategoryCard({
         </button>
       </div>
 
-      <div className="divide-y divide-gray-100">
-        {cats.map((cat) => (
-          <div key={cat.id} className="flex items-center gap-3 px-5 py-3">
-            {editId === cat.id ? (
-              <div className="flex flex-1 items-center gap-2">
-                <input
-                  autoFocus
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") confirmEdit();
-                    if (e.key === "Escape") setEditId(null);
-                  }}
-                  className="border-brand-300 focus:ring-brand-400 flex-1 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
-                />
-                <button
-                  onClick={confirmEdit}
-                  disabled={busy}
-                  aria-label="保存"
-                  className="text-teal-600 hover:text-teal-700 disabled:opacity-40"
-                >
-                  <Check size={15} />
-                </button>
-                <button
-                  onClick={() => setEditId(null)}
-                  aria-label="キャンセル"
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X size={15} />
-                </button>
-              </div>
-            ) : (
-              <>
-                <span className="flex-1 text-sm text-gray-800">{cat.name}</span>
-                <div className="flex shrink-0 items-center gap-0.5">
-                  <button
-                    onClick={() => {
-                      setEditId(cat.id);
-                      setEditName(cat.name);
-                    }}
-                    disabled={busy}
-                    aria-label={`${cat.name}を編集`}
-                    className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors disabled:opacity-40"
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        <SortableContext items={cats.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+          <div className="divide-y divide-gray-100">
+            {cats.map((cat) => (
+              <SortableItem key={cat.id} id={cat.id}>
+                {({ setNodeRef, style, attributes, listeners }) => (
+                  <div
+                    ref={setNodeRef}
+                    style={style}
+                    data-dnd-row=""
+                    className="flex items-center gap-3 px-5 py-3"
                   >
-                    <Pencil size={13} />
-                  </button>
-                  <button
-                    onClick={() => deleteCategory(cat)}
-                    disabled={busy}
-                    aria-label={`${cat.name}を削除`}
-                    className="p-1.5 text-gray-300 transition-colors hover:text-red-500 disabled:opacity-40"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              </>
+                    {editId === cat.id ? (
+                      <>
+                        <div className="w-7 shrink-0" />
+                        <div className="flex flex-1 items-center gap-2">
+                          <input
+                            autoFocus
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") confirmEdit();
+                              if (e.key === "Escape") setEditId(null);
+                            }}
+                            className="border-brand-300 focus:ring-brand-400 flex-1 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
+                          />
+                          <button
+                            onClick={confirmEdit}
+                            disabled={busy}
+                            aria-label="保存"
+                            className="text-teal-600 hover:text-teal-700 disabled:opacity-40"
+                          >
+                            <Check size={15} />
+                          </button>
+                          <button
+                            onClick={() => setEditId(null)}
+                            aria-label="キャンセル"
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            <X size={15} />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <DragHandle
+                          label={cat.name}
+                          attributes={attributes}
+                          listeners={listeners}
+                          disabled={busy}
+                        />
+                        <span className="flex-1 text-sm text-gray-800">{cat.name}</span>
+                        <div className="flex shrink-0 items-center gap-0.5">
+                          <button
+                            onClick={() => {
+                              setEditId(cat.id);
+                              setEditName(cat.name);
+                            }}
+                            disabled={busy}
+                            aria-label={`${cat.name}を編集`}
+                            className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors disabled:opacity-40"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          <button
+                            onClick={() => deleteCategory(cat)}
+                            disabled={busy}
+                            aria-label={`${cat.name}を削除`}
+                            className="p-1.5 text-gray-300 transition-colors hover:text-red-500 disabled:opacity-40"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </SortableItem>
+            ))}
+
+            {cats.length === 0 && !showAdd && (
+              <p className="px-5 py-4 text-sm text-gray-400">カテゴリがまだありません</p>
             )}
           </div>
-        ))}
-
-        {cats.length === 0 && !showAdd && (
-          <p className="px-5 py-4 text-sm text-gray-400">カテゴリがまだありません</p>
-        )}
-      </div>
+        </SortableContext>
+      </DndContext>
 
       {showAdd && (
         <div className="border-brand-100 bg-brand-50/40 flex items-center gap-2 border-t px-5 py-3">

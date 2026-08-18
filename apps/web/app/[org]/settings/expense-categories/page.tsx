@@ -53,6 +53,9 @@ export default function ExpenseCategoriesPage() {
             (prev) => (prev ? [...prev, created] : prev),
           )
         }
+        onReordered={(reordered) =>
+          queryClient.setQueryData(settingsKeys.expenseCategories(org), reordered)
+        }
         onToast={showToast}
       />
 

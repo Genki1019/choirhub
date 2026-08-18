@@ -3,6 +3,7 @@ import type { DragEndEvent } from "@dnd-kit/core";
 import {
   computeSortOrderPatches,
   createSortDragEndHandler,
+  mergeOrderedIds,
   reorderByDragEvent,
 } from "../sort-order";
 
@@ -73,6 +74,34 @@ describe("reorderByDragEvent", () => {
       { id: "s3" },
       { id: "s1" },
     ]);
+  });
+});
+
+describe("mergeOrderedIds", () => {
+  it("orderedIdsの順序通りに並び替える", () => {
+    const current = [{ id: "a" }, { id: "b" }, { id: "c" }];
+    expect(mergeOrderedIds(current, ["c", "a", "b"])).toEqual([
+      { id: "c" },
+      { id: "a" },
+      { id: "b" },
+    ]);
+  });
+
+  it("orderedIdsが古いスナップショット由来で一部idを含まない場合、取りこぼさず末尾に残す", () => {
+    // currentには orderedIds 時点では存在しなかった新規アイテム "d" が含まれる想定
+    // （バックグラウンド再フェッチ等でorderedIds計算後にキャッシュが更新されたケース）
+    const current = [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }];
+    expect(mergeOrderedIds(current, ["c", "a", "b"])).toEqual([
+      { id: "c" },
+      { id: "a" },
+      { id: "b" },
+      { id: "d" },
+    ]);
+  });
+
+  it("orderedIdsにcurrentへ存在しないidが混じっていても無視する", () => {
+    const current = [{ id: "a" }, { id: "b" }];
+    expect(mergeOrderedIds(current, ["b", "removed", "a"])).toEqual([{ id: "b" }, { id: "a" }]);
   });
 });
 

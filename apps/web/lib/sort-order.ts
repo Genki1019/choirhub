@@ -22,6 +22,17 @@ export function reorderByDragEvent<T extends { id: string }>(
   return arrayMove(items, oldIndex, newIndex);
 }
 
+// バルクreorder（ids配列を丸ごと送信するAPI）向け。orderedIdsが古いスナップショット由来で
+// 一部のアイテムを含まない場合でも取りこぼさず末尾に残す（次のrefetchで正しい順序に収束する）
+export function mergeOrderedIds<T extends { id: string }>(current: T[], orderedIds: string[]): T[] {
+  const byId = new Map(current.map((item) => [item.id, item]));
+  const known = orderedIds
+    .map((id) => byId.get(id))
+    .filter((item): item is T => item !== undefined);
+  const missing = current.filter((item) => !orderedIds.includes(item.id));
+  return [...known, ...missing];
+}
+
 export function createSortDragEndHandler<T extends { id: string; sortOrder: number }>({
   items,
   onReordered,

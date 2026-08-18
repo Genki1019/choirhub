@@ -25,6 +25,7 @@ import {
 import { ApiClientError } from "@/lib/api-client";
 import { formatJaDate } from "@/lib/date";
 import { concertKeys } from "@/lib/query-keys";
+import { mergeOrderedIds } from "@/lib/sort-order";
 import { useMember } from "@/contexts/MemberContext";
 import { MEMBER_LEVEL_ROLES } from "@/lib/roles";
 import { StagesTab } from "./_components/StagesTab";
@@ -107,14 +108,9 @@ export default function ConcertDetailPage() {
 
   const handleReorderStages = (orderedIds: string[]) => {
     const snapshot = queryClient.getQueryData<ConcertDetail>(concertKeys.detail(org, id));
-    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) => {
-      if (!prev) return prev;
-      const byId = new Map(prev.stages.map((s) => [s.id, s]));
-      const next = orderedIds
-        .map((sid) => byId.get(sid))
-        .filter((s): s is StageDetail => s !== undefined);
-      return { ...prev, stages: next };
-    });
+    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) =>
+      prev ? { ...prev, stages: mergeOrderedIds(prev.stages, orderedIds) } : prev,
+    );
     concertsApi.reorderStages(org, id, orderedIds).catch(() => {
       queryClient.setQueryData(concertKeys.detail(org, id), snapshot);
     });
@@ -126,10 +122,7 @@ export default function ConcertDetailPage() {
       if (!prev) return prev;
       const stageIdx = prev.stages.findIndex((s) => s.id === stageId);
       if (stageIdx === -1) return prev;
-      const byId = new Map(prev.stages[stageIdx].programs.map((p) => [p.id, p]));
-      const nextPrograms = orderedIds
-        .map((pid) => byId.get(pid))
-        .filter((p): p is ProgramDetail => p !== undefined);
+      const nextPrograms = mergeOrderedIds(prev.stages[stageIdx].programs, orderedIds);
       const nextStages = prev.stages.map((s, i) =>
         i === stageIdx ? { ...s, programs: nextPrograms } : s,
       );

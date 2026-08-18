@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CategoryList } from "../CategoryList";
 import { settingsApi, type EventCategory } from "@/lib/settings-api";
+import { dragAndDrop, mockPointerCapture } from "@/test-utils/dnd";
 
 vi.mock("@/lib/settings-api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/settings-api")>("@/lib/settings-api");
@@ -39,6 +40,7 @@ function renderList(canEdit: boolean, overrides: Partial<Record<string, unknown>
 
 beforeEach(() => {
   vi.resetAllMocks();
+  mockPointerCapture();
 });
 
 describe("CategoryList（canEdit: true）", () => {
@@ -52,17 +54,6 @@ describe("CategoryList（canEdit: true）", () => {
   it("標準区分も編集ボタンは表示される", () => {
     renderList(true);
     expect(screen.getByLabelText("練習を編集")).toBeInTheDocument();
-  });
-
-  it("↑↓で表示順を入れ替えるとupdateEventCategoryが2件呼ばれる", async () => {
-    vi.mocked(settingsApi.updateEventCategory).mockResolvedValue(makeCats()[0]);
-    const user = userEvent.setup();
-    renderList(true);
-
-    await user.click(screen.getByLabelText("合宿を上に移動"));
-
-    expect(settingsApi.updateEventCategory).toHaveBeenCalledWith("o", "cat-2", { sortOrder: 1 });
-    expect(settingsApi.updateEventCategory).toHaveBeenCalledWith("o", "cat-1", { sortOrder: 2 });
   });
 
   it("編集して保存するとupdateEventCategoryが呼ばれる", async () => {
@@ -104,9 +95,41 @@ describe("CategoryList（canEdit: false）", () => {
   it("並び替え・編集・削除ボタンを一切表示しない", () => {
     renderList(false);
 
-    expect(screen.queryByLabelText("合宿を上に移動")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("合宿をドラッグして並び替え")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("練習を編集")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("合宿を削除")).not.toBeInTheDocument();
     expect(screen.getByText("練習")).toBeInTheDocument();
+  });
+});
+
+// dnd-kitのドラッグ操作はjsdom上でpointer capture状態が後続テストのクリックに干渉するため、
+// D&D関連のテストはファイル末尾にまとめる（FormationEditor.test.tsxと同じ方針）
+describe("CategoryList（並び替え）", () => {
+  it("ドラッグで並び替えるとupdateEventCategoryが変更された2件だけ呼ばれる", async () => {
+    vi.mocked(settingsApi.updateEventCategory).mockResolvedValue(makeCats()[0]);
+    renderList(true);
+
+    dragAndDrop(
+      screen.getByLabelText("合宿をドラッグして並び替え"),
+      screen.getByLabelText("練習をドラッグして並び替え"),
+    );
+
+    expect(settingsApi.updateEventCategory).toHaveBeenCalledWith("o", "cat-2", { sortOrder: 1 });
+    expect(settingsApi.updateEventCategory).toHaveBeenCalledWith("o", "cat-1", { sortOrder: 2 });
+  });
+
+  it("並び替えに失敗したら元の順序にロールバックしonErrorを呼ぶ", async () => {
+    vi.mocked(settingsApi.updateEventCategory).mockRejectedValue(new Error("network error"));
+    const onError = vi.fn();
+    renderList(true, { onError });
+
+    dragAndDrop(
+      screen.getByLabelText("合宿をドラッグして並び替え"),
+      screen.getByLabelText("練習をドラッグして並び替え"),
+    );
+
+    await vi.waitFor(() => {
+      expect(onError).toHaveBeenCalledWith("並び替えに失敗しました");
+    });
   });
 });

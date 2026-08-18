@@ -86,6 +86,6 @@ describe("EventCategoriesPage", () => {
     renderPage(["finance"]);
 
     await screen.findByText("練習");
-    expect(screen.queryByText("↑↓ で表示順を変更できます。")).not.toBeInTheDocument();
+    expect(screen.queryByText("ドラッグして表示順を変更できます。")).not.toBeInTheDocument();
   });
 });

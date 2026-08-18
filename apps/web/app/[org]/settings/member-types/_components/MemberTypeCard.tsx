@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 import { Plus, Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
+import { DndContext } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { DragHandle, SortableItem, useListDndSensors } from "@/components/SortableRow";
 import { settingsApi } from "@/lib/settings-api";
 import { ApiClientError } from "@/lib/api-client";
+import { createSortDragEndHandler } from "@/lib/sort-order";
 import type { MemberType } from "@/lib/settings-api";
 
 function yen(n: number | null) {
@@ -17,6 +21,7 @@ interface MemberTypeCardProps {
   onUpdated: (updated: MemberType) => void;
   onDeleted: (id: string) => void;
   onCreated: (created: MemberType) => void;
+  onReordered: (reordered: MemberType[]) => void;
   onToast: (msg: string) => void;
 }
 
@@ -27,6 +32,7 @@ export function MemberTypeCard({
   onUpdated,
   onDeleted,
   onCreated,
+  onReordered,
   onToast,
 }: MemberTypeCardProps) {
   const [busy, setBusy] = useState(false);
@@ -77,6 +83,16 @@ export function MemberTypeCard({
     }
   };
 
+  const sensors = useListDndSensors();
+
+  const handleDragEnd = createSortDragEndHandler({
+    items: types,
+    onReordered,
+    persistOne: (t) => settingsApi.updateMemberType(org, t.id, { sortOrder: t.sortOrder }),
+    onError: onToast,
+    setBusy,
+  });
+
   const addType = async () => {
     if (!newName.trim()) return;
     setBusy(true);
@@ -120,86 +136,108 @@ export function MemberTypeCard({
       </div>
 
       <div className="flex items-center gap-3 border-b border-gray-100 bg-gray-50 px-5 py-2">
+        {canEdit && <span className="w-6 shrink-0" />}
         <span className="flex-1 text-xs font-medium text-gray-400">区分名</span>
         <span className="w-28 text-right text-xs font-medium text-gray-400">デフォルト会費</span>
         <span className="w-14" />
       </div>
 
-      <div className="divide-y divide-gray-100">
-        {types.map((t) => (
-          <div key={t.id} className="flex items-center gap-3 px-5 py-3">
-            {editId === t.id ? (
-              <div className="flex flex-1 items-center gap-2">
-                <input
-                  autoFocus
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") confirmEdit();
-                    if (e.key === "Escape") setEditId(null);
-                  }}
-                  placeholder="区分名"
-                  className="border-brand-300 focus:ring-brand-400 flex-1 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
-                />
-                <input
-                  type="number"
-                  value={editAmount}
-                  onChange={(e) => setEditAmount(e.target.value)}
-                  placeholder="会費（円）"
-                  min={0}
-                  className="border-brand-300 focus:ring-brand-400 w-28 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
-                />
-                <button
-                  onClick={confirmEdit}
-                  disabled={busy}
-                  aria-label="保存"
-                  className="text-teal-600 hover:text-teal-700 disabled:opacity-40"
-                >
-                  <Check size={15} />
-                </button>
-                <button
-                  onClick={() => setEditId(null)}
-                  aria-label="キャンセル"
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X size={15} />
-                </button>
-              </div>
-            ) : (
-              <>
-                <span className="flex-1 text-sm text-gray-800">{t.name}</span>
-                <span className="w-28 text-right text-sm text-gray-500">
-                  {yen(t.defaultFeeAmount)}
-                </span>
-                {canEdit && (
-                  <div className="flex w-14 shrink-0 items-center justify-end gap-0.5">
-                    <button
-                      onClick={() => startEdit(t)}
-                      disabled={busy}
-                      aria-label={`${t.name}を編集`}
-                      className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors disabled:opacity-40"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                    <button
-                      onClick={() => deleteType(t)}
-                      disabled={busy}
-                      aria-label={`${t.name}を削除`}
-                      className="p-1.5 text-gray-300 transition-colors hover:text-red-500 disabled:opacity-40"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        <SortableContext items={types.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+          <div className="divide-y divide-gray-100">
+            {types.map((t) => (
+              <SortableItem key={t.id} id={t.id}>
+                {({ setNodeRef, style, attributes, listeners }) => (
+                  <div
+                    ref={setNodeRef}
+                    style={style}
+                    data-dnd-row=""
+                    className="flex items-center gap-3 px-5 py-3"
+                  >
+                    {editId === t.id ? (
+                      <div className="flex flex-1 items-center gap-2">
+                        <input
+                          autoFocus
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") confirmEdit();
+                            if (e.key === "Escape") setEditId(null);
+                          }}
+                          placeholder="区分名"
+                          className="border-brand-300 focus:ring-brand-400 flex-1 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
+                        />
+                        <input
+                          type="number"
+                          value={editAmount}
+                          onChange={(e) => setEditAmount(e.target.value)}
+                          placeholder="会費（円）"
+                          min={0}
+                          className="border-brand-300 focus:ring-brand-400 w-28 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
+                        />
+                        <button
+                          onClick={confirmEdit}
+                          disabled={busy}
+                          aria-label="保存"
+                          className="text-teal-600 hover:text-teal-700 disabled:opacity-40"
+                        >
+                          <Check size={15} />
+                        </button>
+                        <button
+                          onClick={() => setEditId(null)}
+                          aria-label="キャンセル"
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <X size={15} />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        {canEdit && (
+                          <DragHandle
+                            label={t.name}
+                            attributes={attributes}
+                            listeners={listeners}
+                            disabled={busy}
+                          />
+                        )}
+                        <span className="flex-1 text-sm text-gray-800">{t.name}</span>
+                        <span className="w-28 text-right text-sm text-gray-500">
+                          {yen(t.defaultFeeAmount)}
+                        </span>
+                        {canEdit && (
+                          <div className="flex w-14 shrink-0 items-center justify-end gap-0.5">
+                            <button
+                              onClick={() => startEdit(t)}
+                              disabled={busy}
+                              aria-label={`${t.name}を編集`}
+                              className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors disabled:opacity-40"
+                            >
+                              <Pencil size={13} />
+                            </button>
+                            <button
+                              onClick={() => deleteType(t)}
+                              disabled={busy}
+                              aria-label={`${t.name}を削除`}
+                              className="p-1.5 text-gray-300 transition-colors hover:text-red-500 disabled:opacity-40"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
-              </>
+              </SortableItem>
+            ))}
+
+            {types.length === 0 && !showAdd && (
+              <p className="px-5 py-4 text-sm text-gray-400">区分がまだありません</p>
             )}
           </div>
-        ))}
-
-        {types.length === 0 && !showAdd && (
-          <p className="px-5 py-4 text-sm text-gray-400">区分がまだありません</p>
-        )}
-      </div>
+        </SortableContext>
+      </DndContext>
 
       {canEdit && showAdd && (
         <div className="border-brand-100 bg-brand-50/40 flex items-center gap-2 border-t px-5 py-3">

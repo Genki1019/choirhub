@@ -5,6 +5,7 @@ import { ExpenseCategoryCard } from "../ExpenseCategoryCard";
 import { settingsApi } from "@/lib/settings-api";
 import { ApiClientError } from "@/lib/api-client";
 import type { ExpenseCategory } from "@/lib/accounting-api";
+import { dragAndDrop, mockPointerCapture } from "@/test-utils/dnd";
 
 vi.mock("@/lib/settings-api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/settings-api")>("@/lib/settings-api");
@@ -25,7 +26,10 @@ function makeCats(): ExpenseCategory[] {
   ];
 }
 
-function renderCard(cats: ExpenseCategory[] = makeCats()) {
+function renderCard(
+  cats: ExpenseCategory[] = makeCats(),
+  overrides: Partial<Record<string, unknown>> = {},
+) {
   return render(
     <ExpenseCategoryCard
       cats={cats}
@@ -33,13 +37,16 @@ function renderCard(cats: ExpenseCategory[] = makeCats()) {
       onUpdated={vi.fn()}
       onDeleted={vi.fn()}
       onCreated={vi.fn()}
+      onReordered={vi.fn()}
       onToast={vi.fn()}
+      {...overrides}
     />,
   );
 }
 
 beforeEach(() => {
   vi.resetAllMocks();
+  mockPointerCapture();
 });
 
 describe("ExpenseCategoryCard（表示）", () => {
@@ -71,6 +78,7 @@ describe("ExpenseCategoryCard（編集・削除）", () => {
         onUpdated={onUpdated}
         onDeleted={vi.fn()}
         onCreated={vi.fn()}
+        onReordered={vi.fn()}
         onToast={vi.fn()}
       />,
     );
@@ -100,6 +108,7 @@ describe("ExpenseCategoryCard（編集・削除）", () => {
         onUpdated={vi.fn()}
         onDeleted={vi.fn()}
         onCreated={vi.fn()}
+        onReordered={vi.fn()}
         onToast={onToast}
       />,
     );
@@ -107,5 +116,39 @@ describe("ExpenseCategoryCard（編集・削除）", () => {
     await user.click(screen.getByLabelText("会場費を削除"));
 
     expect(onToast).toHaveBeenCalledWith("支出記録が紐付いているため削除できません");
+  });
+});
+
+describe("ExpenseCategoryCard（並び替え）", () => {
+  it("ドラッグで並び替えるとupdateExpenseCategoryが変更された2件だけ呼ばれる", async () => {
+    vi.mocked(settingsApi.updateExpenseCategory).mockResolvedValue(makeCats()[0]);
+    renderCard();
+
+    dragAndDrop(
+      screen.getByLabelText("楽譜費をドラッグして並び替え"),
+      screen.getByLabelText("会場費をドラッグして並び替え"),
+    );
+
+    expect(settingsApi.updateExpenseCategory).toHaveBeenCalledWith("o", "cat-2", {
+      sortOrder: 1,
+    });
+    expect(settingsApi.updateExpenseCategory).toHaveBeenCalledWith("o", "cat-1", {
+      sortOrder: 2,
+    });
+  });
+
+  it("並び替えに失敗したら元の順序にロールバックしトーストする", async () => {
+    vi.mocked(settingsApi.updateExpenseCategory).mockRejectedValue(new Error("network error"));
+    const onToast = vi.fn();
+    renderCard(makeCats(), { onToast });
+
+    dragAndDrop(
+      screen.getByLabelText("楽譜費をドラッグして並び替え"),
+      screen.getByLabelText("会場費をドラッグして並び替え"),
+    );
+
+    await vi.waitFor(() => {
+      expect(onToast).toHaveBeenCalledWith("並び替えに失敗しました");
+    });
   });
 });

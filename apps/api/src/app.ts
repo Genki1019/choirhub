@@ -4,6 +4,7 @@ import { authMiddleware } from "./middleware/auth.js";
 import { tenantMiddleware } from "./middleware/tenant.js";
 import { membersRouter } from "./routes/members.js";
 import { authRouter } from "./routes/auth.js";
+import { orgApplicationsRouter } from "./routes/org-applications.js";
 import { scoresRouter } from "./routes/scores.js";
 import { concertsRouter } from "./routes/concerts.js";
 import { formationRouter } from "./routes/formation.js";
@@ -48,6 +49,7 @@ app.use(
 const v1 = new Hono();
 
 v1.route("/", authRouter);
+v1.route("/", orgApplicationsRouter);
 
 v1.use("/:orgSlug/*", authMiddleware, tenantMiddleware);
 v1.route("/:orgSlug", membersRouter);

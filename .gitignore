@@ -22,6 +22,12 @@ next-env.d.ts
 apps/api/src/generated/ 
 
 # ===========================
+# next dev が自動生成するAIエージェント向け定型ファイル
+# ===========================
+apps/web/AGENTS.md
+apps/web/CLAUDE.md
+
+# ===========================
 # Testing
 # ===========================
 coverage/

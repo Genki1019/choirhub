@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Music, ChevronRight, Loader2, Users, Plus, X } from "lucide-react";
 import { authApi, ApiClientError } from "@/lib/auth-api";
 import { ROLE_LABELS } from "@/lib/roles";
+import { OrgApplicationForm } from "@/components/OrgApplicationForm";
 
 const STATUS_LABELS: Record<string, { label: string; dot: string }> = {
   active: { label: "在団", dot: "bg-teal-400" },
@@ -19,33 +20,23 @@ type OrgEntry = {
   status: string;
 };
 
-function toSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[\s_]+/g, "-")
-    .replace(/[^a-z0-9-]/g, "")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 50);
-}
-
 export default function SelectOrgPage() {
   const router = useRouter();
   const [orgs, setOrgs] = useState<OrgEntry[]>([]);
   const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+  const [isSystemAdmin, setIsSystemAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [orgName, setOrgName] = useState("");
-  const [orgSlug, setOrgSlug] = useState("");
-  const [slugManual, setSlugManual] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     authApi
       .me()
       .then((result) => {
         setUserName(result.user.nameJa);
+        setUserEmail(result.user.email);
+        setIsSystemAdmin(result.user.isSystemAdmin);
         setOrgs(result.orgs);
         setLoading(false);
       })
@@ -58,34 +49,6 @@ export default function SelectOrgPage() {
         }
       });
   }, [router]);
-
-  function handleNameChange(v: string) {
-    setOrgName(v);
-    if (!slugManual) setOrgSlug(toSlug(v));
-  }
-
-  function handleSlugChange(v: string) {
-    setSlugManual(true);
-    setOrgSlug(v.toLowerCase().replace(/[^a-z0-9-]/g, ""));
-  }
-
-  async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setFormError(null);
-    if (!orgName.trim() || !orgSlug.trim()) return;
-    setSubmitting(true);
-    try {
-      const result = await authApi.createOrg({ name: orgName.trim(), slug: orgSlug.trim() });
-      router.push(`/${result.orgSlug}`);
-    } catch (err) {
-      if (err instanceof ApiClientError && err.status === 409) {
-        setFormError("このスラグはすでに使用されています");
-      } else {
-        setFormError("作成に失敗しました。しばらくしてから再試行してください");
-      }
-      setSubmitting(false);
-    }
-  }
 
   if (loading) {
     return (
@@ -180,97 +143,58 @@ export default function SelectOrgPage() {
           )}
         </div>
 
-        {/* 団体作成 */}
+        {/* 団体作成の申請 */}
         {showForm ? (
-          <form
-            onSubmit={handleCreate}
-            className="mt-4 space-y-4 rounded-2xl border border-gray-200 bg-white p-5"
-          >
+          <div className="mt-4 space-y-4 rounded-2xl border border-gray-200 bg-white p-5">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-gray-800">新しい団体を作成</p>
+              <p className="text-sm font-semibold text-gray-800">団体作成を申請する</p>
               <button
                 type="button"
-                onClick={() => {
-                  setShowForm(false);
-                  setFormError(null);
-                }}
-                aria-label="団体作成フォームを閉じる"
+                onClick={() => setShowForm(false)}
+                aria-label="団体作成申請フォームを閉じる"
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X size={16} />
               </button>
             </div>
-
-            <div className="space-y-3">
-              <div>
-                <label htmlFor="orgName" className="mb-1 block text-xs font-medium text-gray-600">
-                  団体名
-                </label>
-                <input
-                  id="orgName"
-                  type="text"
-                  value={orgName}
-                  onChange={(e) => handleNameChange(e.target.value)}
-                  placeholder="○○合唱団"
-                  required
-                  maxLength={100}
-                  className="focus:ring-brand-500 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label htmlFor="orgSlug" className="mb-1 block text-xs font-medium text-gray-600">
-                  スラグ <span className="font-normal text-gray-400">（URL に使用）</span>
-                </label>
-                <div className="focus-within:ring-brand-500 flex items-center gap-1 overflow-hidden rounded-lg border border-gray-200 text-sm focus-within:ring-2">
-                  <span className="px-2 text-gray-400 select-none">choirhub.app/</span>
-                  <input
-                    id="orgSlug"
-                    type="text"
-                    value={orgSlug}
-                    onChange={(e) => handleSlugChange(e.target.value)}
-                    placeholder="my-choir"
-                    required
-                    minLength={2}
-                    maxLength={50}
-                    pattern="[a-z0-9-]+"
-                    className="flex-1 py-2 pr-3 focus:outline-none"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {formError && <p className="text-xs text-red-600">{formError}</p>}
-
-            <button
-              type="submit"
-              disabled={submitting || !orgName.trim() || !orgSlug.trim()}
-              className="bg-brand-600 hover:bg-brand-700 w-full rounded-lg py-2 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {submitting ? <Loader2 size={16} className="mx-auto animate-spin" /> : "作成する"}
-            </button>
-          </form>
+            <OrgApplicationForm initialName={userName} initialEmail={userEmail} />
+          </div>
         ) : (
           <button
             onClick={() => setShowForm(true)}
             className="hover:text-brand-600 hover:border-brand-300 mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-300 py-3 text-sm text-gray-500 transition-colors hover:bg-white"
           >
             <Plus size={16} />
-            新しい団体を作成
+            団体作成を申請する
           </button>
         )}
 
-        <p className="mt-5 text-center text-xs text-gray-400">
-          別のアカウントでログインする場合は
-          <button
-            onClick={async () => {
-              await fetch("/api/v1/auth/logout", { method: "POST", credentials: "include" });
-              router.push("/login");
-            }}
-            className="text-brand-500 ml-1 hover:underline"
-          >
-            ログアウト
-          </button>
-        </p>
+        <div className="mt-5 flex flex-col items-center gap-1.5 text-center text-xs text-gray-400">
+          {isSystemAdmin && (
+            <button
+              onClick={() => router.push("/admin")}
+              className="text-brand-500 hover:underline"
+            >
+              システム管理者コンソール
+            </button>
+          )}
+          <p>
+            別のアカウントでログインする場合は
+            <button
+              onClick={async () => {
+                try {
+                  await authApi.logout();
+                } catch {
+                  // ログアウト失敗時も /login へ遷移
+                }
+                router.push("/login");
+              }}
+              className="text-brand-500 ml-1 hover:underline"
+            >
+              ログアウト
+            </button>
+          </p>
+        </div>
       </div>
     </div>
   );

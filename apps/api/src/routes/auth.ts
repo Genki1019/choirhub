@@ -1,4 +1,4 @@
-import { Hono, type Context } from "hono";
+import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { hash, verify } from "argon2";
@@ -9,6 +9,8 @@ import { checkLoginRateLimit, clearLoginRateLimit, checkResetRateLimit } from ".
 import { sendPasswordResetEmail } from "../services/mail.js";
 import { storage } from "../services/storage.js";
 import { logger } from "../lib/logger.js";
+import { isSystemAdmin } from "../lib/systemAdmin.js";
+import { getClientIp } from "../lib/request.js";
 
 const ARGON2_OPTIONS = {
   type: 2, // Argon2id
@@ -23,25 +25,6 @@ async function hashPassword(password: string): Promise<string> {
 
 async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
   return verify(storedHash, password);
-}
-
-const IP_REGEX = /^[\d.]+$|^[0-9a-fA-F:]+$/;
-
-function getClientIp(c: Context): string {
-  // Vercel インフラが付与する x-vercel-forwarded-for はクライアントによる偽装不可
-  const vercelIp = c.req.header("x-vercel-forwarded-for");
-  if (vercelIp) {
-    const ip = vercelIp.split(",")[0].trim();
-    if (IP_REGEX.test(ip)) return ip;
-  }
-  // ローカル開発環境フォールバック: XFF 末尾 IP（プロキシ付加分）を信頼
-  const forwarded = c.req.header("x-forwarded-for");
-  const ips =
-    forwarded
-      ?.split(",")
-      .map((s) => s.trim())
-      .filter((ip) => IP_REGEX.test(ip)) ?? [];
-  return ips[ips.length - 1] ?? c.req.header("x-real-ip") ?? "unknown";
 }
 
 const INVALID_TOKEN_ERROR = { code: "INVALID_TOKEN", message: "招待リンクが無効です" } as const;
@@ -136,6 +119,7 @@ export const authRouter = new Hono()
             nameJa: user.nameJa,
             email: user.email,
             avatarUrl: storage.resolveAvatarUrl(user.avatarUrl),
+            isSystemAdmin: isSystemAdmin(user.email),
           },
           orgs: memberships.map((m) => ({
             orgSlug: m.org.slug,
@@ -275,6 +259,7 @@ export const authRouter = new Hono()
           nameJa: user.nameJa,
           email: user.email,
           avatarUrl: storage.resolveAvatarUrl(user.avatarUrl),
+          isSystemAdmin: isSystemAdmin(user.email),
         },
         orgs: memberships.map((m) => ({
           orgSlug: m.org.slug,
@@ -392,82 +377,5 @@ export const authRouter = new Hono()
       await prisma.session.deleteMany({ where: { userId: resetToken.userId } });
 
       return c.json({ data: { message: "パスワードをリセットしました" } });
-    },
-  )
-
-  // ── POST /auth/orgs ── 団体新規作成
-  .post(
-    "/auth/orgs",
-    zValidator(
-      "json",
-      z.object({
-        name: z.string().min(1).max(100),
-        slug: z
-          .string()
-          .min(2)
-          .max(50)
-          .regex(/^[a-z0-9-]+$/, "英小文字・数字・ハイフンのみ使用できます"),
-      }),
-      (r, c) => {
-        if (!r.success)
-          return c.json(
-            {
-              error: {
-                code: "VALIDATION_ERROR",
-                message: r.error.issues[0]?.message ?? "入力値が不正です",
-              },
-            },
-            400,
-          );
-      },
-    ),
-    async (c) => {
-      const sessionId = getCookie(c, sessionManager.sessionCookieName);
-      if (!sessionId)
-        return c.json({ error: { code: "UNAUTHORIZED", message: "認証が必要です" } }, 401);
-
-      const { session, user } = await sessionManager.validateSession(sessionId);
-      if (!session || !user)
-        return c.json({ error: { code: "UNAUTHORIZED", message: "認証が必要です" } }, 401);
-
-      const { name, slug } = c.req.valid("json");
-
-      const existing = await prisma.organization.findUnique({ where: { slug } });
-      if (existing) {
-        return c.json(
-          { error: { code: "CONFLICT", message: "このスラグはすでに使用されています" } },
-          409,
-        );
-      }
-
-      const org = await prisma.organization.create({
-        data: { name, slug, partTemplate: {} },
-      });
-
-      const defaultCategories = [
-        { orgId: org.id, name: "練習", slug: "rehearsal", color: "#3B82F6", sortOrder: 1 },
-        { orgId: org.id, name: "本番", slug: "concert", color: "#EF4444", sortOrder: 2 },
-        { orgId: org.id, name: "会議", slug: "meeting", color: "#F59E0B", sortOrder: 3 },
-        { orgId: org.id, name: "その他", slug: "other", color: "#6B7280", sortOrder: 4 },
-      ];
-      for (const cat of defaultCategories) {
-        await prisma.eventCategory.create({ data: cat });
-      }
-
-      const defaultParts = [
-        { orgId: org.id, name: "テナー I", voiceType: "tenor-1", sortOrder: 1, isCustom: false },
-        { orgId: org.id, name: "テナー II", voiceType: "tenor-2", sortOrder: 2, isCustom: false },
-        { orgId: org.id, name: "バリトン", voiceType: "baritone", sortOrder: 3, isCustom: false },
-        { orgId: org.id, name: "バス", voiceType: "bass", sortOrder: 4, isCustom: false },
-      ];
-      for (const part of defaultParts) {
-        await prisma.part.create({ data: part });
-      }
-
-      await prisma.member.create({
-        data: { userId: user.id, orgId: org.id, roles: ["admin"], joinedAt: new Date() },
-      });
-
-      return c.json({ data: { orgSlug: slug, orgName: name } }, 201);
     },
   );

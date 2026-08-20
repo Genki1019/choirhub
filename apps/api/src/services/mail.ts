@@ -398,12 +398,17 @@ export async function sendInviteEmail(params: {
     month: "long",
     day: "numeric",
   });
-  const greeting = nameJa ? `${nameJa} さん` : "はじめまして";
+  // 既存ユーザーのnameJaは空文字もあり得るため、trim後の有無で判定する（空文字は falsy だが
+  // 「はじめまして」を出すと「既にアカウントがあります」という文面と矛盾するため区別が必要）
+  const greeting = nameJa?.trim() ? `${nameJa} さん` : "はじめまして";
+  const { subject, bodyText, buttonLabel } = getInviteCopy(isExistingUser, orgName);
 
   if (!isResendConfigured()) {
     logger.info("─────────────────────────────────────────────");
     logger.info("[mail] RESEND_API_KEY 未設定 — コンソールにフォールバック");
     logger.info(`[mail] 宛先     : ${to}`);
+    logger.info(`[mail] 件名     : ${subject}`);
+    logger.info(`[mail] 既存/新規: ${isExistingUser ? "既存ユーザー" : "新規ユーザー"}`);
     logger.info(`[mail] 招待URL  : ${inviteUrl}`);
     logger.info(`[mail] 有効期限 : ${expiresLabel}`);
     logger.info("─────────────────────────────────────────────");
@@ -412,8 +417,6 @@ export async function sendInviteEmail(params: {
 
   const actualTo = DEV_MAIL_TO || to;
   const devNotice = DEV_MAIL_TO && DEV_MAIL_TO !== to ? `本来の宛先: ${to}` : undefined;
-
-  const { subject, bodyText, buttonLabel } = getInviteCopy(isExistingUser, orgName);
   const html = buildInviteHtml({
     greeting,
     orgName,

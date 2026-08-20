@@ -160,6 +160,21 @@ describe("InviteForm（送信）", () => {
       await screen.findByText("登録に失敗しました。もう一度お試しください。"),
     ).toBeInTheDocument();
   });
+
+  it("401エラー時（既に別タブ等でアカウントが作られていた場合）はパスワード不一致メッセージを表示する", async () => {
+    vi.mocked(authApi.acceptInvite).mockRejectedValue(
+      new ApiClientError("UNAUTHORIZED", "unauthorized", 401),
+    );
+    const user = userEvent.setup();
+    render(<InviteForm token="test-token" invite={invite} />);
+
+    await user.type(screen.getByLabelText("お名前"), "山田太郎");
+    await user.type(screen.getByLabelText(/8文字以上/), "password123");
+    await user.type(screen.getByLabelText("パスワード（確認）"), "password123");
+    await user.click(screen.getByText("登録する"));
+
+    expect(await screen.findByText("パスワードが正しくありません")).toBeInTheDocument();
+  });
 });
 
 describe("InviteForm（既存ユーザー）", () => {

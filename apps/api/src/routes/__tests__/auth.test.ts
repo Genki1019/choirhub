@@ -1,11 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Hono } from "hono";
-import type { User } from "../../generated/prisma/index.js";
+import { Prisma, type User } from "../../generated/prisma/index.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function json(res: Response): Promise<Record<string, any>> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return res.json() as Promise<Record<string, any>>;
+}
+
+function uniqueConstraintError(): Prisma.PrismaClientKnownRequestError {
+  return new Prisma.PrismaClientKnownRequestError(
+    "Unique constraint failed on the fields: (`userId`,`orgId`)",
+    {
+      code: "P2002",
+      clientVersion: "test",
+    },
+  );
 }
 
 vi.mock("../../lib/prisma.js", () => ({
@@ -23,6 +33,8 @@ vi.mock("../../lib/redis.js", () => ({
   checkLoginRateLimit: vi.fn(),
   clearLoginRateLimit: vi.fn(),
   checkResetRateLimit: vi.fn(),
+  checkInviteAcceptRateLimit: vi.fn(),
+  clearInviteAcceptRateLimit: vi.fn(),
 }));
 
 vi.mock("argon2", () => ({
@@ -35,7 +47,11 @@ vi.mock("../../services/mail.js", () => ({
 }));
 
 import { prisma } from "../../lib/prisma.js";
-import { checkLoginRateLimit, checkResetRateLimit } from "../../lib/redis.js";
+import {
+  checkLoginRateLimit,
+  checkResetRateLimit,
+  checkInviteAcceptRateLimit,
+} from "../../lib/redis.js";
 import { verify, hash } from "argon2";
 import { sendPasswordResetEmail } from "../../services/mail.js";
 import { authRouter } from "../auth.js";
@@ -386,22 +402,40 @@ describe("GET /auth/invite/:token", () => {
 
 describe("POST /auth/invite/:token", () => {
   beforeEach(() => {
-    vi.mocked(checkLoginRateLimit).mockResolvedValue(true);
+    vi.mocked(checkInviteAcceptRateLimit).mockResolvedValue(true);
   });
 
-  it("レート制限中: 429を返す", async () => {
-    vi.mocked(checkLoginRateLimit).mockResolvedValue(false);
+  it("既存ユーザーがレート制限中: 429を返す（トークンが無効な間はこの制限に触れない）", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue(testInvite as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+    vi.mocked(prisma.member.findUnique).mockResolvedValue(null);
+    vi.mocked(checkInviteAcceptRateLimit).mockResolvedValue(false);
 
     const app = createTestApp();
     const res = await app.request(`/auth/invite/${testInvite.token}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nameJa: "新人 太郎", password: "password123" }),
+      body: JSON.stringify({ password: "password123" }),
     });
 
     expect(res.status).toBe(429);
     const body = await json(res);
     expect(body.error.code).toBe("TOO_MANY_REQUESTS");
+  });
+
+  it("無効なトークンではレート制限を消費しない", async () => {
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp();
+    const res = await app.request("/auth/invite/nonexistent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nameJa: "新人 太郎", password: "password123" }),
+    });
+
+    expect(res.status).toBe(404);
+    expect(checkInviteAcceptRateLimit).not.toHaveBeenCalled();
   });
 
   it("バリデーションエラー: nameJa空は400を返す", async () => {
@@ -569,6 +603,30 @@ describe("POST /auth/invite/:token", () => {
       where: { token: testInvite.token },
       data: { usedAt: expect.any(Date) },
     });
+  });
+
+  it("既存メンバーチェックとMember作成の間で競合（同時クリック）した場合は409を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue(testInvite as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+    // existingMember チェック時点では null（まだ未登録）だが、直後に別リクエストが
+    // 先に Member を作成し、このリクエストの member.create が一意制約違反で失敗する状況を再現
+    vi.mocked(prisma.member.findUnique).mockResolvedValue(null);
+    vi.mocked(verify).mockResolvedValue(true);
+    vi.mocked(prisma.member.create).mockRejectedValue(uniqueConstraintError());
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/invite/${testInvite.token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "correct-password" }),
+    });
+
+    expect(res.status).toBe(409);
+    const body = await json(res);
+    expect(body.error.code).toBe("CONFLICT");
+    expect(prisma.inviteToken.update).not.toHaveBeenCalled();
+    expect(prisma.session.create).not.toHaveBeenCalled();
   });
 
   it("既存ユーザー・パスワード一致・nameJa省略: 201を返す", async () => {

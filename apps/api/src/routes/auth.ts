@@ -5,12 +5,19 @@ import { hash, verify } from "argon2";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { prisma } from "../lib/prisma.js";
 import { sessionManager } from "../lib/session.js";
-import { checkLoginRateLimit, clearLoginRateLimit, checkResetRateLimit } from "../lib/redis.js";
+import {
+  checkLoginRateLimit,
+  clearLoginRateLimit,
+  checkResetRateLimit,
+  checkInviteAcceptRateLimit,
+  clearInviteAcceptRateLimit,
+} from "../lib/redis.js";
 import { sendPasswordResetEmail } from "../services/mail.js";
 import { storage } from "../services/storage.js";
 import { logger } from "../lib/logger.js";
 import { isSystemAdmin } from "../lib/systemAdmin.js";
 import { getClientIp } from "../lib/request.js";
+import { Prisma } from "../generated/prisma/index.js";
 
 const ARGON2_OPTIONS = {
   type: 2, // Argon2id
@@ -191,20 +198,6 @@ export const authRouter = new Hono()
       const { token } = c.req.param();
       const { nameJa, password } = c.req.valid("json");
 
-      const ip = getClientIp(c);
-      // 既存ユーザーの本人確認はパスワード照合（総当たり対象）を伴うためログインと同じ制限を共有する
-      if (!(await checkLoginRateLimit(ip))) {
-        return c.json(
-          {
-            error: {
-              code: "TOO_MANY_REQUESTS",
-              message: "しばらく時間をおいてから再試行してください",
-            },
-          },
-          429,
-        );
-      }
-
       const invite = await prisma.inviteToken.findUnique({
         where: { token },
         include: { org: { select: { slug: true } } },
@@ -225,6 +218,22 @@ export const authRouter = new Hono()
             409,
           );
         }
+
+        // パスワード照合（総当たり対象）は有効なトークンを持つ相手にのみ発生するため、
+        // ここまで来て初めて制限する（無効なトークンだけで無関係な予算を消費させない）
+        const ip = getClientIp(c);
+        if (!(await checkInviteAcceptRateLimit(ip))) {
+          return c.json(
+            {
+              error: {
+                code: "TOO_MANY_REQUESTS",
+                message: "しばらく時間をおいてから再試行してください",
+              },
+            },
+            429,
+          );
+        }
+
         // 既存ユーザーはアカウントの所有を証明するためパスワード検証を必須とする
         const valid = await verifyPassword(password, existingUser.passwordHash);
         if (!valid) {
@@ -233,7 +242,7 @@ export const authRouter = new Hono()
             401,
           );
         }
-        await clearLoginRateLimit(ip);
+        await clearInviteAcceptRateLimit(ip);
       } else if (!nameJa) {
         return c.json(
           { error: { code: "VALIDATION_ERROR", message: "お名前を入力してください" } },
@@ -258,15 +267,26 @@ export const authRouter = new Hono()
           },
         }));
 
-      await prisma.member.create({
-        data: {
-          userId: user.id,
-          orgId: invite.orgId,
-          roles: invite.roles,
-          partId: invite.partId ?? null,
-          joinedAt: new Date(),
-        },
-      });
+      try {
+        await prisma.member.create({
+          data: {
+            userId: user.id,
+            orgId: invite.orgId,
+            roles: invite.roles,
+            partId: invite.partId ?? null,
+            joinedAt: new Date(),
+          },
+        });
+      } catch (err) {
+        // existingMember チェックとこの作成の間の競合（同時クリック・リトライ）を捕捉する
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+          return c.json(
+            { error: { code: "CONFLICT", message: "このメールアドレスはすでに登録済みです" } },
+            409,
+          );
+        }
+        throw err;
+      }
 
       await prisma.inviteToken.update({ where: { token }, data: { usedAt: new Date() } });
 

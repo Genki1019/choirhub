@@ -21,13 +21,11 @@ const ALREADY_REGISTERED_MESSAGE =
   "このメールアドレスはすでに登録済みです。ログインページからログインしてください。";
 const GENERIC_FAILURE_MESSAGE = "登録に失敗しました。もう一度お試しください。";
 
-// 招待受諾の送信失敗時のメッセージを判定する。既存ユーザー用フォームだけ
-// パスワード不一致（401）を専用メッセージで案内する。
-function inviteAcceptErrorMessage(err: unknown, checkPasswordMismatch: boolean): string {
+// 招待受諾の送信失敗時のメッセージを判定する。401（パスワード不一致）はバックエンドの
+// 既存ユーザー確認フローでしか発生しないため、新規/既存どちらのフォーム経由でも案内してよい。
+function inviteAcceptErrorMessage(err: unknown): string {
   if (err instanceof ApiClientError && err.status === 409) return ALREADY_REGISTERED_MESSAGE;
-  if (checkPasswordMismatch && err instanceof ApiClientError && err.status === 401) {
-    return "パスワードが正しくありません";
-  }
+  if (err instanceof ApiClientError && err.status === 401) return "パスワードが正しくありません";
   return GENERIC_FAILURE_MESSAGE;
 }
 
@@ -70,6 +68,44 @@ function PasswordField({
       </div>
       {error && <p className={ERROR_CLS}>{error}</p>}
     </div>
+  );
+}
+
+function InviteFormShell({
+  onSubmit,
+  rootError,
+  isSubmitting,
+  submitLabel,
+  children,
+}: {
+  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  rootError?: string;
+  isSubmitting: boolean;
+  submitLabel: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="space-y-5 rounded-2xl border border-gray-200 bg-white px-8 py-8"
+    >
+      {children}
+
+      {rootError && (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+          {rootError}
+        </p>
+      )}
+
+      <button
+        type="submit"
+        disabled={isSubmitting}
+        className="bg-brand-600 hover:bg-brand-700 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 font-medium text-white transition disabled:opacity-60"
+      >
+        {isSubmitting && <Loader2 size={16} className="animate-spin" />}
+        {submitLabel}
+      </button>
+    </form>
   );
 }
 
@@ -135,14 +171,16 @@ function NewUserForm({
       await authApi.acceptInvite(token, { nameJa: data.nameJa, password: data.password });
       onDone();
     } catch (err) {
-      setError("root", { message: inviteAcceptErrorMessage(err, false) });
+      setError("root", { message: inviteAcceptErrorMessage(err) });
     }
   };
 
   return (
-    <form
+    <InviteFormShell
       onSubmit={handleSubmit(onSubmit)}
-      className="space-y-5 rounded-2xl border border-gray-200 bg-white px-8 py-8"
+      rootError={errors.root?.message}
+      isSubmitting={isSubmitting}
+      submitLabel="登録する"
     >
       <div>
         <p className="text-sm font-semibold text-gray-800">{invite.orgName} への参加登録</p>
@@ -189,22 +227,7 @@ function NewUserForm({
         />
         {errors.passwordConfirm && <p className={ERROR_CLS}>{errors.passwordConfirm.message}</p>}
       </div>
-
-      {errors.root && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-          {errors.root.message}
-        </p>
-      )}
-
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="bg-brand-600 hover:bg-brand-700 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 font-medium text-white transition disabled:opacity-60"
-      >
-        {isSubmitting && <Loader2 size={16} className="animate-spin" />}
-        登録する
-      </button>
-    </form>
+    </InviteFormShell>
   );
 }
 
@@ -226,14 +249,16 @@ function ExistingUserForm({ token, invite }: { token: string; invite: InviteInfo
       const result = await authApi.acceptInvite(token, { password: data.password });
       router.push(result.orgSlug ? `/${result.orgSlug}` : `/${invite.orgSlug}`);
     } catch (err) {
-      setError("root", { message: inviteAcceptErrorMessage(err, true) });
+      setError("root", { message: inviteAcceptErrorMessage(err) });
     }
   };
 
   return (
-    <form
+    <InviteFormShell
       onSubmit={handleSubmit(onSubmit)}
-      className="space-y-5 rounded-2xl border border-gray-200 bg-white px-8 py-8"
+      rootError={errors.root?.message}
+      isSubmitting={isSubmitting}
+      submitLabel="ログインして参加する"
     >
       <div>
         <p className="text-sm font-semibold text-gray-800">{invite.orgName} への参加</p>
@@ -250,21 +275,6 @@ function ExistingUserForm({ token, invite }: { token: string; invite: InviteInfo
         showPassword={showPassword}
         onToggleShow={() => setShowPassword((v) => !v)}
       />
-
-      {errors.root && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-          {errors.root.message}
-        </p>
-      )}
-
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="bg-brand-600 hover:bg-brand-700 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 font-medium text-white transition disabled:opacity-60"
-      >
-        {isSubmitting && <Loader2 size={16} className="animate-spin" />}
-        ログインして参加する
-      </button>
-    </form>
+    </InviteFormShell>
   );
 }

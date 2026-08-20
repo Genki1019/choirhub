@@ -197,6 +197,20 @@ describe("InviteForm（既存ユーザー）", () => {
     await waitFor(() => {
       expect(push).toHaveBeenCalledWith("/test-choir");
     });
+    expect(screen.queryByText("登録が完了しました")).not.toBeInTheDocument();
+  });
+
+  it("レスポンスにorgSlugが含まれない場合は招待情報のorgSlugへ遷移する", async () => {
+    vi.mocked(authApi.acceptInvite).mockResolvedValue({ message: "ok" });
+    const user = userEvent.setup();
+    render(<InviteForm token="test-token" invite={existingUserInvite} />);
+
+    await user.type(screen.getByLabelText("パスワード"), "Demo1234!");
+    await user.click(screen.getByText("ログインして参加する"));
+
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith(`/${existingUserInvite.orgSlug}`);
+    });
   });
 
   it("401エラー時はパスワード不一致メッセージを表示する", async () => {

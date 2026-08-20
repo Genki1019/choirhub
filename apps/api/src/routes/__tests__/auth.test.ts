@@ -633,6 +633,11 @@ describe("POST /auth/invite/:token", () => {
         joinedAt: expect.any(Date),
       },
     });
+    // 新規ユーザーはセッションを発行しない（/loginから通常のログインフローに進む）
+    const body = await json(res);
+    expect(body.data.orgSlug).toBeUndefined();
+    expect(res.headers.get("set-cookie")).toBeNull();
+    expect(prisma.session.create).not.toHaveBeenCalled();
   });
 });
 

@@ -486,6 +486,30 @@ describe("POST /auth/org-applications/:id/approve", () => {
     });
   });
 
+  it("申請者が既存ユーザーの場合はisExistingUser: trueで招待メールを送信する（表示名も既存ユーザーの値を使う）", async () => {
+    mockSessionAsAdmin();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.orgApplication.findUnique).mockResolvedValue(testApplication as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.orgApplication.updateMany).mockResolvedValue({ count: 1 } as any);
+    mockOrgCreationSuccess();
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      nameJa: "既存 花子",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const res = await approveRequest(testApplication.id, { Cookie: "session=session-abc" });
+
+    expect(res.status).toBe(200);
+    expect(sendInviteEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: testApplication.applicantEmail,
+        nameJa: "既存 花子",
+        isExistingUser: true,
+      }),
+    );
+  });
+
   it("スラグを指定した場合はその値で団体が作成される（システム管理者による上書き）", async () => {
     mockSessionAsAdmin();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,8 +1,8 @@
 # ChoirHub API設計書
 
-**バージョン**: 1.7  
+**バージョン**: 1.10  
 **作成日**: 2026-06-04  
-**更新日**: 2026-07-21  
+**更新日**: 2026-08-19  
 **ベースURL**: `/api/v1`
 
 ---
@@ -30,17 +30,21 @@
 
 ### 認証
 
-| API名                                                      | Method | Path                           | 権限         |
-| ---------------------------------------------------------- | ------ | ------------------------------ | ------------ |
-| [ログイン](#auth-login)                                    | POST   | `/auth/login`                  | 公開         |
-| [ログアウト](#auth-logout)                                 | POST   | `/auth/logout`                 | ログイン済み |
-| [自分の認証情報取得](#auth-me)                             | GET    | `/auth/me`                     | ログイン済み |
-| [招待トークン確認](#auth-invite-get)                       | GET    | `/auth/invite/:token`          | 公開         |
-| [招待受諾・登録](#auth-invite-post)                        | POST   | `/auth/invite/:token`          | 公開         |
-| [パスワードリセット申請](#auth-password-reset-request)     | POST   | `/auth/password-reset/request` | 公開         |
-| [パスワードリセットトークン確認](#auth-password-reset-get) | GET    | `/auth/password-reset/:token`  | 公開         |
-| [パスワードリセット実行](#auth-password-reset-confirm)     | POST   | `/auth/password-reset/:token`  | 公開         |
-| [団体作成](#auth-orgs-create)                              | POST   | `/auth/orgs`                   | ログイン済み |
+| API名                                                      | Method | Path                                 | 権限           |
+| ---------------------------------------------------------- | ------ | ------------------------------------ | -------------- |
+| [ログイン](#auth-login)                                    | POST   | `/auth/login`                        | 公開           |
+| [ログアウト](#auth-logout)                                 | POST   | `/auth/logout`                       | ログイン済み   |
+| [自分の認証情報取得](#auth-me)                             | GET    | `/auth/me`                           | ログイン済み   |
+| [招待トークン確認](#auth-invite-get)                       | GET    | `/auth/invite/:token`                | 公開           |
+| [招待受諾・登録](#auth-invite-post)                        | POST   | `/auth/invite/:token`                | 公開           |
+| [パスワードリセット申請](#auth-password-reset-request)     | POST   | `/auth/password-reset/request`       | 公開           |
+| [パスワードリセットトークン確認](#auth-password-reset-get) | GET    | `/auth/password-reset/:token`        | 公開           |
+| [パスワードリセット実行](#auth-password-reset-confirm)     | POST   | `/auth/password-reset/:token`        | 公開           |
+| [団体作成の申請](#auth-org-applications-create)            | POST   | `/auth/org-applications`             | 公開           |
+| [団体作成申請の一覧](#auth-org-applications-list)          | GET    | `/auth/org-applications`             | システム管理者 |
+| [団体作成申請の承認](#auth-org-applications-approve)       | POST   | `/auth/org-applications/:id/approve` | システム管理者 |
+| [団体作成申請の却下](#auth-org-applications-reject)        | POST   | `/auth/org-applications/:id/reject`  | システム管理者 |
+| [団体の作成](#auth-orgs-create)                            | POST   | `/auth/orgs`                         | システム管理者 |
 
 ### ホーム
 
@@ -335,7 +339,8 @@ Cookie: session=<session_token>
       "id": "cuid",
       "nameJa": "山田 太郎",
       "email": "user@example.com",
-      "avatarUrl": null
+      "avatarUrl": null,
+      "isSystemAdmin": false
     },
     "orgs": [
       {
@@ -394,7 +399,8 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
       "id": "cuid",
       "nameJa": "山田 太郎",
       "email": "user@example.com",
-      "avatarUrl": null
+      "avatarUrl": null,
+      "isSystemAdmin": false
     },
     "orgs": [
       {
@@ -541,32 +547,177 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 ---
 
-<a id="auth-orgs-create"></a>
+<a id="auth-org-applications-create"></a>
 
-### POST `/api/v1/auth/orgs`
+### POST `/api/v1/auth/org-applications`
 
-新しい団体を作成し、作成者を `admin` として登録する。4つの標準イベント区分（練習・本番・会議・その他）と、4つのデフォルトパート（テナーI・テナーII・バリトン・バス、`isCustom: false`）を自動生成する。
+団体作成を申請する。**公開エンドポイント（認証不要）** — ログイン済みユーザーはもちろん、ChoirHubのアカウントを持たない訪問者（トップページの「団体作成を申請する」導線）からも呼べる。IPアドレスごとにレート制限がかかる。申請は`OrgApplication`として保存され、`pending`状態でシステム管理者コンソール（`/admin`）に表示される。登録と同時にシステム管理者（環境変数`SYSTEM_ADMIN_EMAILS`）へResend経由で通知メールを送る。
 
-**権限**: ログイン済み
+**権限**: なし（公開）
 
 **Request Body:**
 
-| フィールド | 型     | 必須 | 説明                                              |
-| ---------- | ------ | ---- | ------------------------------------------------- |
-| name       | string | ✓    | 団体名（最大100文字）                             |
-| slug       | string | ✓    | URL スラグ（英小文字・数字・ハイフン、2〜50文字） |
+| フィールド     | 型     | 必須 | 説明                                                                                                                                                    |
+| -------------- | ------ | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| orgName        | string | ✓    | 申請する団体名（最大100文字）                                                                                                                           |
+| slug           | string | ✓    | 希望するURLスラグ（英小文字・数字・ハイフン、2〜50文字）。承認時にシステム管理者が確認・変更できる                                                      |
+| templateKey    | string | ✓    | パートテンプレート。`mixed4`（混声四部）/ `women3`（女声三部）/ `mens4`（男声四部）/ `custom`（パート0件で作成し承認後に`/settings/parts`から手動追加） |
+| applicantName  | string | ✓    | 新団体の管理者となる氏名（最大100文字）                                                                                                                 |
+| applicantEmail | string | ✓    | 新団体の管理者となるメールアドレス（承認されると、このアドレス宛に招待メールが届く）                                                                    |
+| message        | string |      | 補足メッセージ（最大1000文字）                                                                                                                          |
 
 ```json
-{ "name": "○○男声合唱団", "slug": "circle-choir" }
+{
+  "orgName": "○○混声合唱団",
+  "slug": "circle-choir",
+  "templateKey": "mixed4",
+  "applicantName": "鈴木 花子",
+  "applicantEmail": "hanako@example.com",
+  "message": "40名程度の学生団体です"
+}
 ```
 
 **Response** `201`
 
 ```json
-{ "data": { "orgSlug": "circle-choir", "orgName": "○○男声合唱団" } }
+{ "data": { "message": "送信しました" } }
 ```
 
-**Errors:**: `400` `VALIDATION_ERROR` バリデーションエラー / `401` `UNAUTHORIZED` 未認証 / `409` `CONFLICT` スラグ重複
+**Errors:**: `400` `VALIDATION_ERROR` バリデーションエラー / `429` `TOO_MANY_REQUESTS` レート制限超過
+
+---
+
+<a id="auth-org-applications-list"></a>
+
+### GET `/api/v1/auth/org-applications`
+
+団体作成申請の一覧を取得する（システム管理者のみ）。
+
+**権限**: システム管理者
+
+**Query Parameters:** `status`（`pending` / `approved` / `rejected`、省略時は`pending`）
+
+**Response** `200`
+
+```json
+{
+  "data": [
+    {
+      "id": "cuid",
+      "orgName": "○○混声合唱団",
+      "slug": "circle-choir",
+      "templateKey": "mixed4",
+      "applicantName": "鈴木 花子",
+      "applicantEmail": "hanako@example.com",
+      "message": "40名程度の学生団体です",
+      "status": "pending",
+      "reviewedByEmail": null,
+      "reviewedAt": null,
+      "createdAt": "2026-08-01T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+**Errors:**: `401` `UNAUTHORIZED` 未認証 / `403` `FORBIDDEN` システム管理者以外
+
+---
+
+<a id="auth-org-applications-approve"></a>
+
+### POST `/api/v1/auth/org-applications/:id/approve`
+
+団体作成申請を承認する（システム管理者のみ）。`Organization`と`templateKey`に応じた`Part`・標準イベント区分4件を作成し、`applicantEmail`宛に`roles: ["admin"]`の`InviteToken`を発行してメンバー招待メールを送信する（既存の招待受諾フロー `POST /auth/invite/:token` をそのまま使用するため、`applicantEmail`が既存登録ユーザーのものであればそのアカウントに団体が追加され、未登録であれば新規アカウント作成に進む）。申請元のシステム管理者自身はこの団体のメンバーにはならない。
+
+**権限**: システム管理者
+
+**Request Body:**
+
+| フィールド | 型     | 必須 | 説明                                                                                                                                                                   |
+| ---------- | ------ | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| slug       | string |      | 確定させるURLスラグ（英小文字・数字・ハイフン、2〜50文字）。省略時は申請時に指定された値をそのまま使う。システム管理者が承認画面でスラグを確認・修正した場合に指定する |
+
+```json
+{ "slug": "circle-choir" }
+```
+
+**Response** `200`
+
+```json
+{
+  "data": {
+    "id": "cuid",
+    "status": "approved",
+    "reviewedByEmail": "admin@example.com",
+    "...": "..."
+  }
+}
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` スラグ形式が不正 / `401` `UNAUTHORIZED` 未認証 / `403` `FORBIDDEN` システム管理者以外 / `404` `NOT_FOUND` 申請が存在しない / `409` `CONFLICT` 既に処理済みの申請、または確定したスラグが既存団体と重複
+
+---
+
+<a id="auth-org-applications-reject"></a>
+
+### POST `/api/v1/auth/org-applications/:id/reject`
+
+団体作成申請を却下する（システム管理者のみ）。
+
+**権限**: システム管理者
+
+**Response** `200`
+
+```json
+{
+  "data": {
+    "id": "cuid",
+    "status": "rejected",
+    "reviewedByEmail": "admin@example.com",
+    "...": "..."
+  }
+}
+```
+
+**Errors:**: `401` `UNAUTHORIZED` 未認証 / `403` `FORBIDDEN` システム管理者以外 / `404` `NOT_FOUND` 申請が存在しない / `409` `CONFLICT` 既に処理済みの申請
+
+---
+
+<a id="auth-orgs-create"></a>
+
+### POST `/api/v1/auth/orgs`
+
+団体を申請を経由せず作成する（システム管理者のみ）。`OrgApplication`は作成せず、`POST /auth/org-applications/:id/approve`と同じ処理（`Organization`・`Part`・標準イベント区分4件の作成 + `applicantEmail`宛の`roles: ["admin"]` `InviteToken`発行・招待メール送信）を即座に行う。作成したシステム管理者自身はこの団体のメンバーにはならない。
+
+**権限**: システム管理者
+
+**Request Body:**
+
+| フィールド     | 型     | 必須 | 説明                                                         |
+| -------------- | ------ | ---- | ------------------------------------------------------------ |
+| orgName        | string | ✓    | 団体名（最大100文字）                                        |
+| slug           | string | ✓    | URLスラグ（英小文字・数字・ハイフン、2〜50文字）             |
+| templateKey    | string | ✓    | パートテンプレート。`mixed4` / `women3` / `mens4` / `custom` |
+| applicantName  | string | ✓    | 新団体の管理者となる氏名（最大100文字）                      |
+| applicantEmail | string | ✓    | 新団体の管理者となるメールアドレス（招待メール送信先）       |
+
+```json
+{
+  "orgName": "○○混声合唱団",
+  "slug": "circle-choir",
+  "templateKey": "mixed4",
+  "applicantName": "鈴木 花子",
+  "applicantEmail": "hanako@example.com"
+}
+```
+
+**Response** `201`
+
+```json
+{ "data": { "message": "団体を作成し、招待メールを送信しました" } }
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` バリデーションエラー / `401` `UNAUTHORIZED` 未認証 / `403` `FORBIDDEN` システム管理者以外 / `409` `CONFLICT` スラグが既存団体と重複
 
 ---
 

@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { Menu } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ApiClientError } from "@/lib/api-client";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createAppQueryClient } from "@/lib/query-client";
 import Sidebar from "@/components/Sidebar";
 import UserMenu from "@/components/UserMenu";
 import { AppFooter } from "@/components/AppFooter";
@@ -36,24 +36,7 @@ export default function AppShell({
   children,
 }: Props) {
   const router = useRouter();
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        queryCache: new QueryCache({
-          onError: (error) => {
-            if (error instanceof ApiClientError && error.status === 401) {
-              router.push("/login");
-            }
-          },
-        }),
-        defaultOptions: {
-          queries: {
-            staleTime: 30 * 1000,
-            retry: false,
-          },
-        },
-      }),
-  );
+  const [queryClient] = useState(() => createAppQueryClient(() => router.push("/login")));
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const handleClose = useCallback(() => setSidebarOpen(false), []);
 

@@ -14,6 +14,10 @@ export const visitorApplicationKeys = {
   pending: (org: string) => ["visitorApplications", org, "pending"] as const,
 };
 
+export const orgApplicationKeys = {
+  pending: () => ["orgApplications", "pending"] as const,
+};
+
 export const eventKeys = {
   list: (org: string, year: number, month: number) => ["events", org, year, month] as const,
   detail: (org: string, id: string) => ["event", org, id] as const,

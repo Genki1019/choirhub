@@ -397,3 +397,156 @@ export async function sendInviteEmail(params: {
   }
   logger.info("[mail] invite sent to", actualTo, "via Resend");
 }
+
+function buildOrgApplicationHtml(params: {
+  applicantName: string;
+  applicantEmail: string;
+  orgName: string;
+  message?: string;
+  devNotice?: string;
+}): string {
+  const { applicantName, applicantEmail, orgName, message, devNotice } = params;
+  const safeApplicantName = escapeHtml(applicantName);
+  const safeApplicantEmail = escapeHtml(applicantEmail);
+  const safeOrgName = escapeHtml(orgName);
+  const safeMessage = message ? escapeHtml(message) : undefined;
+  const safeDevNotice = devNotice ? escapeHtml(devNotice) : undefined;
+  return `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>団体作成の申請 — ${safeOrgName}</title>
+</head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;border:1px solid #e5e7eb;overflow:hidden;">
+
+          <!-- ヘッダー -->
+          <tr>
+            <td style="background:#2563eb;padding:28px 40px;">
+              <p style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">ChoirHub</p>
+              <p style="margin:4px 0 0;font-size:13px;color:#bfdbfe;">合唱団運営支援サービス</p>
+            </td>
+          </tr>
+
+          ${
+            devNotice
+              ? `
+          <!-- 開発用注記 -->
+          <tr>
+            <td style="background:#fef3c7;padding:12px 40px;border-bottom:1px solid #fde68a;">
+              <p style="margin:0;font-size:12px;color:#92400e;">🔧 開発環境テスト送信 — ${safeDevNotice}</p>
+            </td>
+          </tr>`
+              : ""
+          }
+
+          <!-- 本文 -->
+          <tr>
+            <td style="padding:36px 40px 28px;">
+              <p style="margin:0 0 24px;font-size:15px;color:#374151;">
+                新しい団体作成の申請が届きました。
+              </p>
+
+              <table cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 24px;">
+                <tr>
+                  <td style="padding:4px 0;font-size:13px;color:#6b7280;width:96px;">団体名</td>
+                  <td style="padding:4px 0;font-size:13px;color:#374151;font-weight:600;">${safeOrgName}</td>
+                </tr>
+                <tr>
+                  <td style="padding:4px 0;font-size:13px;color:#6b7280;">申請者</td>
+                  <td style="padding:4px 0;font-size:13px;color:#374151;">${safeApplicantName}</td>
+                </tr>
+                <tr>
+                  <td style="padding:4px 0;font-size:13px;color:#6b7280;">メール</td>
+                  <td style="padding:4px 0;font-size:13px;color:#374151;">${safeApplicantEmail}</td>
+                </tr>
+              </table>
+
+              ${
+                safeMessage
+                  ? `
+              <p style="margin:0 0 6px;font-size:12px;color:#9ca3af;">メッセージ：</p>
+              <p style="margin:0 0 24px;font-size:13px;color:#374151;white-space:pre-wrap;background:#f9fafb;border-radius:8px;padding:12px 16px;">${safeMessage}</p>`
+                  : ""
+              }
+
+              <hr style="border:none;border-top:1px solid #f3f4f6;margin:0 0 24px;" />
+
+              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.6;">
+                ChoirHub管理画面から団体を作成し、申請者へご連絡ください。
+              </p>
+            </td>
+          </tr>
+
+          <!-- フッター -->
+          <tr>
+            <td style="background:#f9fafb;padding:16px 40px;border-top:1px solid #f3f4f6;">
+              <p style="margin:0;font-size:11px;color:#d1d5db;text-align:center;">
+                © ChoirHub — 合唱団運営支援サービス
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
+}
+
+export async function sendOrgApplicationEmail(params: {
+  to: string[];
+  applicantName: string;
+  applicantEmail: string;
+  orgName: string;
+  message?: string;
+}): Promise<void> {
+  const { to, applicantName, applicantEmail, orgName, message } = params;
+
+  if (!isResendConfigured()) {
+    logger.info("─────────────────────────────────────────────");
+    logger.info("[mail] RESEND_API_KEY 未設定 — コンソールにフォールバック");
+    logger.info(`[mail] 宛先     : ${to.join(", ")}`);
+    logger.info(`[mail] 団体名   : ${orgName}`);
+    logger.info(`[mail] 申請者   : ${applicantName} <${applicantEmail}>`);
+    if (message) logger.info(`[mail] メッセージ: ${message}`);
+    logger.info("─────────────────────────────────────────────");
+    return;
+  }
+
+  const actualTo = DEV_MAIL_TO ? [DEV_MAIL_TO] : to;
+  const devNotice = DEV_MAIL_TO ? `本来の宛先: ${to.join(", ")}` : undefined;
+
+  const html = buildOrgApplicationHtml({
+    applicantName,
+    applicantEmail,
+    orgName,
+    message,
+    devNotice,
+  });
+
+  const resend = new Resend(RESEND_API_KEY);
+  const { error } = await resend.emails.send({
+    from: FROM_ADDRESS,
+    to: actualTo,
+    subject: `【ChoirHub】団体作成の申請 — ${orgName}`,
+    html,
+  });
+
+  if (error) {
+    logger.error("[mail] Resend error:", error);
+    throw new Error(`メール送信に失敗しました: ${error.message}`);
+  }
+
+  if (devNotice) {
+    logger.info(`[mail] 開発転送: ${to.join(", ")} → ${actualTo.join(", ")}`);
+  }
+  logger.info("[mail] org application sent to", actualTo.join(", "), "via Resend");
+}

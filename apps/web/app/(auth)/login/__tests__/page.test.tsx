@@ -71,7 +71,13 @@ describe("LoginPage（バリデーション）", () => {
 describe("LoginPage（送信）", () => {
   it("ログイン成功時はauthApi.loginが呼ばれ/select-orgへ遷移する", async () => {
     vi.mocked(authApi.login).mockResolvedValue({
-      user: { id: "u1", nameJa: "山田太郎", email: "user@example.com", avatarUrl: null },
+      user: {
+        id: "u1",
+        nameJa: "山田太郎",
+        email: "user@example.com",
+        avatarUrl: null,
+        isSystemAdmin: false,
+      },
       orgs: [],
     });
     const user = userEvent.setup();

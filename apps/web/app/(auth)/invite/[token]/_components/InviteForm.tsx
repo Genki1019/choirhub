@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Eye, EyeOff, CheckCircle } from "lucide-react";
 import { authApi, type InviteInfo, ApiClientError } from "@/lib/auth-api";
@@ -16,6 +16,62 @@ import {
 const INPUT_CLS =
   "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition";
 const ERROR_CLS = "text-xs text-red-500 mt-1";
+
+const ALREADY_REGISTERED_MESSAGE =
+  "このメールアドレスはすでに登録済みです。ログインページからログインしてください。";
+const GENERIC_FAILURE_MESSAGE = "登録に失敗しました。もう一度お試しください。";
+
+// 招待受諾の送信失敗時のメッセージを判定する。既存ユーザー用フォームだけ
+// パスワード不一致（401）を専用メッセージで案内する。
+function inviteAcceptErrorMessage(err: unknown, checkPasswordMismatch: boolean): string {
+  if (err instanceof ApiClientError && err.status === 409) return ALREADY_REGISTERED_MESSAGE;
+  if (checkPasswordMismatch && err instanceof ApiClientError && err.status === 401) {
+    return "パスワードが正しくありません";
+  }
+  return GENERIC_FAILURE_MESSAGE;
+}
+
+function PasswordField({
+  id,
+  label,
+  registration,
+  error,
+  showPassword,
+  onToggleShow,
+}: {
+  id: string;
+  label: React.ReactNode;
+  registration: UseFormRegisterReturn;
+  error?: string;
+  showPassword: boolean;
+  onToggleShow: () => void;
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-gray-700">
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          id={id}
+          type={showPassword ? "text" : "password"}
+          placeholder="••••••••"
+          className={INPUT_CLS}
+          {...registration}
+        />
+        <button
+          type="button"
+          onClick={onToggleShow}
+          aria-label={showPassword ? "パスワードを隠す" : "パスワードを表示する"}
+          className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+        >
+          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
+      </div>
+      {error && <p className={ERROR_CLS}>{error}</p>}
+    </div>
+  );
+}
 
 interface InviteFormProps {
   token: string;
@@ -79,11 +135,7 @@ function NewUserForm({
       await authApi.acceptInvite(token, { nameJa: data.nameJa, password: data.password });
       onDone();
     } catch (err) {
-      const message =
-        err instanceof ApiClientError && err.status === 409
-          ? "このメールアドレスはすでに登録済みです。ログインページからログインしてください。"
-          : "登録に失敗しました。もう一度お試しください。";
-      setError("root", { message });
+      setError("root", { message: inviteAcceptErrorMessage(err, false) });
     }
   };
 
@@ -111,29 +163,18 @@ function NewUserForm({
         {errors.nameJa && <p className={ERROR_CLS}>{errors.nameJa.message}</p>}
       </div>
 
-      <div>
-        <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-700">
-          パスワード <span className="text-xs font-normal text-gray-400">（8文字以上）</span>
-        </label>
-        <div className="relative">
-          <input
-            id="password"
-            type={showPassword ? "text" : "password"}
-            placeholder="••••••••"
-            className={INPUT_CLS}
-            {...register("password")}
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            aria-label={showPassword ? "パスワードを隠す" : "パスワードを表示する"}
-            className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-          >
-            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-        </div>
-        {errors.password && <p className={ERROR_CLS}>{errors.password.message}</p>}
-      </div>
+      <PasswordField
+        id="password"
+        label={
+          <>
+            パスワード <span className="text-xs font-normal text-gray-400">（8文字以上）</span>
+          </>
+        }
+        registration={register("password")}
+        error={errors.password?.message}
+        showPassword={showPassword}
+        onToggleShow={() => setShowPassword((v) => !v)}
+      />
 
       <div>
         <label htmlFor="passwordConfirm" className="mb-1.5 block text-sm font-medium text-gray-700">
@@ -185,13 +226,7 @@ function ExistingUserForm({ token, invite }: { token: string; invite: InviteInfo
       const result = await authApi.acceptInvite(token, { password: data.password });
       router.push(result.orgSlug ? `/${result.orgSlug}` : `/${invite.orgSlug}`);
     } catch (err) {
-      const message =
-        err instanceof ApiClientError && err.status === 409
-          ? "このメールアドレスはすでに登録済みです。ログインページからログインしてください。"
-          : err instanceof ApiClientError && err.status === 401
-            ? "パスワードが正しくありません"
-            : "登録に失敗しました。もう一度お試しください。";
-      setError("root", { message });
+      setError("root", { message: inviteAcceptErrorMessage(err, true) });
     }
   };
 
@@ -207,29 +242,14 @@ function ExistingUserForm({ token, invite }: { token: string; invite: InviteInfo
         </p>
       </div>
 
-      <div>
-        <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-700">
-          パスワード
-        </label>
-        <div className="relative">
-          <input
-            id="password"
-            type={showPassword ? "text" : "password"}
-            placeholder="••••••••"
-            className={INPUT_CLS}
-            {...register("password")}
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            aria-label={showPassword ? "パスワードを隠す" : "パスワードを表示する"}
-            className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-          >
-            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-        </div>
-        {errors.password && <p className={ERROR_CLS}>{errors.password.message}</p>}
-      </div>
+      <PasswordField
+        id="password"
+        label="パスワード"
+        registration={register("password")}
+        error={errors.password?.message}
+        showPassword={showPassword}
+        onToggleShow={() => setShowPassword((v) => !v)}
+      />
 
       {errors.root && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">

@@ -23,8 +23,6 @@ vi.mock("../../lib/redis.js", () => ({
   checkLoginRateLimit: vi.fn(),
   clearLoginRateLimit: vi.fn(),
   checkResetRateLimit: vi.fn(),
-  checkInviteAcceptRateLimit: vi.fn(),
-  clearInviteAcceptRateLimit: vi.fn(),
 }));
 
 vi.mock("argon2", () => ({
@@ -37,11 +35,7 @@ vi.mock("../../services/mail.js", () => ({
 }));
 
 import { prisma } from "../../lib/prisma.js";
-import {
-  checkLoginRateLimit,
-  checkResetRateLimit,
-  checkInviteAcceptRateLimit,
-} from "../../lib/redis.js";
+import { checkLoginRateLimit, checkResetRateLimit } from "../../lib/redis.js";
 import { verify, hash } from "argon2";
 import { sendPasswordResetEmail } from "../../services/mail.js";
 import { authRouter } from "../auth.js";
@@ -392,11 +386,11 @@ describe("GET /auth/invite/:token", () => {
 
 describe("POST /auth/invite/:token", () => {
   beforeEach(() => {
-    vi.mocked(checkInviteAcceptRateLimit).mockResolvedValue(true);
+    vi.mocked(checkLoginRateLimit).mockResolvedValue(true);
   });
 
   it("レート制限中: 429を返す", async () => {
-    vi.mocked(checkInviteAcceptRateLimit).mockResolvedValue(false);
+    vi.mocked(checkLoginRateLimit).mockResolvedValue(false);
 
     const app = createTestApp();
     const res = await app.request(`/auth/invite/${testInvite.token}`, {

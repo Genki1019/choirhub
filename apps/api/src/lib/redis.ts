@@ -14,8 +14,6 @@ const RESET_MAX = 3;
 const RESET_WINDOW_S = 900;
 const ORG_APPLICATION_MAX = 5;
 const ORG_APPLICATION_WINDOW_S = 3600;
-const INVITE_ACCEPT_MAX = 5;
-const INVITE_ACCEPT_WINDOW_S = 900;
 
 async function checkRateLimit(
   prefix: string,
@@ -53,18 +51,4 @@ export function checkResetRateLimit(ip: string): Promise<boolean> {
 
 export function checkOrgApplicationRateLimit(ip: string): Promise<boolean> {
   return checkRateLimit("org-application", ip, ORG_APPLICATION_MAX, ORG_APPLICATION_WINDOW_S);
-}
-
-// 既存ユーザーの招待受諾はパスワード照合（総当たり対象）を伴うためログインと同じ基準で制限する
-export function checkInviteAcceptRateLimit(ip: string): Promise<boolean> {
-  return checkRateLimit("invite-accept", ip, INVITE_ACCEPT_MAX, INVITE_ACCEPT_WINDOW_S);
-}
-
-export async function clearInviteAcceptRateLimit(ip: string): Promise<void> {
-  if (!redis) return;
-  try {
-    await redis.del(`rl:invite-accept:${ip}`);
-  } catch {
-    // ignore
-  }
 }

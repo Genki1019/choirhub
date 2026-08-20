@@ -5,13 +5,7 @@ import { hash, verify } from "argon2";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { prisma } from "../lib/prisma.js";
 import { sessionManager } from "../lib/session.js";
-import {
-  checkLoginRateLimit,
-  clearLoginRateLimit,
-  checkResetRateLimit,
-  checkInviteAcceptRateLimit,
-  clearInviteAcceptRateLimit,
-} from "../lib/redis.js";
+import { checkLoginRateLimit, clearLoginRateLimit, checkResetRateLimit } from "../lib/redis.js";
 import { sendPasswordResetEmail } from "../services/mail.js";
 import { storage } from "../services/storage.js";
 import { logger } from "../lib/logger.js";
@@ -198,8 +192,8 @@ export const authRouter = new Hono()
       const { nameJa, password } = c.req.valid("json");
 
       const ip = getClientIp(c);
-      // 既存ユーザーの本人確認はパスワード照合（総当たり対象）を伴うためログインと同じ基準で制限する
-      if (!(await checkInviteAcceptRateLimit(ip))) {
+      // 既存ユーザーの本人確認はパスワード照合（総当たり対象）を伴うためログインと同じ制限を共有する
+      if (!(await checkLoginRateLimit(ip))) {
         return c.json(
           {
             error: {
@@ -239,7 +233,7 @@ export const authRouter = new Hono()
             401,
           );
         }
-        await clearInviteAcceptRateLimit(ip);
+        await clearLoginRateLimit(ip);
       } else if (!nameJa) {
         return c.json(
           { error: { code: "VALIDATION_ERROR", message: "お名前を入力してください" } },
@@ -280,10 +274,17 @@ export const authRouter = new Hono()
       // 新規団体の画面へ直接遷移できるようにする（新規ユーザーは/loginから通常フローで入る）
       if (existingUser) {
         await issueSession(c, user.id);
-        return c.json({ data: { message: "登録が完了しました", orgSlug: invite.org.slug } }, 201);
       }
 
-      return c.json({ data: { message: "登録が完了しました" } }, 201);
+      return c.json(
+        {
+          data: {
+            message: "登録が完了しました",
+            ...(existingUser && { orgSlug: invite.org.slug }),
+          },
+        },
+        201,
+      );
     },
   )
 

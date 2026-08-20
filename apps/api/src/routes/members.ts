@@ -5,7 +5,7 @@ import { randomUUID } from "crypto";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "../lib/prisma.js";
 import { isAdmin, isMemberPlus, isHiddenRole, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
-import { sendInviteEmail } from "../services/mail.js";
+import { sendInviteEmail, resolveInviteRecipient } from "../services/mail.js";
 import { storage } from "../services/storage.js";
 import { logger } from "../lib/logger.js";
 import { toDateString } from "../lib/date.js";
@@ -346,11 +346,10 @@ export const membersRouter = new Hono<TenantEnv>()
       try {
         await sendInviteEmail({
           to: email,
-          nameJa: existingUser?.nameJa ?? nameJa ?? null,
           orgName: org.name,
           inviteToken: invite.token,
           expiresAt,
-          isExistingUser: existingUser !== null,
+          ...resolveInviteRecipient(existingUser, nameJa),
         });
       } catch (mailErr) {
         logger.error("[invite] メール送信失敗（招待トークンは有効）:", mailErr);

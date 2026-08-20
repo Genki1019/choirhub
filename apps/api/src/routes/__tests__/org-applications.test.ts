@@ -45,6 +45,13 @@ vi.mock("../../lib/redis.js", () => ({
 vi.mock("../../services/mail.js", () => ({
   sendOrgApplicationEmail: vi.fn(),
   sendInviteEmail: vi.fn(),
+  resolveInviteRecipient: vi.fn(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (existingUser: any, fallbackNameJa?: string | null) => ({
+      nameJa: existingUser?.nameJa ?? fallbackNameJa ?? null,
+      isExistingUser: existingUser !== null,
+    }),
+  ),
 }));
 
 import { prisma } from "../../lib/prisma.js";

@@ -21,22 +21,41 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+// 招待先が既存ユーザーかどうかで変わるメール文面（件名・本文・ボタン）の一元管理。
+// buildInviteHtml と sendInviteEmail の両方から参照する。
+function getInviteCopy(
+  isExistingUser: boolean,
+  orgName: string,
+): { subject: string; bodyText: string; buttonLabel: string } {
+  if (isExistingUser) {
+    return {
+      subject: `【ChoirHub】${orgName} への参加`,
+      bodyText:
+        "からChoirHubへの招待が届いています。<br />既にお使いのアカウントに追加されます。下のボタンから、現在お使いのパスワードでログインして参加を完了してください。",
+      buttonLabel: "ログインして参加する",
+    };
+  }
+  return {
+    subject: `【ChoirHub】${orgName} への招待`,
+    bodyText:
+      "からChoirHubへの招待が届いています。<br />下のボタンからパスワードを設定して、利用を開始してください。",
+    buttonLabel: "パスワードを設定する",
+  };
+}
+
 function buildInviteHtml(params: {
   greeting: string;
   orgName: string;
   inviteUrl: string;
   expiresLabel: string;
-  isExistingUser: boolean;
+  bodyText: string;
+  buttonLabel: string;
   devNotice?: string;
 }): string {
-  const { greeting, orgName, inviteUrl, expiresLabel, isExistingUser, devNotice } = params;
+  const { greeting, orgName, inviteUrl, expiresLabel, bodyText, buttonLabel, devNotice } = params;
   const safeGreeting = escapeHtml(greeting);
   const safeOrgName = escapeHtml(orgName);
   const safeDevNotice = devNotice ? escapeHtml(devNotice) : undefined;
-  const bodyText = isExistingUser
-    ? "からChoirHubへの招待が届いています。<br />既にお使いのアカウントに追加されます。下のボタンから、現在お使いのパスワードでログインして参加を完了してください。"
-    : "からChoirHubへの招待が届いています。<br />下のボタンからパスワードを設定して、利用を開始してください。";
-  const buttonLabel = isExistingUser ? "ログインして参加する" : "パスワードを設定する";
   return `
 <!DOCTYPE html>
 <html lang="ja">
@@ -351,6 +370,18 @@ export async function getResendEmail(emailId: string): Promise<ResendEmail | nul
   }
 }
 
+// 招待先メールアドレスが既存ユーザーかどうかで、送信するメールの表示名と文面を出し分けるための解決処理。
+// members.ts / org-applications.ts の両方から呼ばれる共通ロジック。
+export function resolveInviteRecipient(
+  existingUser: { nameJa: string } | null,
+  fallbackNameJa?: string | null,
+): { nameJa: string | null; isExistingUser: boolean } {
+  return {
+    nameJa: existingUser?.nameJa ?? fallbackNameJa ?? null,
+    isExistingUser: existingUser !== null,
+  };
+}
+
 export async function sendInviteEmail(params: {
   to: string;
   nameJa: string | null;
@@ -382,12 +413,14 @@ export async function sendInviteEmail(params: {
   const actualTo = DEV_MAIL_TO || to;
   const devNotice = DEV_MAIL_TO && DEV_MAIL_TO !== to ? `本来の宛先: ${to}` : undefined;
 
+  const { subject, bodyText, buttonLabel } = getInviteCopy(isExistingUser, orgName);
   const html = buildInviteHtml({
     greeting,
     orgName,
     inviteUrl,
     expiresLabel,
-    isExistingUser,
+    bodyText,
+    buttonLabel,
     devNotice,
   });
 
@@ -395,7 +428,7 @@ export async function sendInviteEmail(params: {
   const { error } = await resend.emails.send({
     from: FROM_ADDRESS,
     to: actualTo,
-    subject: isExistingUser ? `【ChoirHub】${orgName} への参加` : `【ChoirHub】${orgName} への招待`,
+    subject,
     html,
   });
 

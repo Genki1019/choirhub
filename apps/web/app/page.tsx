@@ -154,6 +154,12 @@ export default async function RootPage() {
             ログイン
             <ChevronRight size={16} />
           </Link>
+          <p className="mt-6 text-sm text-gray-500">
+            新しく団体を立ち上げたい方は
+            <Link href="/apply" className="text-brand-600 hover:text-brand-700 ml-1 font-medium">
+              団体作成を申請する
+            </Link>
+          </p>
         </section>
       </main>
 

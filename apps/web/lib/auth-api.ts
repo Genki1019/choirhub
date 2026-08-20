@@ -1,7 +1,13 @@
 import { apiClient, ApiClientError } from "./api-client";
 
 export interface LoginResult {
-  user: { id: string; nameJa: string; email: string; avatarUrl: string | null };
+  user: {
+    id: string;
+    nameJa: string;
+    email: string;
+    avatarUrl: string | null;
+    isSystemAdmin: boolean;
+  };
   orgs: {
     orgSlug: string;
     orgName: string;
@@ -9,6 +15,11 @@ export interface LoginResult {
     partName: string | null;
     status: string;
   }[];
+}
+
+export interface MeResult {
+  user: LoginResult["user"];
+  orgs: (LoginResult["orgs"][number] & { memberId: string })[];
 }
 
 export interface InviteInfo {
@@ -25,7 +36,7 @@ export const authApi = {
 
   logout: () => apiClient.post<void>("/auth/logout", {}),
 
-  me: () => apiClient.get<LoginResult>("/auth/me"),
+  me: () => apiClient.get<MeResult>("/auth/me"),
 
   getInvite: (token: string) => apiClient.get<InviteInfo>(`/auth/invite/${token}`),
 
@@ -40,9 +51,6 @@ export const authApi = {
 
   confirmPasswordReset: (token: string, password: string) =>
     apiClient.post<{ message: string }>(`/auth/password-reset/${token}`, { password }),
-
-  createOrg: (data: { name: string; slug: string }) =>
-    apiClient.post<{ orgSlug: string; orgName: string }>("/auth/orgs", data),
 };
 
 export { ApiClientError };

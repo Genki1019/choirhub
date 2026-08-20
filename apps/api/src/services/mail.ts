@@ -26,12 +26,17 @@ function buildInviteHtml(params: {
   orgName: string;
   inviteUrl: string;
   expiresLabel: string;
+  isExistingUser: boolean;
   devNotice?: string;
 }): string {
-  const { greeting, orgName, inviteUrl, expiresLabel, devNotice } = params;
+  const { greeting, orgName, inviteUrl, expiresLabel, isExistingUser, devNotice } = params;
   const safeGreeting = escapeHtml(greeting);
   const safeOrgName = escapeHtml(orgName);
   const safeDevNotice = devNotice ? escapeHtml(devNotice) : undefined;
+  const bodyText = isExistingUser
+    ? "からChoirHubへの招待が届いています。<br />既にお使いのアカウントに追加されます。下のボタンから、現在お使いのパスワードでログインして参加を完了してください。"
+    : "からChoirHubへの招待が届いています。<br />下のボタンからパスワードを設定して、利用を開始してください。";
+  const buttonLabel = isExistingUser ? "ログインして参加する" : "パスワードを設定する";
   return `
 <!DOCTYPE html>
 <html lang="ja">
@@ -71,8 +76,7 @@ function buildInviteHtml(params: {
             <td style="padding:36px 40px 28px;">
               <p style="margin:0 0 8px;font-size:15px;color:#374151;">${safeGreeting}</p>
               <p style="margin:0 0 24px;font-size:15px;color:#374151;">
-                <strong>${safeOrgName}</strong> からChoirHubへの招待が届いています。<br />
-                下のボタンからパスワードを設定して、利用を開始してください。
+                <strong>${safeOrgName}</strong> ${bodyText}
               </p>
 
               <!-- ボタン -->
@@ -81,7 +85,7 @@ function buildInviteHtml(params: {
                   <td style="background:#2563eb;border-radius:10px;">
                     <a href="${inviteUrl}"
                        style="display:block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;letter-spacing:-0.2px;">
-                      パスワードを設定する
+                      ${buttonLabel}
                     </a>
                   </td>
                 </tr>
@@ -353,8 +357,9 @@ export async function sendInviteEmail(params: {
   orgName: string;
   inviteToken: string;
   expiresAt: Date;
+  isExistingUser: boolean;
 }): Promise<void> {
-  const { to, nameJa, orgName, inviteToken, expiresAt } = params;
+  const { to, nameJa, orgName, inviteToken, expiresAt, isExistingUser } = params;
 
   const inviteUrl = `${FRONTEND_URL}/invite/${inviteToken}`;
   const expiresLabel = expiresAt.toLocaleDateString("ja-JP", {
@@ -377,13 +382,20 @@ export async function sendInviteEmail(params: {
   const actualTo = DEV_MAIL_TO || to;
   const devNotice = DEV_MAIL_TO && DEV_MAIL_TO !== to ? `本来の宛先: ${to}` : undefined;
 
-  const html = buildInviteHtml({ greeting, orgName, inviteUrl, expiresLabel, devNotice });
+  const html = buildInviteHtml({
+    greeting,
+    orgName,
+    inviteUrl,
+    expiresLabel,
+    isExistingUser,
+    devNotice,
+  });
 
   const resend = new Resend(RESEND_API_KEY);
   const { error } = await resend.emails.send({
     from: FROM_ADDRESS,
     to: actualTo,
-    subject: `【ChoirHub】${orgName} への招待`,
+    subject: isExistingUser ? `【ChoirHub】${orgName} への参加` : `【ChoirHub】${orgName} への招待`,
     html,
   });
 

@@ -21,6 +21,7 @@ function uniqueConstraintError(): Prisma.PrismaClientKnownRequestError {
 vi.mock("../../lib/prisma.js", () => {
   const tables = {
     session: { findUnique: vi.fn() },
+    user: { findUnique: vi.fn() },
     orgApplication: {
       create: vi.fn(),
       findMany: vi.fn(),
@@ -147,6 +148,8 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(checkOrgApplicationRateLimit).mockResolvedValue(true);
   process.env.SYSTEM_ADMIN_EMAILS = originalSystemAdminEmails;
+  // 既存ユーザーとの重複がない前提をデフォルトにし、必要なテストだけ個別に上書きする
+  vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
   // $transaction のコールバックには同じprismaモックを渡す
   // （tx.xxx === prisma.xxx としてテストのアサーションがそのまま使える）
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -463,6 +466,7 @@ describe("POST /auth/org-applications/:id/approve", () => {
         to: testApplication.applicantEmail,
         nameJa: testApplication.applicantName,
         inviteToken: "invite-token-xyz",
+        isExistingUser: false,
       }),
     );
     expect(prisma.orgApplication.updateMany).toHaveBeenCalledWith({
@@ -672,6 +676,7 @@ describe("POST /auth/orgs", () => {
         to: testApplication.applicantEmail,
         nameJa: testApplication.applicantName,
         inviteToken: "invite-token-xyz",
+        isExistingUser: false,
       }),
     );
     expect(prisma.orgApplication.create).not.toHaveBeenCalled();

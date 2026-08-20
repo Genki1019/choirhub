@@ -37,6 +37,7 @@ describe("InviteAcceptPage", () => {
       orgName: "テスト合唱団",
       orgSlug: "test-choir",
       expiresAt: "2026-12-31T00:00:00.000Z",
+      isExistingUser: false,
     });
     render(<InviteAcceptPage />);
 

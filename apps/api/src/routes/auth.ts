@@ -1,11 +1,17 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { hash, verify } from "argon2";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { prisma } from "../lib/prisma.js";
 import { sessionManager } from "../lib/session.js";
-import { checkLoginRateLimit, clearLoginRateLimit, checkResetRateLimit } from "../lib/redis.js";
+import {
+  checkLoginRateLimit,
+  clearLoginRateLimit,
+  checkResetRateLimit,
+  checkInviteAcceptRateLimit,
+  clearInviteAcceptRateLimit,
+} from "../lib/redis.js";
 import { sendPasswordResetEmail } from "../services/mail.js";
 import { storage } from "../services/storage.js";
 import { logger } from "../lib/logger.js";
@@ -25,6 +31,18 @@ async function hashPassword(password: string): Promise<string> {
 
 async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
   return verify(storedHash, password);
+}
+
+async function issueSession(c: Context, userId: string): Promise<void> {
+  const sessionData = sessionManager.createSession(userId);
+  await prisma.session.create({ data: sessionData });
+  setCookie(c, sessionManager.sessionCookieName, sessionData.id, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "Lax",
+    path: "/",
+    expires: sessionData.expiresAt,
+  });
 }
 
 const INVALID_TOKEN_ERROR = { code: "INVALID_TOKEN", message: "招待リンクが無効です" } as const;
@@ -95,17 +113,7 @@ export const authRouter = new Hono()
       }
 
       await clearLoginRateLimit(ip);
-
-      const sessionData = sessionManager.createSession(user.id);
-      await prisma.session.create({ data: sessionData });
-
-      setCookie(c, sessionManager.sessionCookieName, sessionData.id, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "Lax",
-        path: "/",
-        expires: sessionData.expiresAt,
-      });
+      await issueSession(c, user.id);
 
       const memberships = await prisma.member.findMany({
         where: { userId: user.id, deletedAt: null },
@@ -155,6 +163,8 @@ export const authRouter = new Hono()
     const err = usedOrExpiredInviteError(invite);
     if (err) return c.json({ error: err }, 404);
 
+    const existingUser = await prisma.user.findUnique({ where: { email: invite.email } });
+
     return c.json({
       data: {
         email: invite.email,
@@ -162,6 +172,7 @@ export const authRouter = new Hono()
         orgName: invite.org.name,
         orgSlug: invite.org.slug,
         expiresAt: invite.expiresAt.toISOString(),
+        isExistingUser: existingUser !== null,
       },
     });
   })
@@ -172,8 +183,10 @@ export const authRouter = new Hono()
     zValidator(
       "json",
       z.object({
-        nameJa: z.string().min(1),
-        password: z.string().min(8),
+        nameJa: z.string().min(1).optional(),
+        // 既存ユーザーは新規パスワード設定ではなく既存パスワードの照合に使うため、
+        // ここでは長さを問わない（8文字未満チェックは新規ユーザー作成時のみ後段で行う）
+        password: z.string().min(1),
       }),
       (r, c) => {
         if (!r.success)
@@ -184,7 +197,24 @@ export const authRouter = new Hono()
       const { token } = c.req.param();
       const { nameJa, password } = c.req.valid("json");
 
-      const invite = await prisma.inviteToken.findUnique({ where: { token } });
+      const ip = getClientIp(c);
+      // 既存ユーザーの本人確認はパスワード照合（総当たり対象）を伴うためログインと同じ基準で制限する
+      if (!(await checkInviteAcceptRateLimit(ip))) {
+        return c.json(
+          {
+            error: {
+              code: "TOO_MANY_REQUESTS",
+              message: "しばらく時間をおいてから再試行してください",
+            },
+          },
+          429,
+        );
+      }
+
+      const invite = await prisma.inviteToken.findUnique({
+        where: { token },
+        include: { org: { select: { slug: true } } },
+      });
       if (!invite) return c.json({ error: INVALID_TOKEN_ERROR }, 404);
       const tokenErr = usedOrExpiredInviteError(invite);
       if (tokenErr) return c.json({ error: tokenErr }, 404);
@@ -209,6 +239,19 @@ export const authRouter = new Hono()
             401,
           );
         }
+        await clearInviteAcceptRateLimit(ip);
+      } else if (!nameJa) {
+        return c.json(
+          { error: { code: "VALIDATION_ERROR", message: "お名前を入力してください" } },
+          400,
+        );
+      } else if (password.length < 8) {
+        return c.json(
+          {
+            error: { code: "VALIDATION_ERROR", message: "パスワードは8文字以上で入力してください" },
+          },
+          400,
+        );
       }
 
       const user =
@@ -216,7 +259,7 @@ export const authRouter = new Hono()
         (await prisma.user.create({
           data: {
             email: invite.email,
-            nameJa,
+            nameJa: nameJa!,
             passwordHash: await hashPassword(password),
           },
         }));
@@ -232,6 +275,13 @@ export const authRouter = new Hono()
       });
 
       await prisma.inviteToken.update({ where: { token }, data: { usedAt: new Date() } });
+
+      // 既存ユーザーはパスワード検証で本人確認済みのため、そのままセッションを発行して
+      // 新規団体の画面へ直接遷移できるようにする（新規ユーザーは/loginから通常フローで入る）
+      if (existingUser) {
+        await issueSession(c, user.id);
+        return c.json({ data: { message: "登録が完了しました", orgSlug: invite.org.slug } }, 201);
+      }
 
       return c.json({ data: { message: "登録が完了しました" } }, 201);
     },

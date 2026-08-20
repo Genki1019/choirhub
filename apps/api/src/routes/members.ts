@@ -346,10 +346,11 @@ export const membersRouter = new Hono<TenantEnv>()
       try {
         await sendInviteEmail({
           to: email,
-          nameJa: nameJa ?? null,
+          nameJa: existingUser?.nameJa ?? nameJa ?? null,
           orgName: org.name,
           inviteToken: invite.token,
           expiresAt,
+          isExistingUser: existingUser !== null,
         });
       } catch (mailErr) {
         logger.error("[invite] メール送信失敗（招待トークンは有効）:", mailErr);

@@ -23,6 +23,8 @@ vi.mock("../../lib/redis.js", () => ({
   checkLoginRateLimit: vi.fn(),
   clearLoginRateLimit: vi.fn(),
   checkResetRateLimit: vi.fn(),
+  checkInviteAcceptRateLimit: vi.fn(),
+  clearInviteAcceptRateLimit: vi.fn(),
 }));
 
 vi.mock("argon2", () => ({
@@ -35,7 +37,11 @@ vi.mock("../../services/mail.js", () => ({
 }));
 
 import { prisma } from "../../lib/prisma.js";
-import { checkLoginRateLimit, checkResetRateLimit } from "../../lib/redis.js";
+import {
+  checkLoginRateLimit,
+  checkResetRateLimit,
+  checkInviteAcceptRateLimit,
+} from "../../lib/redis.js";
 import { verify, hash } from "argon2";
 import { sendPasswordResetEmail } from "../../services/mail.js";
 import { authRouter } from "../auth.js";
@@ -344,12 +350,13 @@ describe("GET /auth/invite/:token", () => {
     expect(body.error.code).toBe("TOKEN_EXPIRED");
   });
 
-  it("正常: 200を返し招待情報を返す", async () => {
+  it("正常（新規ユーザー）: 200を返しisExistingUser: falseを含む招待情報を返す", async () => {
     vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue({
       ...testInvite,
       org: { name: "東京男声合唱団", slug: "tokyo-men-choir" },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
 
     const app = createTestApp();
     const res = await app.request(`/auth/invite/${testInvite.token}`);
@@ -362,11 +369,47 @@ describe("GET /auth/invite/:token", () => {
       orgName: "東京男声合唱団",
       orgSlug: "tokyo-men-choir",
       expiresAt: testInvite.expiresAt.toISOString(),
+      isExistingUser: false,
     });
+  });
+
+  it("正常（既存ユーザー）: isExistingUser: trueを返す", async () => {
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue({
+      ...testInvite,
+      org: { name: "東京男声合唱団", slug: "tokyo-men-choir" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/invite/${testInvite.token}`);
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.isExistingUser).toBe(true);
   });
 });
 
 describe("POST /auth/invite/:token", () => {
+  beforeEach(() => {
+    vi.mocked(checkInviteAcceptRateLimit).mockResolvedValue(true);
+  });
+
+  it("レート制限中: 429を返す", async () => {
+    vi.mocked(checkInviteAcceptRateLimit).mockResolvedValue(false);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/invite/${testInvite.token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nameJa: "新人 太郎", password: "password123" }),
+    });
+
+    expect(res.status).toBe(429);
+    const body = await json(res);
+    expect(body.error.code).toBe("TOO_MANY_REQUESTS");
+  });
+
   it("バリデーションエラー: nameJa空は400を返す", async () => {
     const app = createTestApp();
     const res = await app.request(`/auth/invite/${testInvite.token}`, {
@@ -393,6 +436,61 @@ describe("POST /auth/invite/:token", () => {
     expect(res.status).toBe(404);
     const body = await json(res);
     expect(body.error.code).toBe("INVALID_TOKEN");
+  });
+
+  it("新規ユーザーでnameJa省略: 400を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue(testInvite as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/invite/${testInvite.token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "password123" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    expect(prisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it("新規ユーザーでパスワードが8文字未満: 400を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue(testInvite as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/invite/${testInvite.token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nameJa: "新人 太郎", password: "short1" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    expect(prisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it("既存ユーザーが短いパスワードで照合を試みた場合も401（400にはならない）", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue(testInvite as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+    vi.mocked(prisma.member.findUnique).mockResolvedValue(null);
+    vi.mocked(verify).mockResolvedValue(false);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/invite/${testInvite.token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "abc" }),
+    });
+
+    expect(res.status).toBe(401);
+    const body = await json(res);
+    expect(body.error.code).toBe("UNAUTHORIZED");
   });
 
   it("既存ユーザーが既にそのteamのメンバー: 409を返す", async () => {
@@ -433,9 +531,12 @@ describe("POST /auth/invite/:token", () => {
     expect(body.error.code).toBe("UNAUTHORIZED");
   });
 
-  it("既存ユーザー・パスワード一致: 201を返し既存ユーザーにMemberが追加される", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue(testInvite as any);
+  it("既存ユーザー・パスワード一致: 201を返し既存ユーザーにMemberが追加される。セッションも発行される", async () => {
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue({
+      ...testInvite,
+      org: { slug: "tokyo-men-choir" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
     vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
     vi.mocked(prisma.member.findUnique).mockResolvedValue(null);
     vi.mocked(verify).mockResolvedValue(true);
@@ -443,6 +544,8 @@ describe("POST /auth/invite/:token", () => {
     vi.mocked(prisma.member.create).mockResolvedValue({} as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.inviteToken.update).mockResolvedValue({} as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.session.create).mockResolvedValue({} as any);
 
     const app = createTestApp();
     const res = await app.request(`/auth/invite/${testInvite.token}`, {
@@ -452,7 +555,13 @@ describe("POST /auth/invite/:token", () => {
     });
 
     expect(res.status).toBe(201);
+    const body = await json(res);
+    expect(body.data.orgSlug).toBe("tokyo-men-choir");
+    expect(res.headers.get("set-cookie")).toContain("session=");
     expect(prisma.user.create).not.toHaveBeenCalled();
+    expect(prisma.session.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ userId: testUser.id }),
+    });
     expect(prisma.member.create).toHaveBeenCalledWith({
       data: {
         userId: testUser.id,
@@ -466,6 +575,33 @@ describe("POST /auth/invite/:token", () => {
       where: { token: testInvite.token },
       data: { usedAt: expect.any(Date) },
     });
+  });
+
+  it("既存ユーザー・パスワード一致・nameJa省略: 201を返す", async () => {
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue({
+      ...testInvite,
+      org: { slug: "tokyo-men-choir" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+    vi.mocked(prisma.member.findUnique).mockResolvedValue(null);
+    vi.mocked(verify).mockResolvedValue(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.member.create).mockResolvedValue({} as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.inviteToken.update).mockResolvedValue({} as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.session.create).mockResolvedValue({} as any);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/invite/${testInvite.token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "correct-password" }),
+    });
+
+    expect(res.status).toBe(201);
+    expect(prisma.user.create).not.toHaveBeenCalled();
   });
 
   it("新規ユーザー: 201を返しUser・Memberが新規作成される", async () => {

@@ -78,6 +78,7 @@ async function createOrgWithInvite(params: {
 }): Promise<{ ok: true } | { ok: false; conflict: true }> {
   const { orgName, slug, templateKey, applicantName, applicantEmail } = params;
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const existingUser = await prisma.user.findUnique({ where: { email: applicantEmail } });
 
   let org: { id: string; name: string };
   let invite: { token: string };
@@ -125,10 +126,11 @@ async function createOrgWithInvite(params: {
   try {
     await sendInviteEmail({
       to: applicantEmail,
-      nameJa: applicantName,
+      nameJa: existingUser?.nameJa ?? applicantName,
       orgName: org.name,
       inviteToken: invite.token,
       expiresAt,
+      isExistingUser: existingUser !== null,
     });
   } catch (mailErr) {
     logger.error("[org-applications] 招待メール送信失敗（招待トークンは有効）:", mailErr);

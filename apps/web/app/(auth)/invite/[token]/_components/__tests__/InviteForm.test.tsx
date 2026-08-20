@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { InviteForm } from "../InviteForm";
 import { authApi, ApiClientError, type InviteInfo } from "@/lib/auth-api";
@@ -26,6 +26,7 @@ const invite: InviteInfo = {
   orgName: "テスト合唱団",
   orgSlug: "test-choir",
   expiresAt: "2026-12-31T00:00:00.000Z",
+  isExistingUser: false,
 };
 
 beforeEach(() => {
@@ -157,6 +158,74 @@ describe("InviteForm（送信）", () => {
 
     expect(
       await screen.findByText("登録に失敗しました。もう一度お試しください。"),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("InviteForm（既存ユーザー）", () => {
+  const existingUserInvite: InviteInfo = { ...invite, isExistingUser: true };
+
+  it("お名前欄・パスワード確認欄を表示せず、パスワード欄のみ表示する", () => {
+    render(<InviteForm token="test-token" invite={existingUserInvite} />);
+
+    expect(screen.getByText("テスト合唱団 への参加")).toBeInTheDocument();
+    expect(screen.queryByLabelText("お名前")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("パスワード")).toBeInTheDocument();
+    expect(screen.queryByLabelText("パスワード（確認）")).not.toBeInTheDocument();
+    expect(screen.getByText("ログインして参加する")).toBeInTheDocument();
+  });
+
+  it("パスワード未入力の場合はエラーを表示する", async () => {
+    const user = userEvent.setup();
+    render(<InviteForm token="test-token" invite={existingUserInvite} />);
+
+    await user.click(screen.getByText("ログインして参加する"));
+
+    expect(await screen.findByText("パスワードを入力してください")).toBeInTheDocument();
+    expect(authApi.acceptInvite).not.toHaveBeenCalled();
+  });
+
+  it("送信成功時はnameJaを送らずauthApi.acceptInviteが呼ばれ新団体の画面へ直接遷移する", async () => {
+    vi.mocked(authApi.acceptInvite).mockResolvedValue({ message: "ok", orgSlug: "test-choir" });
+    const user = userEvent.setup();
+    render(<InviteForm token="test-token" invite={existingUserInvite} />);
+
+    await user.type(screen.getByLabelText("パスワード"), "Demo1234!");
+    await user.click(screen.getByText("ログインして参加する"));
+
+    expect(authApi.acceptInvite).toHaveBeenCalledWith("test-token", { password: "Demo1234!" });
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith("/test-choir");
+    });
+  });
+
+  it("401エラー時はパスワード不一致メッセージを表示する", async () => {
+    vi.mocked(authApi.acceptInvite).mockRejectedValue(
+      new ApiClientError("UNAUTHORIZED", "unauthorized", 401),
+    );
+    const user = userEvent.setup();
+    render(<InviteForm token="test-token" invite={existingUserInvite} />);
+
+    await user.type(screen.getByLabelText("パスワード"), "wrong-password");
+    await user.click(screen.getByText("ログインして参加する"));
+
+    expect(await screen.findByText("パスワードが正しくありません")).toBeInTheDocument();
+  });
+
+  it("409エラー時は登録済みメッセージを表示する", async () => {
+    vi.mocked(authApi.acceptInvite).mockRejectedValue(
+      new ApiClientError("CONFLICT", "conflict", 409),
+    );
+    const user = userEvent.setup();
+    render(<InviteForm token="test-token" invite={existingUserInvite} />);
+
+    await user.type(screen.getByLabelText("パスワード"), "Demo1234!");
+    await user.click(screen.getByText("ログインして参加する"));
+
+    expect(
+      await screen.findByText(
+        "このメールアドレスはすでに登録済みです。ログインページからログインしてください。",
+      ),
     ).toBeInTheDocument();
   });
 });

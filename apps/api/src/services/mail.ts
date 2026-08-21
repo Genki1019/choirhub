@@ -21,14 +21,38 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+// 招待先が既存ユーザーかどうかで変わるメール文面（件名・本文・ボタン）の一元管理。
+// buildInviteHtml と sendInviteEmail の両方から参照する。
+function getInviteCopy(
+  isExistingUser: boolean,
+  orgName: string,
+): { subject: string; bodyText: string; buttonLabel: string } {
+  if (isExistingUser) {
+    return {
+      subject: `【ChoirHub】${orgName} への参加`,
+      bodyText:
+        "からChoirHubへの招待が届いています。<br />既にお使いのアカウントに追加されます。下のボタンから、現在お使いのパスワードでログインして参加を完了してください。",
+      buttonLabel: "ログインして参加する",
+    };
+  }
+  return {
+    subject: `【ChoirHub】${orgName} への招待`,
+    bodyText:
+      "からChoirHubへの招待が届いています。<br />下のボタンからパスワードを設定して、利用を開始してください。",
+    buttonLabel: "パスワードを設定する",
+  };
+}
+
 function buildInviteHtml(params: {
   greeting: string;
   orgName: string;
   inviteUrl: string;
   expiresLabel: string;
+  bodyText: string;
+  buttonLabel: string;
   devNotice?: string;
 }): string {
-  const { greeting, orgName, inviteUrl, expiresLabel, devNotice } = params;
+  const { greeting, orgName, inviteUrl, expiresLabel, bodyText, buttonLabel, devNotice } = params;
   const safeGreeting = escapeHtml(greeting);
   const safeOrgName = escapeHtml(orgName);
   const safeDevNotice = devNotice ? escapeHtml(devNotice) : undefined;
@@ -71,8 +95,7 @@ function buildInviteHtml(params: {
             <td style="padding:36px 40px 28px;">
               <p style="margin:0 0 8px;font-size:15px;color:#374151;">${safeGreeting}</p>
               <p style="margin:0 0 24px;font-size:15px;color:#374151;">
-                <strong>${safeOrgName}</strong> からChoirHubへの招待が届いています。<br />
-                下のボタンからパスワードを設定して、利用を開始してください。
+                <strong>${safeOrgName}</strong> ${bodyText}
               </p>
 
               <!-- ボタン -->
@@ -81,7 +104,7 @@ function buildInviteHtml(params: {
                   <td style="background:#2563eb;border-radius:10px;">
                     <a href="${inviteUrl}"
                        style="display:block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;letter-spacing:-0.2px;">
-                      パスワードを設定する
+                      ${buttonLabel}
                     </a>
                   </td>
                 </tr>
@@ -347,14 +370,27 @@ export async function getResendEmail(emailId: string): Promise<ResendEmail | nul
   }
 }
 
+// 招待先メールアドレスが既存ユーザーかどうかで、送信するメールの表示名と文面を出し分けるための解決処理。
+// members.ts / org-applications.ts の両方から呼ばれる共通ロジック。
+export function resolveInviteRecipient(
+  existingUser: { nameJa: string } | null,
+  fallbackNameJa?: string | null,
+): { nameJa: string | null; isExistingUser: boolean } {
+  return {
+    nameJa: existingUser?.nameJa ?? fallbackNameJa ?? null,
+    isExistingUser: existingUser !== null,
+  };
+}
+
 export async function sendInviteEmail(params: {
   to: string;
   nameJa: string | null;
   orgName: string;
   inviteToken: string;
   expiresAt: Date;
+  isExistingUser: boolean;
 }): Promise<void> {
-  const { to, nameJa, orgName, inviteToken, expiresAt } = params;
+  const { to, nameJa, orgName, inviteToken, expiresAt, isExistingUser } = params;
 
   const inviteUrl = `${FRONTEND_URL}/invite/${inviteToken}`;
   const expiresLabel = expiresAt.toLocaleDateString("ja-JP", {
@@ -362,12 +398,17 @@ export async function sendInviteEmail(params: {
     month: "long",
     day: "numeric",
   });
-  const greeting = nameJa ? `${nameJa} さん` : "はじめまして";
+  // 既存ユーザーのnameJaは空文字もあり得るため、trim後の有無で判定する（空文字は falsy だが
+  // 「はじめまして」を出すと「既にアカウントがあります」という文面と矛盾するため区別が必要）
+  const greeting = nameJa?.trim() ? `${nameJa} さん` : "はじめまして";
+  const { subject, bodyText, buttonLabel } = getInviteCopy(isExistingUser, orgName);
 
   if (!isResendConfigured()) {
     logger.info("─────────────────────────────────────────────");
     logger.info("[mail] RESEND_API_KEY 未設定 — コンソールにフォールバック");
     logger.info(`[mail] 宛先     : ${to}`);
+    logger.info(`[mail] 件名     : ${subject}`);
+    logger.info(`[mail] 既存/新規: ${isExistingUser ? "既存ユーザー" : "新規ユーザー"}`);
     logger.info(`[mail] 招待URL  : ${inviteUrl}`);
     logger.info(`[mail] 有効期限 : ${expiresLabel}`);
     logger.info("─────────────────────────────────────────────");
@@ -376,14 +417,21 @@ export async function sendInviteEmail(params: {
 
   const actualTo = DEV_MAIL_TO || to;
   const devNotice = DEV_MAIL_TO && DEV_MAIL_TO !== to ? `本来の宛先: ${to}` : undefined;
-
-  const html = buildInviteHtml({ greeting, orgName, inviteUrl, expiresLabel, devNotice });
+  const html = buildInviteHtml({
+    greeting,
+    orgName,
+    inviteUrl,
+    expiresLabel,
+    bodyText,
+    buttonLabel,
+    devNotice,
+  });
 
   const resend = new Resend(RESEND_API_KEY);
   const { error } = await resend.emails.send({
     from: FROM_ADDRESS,
     to: actualTo,
-    subject: `【ChoirHub】${orgName} への招待`,
+    subject,
     html,
   });
 

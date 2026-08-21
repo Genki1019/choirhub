@@ -21,6 +21,7 @@ function uniqueConstraintError(): Prisma.PrismaClientKnownRequestError {
 vi.mock("../../lib/prisma.js", () => {
   const tables = {
     session: { findUnique: vi.fn() },
+    user: { findUnique: vi.fn() },
     orgApplication: {
       create: vi.fn(),
       findMany: vi.fn(),
@@ -44,6 +45,13 @@ vi.mock("../../lib/redis.js", () => ({
 vi.mock("../../services/mail.js", () => ({
   sendOrgApplicationEmail: vi.fn(),
   sendInviteEmail: vi.fn(),
+  resolveInviteRecipient: vi.fn(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (existingUser: any, fallbackNameJa?: string | null) => ({
+      nameJa: existingUser?.nameJa ?? fallbackNameJa ?? null,
+      isExistingUser: existingUser !== null,
+    }),
+  ),
 }));
 
 import { prisma } from "../../lib/prisma.js";
@@ -147,6 +155,8 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(checkOrgApplicationRateLimit).mockResolvedValue(true);
   process.env.SYSTEM_ADMIN_EMAILS = originalSystemAdminEmails;
+  // 既存ユーザーとの重複がない前提をデフォルトにし、必要なテストだけ個別に上書きする
+  vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
   // $transaction のコールバックには同じprismaモックを渡す
   // （tx.xxx === prisma.xxx としてテストのアサーションがそのまま使える）
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -463,6 +473,7 @@ describe("POST /auth/org-applications/:id/approve", () => {
         to: testApplication.applicantEmail,
         nameJa: testApplication.applicantName,
         inviteToken: "invite-token-xyz",
+        isExistingUser: false,
       }),
     );
     expect(prisma.orgApplication.updateMany).toHaveBeenCalledWith({
@@ -473,6 +484,30 @@ describe("POST /auth/org-applications/:id/approve", () => {
         reviewedAt: expect.any(Date),
       },
     });
+  });
+
+  it("申請者が既存ユーザーの場合はisExistingUser: trueで招待メールを送信する（表示名も既存ユーザーの値を使う）", async () => {
+    mockSessionAsAdmin();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.orgApplication.findUnique).mockResolvedValue(testApplication as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.orgApplication.updateMany).mockResolvedValue({ count: 1 } as any);
+    mockOrgCreationSuccess();
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      nameJa: "既存 花子",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const res = await approveRequest(testApplication.id, { Cookie: "session=session-abc" });
+
+    expect(res.status).toBe(200);
+    expect(sendInviteEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: testApplication.applicantEmail,
+        nameJa: "既存 花子",
+        isExistingUser: true,
+      }),
+    );
   });
 
   it("スラグを指定した場合はその値で団体が作成される（システム管理者による上書き）", async () => {
@@ -672,6 +707,7 @@ describe("POST /auth/orgs", () => {
         to: testApplication.applicantEmail,
         nameJa: testApplication.applicantName,
         inviteToken: "invite-token-xyz",
+        isExistingUser: false,
       }),
     );
     expect(prisma.orgApplication.create).not.toHaveBeenCalled();

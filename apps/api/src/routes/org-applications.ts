@@ -8,7 +8,11 @@ import { checkOrgApplicationRateLimit } from "../lib/redis.js";
 import { getClientIp } from "../lib/request.js";
 import { isSystemAdmin, getSystemAdminEmails } from "../lib/systemAdmin.js";
 import { PART_TEMPLATES, type PartTemplateKey } from "../lib/partTemplates.js";
-import { sendOrgApplicationEmail, sendInviteEmail } from "../services/mail.js";
+import {
+  sendOrgApplicationEmail,
+  sendInviteEmail,
+  resolveInviteRecipient,
+} from "../services/mail.js";
 import { logger } from "../lib/logger.js";
 import {
   Prisma,
@@ -122,13 +126,14 @@ async function createOrgWithInvite(params: {
     throw err;
   }
 
+  const existingUser = await prisma.user.findUnique({ where: { email: applicantEmail } });
   try {
     await sendInviteEmail({
       to: applicantEmail,
-      nameJa: applicantName,
       orgName: org.name,
       inviteToken: invite.token,
       expiresAt,
+      ...resolveInviteRecipient(existingUser, applicantName),
     });
   } catch (mailErr) {
     logger.error("[org-applications] 招待メール送信失敗（招待トークンは有効）:", mailErr);

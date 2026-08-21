@@ -18,6 +18,10 @@ export const inviteAcceptSchema = z
     path: ["passwordConfirm"],
   });
 
+export const inviteAcceptExistingUserSchema = z.object({
+  password: z.string().min(1, "パスワードを入力してください"),
+});
+
 export const inviteMemberSchema = z.object({
   nameJa: z.string().optional(),
   email: z.string().email("有効なメールアドレスを入力してください"),
@@ -62,6 +66,7 @@ export const orgApplicationSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type InviteAcceptInput = z.infer<typeof inviteAcceptSchema>;
+export type InviteAcceptExistingUserInput = z.infer<typeof inviteAcceptExistingUserSchema>;
 export type InviteMemberInput = z.infer<typeof inviteMemberSchema>;
 export type AddVisitorApplicationInput = z.infer<typeof addVisitorApplicationSchema>;
 export type PasswordResetRequestInput = z.infer<typeof passwordResetRequestSchema>;

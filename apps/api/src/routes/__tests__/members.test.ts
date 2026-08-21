@@ -32,6 +32,13 @@ vi.mock("../../lib/prisma.js", () => ({
 
 vi.mock("../../services/mail.js", () => ({
   sendInviteEmail: vi.fn(),
+  resolveInviteRecipient: vi.fn(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (existingUser: any, fallbackNameJa?: string | null) => ({
+      nameJa: existingUser?.nameJa ?? fallbackNameJa ?? null,
+      isExistingUser: existingUser !== null,
+    }),
+  ),
 }));
 
 vi.mock("../../services/storage.js", () => ({
@@ -46,6 +53,7 @@ vi.mock("../../services/storage.js", () => ({
 
 import { prisma } from "../../lib/prisma.js";
 import { storage } from "../../services/storage.js";
+import { sendInviteEmail } from "../../services/mail.js";
 import { membersRouter } from "../members.js";
 
 // ────────────────────────────
@@ -424,6 +432,37 @@ describe("POST /members/invite", () => {
     const body = await json(res);
     expect(body.data).toHaveProperty("inviteToken");
     expect(body.data).toHaveProperty("expiresAt");
+    expect(sendInviteEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ isExistingUser: false }),
+    );
+  });
+
+  it("招待先が既存ユーザーの場合はisExistingUser: trueでメール送信する", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+    vi.mocked(prisma.member.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.inviteToken.create).mockResolvedValue({
+      id: "token-1",
+      token: "test-token-abc",
+      email: testUser.email,
+      orgId: "org-1",
+      roles: ["member"],
+      partId: null,
+      expiresAt: new Date("2026-06-11T00:00:00Z"),
+      usedAt: null,
+      createdAt: new Date(),
+    } as never);
+
+    const app = createTestApp(makeAdminMember());
+    const res = await app.request("/members/invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: testUser.email, roles: ["member"] }),
+    });
+
+    expect(res.status).toBe(201);
+    expect(sendInviteEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ isExistingUser: true, nameJa: testUser.nameJa }),
+    );
   });
 
   it("admin 以外は 403", async () => {

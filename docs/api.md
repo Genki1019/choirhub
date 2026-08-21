@@ -1,8 +1,8 @@
 # ChoirHub API設計書
 
-**バージョン**: 1.10  
+**バージョン**: 1.12  
 **作成日**: 2026-06-04  
-**更新日**: 2026-08-19  
+**更新日**: 2026-08-20  
 **ベースURL**: `/api/v1`
 
 ---
@@ -432,7 +432,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 ### GET `/api/v1/auth/invite/:token`
 
-招待トークンの有効性を確認し、対応するメールアドレスを返す。
+招待トークンの有効性を確認し、対応するメールアドレスを返す。`isExistingUser`は招待先メールアドレスが既存の`User`に一致するかどうかを示し、フロントエンドはこれを見て新規登録フォーム（お名前・パスワード設定）と既存ユーザー用フォーム（現在のパスワード入力のみ）を出し分ける。
 
 **権限**: なし（公開）
 
@@ -445,7 +445,8 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
     "nameJa": "山田 太郎",
     "orgName": "男声合唱団A",
     "orgSlug": "tokyo-men-choir",
-    "expiresAt": "2026-06-11T00:00:00Z"
+    "expiresAt": "2026-06-11T00:00:00Z",
+    "isExistingUser": false
   }
 }
 ```
@@ -458,11 +459,20 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 
 ### POST `/api/v1/auth/invite/:token`
 
-招待トークンを使って新規メンバー登録を完了する。
+招待トークンを使って参加登録を完了する。招待先メールアドレスが未登録なら新規`User`を作成し、既存の`User`であれば新規作成せず`Member`を追加するだけにする（既存アカウントの所有確認として、新規パスワード設定ではなく現在のパスワードでの検証を必須とする）。
+
+既存ユーザーの場合はパスワード検証の時点で本人確認済みのため、`POST /auth/login`と同様にセッションを発行してセッションCookieを返す。レスポンスにも参加した団体の`orgSlug`を含めるため、フロントエンドは`/login`を経由せずそのまま`/{orgSlug}`へ遷移できる。新規ユーザーの場合はセッションを発行せず、`/login`から通常のログインフローに進む。
+
+既存ユーザーのパスワード照合はIPアドレスごとにレート制限がかかる（`POST /auth/login`と同基準）。
 
 **権限**: なし（公開）
 
 **Request Body:**
+
+| フィールド | 型     | 必須 | 説明                                                                                                                                          |
+| ---------- | ------ | ---- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| nameJa     | string |      | 表示名（新規ユーザー作成時のみ必須。既存ユーザーの場合は無視される）                                                                          |
+| password   | string | ✓    | 新規ユーザー: 設定するパスワード（8文字以上、この場合のみ長さを検証）／既存ユーザー: 現在のパスワード（所有確認用。長さは問わずそのまま照合） |
 
 ```json
 {
@@ -471,13 +481,21 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 }
 ```
 
-**Response** `201`
+**Response** `201`（新規ユーザー）
 
 ```json
 { "data": { "message": "登録が完了しました" } }
 ```
 
-**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `401` `UNAUTHORIZED` 既存ユーザーのパスワード不一致 / `404` `INVALID_TOKEN` トークンが存在しない / `404` `TOKEN_USED` 使用済み / `404` `TOKEN_EXPIRED` 期限切れ / `409` `CONFLICT` 同一メールが既に登録済み
+**Response** `201`（既存ユーザー）
+
+```json
+{ "data": { "message": "登録が完了しました", "orgSlug": "tokyo-men-choir" } }
+```
+
+Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正（新規ユーザーでnameJa未指定・パスワード8文字未満を含む） / `401` `UNAUTHORIZED` 既存ユーザーのパスワード不一致 / `404` `INVALID_TOKEN` トークンが存在しない / `404` `TOKEN_USED` 使用済み / `404` `TOKEN_EXPIRED` 期限切れ / `409` `CONFLICT` 同一メールが既に登録済み / `429` `TOO_MANY_REQUESTS` レート制限超過
 
 ---
 

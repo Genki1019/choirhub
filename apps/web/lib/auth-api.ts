@@ -28,6 +28,7 @@ export interface InviteInfo {
   orgName: string;
   orgSlug: string;
   expiresAt: string;
+  isExistingUser: boolean;
 }
 
 export const authApi = {
@@ -40,8 +41,8 @@ export const authApi = {
 
   getInvite: (token: string) => apiClient.get<InviteInfo>(`/auth/invite/${token}`),
 
-  acceptInvite: (token: string, data: { nameJa: string; password: string }) =>
-    apiClient.post<{ message: string }>(`/auth/invite/${token}`, data),
+  acceptInvite: (token: string, data: { nameJa?: string; password: string }) =>
+    apiClient.post<{ message: string; orgSlug?: string }>(`/auth/invite/${token}`, data),
 
   requestPasswordReset: (email: string) =>
     apiClient.post<{ message: string }>("/auth/password-reset/request", { email }),

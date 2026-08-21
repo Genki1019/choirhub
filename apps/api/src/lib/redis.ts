@@ -14,6 +14,8 @@ const RESET_MAX = 3;
 const RESET_WINDOW_S = 900;
 const ORG_APPLICATION_MAX = 5;
 const ORG_APPLICATION_WINDOW_S = 3600;
+const INVITE_ACCEPT_MAX = 5;
+const INVITE_ACCEPT_WINDOW_S = 900;
 
 async function checkRateLimit(
   prefix: string,
@@ -32,17 +34,21 @@ async function checkRateLimit(
   }
 }
 
+async function clearRateLimit(prefix: string, ip: string): Promise<void> {
+  if (!redis) return;
+  try {
+    await redis.del(`rl:${prefix}:${ip}`);
+  } catch {
+    // ignore
+  }
+}
+
 export function checkLoginRateLimit(ip: string): Promise<boolean> {
   return checkRateLimit("login", ip, LOGIN_MAX, LOGIN_WINDOW_S);
 }
 
-export async function clearLoginRateLimit(ip: string): Promise<void> {
-  if (!redis) return;
-  try {
-    await redis.del(`rl:login:${ip}`);
-  } catch {
-    // ignore
-  }
+export function clearLoginRateLimit(ip: string): Promise<void> {
+  return clearRateLimit("login", ip);
 }
 
 export function checkResetRateLimit(ip: string): Promise<boolean> {
@@ -51,4 +57,14 @@ export function checkResetRateLimit(ip: string): Promise<boolean> {
 
 export function checkOrgApplicationRateLimit(ip: string): Promise<boolean> {
   return checkRateLimit("org-application", ip, ORG_APPLICATION_MAX, ORG_APPLICATION_WINDOW_S);
+}
+
+// 既存ユーザーの招待受諾はパスワード照合（総当たり対象）を伴うため、ログインとは別バケットで
+// 制限する（同一バケットにすると、無効な招待トークンだけでログインの制限予算を消費できてしまう）
+export function checkInviteAcceptRateLimit(ip: string): Promise<boolean> {
+  return checkRateLimit("invite-accept", ip, INVITE_ACCEPT_MAX, INVITE_ACCEPT_WINDOW_S);
+}
+
+export function clearInviteAcceptRateLimit(ip: string): Promise<void> {
+  return clearRateLimit("invite-accept", ip);
 }

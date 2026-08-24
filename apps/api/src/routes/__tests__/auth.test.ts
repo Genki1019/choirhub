@@ -21,7 +21,7 @@ function uniqueConstraintError(): Prisma.PrismaClientKnownRequestError {
 vi.mock("../../lib/prisma.js", () => ({
   prisma: {
     user: { findUnique: vi.fn(), update: vi.fn(), create: vi.fn() },
-    session: { create: vi.fn(), findUnique: vi.fn(), deleteMany: vi.fn() },
+    session: { create: vi.fn(), findUnique: vi.fn(), deleteMany: vi.fn(), update: vi.fn() },
     member: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
     inviteToken: { findUnique: vi.fn(), update: vi.fn() },
     passwordResetToken: { findUnique: vi.fn(), create: vi.fn() },
@@ -204,6 +204,33 @@ describe("POST /auth/login", () => {
         status: "active",
       },
     ]);
+    expect(prisma.session.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ userId: testUser.id, isVisitor: false }),
+    });
+  });
+
+  it("visitorのみ所属のユーザーがログイン: session.createにisVisitor: trueが渡される", async () => {
+    vi.mocked(checkLoginRateLimit).mockResolvedValue(true);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+    vi.mocked(verify).mockResolvedValue(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.session.create).mockResolvedValue({} as any);
+    vi.mocked(prisma.member.findMany).mockResolvedValue([
+      { ...testMembership, roles: ["visitor"] },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp();
+    const res = await app.request("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: testUser.email, password: "correct-password" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(prisma.session.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ userId: testUser.id, isVisitor: true }),
+    });
   });
 });
 
@@ -255,7 +282,8 @@ describe("GET /auth/me", () => {
     vi.mocked(prisma.session.findUnique).mockResolvedValue({
       id: "session-abc",
       userId: testUser.id,
-      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      expiresAt: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000),
+      isVisitor: false,
       user: testUser,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
@@ -288,6 +316,37 @@ describe("GET /auth/me", () => {
         status: "active",
       },
     ]);
+    expect(prisma.session.update).not.toHaveBeenCalled();
+    expect(res.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("残り期間が半分未満: セッションが延長されCookieが再設定される", async () => {
+    vi.mocked(prisma.session.findUnique).mockResolvedValue({
+      id: "session-abc",
+      userId: testUser.id,
+      expiresAt: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+      isVisitor: false,
+      user: testUser,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.session.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.member.findMany).mockResolvedValue([
+      { ...testMembership, id: "member-1" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp();
+    const res = await app.request("/auth/me", {
+      headers: { Cookie: "session=session-abc" },
+    });
+
+    expect(res.status).toBe(200);
+    expect(prisma.session.update).toHaveBeenCalledWith({
+      where: { id: "session-abc" },
+      data: { expiresAt: expect.any(Date) },
+    });
+    expect(res.headers.get("set-cookie")).toContain("session=session-abc");
   });
 
   it("システム管理者としてログイン中: isSystemAdmin が true になる", async () => {
@@ -297,7 +356,8 @@ describe("GET /auth/me", () => {
     vi.mocked(prisma.session.findUnique).mockResolvedValue({
       id: "session-abc",
       userId: testUser.id,
-      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      expiresAt: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000),
+      isVisitor: false,
       user: testUser,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
@@ -574,6 +634,10 @@ describe("POST /auth/invite/:token", () => {
     vi.mocked(prisma.inviteToken.update).mockResolvedValue({} as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.session.create).mockResolvedValue({} as any);
+    vi.mocked(prisma.member.findMany).mockResolvedValue([
+      { ...testMembership, roles: testInvite.roles },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
 
     const app = createTestApp();
     const res = await app.request(`/auth/invite/${testInvite.token}`, {
@@ -588,7 +652,7 @@ describe("POST /auth/invite/:token", () => {
     expect(res.headers.get("set-cookie")).toContain("session=");
     expect(prisma.user.create).not.toHaveBeenCalled();
     expect(prisma.session.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ userId: testUser.id }),
+      data: expect.objectContaining({ userId: testUser.id, isVisitor: false }),
     });
     expect(prisma.member.create).toHaveBeenCalledWith({
       data: {
@@ -644,6 +708,10 @@ describe("POST /auth/invite/:token", () => {
     vi.mocked(prisma.inviteToken.update).mockResolvedValue({} as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.session.create).mockResolvedValue({} as any);
+    vi.mocked(prisma.member.findMany).mockResolvedValue([
+      { ...testMembership, roles: testInvite.roles },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
 
     const app = createTestApp();
     const res = await app.request(`/auth/invite/${testInvite.token}`, {
@@ -654,6 +722,40 @@ describe("POST /auth/invite/:token", () => {
 
     expect(res.status).toBe(201);
     expect(prisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it("既存ユーザー・招待先ロールがvisitorで全所属がvisitor: session.createにisVisitor: trueが渡される", async () => {
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue({
+      ...testInvite,
+      roles: ["visitor"],
+      org: { slug: "tokyo-men-choir" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+    vi.mocked(prisma.member.findUnique).mockResolvedValue(null);
+    vi.mocked(verify).mockResolvedValue(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.member.create).mockResolvedValue({} as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.inviteToken.update).mockResolvedValue({} as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.session.create).mockResolvedValue({} as any);
+    vi.mocked(prisma.member.findMany).mockResolvedValue([
+      { ...testMembership, roles: ["visitor"] },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/invite/${testInvite.token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "correct-password" }),
+    });
+
+    expect(res.status).toBe(201);
+    expect(prisma.session.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ userId: testUser.id, isVisitor: true }),
+    });
   });
 
   it("新規ユーザー: 201を返しUser・Memberが新規作成される", async () => {

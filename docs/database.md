@@ -1,8 +1,8 @@
 # ChoirHub DB設計書
 
-**バージョン**: 1.11  
+**バージョン**: 1.12  
 **作成日**: 2026-06-04  
-**更新日**: 2026-08-20  
+**更新日**: 2026-08-24  
 **対応 Prisma Schema**: `apps/api/prisma/schema.prisma`
 
 ---
@@ -442,13 +442,14 @@ erDiagram
 
 ### Session（認証セッション）
 
-> Lucia v3 が管理するセッションテーブル。アプリ側で直接操作しない。
+> `lib/session.ts`（自前実装）が直接CRUDするセッションテーブル。`isVisitor`がtrueの場合は24時間固定で失効し延長しない。falseの場合は30日を上限に、アクセス時点で残り期間が半分（15日）を切っていれば30日へ延長するスライディングウィンドウ方式（絶対上限なし）。
 
-| カラム    | 型        | 制約                | 説明                         |
-| --------- | --------- | ------------------- | ---------------------------- |
-| id        | VARCHAR   | PK                  | Lucia が生成するセッションID |
-| userId    | CUID      | NOT NULL, FK → User |                              |
-| expiresAt | TIMESTAMP | NOT NULL            | セッション有効期限           |
+| カラム    | 型        | 制約                    | 説明                                            |
+| --------- | --------- | ----------------------- | ----------------------------------------------- |
+| id        | VARCHAR   | PK                      | `crypto.randomUUID()` で生成するセッションID    |
+| userId    | CUID      | NOT NULL, FK → User     |                                                 |
+| expiresAt | TIMESTAMP | NOT NULL                | セッション有効期限                              |
+| isVisitor | BOOLEAN   | NOT NULL, DEFAULT false | ログイン時点で全所属がvisitor判定だった場合true |
 
 ---
 

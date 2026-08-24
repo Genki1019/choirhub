@@ -44,6 +44,12 @@ export function isVisitor(member: Member): boolean {
   return member.roles.includes("visitor") && !isMemberPlus(member);
 }
 
+// 全所属がvisitor判定の場合のみtrue（所属0件は対象外＝通常セッション扱い）。
+// visitorは共有アカウントという前提のため、通常はどのユーザーも複数団体に跨らない想定。
+export function isVisitorOnlyAccount(memberships: Member[]): boolean {
+  return memberships.length > 0 && memberships.every((m) => isVisitor(m));
+}
+
 export function isFinancePlus(member: Member): boolean {
   return isAdmin(member) || member.roles.includes("finance");
 }

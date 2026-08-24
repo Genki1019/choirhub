@@ -20,7 +20,7 @@ function uniqueConstraintError(): Prisma.PrismaClientKnownRequestError {
 
 vi.mock("../../lib/prisma.js", () => {
   const tables = {
-    session: { findUnique: vi.fn() },
+    session: { findUnique: vi.fn(), update: vi.fn() },
     user: { findUnique: vi.fn() },
     orgApplication: {
       create: vi.fn(),
@@ -106,7 +106,8 @@ function mockSessionAsAdmin() {
   vi.mocked(prisma.session.findUnique).mockResolvedValue({
     id: "session-abc",
     userId: adminUser.id,
-    expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+    expiresAt: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000),
+    isVisitor: false,
     user: adminUser,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
@@ -116,7 +117,8 @@ function mockSessionAsRegularUser() {
   vi.mocked(prisma.session.findUnique).mockResolvedValue({
     id: "session-abc",
     userId: regularUser.id,
-    expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+    expiresAt: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000),
+    isVisitor: false,
     user: regularUser,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);

@@ -121,6 +121,7 @@ model Session {
   id        String   @id
   userId    String   @map("user_id")
   expiresAt DateTime @map("expires_at")
+  isVisitor Boolean  @default(false) @map("is_visitor")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

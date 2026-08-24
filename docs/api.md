@@ -1,8 +1,8 @@
 # ChoirHub API設計書
 
-**バージョン**: 1.12  
+**バージョン**: 1.13  
 **作成日**: 2026-06-04  
-**更新日**: 2026-08-20  
+**更新日**: 2026-08-24  
 **ベースURL**: `/api/v1`
 
 ---
@@ -237,7 +237,7 @@
 ```text
 リクエスト
   │
-  ├─ [1] JWT検証（Lucia v3 セッショントークン）
+  ├─ [1] セッション検証（Cookie `session` → `lib/session.ts` で照合、期限切れなら401）
   ├─ [2] orgSlug → orgId 解決・テナント存在確認
   ├─ [3] Member レコード取得 → ctx.member にセット
   └─ [4] 以降の全 DB クエリに orgId を自動付与
@@ -364,7 +364,7 @@ Cookie: session=<session_token>
 
 > `orgs` が1件 → クライアントは `/{orgs[0].orgSlug}` へ自動遷移。複数件 → `/orgs` へ遷移してユーザーに選択させる。
 
-Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
+Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は30日。全所属がvisitor判定のアカウントは24時間。30日の場合はアクセスごとに残り期間が半分を切ったら延長される）
 
 **Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `401` `UNAUTHORIZED` メールアドレスまたはパスワードが不正 / `429` `TOO_MANY_REQUESTS` レート制限超過
 
@@ -493,7 +493,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
 { "data": { "message": "登録が完了しました", "orgSlug": "tokyo-men-choir" } }
 ```
 
-Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`
+Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は30日。全所属がvisitor判定のアカウントは24時間。30日の場合はアクセスごとに残り期間が半分を切ったら延長される）
 
 **Errors:**: `400` `VALIDATION_ERROR` 入力値が不正（新規ユーザーでnameJa未指定・パスワード8文字未満を含む） / `401` `UNAUTHORIZED` 既存ユーザーのパスワード不一致 / `404` `INVALID_TOKEN` トークンが存在しない / `404` `TOKEN_USED` 使用済み / `404` `TOKEN_EXPIRED` 期限切れ / `409` `CONFLICT` 同一メールが既に登録済み / `429` `TOO_MANY_REQUESTS` レート制限超過
 

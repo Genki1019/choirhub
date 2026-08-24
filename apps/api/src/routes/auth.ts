@@ -2,9 +2,9 @@ import { Hono, type Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { hash, verify } from "argon2";
-import { getCookie, setCookie, deleteCookie } from "hono/cookie";
+import { getCookie, deleteCookie } from "hono/cookie";
 import { prisma } from "../lib/prisma.js";
-import { sessionManager } from "../lib/session.js";
+import { sessionManager, setSessionCookie } from "../lib/session.js";
 import {
   checkLoginRateLimit,
   clearLoginRateLimit,
@@ -17,6 +17,7 @@ import { storage } from "../services/storage.js";
 import { logger } from "../lib/logger.js";
 import { isSystemAdmin } from "../lib/systemAdmin.js";
 import { getClientIp } from "../lib/request.js";
+import { isVisitorOnlyAccount } from "../services/access.js";
 import { Prisma } from "../generated/prisma/index.js";
 
 const ARGON2_OPTIONS = {
@@ -34,16 +35,10 @@ async function verifyPassword(password: string, storedHash: string): Promise<boo
   return verify(storedHash, password);
 }
 
-async function issueSession(c: Context, userId: string): Promise<void> {
-  const sessionData = sessionManager.createSession(userId);
+async function issueSession(c: Context, userId: string, isVisitor: boolean): Promise<void> {
+  const sessionData = sessionManager.createSession(userId, isVisitor);
   await prisma.session.create({ data: sessionData });
-  setCookie(c, sessionManager.sessionCookieName, sessionData.id, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "Lax",
-    path: "/",
-    expires: sessionData.expiresAt,
-  });
+  setSessionCookie(c, sessionData.id, sessionData.expiresAt);
 }
 
 const INVALID_TOKEN_ERROR = { code: "INVALID_TOKEN", message: "招待リンクが無効です" } as const;
@@ -114,12 +109,12 @@ export const authRouter = new Hono()
       }
 
       await clearLoginRateLimit(ip);
-      await issueSession(c, user.id);
 
       const memberships = await prisma.member.findMany({
         where: { userId: user.id, deletedAt: null },
         include: { org: true, part: true },
       });
+      await issueSession(c, user.id, isVisitorOnlyAccount(memberships));
 
       return c.json({
         data: {
@@ -293,7 +288,10 @@ export const authRouter = new Hono()
       // 既存ユーザーはパスワード検証で本人確認済みのため、そのままセッションを発行して
       // 新規団体の画面へ直接遷移できるようにする（新規ユーザーは/loginから通常フローで入る）
       if (existingUser) {
-        await issueSession(c, user.id);
+        const memberships = await prisma.member.findMany({
+          where: { userId: user.id, deletedAt: null },
+        });
+        await issueSession(c, user.id, isVisitorOnlyAccount(memberships));
       }
 
       return c.json(
@@ -314,9 +312,13 @@ export const authRouter = new Hono()
     if (!sessionId)
       return c.json({ error: { code: "UNAUTHORIZED", message: "認証が必要です" } }, 401);
 
-    const { session, user } = await sessionManager.validateSession(sessionId);
+    const { session, user, renewed } = await sessionManager.validateSession(sessionId);
     if (!session || !user)
       return c.json({ error: { code: "UNAUTHORIZED", message: "認証が必要です" } }, 401);
+
+    if (renewed) {
+      setSessionCookie(c, session.id, session.expiresAt);
+    }
 
     const memberships = await prisma.member.findMany({
       where: { userId: user.id, deletedAt: null },

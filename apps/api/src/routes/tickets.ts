@@ -712,24 +712,28 @@ export const ticketsRouter = new Hono<TenantEnv>()
 
     const config = resolveScoringConfig(concert.scoringConfig);
 
-    const batches = await prisma.ticketBatch.findMany({
-      where: { concertId },
-      include: {
-        allocations: {
-          where: {
-            member: { NOT: { roles: { hasSome: ["guest", "visitor"] } } },
-          },
-          include: {
-            member: {
-              include: {
-                userRef: { select: { nameJa: true } },
-                part: { select: { id: true, name: true, sortOrder: true, voiceType: true } },
+    const [batches, organizerPeriods] = await Promise.all([
+      prisma.ticketBatch.findMany({
+        where: { concertId },
+        include: {
+          allocations: {
+            where: {
+              member: { NOT: { roles: { hasSome: ["guest", "visitor"] } } },
+            },
+            include: {
+              member: {
+                include: {
+                  userRef: { select: { nameJa: true } },
+                  part: { select: { id: true, name: true, sortOrder: true, voiceType: true } },
+                },
               },
             },
           },
         },
-      },
-    });
+      }),
+      prisma.organizerPeriod.findMany({ where: { orgId: org.id } }),
+    ]);
+    const organizerPeriodByPartId = new Map(organizerPeriods.map((p) => [p.partId, p]));
 
     // 団員ごとに全席種を合算
     type MemberRaw = {
@@ -806,11 +810,15 @@ export const ticketsRouter = new Hono<TenantEnv>()
         const p = parts[i];
         const allocated = p.members.reduce((s, m) => s + m.allocated, 0);
         const sold = p.members.reduce((s, m) => s + m.sold, 0);
+        const organizerPeriod = organizerPeriodByPartId.get(score.partId);
         return {
           partId: score.partId,
           partName: score.partName,
           totalPoints: score.totalPoints,
           breakdown: score.breakdown,
+          organizerPeriod: organizerPeriod
+            ? { fromMonth: organizerPeriod.fromMonth, toMonth: organizerPeriod.toMonth }
+            : null,
           stats: {
             avgSold: p.members.length > 0 ? sold / p.members.length : 0,
             speed5AchievedAt: score.speed5AchievedAt
@@ -859,6 +867,72 @@ export const ticketsRouter = new Hono<TenantEnv>()
       },
     });
   })
+
+  // ── PATCH /tickets/:concertId/race/organizer-periods/:partId ── 幹事期間の設定
+  .patch(
+    "/tickets/:concertId/race/organizer-periods/:partId",
+    zValidator(
+      "json",
+      z
+        .object({
+          fromMonth: z
+            .string()
+            .regex(/^\d{4}-\d{2}$/)
+            .nullable(),
+          toMonth: z
+            .string()
+            .regex(/^\d{4}-\d{2}$/)
+            .nullable(),
+        })
+        .refine((b) => (b.fromMonth == null) === (b.toMonth == null), {
+          message: "開始月と終了月は両方指定するか両方nullにしてください",
+        })
+        .refine((b) => b.fromMonth == null || b.toMonth! >= b.fromMonth, {
+          message: "終了月は開始月以降にしてください",
+        }),
+      (r, c) => {
+        if (!r.success)
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      },
+    ),
+    async (c) => {
+      const actingMember = c.get("member");
+      const org = c.get("org");
+      const { concertId, partId } = c.req.param();
+
+      if (!isTicketManager(actingMember)) {
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみ操作できます" } },
+          403,
+        );
+      }
+
+      const concert = await prisma.concert.findUnique({ where: { id: concertId } });
+      if (!concert || concert.orgId !== org.id) {
+        return c.json({ error: { code: "NOT_FOUND", message: "演奏会が見つかりません" } }, 404);
+      }
+
+      const part = await prisma.part.findUnique({ where: { id: partId } });
+      if (!part || part.orgId !== org.id) {
+        return c.json({ error: { code: "NOT_FOUND", message: "パートが見つかりません" } }, 404);
+      }
+
+      const { fromMonth, toMonth } = c.req.valid("json");
+
+      if (fromMonth == null || toMonth == null) {
+        await prisma.organizerPeriod.deleteMany({ where: { orgId: org.id, partId } });
+        return c.json({ data: { partId, fromMonth: null, toMonth: null } });
+      }
+
+      await prisma.organizerPeriod.upsert({
+        where: { orgId_partId: { orgId: org.id, partId } },
+        create: { orgId: org.id, partId, fromMonth, toMonth },
+        update: { fromMonth, toMonth },
+      });
+
+      return c.json({ data: { partId, fromMonth, toMonth } });
+    },
+  )
 
   // ── PATCH /tickets/:concertId/scoring ── 採点基準のカスタム設定
   .patch(

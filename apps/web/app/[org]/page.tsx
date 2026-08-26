@@ -4,8 +4,8 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { AlertCircle, CalendarDays, Mail } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { homeApi, type HomeData } from "@/lib/home-api";
+import { useQuery } from "@tanstack/react-query";
+import { homeApi } from "@/lib/home-api";
 import { homeKeys } from "@/lib/query-keys";
 import { StatCard } from "./_components/StatCard";
 import { EventCard } from "./_components/EventCard";
@@ -27,7 +27,6 @@ function formatMailDate(isoString: string): string {
 
 export default function HomePage() {
   const { org } = useParams<{ org: string }>();
-  const queryClient = useQueryClient();
 
   const { data, isLoading: loading } = useQuery({
     queryKey: homeKeys.get(org),
@@ -94,16 +93,7 @@ export default function HomePage() {
           </div>
         )}
 
-        <MonthlyOrganizerCard
-          organizer={data?.monthlyOrganizer ?? null}
-          isTicketManager={data?.isTicketManager ?? false}
-          org={org}
-          onSaved={(value) =>
-            queryClient.setQueryData<HomeData>(homeKeys.get(org), (prev) =>
-              prev ? { ...prev, monthlyOrganizer: value } : prev,
-            )
-          }
-        />
+        <MonthlyOrganizerCard organizer={data?.monthlyOrganizer ?? null} />
       </div>
 
       <section>

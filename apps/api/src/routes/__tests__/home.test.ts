@@ -14,7 +14,7 @@ vi.mock("../../lib/prisma.js", () => ({
     event: { findMany: vi.fn() },
     mailLog: { findMany: vi.fn() },
     concert: { findFirst: vi.fn() },
-    organization: { update: vi.fn() },
+    organizerPeriod: { findFirst: vi.fn() },
   },
 }));
 
@@ -34,7 +34,6 @@ const testOrg: Organization = {
   name: "東京男声合唱団",
   slug: "tokyo-men-choir",
   partTemplate: {},
-  monthlyOrganizer: null,
   feeType: "per_rehearsal",
   defaultFeeAmount: null,
   visitorFormToken: null,
@@ -115,6 +114,7 @@ beforeEach(() => {
   vi.mocked(prisma.concert.findFirst).mockResolvedValue(null);
   vi.mocked(prisma.mailLog.findMany).mockResolvedValue([]);
   vi.mocked(prisma.event.findMany).mockResolvedValue([]);
+  vi.mocked(prisma.organizerPeriod.findFirst).mockResolvedValue(null);
 });
 
 // ────────────────────────────
@@ -364,89 +364,45 @@ describe("GET /home", () => {
     expect(body.data.isTicketManager).toBe(true);
   });
 
-  it("monthlyOrganizer: org.monthlyOrganizerの値をそのまま返す", async () => {
-    const app = new Hono<TenantEnv>();
-    app.use("*", (c, next) => {
-      c.set("org", { ...testOrg, monthlyOrganizer: "Tenor I" });
-      c.set("member", makeMember(["member"]));
-      return next();
-    });
-    app.route("/", homeRouter);
+  it("monthlyOrganizer: 当月を含むOrganizerPeriodがあればそのパート名を返す", async () => {
+    vi.mocked(prisma.organizerPeriod.findFirst).mockResolvedValue({
+      id: "op-1",
+      orgId: "org-1",
+      partId: "part-1",
+      fromMonth: "2026-04",
+      toMonth: "2026-06",
+      updatedAt: new Date("2026-04-01"),
+      part: { id: "part-1", name: "Tenor I" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    const app = createTestApp(makeMember(["member"]));
     const res = await app.request("/home");
     const body = await json(res);
     expect(body.data.monthlyOrganizer).toBe("Tenor I");
+    expect(prisma.organizerPeriod.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ orgId: "org-1" }) }),
+    );
   });
-});
 
-// ────────────────────────────
-// PATCH /home/monthly-organizer
-// ────────────────────────────
-
-describe("PATCH /home/monthly-organizer", () => {
-  it("チケット担当未満: 403を返す", async () => {
+  it("monthlyOrganizer: 複数パートの期間が重複した場合に備え、Part.sortOrder昇順でクエリする", async () => {
+    // 同時に複数パートが該当するケースはDB側の並び替えに依存するためモックでは再現できない。
+    // ここではクエリに正しい orderBy が渡されていることのみ検証する（実際の並び替えは手動でDB検証済み）。
+    vi.mocked(prisma.organizerPeriod.findFirst).mockResolvedValue({
+      part: { id: "part-1", name: "ソプラノ" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
     const app = createTestApp(makeMember(["member"]));
-    const res = await app.request("/home/monthly-organizer", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ partName: "Tenor I" }),
-    });
-    expect(res.status).toBe(403);
+    await app.request("/home");
+
+    expect(prisma.organizerPeriod.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { part: { sortOrder: "asc" } } }),
+    );
   });
 
-  it("ticket: 200で更新できる", async () => {
-    vi.mocked(prisma.organization.update).mockResolvedValue({
-      ...testOrg,
-      monthlyOrganizer: "Tenor I",
-    });
-    const app = createTestApp(makeMember(["ticket"]));
-    const res = await app.request("/home/monthly-organizer", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ partName: "Tenor I" }),
-    });
-    expect(res.status).toBe(200);
+  it("monthlyOrganizer: 該当するOrganizerPeriodが無ければnull", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/home");
     const body = await json(res);
-    expect(body.data).toEqual({ monthlyOrganizer: "Tenor I" });
-    expect(prisma.organization.update).toHaveBeenCalledWith({
-      where: { id: "org-1" },
-      data: { monthlyOrganizer: "Tenor I" },
-    });
-  });
-
-  it("admin: 200で更新できる", async () => {
-    vi.mocked(prisma.organization.update).mockResolvedValue(testOrg);
-    const app = createTestApp(makeMember(["admin"]));
-    const res = await app.request("/home/monthly-organizer", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ partName: null }),
-    });
-    expect(res.status).toBe(200);
-  });
-
-  it("partNameにnullを指定: 解除できる", async () => {
-    vi.mocked(prisma.organization.update).mockResolvedValue({
-      ...testOrg,
-      monthlyOrganizer: null,
-    });
-    const app = createTestApp(makeMember(["ticket"]));
-    const res = await app.request("/home/monthly-organizer", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ partName: null }),
-    });
-    expect(res.status).toBe(200);
-    const body = await json(res);
-    expect(body.data).toEqual({ monthlyOrganizer: null });
-  });
-
-  it("partNameが51文字以上: 400を返す", async () => {
-    const app = createTestApp(makeMember(["ticket"]));
-    const res = await app.request("/home/monthly-organizer", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ partName: "あ".repeat(51) }),
-    });
-    expect(res.status).toBe(400);
+    expect(body.data.monthlyOrganizer).toBeNull();
   });
 });

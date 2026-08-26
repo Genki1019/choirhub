@@ -26,8 +26,9 @@ vi.mock("../../lib/prisma.js", () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
-    part: { findMany: vi.fn() },
+    part: { findMany: vi.fn(), findUnique: vi.fn() },
     member: { findMany: vi.fn(), findUnique: vi.fn() },
+    organizerPeriod: { findMany: vi.fn(), upsert: vi.fn(), deleteMany: vi.fn() },
   },
 }));
 
@@ -43,7 +44,6 @@ const testOrg: Organization = {
   name: "東京男声合唱団",
   slug: "tokyo-men-choir",
   partTemplate: {},
-  monthlyOrganizer: null,
   feeType: "per_rehearsal",
   defaultFeeAmount: null,
   visitorFormToken: null,
@@ -97,6 +97,7 @@ function createTestApp(actingMember: Member) {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(prisma.organizerPeriod.findMany).mockResolvedValue([]);
 });
 
 describe("GET /tickets", () => {
@@ -1375,6 +1376,7 @@ describe("GET /tickets/:concertId/race", () => {
     const body = await json(res);
     expect(body.data.parts[0].partName).toBe("パート未設定");
     expect(body.data.parts[0].stats.allocated).toBe(10);
+    expect(body.data.parts[0].organizerPeriod).toBeNull();
   });
 
   it("allocatedが0の団員は集計から除外される", async () => {
@@ -1744,6 +1746,187 @@ describe("GET /tickets/:concertId/race", () => {
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.data.scoring.avgSales.points).toEqual([10, 8, 6, 4]);
+  });
+
+  it("正常: 設定済みのOrganizerPeriodがパートに紐づけて返される", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([
+      {
+        allocations: [
+          makeAllocation({
+            memberId: "member-1",
+            nameJa: "山田太郎",
+            partId: "part-1",
+            partName: "テノール1",
+            allocatedCount: 10,
+            sold: 5,
+          }),
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
+    ]);
+    vi.mocked(prisma.organizerPeriod.findMany).mockResolvedValue([
+      { partId: "part-1", fromMonth: "2026-04", toMonth: "2026-06" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race`);
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.parts[0].organizerPeriod).toEqual({
+      fromMonth: "2026-04",
+      toMonth: "2026-06",
+    });
+  });
+});
+
+describe("PATCH /tickets/:concertId/race/organizer-periods/:partId", () => {
+  const testPart = { id: "part-1", orgId: "org-1", name: "Tenor I", voiceType: "tenor" };
+
+  it("ticket担当者/admin以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(
+      `/tickets/${testConcert.id}/race/organizer-periods/${testPart.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromMonth: "2026-04", toMonth: "2026-06" }),
+      },
+    );
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("演奏会が存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/nonexistent/race/organizer-periods/${testPart.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fromMonth: "2026-04", toMonth: "2026-06" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("パートが存在しない/別テナント: 404を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.part.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/race/organizer-periods/nonexistent`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fromMonth: "2026-04", toMonth: "2026-06" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("正常: fromMonth/toMonthをupsertする", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.part.findUnique).mockResolvedValue(testPart as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.organizerPeriod.upsert).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(
+      `/tickets/${testConcert.id}/race/organizer-periods/${testPart.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromMonth: "2026-04", toMonth: "2026-06" }),
+      },
+    );
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ partId: testPart.id, fromMonth: "2026-04", toMonth: "2026-06" });
+    expect(prisma.organizerPeriod.upsert).toHaveBeenCalledWith({
+      where: { orgId_partId: { orgId: "org-1", partId: testPart.id } },
+      create: { orgId: "org-1", partId: testPart.id, fromMonth: "2026-04", toMonth: "2026-06" },
+      update: { fromMonth: "2026-04", toMonth: "2026-06" },
+    });
+  });
+
+  it("fromMonth/toMonthに両方nullを指定: 削除される", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.part.findUnique).mockResolvedValue(testPart as any);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(
+      `/tickets/${testConcert.id}/race/organizer-periods/${testPart.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromMonth: null, toMonth: null }),
+      },
+    );
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ partId: testPart.id, fromMonth: null, toMonth: null });
+    expect(prisma.organizerPeriod.deleteMany).toHaveBeenCalledWith({
+      where: { orgId: "org-1", partId: testPart.id },
+    });
+    expect(prisma.organizerPeriod.upsert).not.toHaveBeenCalled();
+  });
+
+  it("fromMonthのみnull: 400を返す", async () => {
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(
+      `/tickets/${testConcert.id}/race/organizer-periods/${testPart.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromMonth: null, toMonth: "2026-06" }),
+      },
+    );
+
+    expect(res.status).toBe(400);
+  });
+
+  it("toMonthがfromMonthより前: 400を返す", async () => {
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(
+      `/tickets/${testConcert.id}/race/organizer-periods/${testPart.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromMonth: "2026-06", toMonth: "2026-04" }),
+      },
+    );
+
+    expect(res.status).toBe(400);
+  });
+
+  it("不正な月フォーマット: 400を返す", async () => {
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(
+      `/tickets/${testConcert.id}/race/organizer-periods/${testPart.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromMonth: "2026/04", toMonth: "2026-06" }),
+      },
+    );
+
+    expect(res.status).toBe(400);
   });
 });
 

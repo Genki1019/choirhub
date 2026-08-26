@@ -1,22 +1,21 @@
 import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
-import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 import { isAdmin, isVisitor, isTicketManager } from "../services/access.js";
 import { storage } from "../services/storage.js";
 
-export const homeRouter = new Hono<TenantEnv>()
-  .get("/home", async (c) => {
-    const org = c.get("org");
-    const member = c.get("member");
-    const orgId = org.id;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+export const homeRouter = new Hono<TenantEnv>().get("/home", async (c) => {
+  const org = c.get("org");
+  const member = c.get("member");
+  const orgId = org.id;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-    const isVisitorMember = isVisitor(member);
+  const isVisitorMember = isVisitor(member);
+  const currentMonth = today.toISOString().slice(0, 7);
 
-    const [upcomingRaw, recentMailsRaw, nextUpcomingConcert] = await Promise.all([
+  const [upcomingRaw, recentMailsRaw, nextUpcomingConcert, currentOrganizerPeriod] =
+    await Promise.all([
       prisma.event.findMany({
         where: { orgId, startsAt: { gte: today } },
         orderBy: { startsAt: "asc" },
@@ -45,113 +44,83 @@ export const homeRouter = new Hono<TenantEnv>()
         where: { orgId, heldOn: { gte: today }, status: { not: "past" } },
         orderBy: { heldOn: "asc" },
       }),
+      prisma.organizerPeriod.findFirst({
+        where: { orgId, fromMonth: { lte: currentMonth }, toMonth: { gte: currentMonth } },
+        include: { part: true },
+        orderBy: { part: { sortOrder: "asc" } },
+      }),
     ]);
 
-    const visibleEvents = isAdmin(member)
-      ? upcomingRaw
-      : upcomingRaw.filter((e) => {
-          const roleOk =
-            e.targetRoles.length === 0 || e.targetRoles.some((r) => member.roles.includes(r));
-          const partOk =
-            e.targetPartIds.length === 0 ||
-            (member.partId !== null && e.targetPartIds.includes(member.partId));
-          return roleOk && partOk;
-        });
-
-    const unansweredEventCount = visibleEvents.filter(
-      (e) => (e.attendances[0]?.status ?? "undecided") === "undecided",
-    ).length;
-
-    const mapEvent = (e: (typeof upcomingRaw)[0]) => ({
-      id: e.id,
-      title: e.title,
-      category: {
-        id: e.category.id,
-        name: e.category.name,
-        slug: e.category.slug,
-        color: e.category.color,
-      },
-      startsAt: e.startsAt.toISOString(),
-      location: e.location,
-      concertId: e.concertId,
-      myAttendance: e.attendances[0]?.status ?? "undecided",
-    });
-
-    const upcomingEvents = visibleEvents.slice(0, 3).map(mapEvent);
-    const nextRehearsalRaw = visibleEvents.find(
-      (e) => e.category.slug === "rehearsal" || e.category.name === "練習",
-    );
-    const nextConcertRaw = visibleEvents.find(
-      (e) => e.category.slug === "concert" || e.category.name === "本番",
-    );
-
-    // イベントに本番カテゴリがなければ Concert レコードを直接参照
-    const nextConcertFallback =
-      !nextConcertRaw && nextUpcomingConcert
-        ? {
-            id: nextUpcomingConcert.id,
-            title: nextUpcomingConcert.title,
-            category: { id: "", name: "本番", slug: "concert" as const, color: "#EF4444" },
-            startsAt: nextUpcomingConcert.heldOn.toISOString(),
-            location: nextUpcomingConcert.venue ?? null,
-            concertId: nextUpcomingConcert.id,
-            myAttendance: "undecided" as const,
-          }
-        : null;
-
-    const canViewTickets = isTicketManager(member);
-
-    return c.json({
-      data: {
-        upcomingEvents,
-        nextRehearsal: nextRehearsalRaw ? mapEvent(nextRehearsalRaw) : null,
-        nextConcert: nextConcertRaw ? mapEvent(nextConcertRaw) : nextConcertFallback,
-        unansweredEventCount,
-        recentMails: recentMailsRaw.map((m) => ({
-          id: m.id,
-          subject: m.subject,
-          sentAt: m.sentAt.toISOString(),
-          senderName: m.sentBy.userRef.nameJa,
-          senderAvatarUrl: storage.resolveAvatarUrl(m.sentBy.userRef.avatarUrl),
-        })),
-        canViewTickets,
-        monthlyOrganizer: org.monthlyOrganizer ?? null,
-        isTicketManager: canViewTickets,
-      },
-    });
-  })
-
-  .patch(
-    "/home/monthly-organizer",
-    zValidator(
-      "json",
-      z.object({
-        partName: z.string().max(50).nullable(),
-      }),
-      (result, c) => {
-        if (!result.success) {
-          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
-        }
-      },
-    ),
-    async (c) => {
-      const member = c.get("member");
-      const org = c.get("org");
-
-      if (!isTicketManager(member)) {
-        return c.json(
-          { error: { code: "FORBIDDEN", message: "チケット担当または管理者のみ操作できます" } },
-          403,
-        );
-      }
-
-      const { partName } = c.req.valid("json");
-
-      await prisma.organization.update({
-        where: { id: org.id },
-        data: { monthlyOrganizer: partName },
+  const visibleEvents = isAdmin(member)
+    ? upcomingRaw
+    : upcomingRaw.filter((e) => {
+        const roleOk =
+          e.targetRoles.length === 0 || e.targetRoles.some((r) => member.roles.includes(r));
+        const partOk =
+          e.targetPartIds.length === 0 ||
+          (member.partId !== null && e.targetPartIds.includes(member.partId));
+        return roleOk && partOk;
       });
 
-      return c.json({ data: { monthlyOrganizer: partName } });
+  const unansweredEventCount = visibleEvents.filter(
+    (e) => (e.attendances[0]?.status ?? "undecided") === "undecided",
+  ).length;
+
+  const mapEvent = (e: (typeof upcomingRaw)[0]) => ({
+    id: e.id,
+    title: e.title,
+    category: {
+      id: e.category.id,
+      name: e.category.name,
+      slug: e.category.slug,
+      color: e.category.color,
     },
+    startsAt: e.startsAt.toISOString(),
+    location: e.location,
+    concertId: e.concertId,
+    myAttendance: e.attendances[0]?.status ?? "undecided",
+  });
+
+  const upcomingEvents = visibleEvents.slice(0, 3).map(mapEvent);
+  const nextRehearsalRaw = visibleEvents.find(
+    (e) => e.category.slug === "rehearsal" || e.category.name === "練習",
   );
+  const nextConcertRaw = visibleEvents.find(
+    (e) => e.category.slug === "concert" || e.category.name === "本番",
+  );
+
+  // イベントに本番カテゴリがなければ Concert レコードを直接参照
+  const nextConcertFallback =
+    !nextConcertRaw && nextUpcomingConcert
+      ? {
+          id: nextUpcomingConcert.id,
+          title: nextUpcomingConcert.title,
+          category: { id: "", name: "本番", slug: "concert" as const, color: "#EF4444" },
+          startsAt: nextUpcomingConcert.heldOn.toISOString(),
+          location: nextUpcomingConcert.venue ?? null,
+          concertId: nextUpcomingConcert.id,
+          myAttendance: "undecided" as const,
+        }
+      : null;
+
+  const canViewTickets = isTicketManager(member);
+
+  return c.json({
+    data: {
+      upcomingEvents,
+      nextRehearsal: nextRehearsalRaw ? mapEvent(nextRehearsalRaw) : null,
+      nextConcert: nextConcertRaw ? mapEvent(nextConcertRaw) : nextConcertFallback,
+      unansweredEventCount,
+      recentMails: recentMailsRaw.map((m) => ({
+        id: m.id,
+        subject: m.subject,
+        sentAt: m.sentAt.toISOString(),
+        senderName: m.sentBy.userRef.nameJa,
+        senderAvatarUrl: storage.resolveAvatarUrl(m.sentBy.userRef.avatarUrl),
+      })),
+      canViewTickets,
+      monthlyOrganizer: currentOrganizerPeriod?.part.name ?? null,
+      isTicketManager: canViewTickets,
+    },
+  });
+});

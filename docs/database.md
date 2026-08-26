@@ -463,7 +463,6 @@ erDiagram
 | partTemplate                | JSONB     | NOT NULL                           | 団体作成時に選択したパートテンプレートのキー（`{ "templateKey": "mens4" \| "mixed4" \| "women3" \| "custom" }`）。テンプレート本体は `apps/api/src/lib/partTemplates.ts` で定義 |
 | feeType                     | ENUM      | NOT NULL, DEFAULT `per_rehearsal`  | 徴収方式（per_rehearsal / monthly）                                                                                                                                             |
 | defaultFeeAmount            | INT       |                                    | デフォルト徴収金額（円）。Collection 自動生成時の初期値                                                                                                                         |
-| monthlyOrganizer            | VARCHAR   |                                    | 今月の飲み会幹事パート名（ホーム画面表示用）                                                                                                                                    |
 | visitorFormToken            | VARCHAR   | UNIQUE                             | 見学申込Webhook用トークン（未発行時はNULL）                                                                                                                                     |
 | visitorIntroSubjectTemplate | VARCHAR   | NOT NULL, DEFAULT `見学者のご紹介` | 見学者紹介文（メール件名）のテンプレート                                                                                                                                        |
 | visitorIntroBodyTemplate    | VARCHAR   | NOT NULL                           | 見学者紹介文（本文）のテンプレート。`{lines}` に見学者ごとの行が展開される                                                                                                      |
@@ -482,6 +481,23 @@ erDiagram
 | voiceType | VARCHAR | NOT NULL                    | 声部種別（tenor / bass / soprano 等） |
 | sortOrder | INT     | NOT NULL                    | 表示順                                |
 | isCustom  | BOOLEAN | NOT NULL, DEFAULT false     | 団固有のカスタムパートか              |
+
+---
+
+### OrganizerPeriod（幹事パート期間）
+
+> パートごとの飲み会幹事担当期間。`(orgId, partId)` で一意な1行を持ち、チケット担当がパートセールスレース画面から個別に上書きする。concert には紐付けず、常に「今の割り当て」のみを保持する。
+
+| カラム    | 型        | 制約                        | 説明                    |
+| --------- | --------- | --------------------------- | ----------------------- |
+| id        | CUID      | PK                          |                         |
+| orgId     | CUID      | NOT NULL, FK → Organization |                         |
+| partId    | CUID      | NOT NULL, FK → Part         |                         |
+| fromMonth | VARCHAR   | NOT NULL                    | 開始月（`YYYY-MM`形式） |
+| toMonth   | VARCHAR   | NOT NULL                    | 終了月（`YYYY-MM`形式） |
+| updatedAt | TIMESTAMP | NOT NULL                    | 更新日時                |
+
+- `(orgId, partId)` にUNIQUE制約。ホーム画面の「今月の幹事」は当月を含む期間のパートを表示する（複数該当時は `Part.sortOrder` 昇順で先頭を採用）。
 
 ---
 

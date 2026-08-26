@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import HomePage from "../page";
 import { homeApi, type HomeData } from "@/lib/home-api";
@@ -12,7 +11,6 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/home-api", () => ({
   homeApi: {
     get: vi.fn(),
-    setMonthlyOrganizer: vi.fn(),
   },
 }));
 
@@ -195,28 +193,5 @@ describe("HomePage（最近のメール）", () => {
     expect(await screen.findByText("最近のメール")).toBeInTheDocument();
     expect(screen.getByText("山田太郎")).toBeInTheDocument();
     expect(screen.getByText("6月練習のご案内")).toBeInTheDocument();
-  });
-});
-
-describe("HomePage（今月の幹事の更新反映）", () => {
-  it("編集して保存すると、再取得なしで画面表示がキャッシュ経由で更新される", async () => {
-    vi.mocked(homeApi.get).mockResolvedValue({
-      ...baseHomeData,
-      isTicketManager: true,
-      monthlyOrganizer: null,
-    });
-    vi.mocked(homeApi.setMonthlyOrganizer).mockResolvedValue({ monthlyOrganizer: "Bass II" });
-    const user = userEvent.setup();
-    renderPage();
-
-    await screen.findByText("未設定");
-    await user.click(screen.getByRole("button"));
-    await user.type(screen.getByPlaceholderText("パート名を入力"), "Bass II");
-    await user.click(screen.getByLabelText("保存"));
-
-    await waitFor(() => {
-      expect(screen.getByText("Bass II")).toBeInTheDocument();
-    });
-    expect(homeApi.get).toHaveBeenCalledTimes(1);
   });
 });

@@ -115,12 +115,18 @@ export interface RacePartStats {
   sold: number;
 }
 
+export interface OrganizerPeriod {
+  fromMonth: string;
+  toMonth: string;
+}
+
 export interface RacePart {
   partId: string;
   partName: string;
   rank: number;
   totalPoints: number;
   breakdown: RacePartBreakdown;
+  organizerPeriod: OrganizerPeriod | null;
   stats: RacePartStats;
 }
 
@@ -285,6 +291,17 @@ export const ticketsApi = {
 
   unpublishRace: (orgSlug: string, concertId: string) =>
     apiClient.delete(`/${orgSlug}/tickets/${concertId}/race/publish`),
+
+  saveOrganizerPeriod: (
+    orgSlug: string,
+    concertId: string,
+    partId: string,
+    period: OrganizerPeriod | null,
+  ) =>
+    apiClient.patch<{ partId: string; fromMonth: string | null; toMonth: string | null }>(
+      `/${orgSlug}/tickets/${concertId}/race/organizer-periods/${partId}`,
+      { fromMonth: period?.fromMonth ?? null, toMonth: period?.toMonth ?? null },
+    ),
 
   updateScoringConfig: (orgSlug: string, concertId: string, config: ScoringConfigInput) =>
     apiClient.patch<{ scoring: RaceScoringConfig }>(

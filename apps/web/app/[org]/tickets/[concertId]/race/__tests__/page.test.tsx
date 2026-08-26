@@ -51,6 +51,7 @@ function makeRaceData(overrides: Partial<RaceData> = {}): RaceData {
           zeroRatioPoints: 10,
           outreachPoints: 6,
         },
+        organizerPeriod: null,
         stats: {
           avgSold: 4.5,
           speed5AchievedAt: null,

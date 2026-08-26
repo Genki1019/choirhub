@@ -174,7 +174,26 @@ export default function RacePage() {
         {tab === "parts" ? (
           <div className="space-y-3">
             {data.parts.map((p) => (
-              <PartCard key={p.partId} part={p} scoring={data.scoring} />
+              <PartCard
+                key={p.partId}
+                part={p}
+                scoring={data.scoring}
+                isTicketManager={data.isTicketManager}
+                org={org}
+                concertId={concertId}
+                onOrganizerPeriodSaved={(partId, period) => {
+                  queryClient.setQueryData<RaceData>(ticketKeys.race(org, concertId), (prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          parts: prev.parts.map((part) =>
+                            part.partId === partId ? { ...part, organizerPeriod: period } : part,
+                          ),
+                        }
+                      : prev,
+                  );
+                }}
+              />
             ))}
           </div>
         ) : (

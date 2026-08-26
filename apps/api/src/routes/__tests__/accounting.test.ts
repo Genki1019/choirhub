@@ -46,7 +46,6 @@ const testOrg: Organization = {
   name: "東京男声合唱団",
   slug: "tokyo-men-choir",
   partTemplate: {},
-  monthlyOrganizer: null,
   feeType: "per_rehearsal",
   defaultFeeAmount: null,
   visitorFormToken: null,

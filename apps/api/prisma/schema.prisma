@@ -148,7 +148,6 @@ model Organization {
   name                        String
   slug                        String   @unique
   partTemplate                Json     @map("part_template")
-  monthlyOrganizer            String?  @map("monthly_organizer")
   feeType                     FeeType  @default(per_rehearsal) @map("fee_type")
   defaultFeeAmount            Int?     @map("default_fee_amount")
   visitorFormToken            String?  @unique @map("visitor_form_token")
@@ -171,6 +170,7 @@ model Organization {
   eventCategories     EventCategory[]
   collections         Collection[]
   visitorApplications VisitorApplication[]
+  organizerPeriods    OrganizerPeriod[]
 
   @@map("organizations")
 }
@@ -183,10 +183,26 @@ model Part {
   sortOrder Int     @map("sort_order")
   isCustom  Boolean @default(false) @map("is_custom")
 
-  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  members Member[]
+  org              Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  members          Member[]
+  organizerPeriods OrganizerPeriod[]
 
   @@map("parts")
+}
+
+model OrganizerPeriod {
+  id        String   @id @default(cuid())
+  orgId     String   @map("org_id")
+  partId    String   @map("part_id")
+  fromMonth String   @map("from_month")
+  toMonth   String   @map("to_month")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  part Part         @relation(fields: [partId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, partId])
+  @@map("organizer_periods")
 }
 
 model Member {

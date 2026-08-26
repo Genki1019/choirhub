@@ -1,5 +1,12 @@
+import { useState } from "react";
+import { Pencil, Check, X, Loader2 } from "lucide-react";
 import { SCORING_CRITERIA } from "@/lib/scoring-criteria";
-import type { RacePart, RaceScoringConfig } from "@/lib/tickets-api";
+import {
+  ticketsApi,
+  type OrganizerPeriod,
+  type RacePart,
+  type RaceScoringConfig,
+} from "@/lib/tickets-api";
 import { RankBadge } from "./RankBadge";
 
 function fmt(n: number, digits = 1) {
@@ -22,7 +29,188 @@ function BreakdownChip({ label, points, max }: { label: string; points: number; 
   );
 }
 
-export function PartCard({ part, scoring }: { part: RacePart; scoring: RaceScoringConfig }) {
+function formatMonth(yearMonth: string) {
+  const [year, month] = yearMonth.split("-");
+  return `${year}年${Number(month)}月`;
+}
+
+const MONTH_SELECT_YEARS_BEFORE = 1;
+const MONTH_SELECT_YEARS_AFTER = 3;
+
+function MonthSelect({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [year, setYear] = useState(() => value.split("-")[0] ?? "");
+  const [month, setMonth] = useState(() => value.split("-")[1] ?? "");
+
+  const commit = (nextYear: string, nextMonth: string) => {
+    setYear(nextYear);
+    setMonth(nextMonth);
+    onChange(nextYear && nextMonth ? `${nextYear}-${nextMonth}` : "");
+  };
+
+  const currentYear = new Date().getFullYear();
+  const years = new Set(
+    Array.from(
+      { length: MONTH_SELECT_YEARS_BEFORE + MONTH_SELECT_YEARS_AFTER + 1 },
+      (_, i) => currentYear - MONTH_SELECT_YEARS_BEFORE + i,
+    ),
+  );
+  if (year) years.add(Number(year));
+
+  const selectClass =
+    "rounded-lg border border-gray-300 bg-white px-1.5 py-1 text-xs focus:ring-2 focus:ring-teal-400 focus:outline-none";
+
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      <select
+        aria-label={`${label}（年）`}
+        value={year}
+        onChange={(e) => commit(e.target.value, month)}
+        className={selectClass}
+      >
+        <option value="">年</option>
+        {[...years]
+          .sort((a, b) => a - b)
+          .map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+      </select>
+      <span className="text-xs text-gray-400">年</span>
+      <select
+        aria-label={`${label}（月）`}
+        value={month}
+        onChange={(e) => commit(year, e.target.value)}
+        className={selectClass}
+      >
+        <option value="">月</option>
+        {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+          <option key={m} value={String(m).padStart(2, "0")}>
+            {m}
+          </option>
+        ))}
+      </select>
+      <span className="text-xs text-gray-400">月</span>
+    </span>
+  );
+}
+
+interface OrganizerPeriodRowProps {
+  partId: string;
+  period: OrganizerPeriod | null;
+  isTicketManager: boolean;
+  org: string;
+  concertId: string;
+  onSaved: (partId: string, period: OrganizerPeriod | null) => void;
+}
+
+function OrganizerPeriodRow({
+  partId,
+  period,
+  isTicketManager,
+  org,
+  concertId,
+  onSaved,
+}: OrganizerPeriodRowProps) {
+  const [editing, setEditing] = useState(false);
+  const [fromMonth, setFromMonth] = useState(period?.fromMonth ?? "");
+  const [toMonth, setToMonth] = useState(period?.toMonth ?? "");
+  const [saving, setSaving] = useState(false);
+
+  if (!isTicketManager && !period) return null;
+
+  if (!isTicketManager) {
+    return (
+      <p className="mt-2 text-xs text-gray-400">
+        幹事期間: {formatMonth(period!.fromMonth)}〜{formatMonth(period!.toMonth)}
+      </p>
+    );
+  }
+
+  const handleSave = async () => {
+    const nextPeriod = fromMonth && toMonth ? { fromMonth, toMonth } : null;
+    setSaving(true);
+    try {
+      await ticketsApi.saveOrganizerPeriod(org, concertId, partId, nextPeriod);
+      onSaved(partId, nextPeriod);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setFromMonth(period?.fromMonth ?? "");
+    setToMonth(period?.toMonth ?? "");
+    setEditing(false);
+  };
+
+  const isRangeInvalid = !!fromMonth !== !!toMonth || (!!fromMonth && fromMonth > toMonth);
+
+  if (!editing) {
+    return (
+      <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-400">
+        <span>
+          幹事期間:{" "}
+          {period ? `${formatMonth(period.fromMonth)}〜${formatMonth(period.toMonth)}` : "未設定"}
+        </span>
+        <button
+          onClick={() => setEditing(true)}
+          className="text-gray-300 transition-colors hover:text-gray-500"
+        >
+          <Pencil size={12} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      <MonthSelect label="開始月" value={fromMonth} onChange={setFromMonth} />
+      <span className="text-xs text-gray-400">〜</span>
+      <MonthSelect label="終了月" value={toMonth} onChange={setToMonth} />
+      <button
+        onClick={handleSave}
+        disabled={saving || isRangeInvalid}
+        aria-label="保存"
+        className="text-teal-600 hover:text-teal-800 disabled:opacity-40"
+      >
+        {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+      </button>
+      <button
+        onClick={handleCancel}
+        aria-label="キャンセル"
+        className="text-gray-400 hover:text-gray-600"
+      >
+        <X size={13} />
+      </button>
+    </div>
+  );
+}
+
+export function PartCard({
+  part,
+  scoring,
+  isTicketManager,
+  org,
+  concertId,
+  onOrganizerPeriodSaved,
+}: {
+  part: RacePart;
+  scoring: RaceScoringConfig;
+  isTicketManager: boolean;
+  org: string;
+  concertId: string;
+  onOrganizerPeriodSaved: (partId: string, period: OrganizerPeriod | null) => void;
+}) {
   const bd = part.breakdown;
   const st = part.stats;
   const activeCriteria = SCORING_CRITERIA.filter((c) => scoring[c.key].enabled);
@@ -81,6 +269,14 @@ export function PartCard({ part, scoring }: { part: RacePart; scoring: RaceScori
               )}
             </div>
           )}
+          <OrganizerPeriodRow
+            partId={part.partId}
+            period={part.organizerPeriod}
+            isTicketManager={isTicketManager}
+            org={org}
+            concertId={concertId}
+            onSaved={onOrganizerPeriodSaved}
+          />
         </div>
       </div>
     </div>

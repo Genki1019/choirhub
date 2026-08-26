@@ -48,10 +48,9 @@
 
 ### ホーム
 
-| API名                                             | Method | Path                               | 権限         |
-| ------------------------------------------------- | ------ | ---------------------------------- | ------------ |
-| [ホームデータ取得](#home-get)                     | GET    | `/:orgSlug/home`                   | -            |
-| [月当番パート更新](#home-monthly-organizer-patch) | PATCH  | `/:orgSlug/home/monthly-organizer` | ticket/admin |
+| API名                         | Method | Path             | 権限 |
+| ----------------------------- | ------ | ---------------- | ---- |
+| [ホームデータ取得](#home-get) | GET    | `/:orgSlug/home` | -    |
 
 ### メンバー管理
 
@@ -139,29 +138,30 @@
 
 ### チケット管理
 
-| API名                                                       | Method | Path                                                    | 権限                                  |
-| ----------------------------------------------------------- | ------ | ------------------------------------------------------- | ------------------------------------- |
-| [チケット管理一覧](#tickets-list)                           | GET    | `/:orgSlug/tickets`                                     | ticket or admin                       |
-| [チケット一覧（自分）](#tickets-my-get)                     | GET    | `/:orgSlug/tickets/my`                                  | member+                               |
-| [チケット集計取得](#tickets-id-get)                         | GET    | `/:orgSlug/tickets/:concertId`                          | ticket or admin                       |
-| [席種作成](#tickets-batches-create)                         | POST   | `/:orgSlug/tickets/:concertId/batches`                  | ticket or admin                       |
-| [席種更新](#tickets-batches-patch)                          | PATCH  | `/:orgSlug/tickets/:concertId/batches/:batchId`         | ticket or admin                       |
-| [席種削除](#tickets-batches-delete)                         | DELETE | `/:orgSlug/tickets/:concertId/batches/:batchId`         | ticket or admin                       |
-| [チケット配布記録](#tickets-allocate)                       | POST   | `/:orgSlug/tickets/:concertId/allocate`                 | ticket or admin / member+（自分のみ） |
-| [販売・回収報告](#tickets-allocation-patch)                 | PATCH  | `/:orgSlug/tickets/allocations/:id`                     | member（自分）/ ticket or admin       |
-| [情宣交通費一括支払い記録](#tickets-outreach-expenses-bulk) | POST   | `/:orgSlug/tickets/:concertId/outreach-expenses/bulk`   | ticket or admin                       |
-| [情宣交通費単価設定](#tickets-outreach-expense-rate)        | PATCH  | `/:orgSlug/tickets/:concertId/outreach-expense-rate`    | ticket or admin                       |
-| [パートレース取得](#tickets-race)                           | GET    | `/:orgSlug/tickets/:concertId/race`                     | ticket or admin                       |
-| [採点設定更新](#tickets-race-scoring)                       | PATCH  | `/:orgSlug/tickets/:concertId/scoring`                  | ticket or admin                       |
-| [レース公開](#tickets-race-publish)                         | POST   | `/:orgSlug/tickets/:concertId/race/publish`             | ticket or admin                       |
-| [レース非公開](#tickets-race-unpublish)                     | DELETE | `/:orgSlug/tickets/:concertId/race/publish`             | ticket or admin                       |
-| [入力締め切り](#tickets-close)                              | POST   | `/:orgSlug/tickets/:concertId/close`                    | ticket or admin                       |
-| [入力再開](#tickets-reopen)                                 | DELETE | `/:orgSlug/tickets/:concertId/close`                    | ticket or admin                       |
-| [情宣活動一覧取得](#outreach-list)                          | GET    | `/:orgSlug/tickets/:concertId/outreach`                 | 認証済み全員                          |
-| [情宣活動申請](#outreach-create)                            | POST   | `/:orgSlug/tickets/:concertId/outreach`                 | member+                               |
-| [交通費支払い承認](#outreach-pay)                           | PATCH  | `/:orgSlug/tickets/:concertId/outreach/:activityId/pay` | ticket or admin                       |
-| [交通費支払い取消](#outreach-unpay)                         | DELETE | `/:orgSlug/tickets/:concertId/outreach/:activityId/pay` | ticket or admin                       |
-| [情宣活動削除](#outreach-delete)                            | DELETE | `/:orgSlug/tickets/:concertId/outreach/:activityId`     | 申請者 or ticket or admin             |
+| API名                                                       | Method | Path                                                          | 権限                                  |
+| ----------------------------------------------------------- | ------ | ------------------------------------------------------------- | ------------------------------------- |
+| [チケット管理一覧](#tickets-list)                           | GET    | `/:orgSlug/tickets`                                           | ticket or admin                       |
+| [チケット一覧（自分）](#tickets-my-get)                     | GET    | `/:orgSlug/tickets/my`                                        | member+                               |
+| [チケット集計取得](#tickets-id-get)                         | GET    | `/:orgSlug/tickets/:concertId`                                | ticket or admin                       |
+| [席種作成](#tickets-batches-create)                         | POST   | `/:orgSlug/tickets/:concertId/batches`                        | ticket or admin                       |
+| [席種更新](#tickets-batches-patch)                          | PATCH  | `/:orgSlug/tickets/:concertId/batches/:batchId`               | ticket or admin                       |
+| [席種削除](#tickets-batches-delete)                         | DELETE | `/:orgSlug/tickets/:concertId/batches/:batchId`               | ticket or admin                       |
+| [チケット配布記録](#tickets-allocate)                       | POST   | `/:orgSlug/tickets/:concertId/allocate`                       | ticket or admin / member+（自分のみ） |
+| [販売・回収報告](#tickets-allocation-patch)                 | PATCH  | `/:orgSlug/tickets/allocations/:id`                           | member（自分）/ ticket or admin       |
+| [情宣交通費一括支払い記録](#tickets-outreach-expenses-bulk) | POST   | `/:orgSlug/tickets/:concertId/outreach-expenses/bulk`         | ticket or admin                       |
+| [情宣交通費単価設定](#tickets-outreach-expense-rate)        | PATCH  | `/:orgSlug/tickets/:concertId/outreach-expense-rate`          | ticket or admin                       |
+| [パートレース取得](#tickets-race)                           | GET    | `/:orgSlug/tickets/:concertId/race`                           | ticket or admin                       |
+| [採点設定更新](#tickets-race-scoring)                       | PATCH  | `/:orgSlug/tickets/:concertId/scoring`                        | ticket or admin                       |
+| [幹事期間設定](#tickets-race-organizer-periods)             | PATCH  | `/:orgSlug/tickets/:concertId/race/organizer-periods/:partId` | ticket or admin                       |
+| [レース公開](#tickets-race-publish)                         | POST   | `/:orgSlug/tickets/:concertId/race/publish`                   | ticket or admin                       |
+| [レース非公開](#tickets-race-unpublish)                     | DELETE | `/:orgSlug/tickets/:concertId/race/publish`                   | ticket or admin                       |
+| [入力締め切り](#tickets-close)                              | POST   | `/:orgSlug/tickets/:concertId/close`                          | ticket or admin                       |
+| [入力再開](#tickets-reopen)                                 | DELETE | `/:orgSlug/tickets/:concertId/close`                          | ticket or admin                       |
+| [情宣活動一覧取得](#outreach-list)                          | GET    | `/:orgSlug/tickets/:concertId/outreach`                       | 認証済み全員                          |
+| [情宣活動申請](#outreach-create)                            | POST   | `/:orgSlug/tickets/:concertId/outreach`                       | member+                               |
+| [交通費支払い承認](#outreach-pay)                           | PATCH  | `/:orgSlug/tickets/:concertId/outreach/:activityId/pay`       | ticket or admin                       |
+| [交通費支払い取消](#outreach-unpay)                         | DELETE | `/:orgSlug/tickets/:concertId/outreach/:activityId/pay`       | ticket or admin                       |
+| [情宣活動削除](#outreach-delete)                            | DELETE | `/:orgSlug/tickets/:concertId/outreach/:activityId`           | 申請者 or ticket or admin             |
 
 ### 設定
 
@@ -801,32 +801,8 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は3
 ```
 
 > `nextConcert`は該当イベントが見つからない場合、直近の`Concert`レコードから疑似イベント（`category.id`は空文字、`myAttendance`は`"undecided"`固定）を合成して返す。
-
----
-
-<a id="home-monthly-organizer-patch"></a>
-
-### PATCH `/api/v1/:orgSlug/home/monthly-organizer`
-
-月当番パートを更新する。
-
-**権限**: `ticket` or `admin`
-
-**Request Body:**
-
-```json
-{ "partName": "Tenor I" }
-```
-
-`partName`は`null`指定で解除できる（最大50文字）。
-
-**Response** `200`
-
-```json
-{ "data": { "monthlyOrganizer": "Tenor I" } }
-```
-
-**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` チケット担当または管理者のみ操作可能
+>
+> `monthlyOrganizer`は`OrganizerPeriod`のうち当月を含む期間が設定されているパート名を動的に算出して返す（該当が無ければ`null`、複数パートが該当する場合は`Part.sortOrder`昇順で先頭を採用）。設定は[幹事期間設定](#tickets-race-organizer-periods)から行う。
 
 ---
 
@@ -3284,6 +3260,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
           "zeroRatioPoints": 4,
           "outreachPoints": 0
         },
+        "organizerPeriod": { "fromMonth": "2026-11", "toMonth": "2027-01" },
         "stats": {
           "avgSold": 7,
           "speed5AchievedAt": "2026-10-05T12:00:00.000Z",
@@ -3318,6 +3295,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 > - 情宣回数はメンバーが複数席種に配布記録を持つ場合、合計ではなく最大値を採用する（重複計上防止）。
 > - `speed5`/`speed10`はパート内で該当枚数以上を売った団員が`minCount`人に達した時点の`reportedAt`（3人目の報告日時）。未達の場合`null`で得点0。
 > - `scoring`は`Concert.scoringConfig`（[採点設定更新](#tickets-race-scoring)で保存）が優先され、未設定時は上記デフォルト値を使用する。`enabled: false`の基準は`breakdown`・`totalPoints`に反映されず0点として扱われる。
+> - `organizerPeriod`は`OrganizerPeriod`（[幹事期間設定](#tickets-race-organizer-periods)で保存、org全体で共有）から該当パート分を引き当てたもの。未設定の場合は`null`。
 
 **Errors:**: `403` `FORBIDDEN` 未公開のレースに非担当者がアクセスしようとした / `404` `NOT_FOUND` 演奏会が存在しない
 
@@ -3375,6 +3353,34 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 > - `points`は1〜10要素の非負整数配列。5基準すべてを毎回フルオブジェクトで送信する（部分更新は不可）。
 
 **Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `409` `CONFLICT` レース公開後のため変更不可
+
+---
+
+<a id="tickets-race-organizer-periods"></a>
+
+### PATCH `/api/v1/:orgSlug/tickets/:concertId/race/organizer-periods/:partId`
+
+パートごとの幹事期間（何月〜何月）を設定・解除する（`OrganizerPeriod`を`(orgId, partId)`単位でupsert）。レース公開状態に関わらずいつでも操作できる。
+
+**権限**: `ticket or admin`
+
+**Request Body:**
+
+```json
+{ "fromMonth": "2026-11", "toMonth": "2027-01" }
+```
+
+`fromMonth`/`toMonth`は`YYYY-MM`形式。両方に`null`を指定すると設定を解除する（片方だけ`null`は不可）。
+
+**Response** `200`
+
+```json
+{ "data": { "partId": "cuid", "fromMonth": "2026-11", "toMonth": "2027-01" } }
+```
+
+> `concertId`はURLの文脈（パートレース画面からの操作）としてのみ使用し、演奏会の存在確認にのみ用いる。`OrganizerPeriod`自体は`concertId`を持たずorg全体で共有される。
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正（月フォーマット不正・`toMonth`が`fromMonth`より前・片方だけ`null`） / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会またはパートが存在しない
 
 ---
 

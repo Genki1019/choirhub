@@ -20,6 +20,9 @@ vi.mock("@/lib/events-api", () => ({
     get: vi.fn(),
     delete: vi.fn(),
     updateAttendance: vi.fn(),
+    listFiles: vi.fn(),
+    uploadFile: vi.fn(),
+    deleteFile: vi.fn(),
   },
 }));
 
@@ -70,6 +73,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(membersApi.list).mockResolvedValue([]);
   vi.mocked(membersApi.parts).mockResolvedValue([]);
+  vi.mocked(eventsApi.listFiles).mockResolvedValue([]);
 });
 
 describe("ScheduleDetailPage（表示状態）", () => {
@@ -175,6 +179,35 @@ describe("ScheduleDetailPage（編集・削除ボタンの権限）", () => {
     await screen.findByText("第12回定期練習");
     expect(screen.queryByText("編集")).not.toBeInTheDocument();
     expect(screen.queryByText("削除")).not.toBeInTheDocument();
+  });
+});
+
+describe("ScheduleDetailPage（添付ファイル）", () => {
+  it("添付ファイルセクションを表示する", async () => {
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent());
+    vi.mocked(eventsApi.listFiles).mockResolvedValue([]);
+    renderPage(["member"]);
+
+    expect(await screen.findByText("添付ファイル")).toBeInTheDocument();
+    expect(await screen.findByText("登録されているファイルはありません")).toBeInTheDocument();
+  });
+
+  it("member: アップロードフォームを表示しない", async () => {
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent());
+    vi.mocked(eventsApi.listFiles).mockResolvedValue([]);
+    renderPage(["member"]);
+
+    await screen.findByText("添付ファイル");
+    expect(screen.queryByRole("button", { name: "追加" })).not.toBeInTheDocument();
+  });
+
+  it("admin: アップロードフォームを表示する", async () => {
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent());
+    vi.mocked(eventsApi.listFiles).mockResolvedValue([]);
+    renderPage(["admin"]);
+
+    await screen.findByText("添付ファイル");
+    expect(screen.getByRole("button", { name: "追加" })).toBeInTheDocument();
   });
 });
 

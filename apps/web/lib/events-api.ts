@@ -1,5 +1,8 @@
 import { apiClient } from "./api-client";
 import type { TokenResponse } from "./api-types";
+import { uploadAttachment, type AttachmentFile } from "./file-attachment-api";
+
+export type { AttachmentFile };
 
 export type AttendanceStatus = "attending" | "absent" | "maybe" | "undecided";
 
@@ -134,4 +137,21 @@ export const eventsApi = {
 
   regenerateCalendarFeedToken: (orgSlug: string) =>
     apiClient.post<TokenResponse>(`/${orgSlug}/calendar-feed-token/regenerate`, {}),
+
+  listFiles: (orgSlug: string, id: string) =>
+    apiClient.get<AttachmentFile[]>(`/${orgSlug}/events/${id}/files`),
+
+  uploadFile: (orgSlug: string, id: string, file: File, label: string) =>
+    uploadAttachment<AttachmentFile>({
+      presignPath: `/${orgSlug}/events/${id}/files/presign`,
+      confirmPath: `/${orgSlug}/events/${id}/files/confirm`,
+      fallbackPath: `/${orgSlug}/events/${id}/files`,
+      file,
+      presignExtra: { label },
+      confirmExtra: { label },
+      fallbackExtra: { label },
+    }),
+
+  deleteFile: (orgSlug: string, id: string, fileId: string) =>
+    apiClient.delete(`/${orgSlug}/events/${id}/files/${fileId}`),
 };

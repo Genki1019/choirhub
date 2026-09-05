@@ -68,15 +68,21 @@
 
 ### スケジュール・出欠
 
-| API名                                             | Method | Path                                        | 権限    |
-| ------------------------------------------------- | ------ | ------------------------------------------- | ------- |
-| [イベント一覧取得](#events-list)                  | GET    | `/:orgSlug/events`                          | member+ |
-| [イベント作成](#events-create)                    | POST   | `/:orgSlug/events`                          | tech+   |
-| [イベント詳細・出欠一覧取得](#events-id-get)      | GET    | `/:orgSlug/events/:id`                      | member+ |
-| [イベント更新](#events-id-patch)                  | PATCH  | `/:orgSlug/events/:id`                      | tech+   |
-| [イベント削除](#events-id-delete)                 | DELETE | `/:orgSlug/events/:id`                      | tech+   |
-| [自分の出欠更新](#attendance-me)                  | PUT    | `/:orgSlug/events/:id/attendance/me`        | member+ |
-| [他メンバーの出欠更新（代理）](#attendance-proxy) | PATCH  | `/:orgSlug/events/:id/attendance/:memberId` | admin   |
+| API名                                             | Method | Path                                          | 権限    |
+| ------------------------------------------------- | ------ | --------------------------------------------- | ------- |
+| [イベント一覧取得](#events-list)                  | GET    | `/:orgSlug/events`                            | member+ |
+| [イベント作成](#events-create)                    | POST   | `/:orgSlug/events`                            | tech+   |
+| [イベント詳細・出欠一覧取得](#events-id-get)      | GET    | `/:orgSlug/events/:id`                        | member+ |
+| [イベント更新](#events-id-patch)                  | PATCH  | `/:orgSlug/events/:id`                        | tech+   |
+| [イベント削除](#events-id-delete)                 | DELETE | `/:orgSlug/events/:id`                        | tech+   |
+| [自分の出欠更新](#attendance-me)                  | PUT    | `/:orgSlug/events/:id/attendance/me`          | member+ |
+| [他メンバーの出欠更新（代理）](#attendance-proxy) | PATCH  | `/:orgSlug/events/:id/attendance/:memberId`   | admin   |
+| [プレサインドURL発行](#events-file-presign)       | POST   | `/:orgSlug/events/:id/files/presign`          | tech+   |
+| [アップロード確定](#events-file-confirm)          | POST   | `/:orgSlug/events/:id/files/confirm`          | tech+   |
+| [ファイルアップロード](#events-file-upload)       | POST   | `/:orgSlug/events/:id/files`                  | tech+   |
+| [ファイル一覧取得](#events-file-list)             | GET    | `/:orgSlug/events/:id/files`                  | member+ |
+| [ファイル削除](#events-file-delete)               | DELETE | `/:orgSlug/events/:id/files/:fileId`          | tech+   |
+| [ファイルダウンロード](#events-file-download)     | GET    | `/:orgSlug/events/:id/files/:fileId/download` | member+ |
 
 ### 楽譜管理
 
@@ -123,6 +129,12 @@
 | [フォーメーションパターン削除](#formation-patterns-delete)    | DELETE | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId`       | tech+    |
 | [フォーメーションパターン並び替え](#formation-patterns-order) | PUT    | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/order`            | tech+    |
 | [枠・スロット一括保存](#formation-slots-save)                 | PUT    | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId/slots` | tech+    |
+| [プレサインドURL発行](#concerts-file-presign)                 | POST   | `/:orgSlug/concerts/:concertId/files/presign`                                       | tech+    |
+| [アップロード確定](#concerts-file-confirm)                    | POST   | `/:orgSlug/concerts/:concertId/files/confirm`                                       | tech+    |
+| [ファイルアップロード](#concerts-file-upload)                 | POST   | `/:orgSlug/concerts/:concertId/files`                                               | tech+    |
+| [ファイル一覧取得](#concerts-file-list)                       | GET    | `/:orgSlug/concerts/:concertId/files`                                               | member+  |
+| [ファイル削除](#concerts-file-delete)                         | DELETE | `/:orgSlug/concerts/:concertId/files/:fileId`                                       | tech+    |
+| [ファイルダウンロード](#concerts-file-download)               | GET    | `/:orgSlug/concerts/:concertId/files/:fileId/download`                              | member+  |
 
 ### メール
 
@@ -1295,6 +1307,165 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は3
 
 ---
 
+<a id="events-file-presign"></a>
+
+### POST `/api/v1/:orgSlug/events/:id/files/presign`
+
+R2への直接アップロード用に、プレサインドPUT URLを発行する（本番のアップロードフローの1段階目）。
+
+**権限**: `tech+`
+
+**Request Body:**
+
+| フィールド  | 型     | 必須 | 説明                                                                               |
+| ----------- | ------ | ---- | ---------------------------------------------------------------------------------- |
+| label       | string | ✓    | 種別ラベル（フライヤー/しおり/行程表/資料/その他 等）                              |
+| fileName    | string | ✓    | 元のファイル名（拡張子判定用）                                                     |
+| contentType | string | ✓    | クライアントの参考値。実際に署名される値はサーバーが拡張子から決定する（下記参照） |
+
+```json
+{ "label": "行程表", "fileName": "itinerary.pdf", "contentType": "application/pdf" }
+```
+
+**Response** `200`
+
+```json
+{
+  "data": {
+    "presignedUrl": "https://...",
+    "key": "events/uuid.pdf",
+    "contentType": "application/pdf"
+  }
+}
+```
+
+> 許可される拡張子は `.pdf` / `.jpg` / `.jpeg` / `.png` のみ。
+> レスポンスの`contentType`はサーバーが拡張子から一意に決定した値（クライアント指定の`contentType`は無視する。偽装したContentTypeでR2に保存されるのを防ぐため）。実際のPUTリクエストはこの値と`Content-Type`ヘッダーを一致させる必要がある（不一致だと署名検証で拒否される）。
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正・拡張子不一致 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` イベントが存在しない
+
+---
+
+<a id="events-file-confirm"></a>
+
+### POST `/api/v1/:orgSlug/events/:id/files/confirm`
+
+プレサインドURLへのアップロード完了後、ファイルをDBに登録する（本番のアップロードフローの2段階目）。
+
+**権限**: `tech+`
+
+**Request Body:**
+
+| フィールド | 型     | 必須 | 説明                      |
+| ---------- | ------ | ---- | ------------------------- |
+| key        | string | ✓    | presignで発行された `key` |
+| label      | string | ✓    | 種別ラベル                |
+| fileName   | string | ✓    | 表示用ファイル名          |
+
+```json
+{ "key": "events/uuid.pdf", "label": "行程表", "fileName": "itinerary.pdf" }
+```
+
+**Response** `201`
+
+```json
+{
+  "data": {
+    "id": "cuid",
+    "label": "行程表",
+    "fileName": "itinerary.pdf",
+    "downloadUrl": "/api/v1/:orgSlug/events/:id/files/:fileId/download"
+  }
+}
+```
+
+> 拡張子だけでなく、R2上のオブジェクトの先頭バイト（マジックバイト）を読み取って実際の形式を検証する（拡張子偽装対策）。取得できなかった場合と内容不一致の場合を区別して返す（誤って他リソースのkeyが指定された場合等に無関係なオブジェクトを削除しないよう、オブジェクト自体は削除しない）。
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正・拡張子不一致・内容が拡張子と不一致 / `400` `UPLOAD_VERIFICATION_FAILED` アップロード内容を確認できない（R2の一時的な取得失敗等） / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` イベントが存在しない
+
+---
+
+<a id="events-file-upload"></a>
+
+### POST `/api/v1/:orgSlug/events/:id/files`
+
+ファイルをアップロードする（`multipart/form-data`、ローカル開発用・R2未設定時のフォールバック）。
+
+**権限**: `tech+`
+
+**Request Body:** (multipart)
+
+| フィールド | 説明             |
+| ---------- | ---------------- |
+| `file`     | バイナリファイル |
+| `label`    | 種別ラベル       |
+
+**Response** `201` → confirm と同じ形式
+
+**Errors:**: `400` `VALIDATION_ERROR` ファイル未選択・ラベル未入力・拡張子不一致・内容が拡張子と不一致 / `400` `FILE_TOO_LARGE` ファイルサイズ超過（最大20MB） / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` イベントが存在しない
+
+---
+
+<a id="events-file-list"></a>
+
+### GET `/api/v1/:orgSlug/events/:id/files`
+
+イベントに添付されたファイルの一覧を取得する。
+
+**権限**: `member+`（visitor含む全団員が閲覧可。ただし招待対象外イベントは`admin`以外403）
+
+**Response** `200`
+
+```json
+{
+  "data": [
+    {
+      "id": "cuid",
+      "label": "行程表",
+      "fileName": "itinerary.pdf",
+      "downloadUrl": "/api/v1/:orgSlug/events/:id/files/:fileId/download"
+    }
+  ]
+}
+```
+
+**Errors:**: `403` `NOT_INVITED` 招待対象外のイベント（`admin`は例外） / `404` `NOT_FOUND` イベントが存在しない
+
+---
+
+<a id="events-file-delete"></a>
+
+### DELETE `/api/v1/:orgSlug/events/:id/files/:fileId`
+
+ファイルを削除する。
+
+**権限**: `tech+`
+
+**Response** `204` No Content
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` イベントが存在しない / `404` `NOT_FOUND` ファイルが存在しない
+
+---
+
+<a id="events-file-download"></a>
+
+### GET `/api/v1/:orgSlug/events/:id/files/:fileId/download`
+
+ファイルをストリーミングダウンロードする。
+
+**権限**: `member+`（visitor含む全団員が閲覧可。ただし招待対象外イベントは`admin`以外403）
+
+**Response** `200` → ファイルバイナリをストリーミング返却
+
+**Response** `302` → R2設定時（本番環境）は署名付きURLへのリダイレクト
+
+> `.pdf` / `.jpg` / `.jpeg` / `.png` はすべて`Content-Disposition: inline`で返す（ブラウザ内表示。iPad等では共有アイコンからGoodNotes等のアプリへ直接取り込める）。
+> エラー時のレスポンスは他のAPIと異なり、JSONではなく**HTMLエラーページ**を返す（`scores-file-download` と同様の設計）。
+
+**Errors:**: `403` `NOT_INVITED` 招待対象外のイベント（`admin`は例外） / `404` `NOT_FOUND` イベントが存在しない / `404` `NOT_FOUND` ファイルが存在しない
+
+---
+
 <a id="calendar-feed-token"></a>
 
 ### GET `/api/v1/:orgSlug/calendar-feed-token`
@@ -1703,12 +1874,12 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 
 **Request Body:**
 
-| フィールド  | 型             | 必須 | 説明                            |
-| ----------- | -------------- | ---- | ------------------------------- |
-| fileType    | string         | ✓    | `full_score` / `midi` / `other` |
-| fileName    | string         | ✓    | 元のファイル名（拡張子判定用）  |
-| partId      | string \| null |      | パートID（パート譜の場合）      |
-| contentType | string         | ✓    | MIMEタイプ                      |
+| フィールド  | 型             | 必須 | 説明                                                                               |
+| ----------- | -------------- | ---- | ---------------------------------------------------------------------------------- |
+| fileType    | string         | ✓    | `full_score` / `midi` / `other`                                                    |
+| fileName    | string         | ✓    | 元のファイル名（拡張子判定用）                                                     |
+| partId      | string \| null |      | パートID（パート譜の場合）                                                         |
+| contentType | string         | ✓    | クライアントの参考値。実際に署名される値はサーバーが拡張子から決定する（下記参照） |
 
 ```json
 {
@@ -1722,10 +1893,17 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 **Response** `200`
 
 ```json
-{ "data": { "presignedUrl": "https://...", "key": "scores/uuid.pdf" } }
+{
+  "data": {
+    "presignedUrl": "https://...",
+    "key": "scores/uuid.pdf",
+    "contentType": "application/pdf"
+  }
+}
 ```
 
 > `fileType` ごとに許可される拡張子が決まっている（`full_score`: `.pdf` / `midi`: `.mid` `.midi` `.mp3` / `other`: `.pdf` `.mp3` `.wav`）。`full_score` は1楽譜につき1ファイルのみ（既存があれば409）。
+> レスポンスの`contentType`はサーバーが拡張子から一意に決定した値（クライアント指定の`contentType`は無視する。偽装したContentTypeでR2に保存されるのを防ぐため）。実際のPUTリクエストはこの値と`Content-Type`ヘッダーを一致させる必要がある（不一致だと署名検証で拒否される）。
 
 **Errors:**: `400` `VALIDATION_ERROR` 入力値が不正・パート不正・拡張子不一致 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 楽譜が存在しない / `409` `CONFLICT` 楽譜PDFが登録済み
 
@@ -1769,8 +1947,9 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 ```
 
 > `key`・`fileType`・`partId` は presign 発行時のものと独立してクライアントから送られてくるため、ここでも拡張子とfileTypeの整合性・`partId`の所属teナントを検証する。`full_score` の重複が検出された場合、R2上のアップロード済みファイルも削除する。
+> 拡張子だけでなく、R2上のオブジェクトの先頭バイト（マジックバイト）を読み取って実際の形式を検証する（拡張子偽装対策）。取得できなかった場合と内容不一致の場合を区別して返す（無関係なオブジェクトを削除しないよう、不一致時にオブジェクト自体は削除しない）。
 
-**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正・拡張子不一致・パートが存在しない / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 楽譜が存在しない / `409` `CONFLICT` 楽譜PDFが登録済み
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正・拡張子不一致・パートが存在しない・内容が拡張子と不一致 / `400` `UPLOAD_VERIFICATION_FAILED` アップロード内容を確認できない（R2の一時的な取得失敗等） / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 楽譜が存在しない / `409` `CONFLICT` 楽譜PDFが登録済み
 
 ---
 
@@ -1806,7 +1985,7 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 }
 ```
 
-**Errors:**: `400` `VALIDATION_ERROR` ファイル未選択・fileType不正・パート不正・拡張子不一致 / `400` `FILE_TOO_LARGE` ファイルサイズ超過（最大20MB） / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 楽譜が存在しない / `409` `CONFLICT` 楽譜PDFが登録済み
+**Errors:**: `400` `VALIDATION_ERROR` ファイル未選択・fileType不正・パート不正・拡張子不一致・内容が拡張子と不一致 / `400` `FILE_TOO_LARGE` ファイルサイズ超過（最大20MB） / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 楽譜が存在しない / `409` `CONFLICT` 楽譜PDFが登録済み
 
 ---
 
@@ -2630,6 +2809,167 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 **Response** `204`
 
 **Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `400` `BAD_REQUEST` 別テナントのメンバーが含まれる / `400` `BAD_REQUEST` オンステ確定していないメンバーが含まれる / `400` `BAD_REQUEST` 存在しない枠を参照している / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` パターンが存在しない・指定のステージに属さない
+
+---
+
+### 添付ファイル API
+
+<a id="concerts-file-presign"></a>
+
+#### POST `/api/v1/:orgSlug/concerts/:concertId/files/presign`
+
+R2への直接アップロード用に、プレサインドPUT URLを発行する（本番のアップロードフローの1段階目）。
+
+**権限**: `tech+`
+
+**Request Body:**
+
+| フィールド  | 型     | 必須 | 説明                                                                               |
+| ----------- | ------ | ---- | ---------------------------------------------------------------------------------- |
+| label       | string | ✓    | 種別ラベル（フライヤー/しおり/行程表/資料/その他 等）                              |
+| fileName    | string | ✓    | 元のファイル名（拡張子判定用）                                                     |
+| contentType | string | ✓    | クライアントの参考値。実際に署名される値はサーバーが拡張子から決定する（下記参照） |
+
+```json
+{ "label": "フライヤー", "fileName": "flyer.pdf", "contentType": "application/pdf" }
+```
+
+**Response** `200`
+
+```json
+{
+  "data": {
+    "presignedUrl": "https://...",
+    "key": "concerts/uuid.pdf",
+    "contentType": "application/pdf"
+  }
+}
+```
+
+> 許可される拡張子は `.pdf` / `.jpg` / `.jpeg` / `.png` のみ。
+> レスポンスの`contentType`はサーバーが拡張子から一意に決定した値（クライアント指定の`contentType`は無視する。偽装したContentTypeでR2に保存されるのを防ぐため）。実際のPUTリクエストはこの値と`Content-Type`ヘッダーを一致させる必要がある（不一致だと署名検証で拒否される）。
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正・拡張子不一致 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="concerts-file-confirm"></a>
+
+#### POST `/api/v1/:orgSlug/concerts/:concertId/files/confirm`
+
+プレサインドURLへのアップロード完了後、ファイルをDBに登録する（本番のアップロードフローの2段階目）。
+
+**権限**: `tech+`
+
+**Request Body:**
+
+| フィールド | 型     | 必須 | 説明                      |
+| ---------- | ------ | ---- | ------------------------- |
+| key        | string | ✓    | presignで発行された `key` |
+| label      | string | ✓    | 種別ラベル                |
+| fileName   | string | ✓    | 表示用ファイル名          |
+
+```json
+{ "key": "concerts/uuid.pdf", "label": "フライヤー", "fileName": "flyer.pdf" }
+```
+
+**Response** `201`
+
+```json
+{
+  "data": {
+    "id": "cuid",
+    "label": "フライヤー",
+    "fileName": "flyer.pdf",
+    "downloadUrl": "/api/v1/:orgSlug/concerts/:concertId/files/:fileId/download"
+  }
+}
+```
+
+> 拡張子だけでなく、R2上のオブジェクトの先頭バイト（マジックバイト）を読み取って実際の形式を検証する（拡張子偽装対策）。取得できなかった場合と内容不一致の場合を区別して返す（誤って他リソースのkeyが指定された場合等に無関係なオブジェクトを削除しないよう、オブジェクト自体は削除しない）。
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正・拡張子不一致・内容が拡張子と不一致 / `400` `UPLOAD_VERIFICATION_FAILED` アップロード内容を確認できない（R2の一時的な取得失敗等） / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="concerts-file-upload"></a>
+
+#### POST `/api/v1/:orgSlug/concerts/:concertId/files`
+
+ファイルをアップロードする（`multipart/form-data`、ローカル開発用・R2未設定時のフォールバック）。
+
+**権限**: `tech+`
+
+**Request Body:** (multipart)
+
+| フィールド | 説明             |
+| ---------- | ---------------- |
+| `file`     | バイナリファイル |
+| `label`    | 種別ラベル       |
+
+**Response** `201` → confirm と同じ形式
+
+**Errors:**: `400` `VALIDATION_ERROR` ファイル未選択・ラベル未入力・拡張子不一致・内容が拡張子と不一致 / `400` `FILE_TOO_LARGE` ファイルサイズ超過（最大20MB） / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="concerts-file-list"></a>
+
+#### GET `/api/v1/:orgSlug/concerts/:concertId/files`
+
+演奏会に添付されたファイルの一覧を取得する。
+
+**権限**: `member+`（visitor含む全団員が閲覧可）
+
+**Response** `200`
+
+```json
+{
+  "data": [
+    {
+      "id": "cuid",
+      "label": "フライヤー",
+      "fileName": "flyer.pdf",
+      "downloadUrl": "/api/v1/:orgSlug/concerts/:concertId/files/:fileId/download"
+    }
+  ]
+}
+```
+
+**Errors:**: `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
+<a id="concerts-file-delete"></a>
+
+#### DELETE `/api/v1/:orgSlug/concerts/:concertId/files/:fileId`
+
+ファイルを削除する。
+
+**権限**: `tech+`
+
+**Response** `204` No Content
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` ファイルが存在しない
+
+---
+
+<a id="concerts-file-download"></a>
+
+#### GET `/api/v1/:orgSlug/concerts/:concertId/files/:fileId/download`
+
+ファイルをストリーミングダウンロードする。
+
+**権限**: `member+`（visitor含む全団員が閲覧可）
+
+**Response** `200` → ファイルバイナリをストリーミング返却
+
+**Response** `302` → R2設定時（本番環境）は署名付きURLへのリダイレクト
+
+> `.pdf` / `.jpg` / `.jpeg` / `.png` はすべて`Content-Disposition: inline`で返す（ブラウザ内表示。iPad等では共有アイコンからGoodNotes等のアプリへ直接取り込める）。
+> エラー時のレスポンスは他のAPIと異なり、JSONではなく**HTMLエラーページ**を返す（`scores-file-download` と同様の設計）。
+
+**Errors:**: `404` `NOT_FOUND` 演奏会が存在しない / `404` `NOT_FOUND` ファイルが存在しない
 
 ---
 

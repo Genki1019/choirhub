@@ -1,4 +1,4 @@
-import { writeFile, mkdir, unlink, readFile } from "fs/promises";
+import { writeFile, mkdir, unlink, readFile, open } from "fs/promises";
 import { extname, resolve } from "path";
 import {
   S3Client,
@@ -8,6 +8,9 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { logger } from "../lib/logger.js";
+
+// ブラウザ内表示（iPad等の共有アイコンからGoodNotes等へ取り込める）を許可する拡張子
+const INLINE_EXTENSIONS = [".pdf", ".png", ".jpg", ".jpeg"];
 
 export const CONTENT_TYPES: Record<string, string> = {
   ".pdf": "application/pdf",
@@ -174,11 +177,46 @@ export const storage = {
   },
 
   /**
-   * スコアファイルのダウンロード。
+   * アップロード済みオブジェクトの先頭バイトを取得する（マジックバイト検証用）。
+   * 取得できない場合は null を返す。
+   */
+  async getFileHeader(key: string, byteLength: number): Promise<Buffer | null> {
+    const cfg = getR2Config();
+    if (cfg) {
+      try {
+        const res = await getS3(cfg).send(
+          new GetObjectCommand({
+            Bucket: cfg.bucket,
+            Key: key,
+            Range: `bytes=0-${byteLength - 1}`,
+          }),
+        );
+        const bytes = await res.Body?.transformToByteArray();
+        return bytes ? Buffer.from(bytes) : null;
+      } catch {
+        return null;
+      }
+    }
+    try {
+      const buffer = Buffer.alloc(byteLength);
+      const fd = await open(localPath(key), "r");
+      try {
+        await fd.read(buffer, 0, byteLength, 0);
+      } finally {
+        await fd.close();
+      }
+      return buffer;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * ファイルのダウンロード。
    * - ローカル: ファイルを読み込んでバッファを返す
    * - R2: Presigned URL（5分有効）へのリダイレクトを返す
    */
-  async getScoreDownload(
+  async getFileDownload(
     key: string,
     filename: string,
   ): Promise<
@@ -187,10 +225,9 @@ export const storage = {
   > {
     const cfg = getR2Config();
     const ext = extname(key).toLowerCase();
-    const disposition =
-      ext === ".pdf"
-        ? `inline; filename*=UTF-8''${encodeURIComponent(filename)}`
-        : `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`;
+    const disposition = INLINE_EXTENSIONS.includes(ext)
+      ? `inline; filename*=UTF-8''${encodeURIComponent(filename)}`
+      : `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`;
 
     if (cfg) {
       const url = await getSignedUrl(

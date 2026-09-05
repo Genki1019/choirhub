@@ -1,4 +1,7 @@
 import { apiClient } from "./api-client";
+import { uploadAttachment, type AttachmentFile } from "./file-attachment-api";
+
+export type { AttachmentFile };
 
 export type ConcertStatus = "draft" | "survey_open" | "confirmed" | "past";
 export type AttendanceStatus = "attending" | "absent" | "undecided";
@@ -326,4 +329,21 @@ export const concertsApi = {
       `/${orgSlug}/concerts/${concertId}/stages/${stageId}/formation-patterns/${patternId}/slots`,
       payload,
     ),
+
+  listFiles: (orgSlug: string, concertId: string) =>
+    apiClient.get<AttachmentFile[]>(`/${orgSlug}/concerts/${concertId}/files`),
+
+  uploadFile: (orgSlug: string, concertId: string, file: File, label: string) =>
+    uploadAttachment<AttachmentFile>({
+      presignPath: `/${orgSlug}/concerts/${concertId}/files/presign`,
+      confirmPath: `/${orgSlug}/concerts/${concertId}/files/confirm`,
+      fallbackPath: `/${orgSlug}/concerts/${concertId}/files`,
+      file,
+      presignExtra: { label },
+      confirmExtra: { label },
+      fallbackExtra: { label },
+    }),
+
+  deleteFile: (orgSlug: string, concertId: string, fileId: string) =>
+    apiClient.delete(`/${orgSlug}/concerts/${concertId}/files/${fileId}`),
 };

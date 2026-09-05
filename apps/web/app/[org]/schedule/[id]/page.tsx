@@ -9,7 +9,7 @@ import { eventsApi } from "@/lib/events-api";
 import { membersApi } from "@/lib/members-api";
 import { useMember } from "@/contexts/MemberContext";
 import { comparePartOrder } from "@/lib/voice-order";
-import { canManageSchedule } from "@/lib/roles";
+import { canManageSchedule, canManageAttachments } from "@/lib/roles";
 import { eventKeys, memberKeys } from "@/lib/query-keys";
 import { AttendanceTable, type LocalAttendance } from "./_components/AttendanceTable";
 import { DeleteConfirmModal } from "./_components/DeleteConfirmModal";
@@ -17,6 +17,7 @@ import { ScheduleNotesDisplay } from "../../_components/ScheduleNotesSection";
 import { PageMain } from "@/components/PageMain";
 import { PageHeader } from "@/components/PageHeader";
 import { PageErrorState } from "@/components/PageErrorState";
+import { FileAttachmentSection } from "@/components/FileAttachmentSection";
 
 const STATUS_CYCLE = ["attending", "absent", "maybe", "undecided"] as const;
 
@@ -264,6 +265,17 @@ export default function ScheduleDetailPage() {
             otherNotes: event.otherNotes,
           }}
         />
+
+        <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
+          <FileAttachmentSection
+            title="添付ファイル"
+            queryKey={eventKeys.files(org, id)}
+            canManage={canManageAttachments(roles)}
+            listFiles={() => eventsApi.listFiles(org, id)}
+            uploadFile={(file, label) => eventsApi.uploadFile(org, id, file, label)}
+            deleteFile={(fileId) => eventsApi.deleteFile(org, id, fileId)}
+          />
+        </div>
 
         <AttendanceTable
           partGroups={partGroups}

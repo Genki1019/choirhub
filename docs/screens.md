@@ -41,39 +41,39 @@
 
 ### テナント別（`/[org]/` 配下）
 
-| 画面名                           | URL                                            | 権限                                                                               |
-| -------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------- |
-| ホーム                           | `/[org]`                                       | visitor+（全ロール）                                                               |
-| メンバー一覧                     | `/[org]/members`                               | visitor+（visitor は電話・メール非表示）                                           |
-| メンバー詳細・自プロフィール編集 | `/[org]/members/[id]`                          | visitor+（自分のプロフィール編集は member+ のみ）                                  |
-| メンバー管理者操作               | `/[org]/members/[id]/manage`                   | admin                                                                              |
-| 見学申込（承認キュー）           | `/[org]/members/applications`                  | admin                                                                              |
-| スケジュール一覧                 | `/[org]/schedule`                              | visitor+                                                                           |
-| イベント詳細・出欠表             | `/[org]/schedule/[id]`                         | visitor+                                                                           |
-| イベント作成                     | `/[org]/schedule/new`                          | admin, tech                                                                        |
-| イベント編集                     | `/[org]/schedule/[id]/edit`                    | admin, tech                                                                        |
-| 楽譜一覧                         | `/[org]/scores`                                | visitor+                                                                           |
-| 楽譜詳細                         | `/[org]/scores/[scoreId]`                      | visitor+                                                                           |
-| 本番一覧                         | `/[org]/concerts`                              | visitor+                                                                           |
-| 本番登録                         | `/[org]/concerts/new`                          | admin                                                                              |
-| 本番詳細                         | `/[org]/concerts/[id]`                         | visitor+（visitor はステージ構成タブのみ。オンステ調査・出演メンバータブは非表示） |
-| 曲目追加                         | `/[org]/concerts/[id]/programs/new`            | admin                                                                              |
-| メール一覧・作成                 | `/[org]/mailing`                               | member+（visitor はサイドバーのタブ自体が非表示）                                  |
-| メール詳細                       | `/[org]/mailing/[id]`                          | member+                                                                            |
-| チケット管理（一覧）             | `/[org]/tickets`                               | 権限分岐: ticket/admin→全演奏会管理, member→自分の入力ページ一覧                   |
-| チケット集計                     | `/[org]/tickets/[concertId]`                   | ticket_manager, admin                                                              |
-| チケット入力（団員）             | `/[org]/tickets/[concertId]/my`                | member+                                                                            |
-| パートレース                     | `/[org]/tickets/[concertId]/race`              | ticket_manager, admin（公開後は全員）                                              |
-| 情宣活動管理                     | `/[org]/tickets/[concertId]/outreach`          | ticket, admin                                                                      |
-| 会計・収支サマリー               | `/[org]/accounting`                            | finance, admin                                                                     |
-| 徴収詳細                         | `/[org]/accounting/collections/[collectionId]` | finance, admin                                                                     |
-| 設定（団体情報）                 | `/[org]/settings`                              | admin                                                                              |
-| パート管理                       | `/[org]/settings/parts`                        | admin                                                                              |
-| 会費設定                         | `/[org]/settings/fee`                          | admin                                                                              |
-| 支出カテゴリ管理                 | `/[org]/settings/expense-categories`           | admin                                                                              |
-| メンバー区分管理                 | `/[org]/settings/member-types`                 | admin                                                                              |
-| イベントカテゴリ管理             | `/[org]/settings/event-categories`             | admin                                                                              |
-| 見学申込設定                     | `/[org]/settings/visitor-webhook`              | admin                                                                              |
+| 画面名                           | URL                                            | 権限                                                                                             |
+| -------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| ホーム                           | `/[org]`                                       | visitor+（全ロール）                                                                             |
+| メンバー一覧                     | `/[org]/members`                               | visitor+（visitor は電話・メール非表示）                                                         |
+| メンバー詳細・自プロフィール編集 | `/[org]/members/[id]`                          | visitor+（自分のプロフィール編集は member+ のみ）                                                |
+| メンバー管理者操作               | `/[org]/members/[id]/manage`                   | admin                                                                                            |
+| 見学申込（承認キュー）           | `/[org]/members/applications`                  | admin                                                                                            |
+| スケジュール一覧                 | `/[org]/schedule`                              | visitor+                                                                                         |
+| イベント詳細・出欠表             | `/[org]/schedule/[id]`                         | visitor+                                                                                         |
+| イベント作成                     | `/[org]/schedule/new`                          | admin, tech                                                                                      |
+| イベント編集                     | `/[org]/schedule/[id]/edit`                    | admin, tech                                                                                      |
+| 楽譜一覧                         | `/[org]/scores`                                | visitor+                                                                                         |
+| 楽譜詳細                         | `/[org]/scores/[scoreId]`                      | visitor+                                                                                         |
+| 本番一覧                         | `/[org]/concerts`                              | visitor+                                                                                         |
+| 本番登録                         | `/[org]/concerts/new`                          | admin                                                                                            |
+| 本番詳細                         | `/[org]/concerts/[id]`                         | visitor+（visitor はステージ構成タブ・ファイルタブのみ。オンステ調査・出演メンバータブは非表示） |
+| 曲目追加                         | `/[org]/concerts/[id]/programs/new`            | admin                                                                                            |
+| メール一覧・作成                 | `/[org]/mailing`                               | member+（visitor はサイドバーのタブ自体が非表示）                                                |
+| メール詳細                       | `/[org]/mailing/[id]`                          | member+                                                                                          |
+| チケット管理（一覧）             | `/[org]/tickets`                               | 権限分岐: ticket/admin→全演奏会管理, member→自分の入力ページ一覧                                 |
+| チケット集計                     | `/[org]/tickets/[concertId]`                   | ticket_manager, admin                                                                            |
+| チケット入力（団員）             | `/[org]/tickets/[concertId]/my`                | member+                                                                                          |
+| パートレース                     | `/[org]/tickets/[concertId]/race`              | ticket_manager, admin（公開後は全員）                                                            |
+| 情宣活動管理                     | `/[org]/tickets/[concertId]/outreach`          | ticket, admin                                                                                    |
+| 会計・収支サマリー               | `/[org]/accounting`                            | finance, admin                                                                                   |
+| 徴収詳細                         | `/[org]/accounting/collections/[collectionId]` | finance, admin                                                                                   |
+| 設定（団体情報）                 | `/[org]/settings`                              | admin                                                                                            |
+| パート管理                       | `/[org]/settings/parts`                        | admin                                                                                            |
+| 会費設定                         | `/[org]/settings/fee`                          | admin                                                                                            |
+| 支出カテゴリ管理                 | `/[org]/settings/expense-categories`           | admin                                                                                            |
+| メンバー区分管理                 | `/[org]/settings/member-types`                 | admin                                                                                            |
+| イベントカテゴリ管理             | `/[org]/settings/event-categories`             | admin                                                                                            |
+| 見学申込設定                     | `/[org]/settings/visitor-webhook`              | admin                                                                                            |
 
 ---
 
@@ -945,6 +945,9 @@
 │  新曲『○○』の初見合わせ                          │
 │  タイムスケジュール                              │
 │  18:00 集合 / 18:15 発声 / 19:00 パート練習      │
+├─────────────────────────────────────────────────┤
+│  📎 添付ファイル                                  │
+│  [行程表] itinerary.pdf              [追加][削除] │
 ├──────────────────┬────────┬────────────────────┤
 │  名前             │  出欠  │  メモ               │
 ├──────────────────┼────────┼────────────────────┤
@@ -962,6 +965,7 @@
 
 > `guest` / `visitor` ロールのアカウントはこの出欠表の行（メンバー一覧）に表示されない。自身の出欠回答は可能。パートごとの見出し行に、そのパートの○△✕件数を表示する。
 > 備考カード（練習曲の内容・タイムスケジュール・練習会場・その他備考）は値が入っている項目のみ表示され、4項目すべて未入力の場合はカード自体が非表示になる。
+> 添付ファイルセクションは常時表示（0件でも「登録されているファイルはありません」と表示）。閲覧は`guest`/`visitor`含む全団員が可能。
 
 #### インタラクション
 
@@ -971,6 +975,7 @@
 - `isLocked: true`（締切後） → セルは表示のみ・編集不可
 - `admin`/`tech`/`conductor` のみ: 「編集」ボタン → `/[org]/schedule/[id]/edit`（専用ページ）
 - `admin`/`tech`/`conductor` のみ: 「削除」ボタン → 確認モーダル→OKで削除しイベント一覧へ遷移
+- `admin`/`tech`/`conductor`/`score` のみ: 添付ファイルのラベル選択（フライヤー/しおり/行程表/資料/その他）+ ファイル選択 → 「追加」クリックでアップロード。ファイル行ホバーで削除アイコン表示 → クリックで確認モーダル → OKで削除
 
 #### 出欠セル操作フロー
 
@@ -1195,9 +1200,9 @@
 
 **目的**: ステージ構成・演目・オンステ確定状況の確認と管理（ステージ構成・演目編集は admin のみ、オンステ調査・フォーメーション編集は tech 以上）
 
-> `visitor` ロールのみの場合はステージ構成タブのみ表示される。オンステ調査タブ・出演メンバータブは非表示（APIも限定レスポンスを返す）。
+> `visitor` ロールのみの場合はステージ構成タブとファイルタブのみ表示される。オンステ調査タブ・出演メンバータブは非表示（APIも限定レスポンスを返す）。
 
-**レイアウト**（3タブ構成）
+**レイアウト**（4タブ構成）
 
 ```text
 ┌──────────────────────────────────────────────────┐
@@ -1205,7 +1210,7 @@
 │  2026/11/23（月・祝）14:00 ○○ホール             │
 │  [確定済み]                                      │
 ├──────────────────────────────────────────────────┤
-│  [ステージ構成]  [オンステ調査]  [出演メンバー]   │
+│  [ステージ構成]  [オンステ調査]  [出演メンバー]  [ファイル] │
 ├──────────────────────────────────────────────────┤
 ```
 
@@ -1404,6 +1409,32 @@
 
 ---
 
+#### ファイルタブ
+
+**目的**: フライヤー・しおり・合宿資料等、演奏会に紐づくファイルの共有
+
+> visitorを含む全団員が閲覧・ダウンロード可能。アップロード・削除は`admin`/`tech`/`conductor`/`score`のみ。
+
+**レイアウト**
+
+```text
+┌──────────────────────────────────────────────────┐
+│  [フライヤー] flyer.pdf                    🗑️     │
+│  [しおり]    program.pdf                   🗑️     │
+├──────────────────────────────────────────────────┤
+│  ラベル [フライヤー ▼]  ファイルを選択  [追加]     │
+└──────────────────────────────────────────────────┘
+```
+
+> 0件の場合は「登録されているファイルはありません」と表示。ラベルは選択肢（フライヤー/しおり/行程表/資料/その他）から選び、「その他」選択時のみテキスト入力欄が追加表示される。対応ファイル形式は `.pdf` / `.jpg` / `.jpeg` / `.png`。
+
+#### インタラクション（admin/tech/conductor/score のみ）
+
+- ラベル選択 + ファイル選択 → 「追加」クリックでアップロード（R2プレサインドURL経由、未設定時はマルチパートにフォールバック）
+- ファイル行ホバー → 削除アイコン表示 → クリックで確認モーダル → OKで削除
+
+---
+
 ### 8.3 本番・オンステ管理の画面構成まとめ
 
 | 機能                                               | 実装箇所                                                      |
@@ -1414,6 +1445,7 @@
 | 曲目追加                                           | `/[org]/concerts/[id]/programs/new`（専用ページ、admin のみ） |
 | オンステ回答・確定                                 | `/[org]/concerts/[id]`「オンステ調査」タブ                    |
 | 出演メンバー確認・フォーメーション（立ち位置）管理 | `/[org]/concerts/[id]`「出演メンバー」タブ                    |
+| 添付ファイル管理・閲覧                             | `/[org]/concerts/[id]`「ファイル」タブ                        |
 
 ---
 
@@ -2174,6 +2206,7 @@ flowchart TD
             CNID --> TAB_STAGE[ステージ構成タブ]
             CNID --> TAB_ONSTAGE[オンステ調査タブ]
             CNID --> TAB_MEMBERS[出演メンバータブ]
+            CNID --> TAB_FILES[ファイルタブ]
         end
 
         ML --> MLID[メール詳細]

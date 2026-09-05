@@ -56,6 +56,7 @@ erDiagram
     Event  ||--o{ Attendance    : "has"
     Event  ||--o{ Expense       : "linked to"
     Event  ||--o{ Collection    : "linked to"
+    Event  ||--o{ EventFile     : "has"
     EventCategory ||--o{ Event  : "categorizes"
 
     Concert ||--o{ OutreachActivity : "has"
@@ -72,6 +73,7 @@ erDiagram
     Concert ||--o{ OnStageAssignment : "has"
     Concert ||--o{ ConcertSurvey     : "has"
     Concert ||--o{ TicketBatch       : "has"
+    Concert ||--o{ ConcertFile       : "has"
     Concert ||--o| Event             : "linked event"
 
     Organization ||--o{ MailTemplate : "has"
@@ -177,10 +179,20 @@ erDiagram
         string           leaveTime
         string           dayMemo
     }
+    EventFile {
+        string   id PK
+        string   eventId FK
+        string   label
+        string   storageKey
+        string   fileName
+        string   uploadedBy FK
+        datetime uploadedAt
+    }
 
     EventCategory ||--o{ Event      : "categorizes"
     Event         ||--o{ Attendance : "has"
     Member        ||--o{ Attendance : "answers"
+    Event         ||--o{ EventFile  : "has"
 ```
 
 ### 1.4 楽譜管理
@@ -306,11 +318,21 @@ erDiagram
         int    rowNum
         int    positionOrder
     }
+    ConcertFile {
+        string   id PK
+        string   concertId FK
+        string   label
+        string   storageKey
+        string   fileName
+        string   uploadedBy FK
+        datetime uploadedAt
+    }
 
     Concert          ||--o{ Stage             : "has"
     Concert          ||--o{ ConcertSurvey     : "has"
     Concert          ||--o{ OnStageAssignment : "has"
     Concert          ||--o| ConcertSurvey     : "applied"
+    Concert          ||--o{ ConcertFile       : "has"
     Stage            ||--o{ Program           : "has"
     Stage            ||--o{ SurveyResponse    : "has"
     Stage            ||--o{ OnStageAssignment : "has"
@@ -570,6 +592,20 @@ erDiagram
 
 ---
 
+### EventFile（イベント添付ファイル）
+
+| カラム     | 型        | 制約                    | 説明                                                  |
+| ---------- | --------- | ----------------------- | ----------------------------------------------------- |
+| id         | CUID      | PK                      |                                                       |
+| eventId    | CUID      | NOT NULL, FK → Event    |                                                       |
+| label      | VARCHAR   | NOT NULL                | 種別ラベル（フライヤー/しおり/行程表/資料/その他 等） |
+| storageKey | VARCHAR   | NOT NULL                | R2 オブジェクトキー（直リンク不可）                   |
+| fileName   | VARCHAR   | NOT NULL                | 表示用ファイル名                                      |
+| uploadedBy | CUID      | NOT NULL, FK → Member   |                                                       |
+| uploadedAt | TIMESTAMP | NOT NULL, DEFAULT now() |                                                       |
+
+---
+
 ### Attendance（出欠）
 
 | カラム     | 型        | 制約                          | 説明                                   |
@@ -680,6 +716,20 @@ draft → survey_open → confirmed → past
 ```
 
 > **自動連動**: `ConcertSurvey` の開設（POST）または再開（PATCH isOpen: true）で `survey_open` に自動遷移。締め切り（PATCH isOpen: false）で `confirmed` に自動遷移し、その調査の回答が `OnStageAssignment` に反映されて `appliedSurveyId` が設定される。手動で `survey_open` にはできない。調査が複数ある場合、管理者は締切後に別の調査を選んで明示的に反映し直せる（`POST .../surveys/:surveyId/apply`。この操作は status を変更しない）。
+
+---
+
+### ConcertFile（演奏会添付ファイル）
+
+| カラム     | 型        | 制約                    | 説明                                                  |
+| ---------- | --------- | ----------------------- | ----------------------------------------------------- |
+| id         | CUID      | PK                      |                                                       |
+| concertId  | CUID      | NOT NULL, FK → Concert  |                                                       |
+| label      | VARCHAR   | NOT NULL                | 種別ラベル（フライヤー/しおり/行程表/資料/その他 等） |
+| storageKey | VARCHAR   | NOT NULL                | R2 オブジェクトキー（直リンク不可）                   |
+| fileName   | VARCHAR   | NOT NULL                | 表示用ファイル名                                      |
+| uploadedBy | CUID      | NOT NULL, FK → Member   |                                                       |
+| uploadedAt | TIMESTAMP | NOT NULL, DEFAULT now() |                                                       |
 
 ---
 
@@ -1036,12 +1086,14 @@ draft → survey_open → confirmed → past
 | OrgApplication     | status                         | INDEX  | 保留中申請の絞り込み（`/admin`一覧） |
 | Event              | (orgId, startsAt)              | INDEX  | 月カレンダー表示                     |
 | Attendance         | (eventId, memberId)            | UNIQUE | 重複回答防止                         |
+| EventFile          | eventId                        | INDEX  | イベントに紐づく添付ファイル取得     |
 | Score              | (orgId, accessLevel)           | INDEX  | 権限別楽譜一覧                       |
 | ScoreFile          | scoreId                        | INDEX  | 楽譜に紐づくファイル取得             |
 | ScoreAccessLog     | (scoreId, createdAt)           | INDEX  | アクセス履歴の時系列取得             |
 | ScorePurchase      | (scoreId, memberId)            | UNIQUE | 同一楽譜の重複購入登録防止           |
 | ScorePurchase      | scoreId                        | INDEX  | 楽譜別購入者一覧                     |
 | Concert            | (orgId, heldOn)                | INDEX  | 本番一覧の日付ソート                 |
+| ConcertFile        | concertId                      | INDEX  | 演奏会に紐づく添付ファイル取得       |
 | Program            | (stageId, sortOrder)           | INDEX  | 演目の表示順取得                     |
 | SurveyResponse     | (surveyId, memberId, stageId)  | UNIQUE | 重複回答防止                         |
 | OnStageAssignment  | (concertId, memberId, stageId) | UNIQUE | 重複登録防止                         |
@@ -1088,7 +1140,7 @@ draft → survey_open → confirmed → past
 
 ### 4.4 ファイルストレージ
 
-- `ScoreFile.storageKey` は Cloudflare R2 のオブジェクトキーのみ保存する
+- `ScoreFile.storageKey` / `ConcertFile.storageKey` / `EventFile.storageKey` は Cloudflare R2 のオブジェクトキーのみ保存する
 - ダウンロード時は API 側で Presigned URL を発行する（有効期限: 5分）
 - ファイルの直リンクは禁止する
 

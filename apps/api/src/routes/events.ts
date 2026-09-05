@@ -3,9 +3,36 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { isAdmin, hasRole, isHiddenRole, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
+import { createAttachmentRoutes } from "../lib/attachment-routes.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 import type { Event, EventCategory, Member } from "../generated/prisma/index.js";
 import { Prisma } from "../generated/prisma/index.js";
+
+const eventFileRoutes = createAttachmentRoutes({
+  resourcePath: "events/:id",
+  idParam: "id",
+  keyPrefix: "events",
+  notFoundMessage: "イベントが見つかりません",
+  resourceExists: async (id, orgId) => {
+    const event = await prisma.event.findUnique({ where: { id } });
+    return !!event && event.orgId === orgId;
+  },
+  canView: async (member, id, orgId) => {
+    const event = await prisma.event.findUnique({ where: { id } });
+    if (!event || event.orgId !== orgId) return "not_found";
+    return isAdmin(member) || isInvited(member, event) ? "ok" : "forbidden";
+  },
+  listFiles: (eventId) =>
+    prisma.eventFile.findMany({ where: { eventId }, orderBy: { uploadedAt: "asc" } }),
+  createFile: (eventId, data) => prisma.eventFile.create({ data: { eventId, ...data } }),
+  findFile: async (fileId) => {
+    const f = await prisma.eventFile.findUnique({ where: { id: fileId } });
+    return f && { ...f, resourceId: f.eventId };
+  },
+  deleteFile: async (fileId, eventId) => {
+    await prisma.eventFile.delete({ where: { id: fileId, eventId } });
+  },
+});
 
 // ────────────────────────────
 // 招待判定ヘルパー
@@ -579,4 +606,5 @@ export const eventsRouter = new Hono<TenantEnv>()
         },
       });
     },
-  );
+  )
+  .route("/", eventFileRoutes);

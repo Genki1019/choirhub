@@ -10,7 +10,29 @@ import {
   EXCLUDE_HIDDEN_ROLES,
 } from "../services/access.js";
 import { syncOnStageFromResponses, applySurveyToOnStage } from "../services/onstage.js";
+import { createAttachmentRoutes } from "../lib/attachment-routes.js";
 import type { TenantEnv } from "../middleware/tenant.js";
+
+const concertFileRoutes = createAttachmentRoutes({
+  resourcePath: "concerts/:concertId",
+  idParam: "concertId",
+  keyPrefix: "concerts",
+  notFoundMessage: "演奏会が見つかりません",
+  resourceExists: async (id, orgId) => {
+    const concert = await prisma.concert.findUnique({ where: { id } });
+    return !!concert && concert.orgId === orgId;
+  },
+  listFiles: (concertId) =>
+    prisma.concertFile.findMany({ where: { concertId }, orderBy: { uploadedAt: "asc" } }),
+  createFile: (concertId, data) => prisma.concertFile.create({ data: { concertId, ...data } }),
+  findFile: async (fileId) => {
+    const f = await prisma.concertFile.findUnique({ where: { id: fileId } });
+    return f && { ...f, resourceId: f.concertId };
+  },
+  deleteFile: async (fileId, concertId) => {
+    await prisma.concertFile.delete({ where: { id: fileId, concertId } });
+  },
+});
 
 export const concertsRouter = new Hono<TenantEnv>()
 
@@ -1201,4 +1223,5 @@ export const concertsRouter = new Hono<TenantEnv>()
 
       return c.json({ data: { ok: true } });
     },
-  );
+  )
+  .route("/", concertFileRoutes);

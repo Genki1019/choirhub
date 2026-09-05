@@ -23,6 +23,7 @@ export const eventKeys = {
   detail: (org: string, id: string) => ["event", org, id] as const,
   categories: (org: string) => ["eventCategories", org] as const,
   calendarFeedToken: (org: string) => ["events", org, "calendarFeedToken"] as const,
+  files: (org: string, id: string) => ["event", org, id, "files"] as const,
 };
 
 export const scoresKeys = {
@@ -34,6 +35,7 @@ export const scoresKeys = {
 export const concertKeys = {
   list: (org: string) => ["concerts", org] as const,
   detail: (org: string, id: string) => ["concert", org, id] as const,
+  files: (org: string, id: string) => ["concert", org, id, "files"] as const,
 };
 
 export const mailingKeys = {

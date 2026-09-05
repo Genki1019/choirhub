@@ -45,6 +45,12 @@ vi.mock("../../lib/prisma.js", () => ({
       count: vi.fn(),
     },
     surveyResponse: { createMany: vi.fn(), updateMany: vi.fn() },
+    concertFile: {
+      create: vi.fn(),
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      delete: vi.fn(),
+    },
   },
 }));
 
@@ -53,8 +59,20 @@ vi.mock("../../services/onstage.js", () => ({
   applySurveyToOnStage: vi.fn(),
 }));
 
+vi.mock("../../services/storage.js", () => ({
+  storage: {
+    getPresignedPutUrl: vi.fn(),
+    upload: vi.fn(),
+    delete: vi.fn(),
+    getFileHeader: vi.fn(),
+    getFileDownload: vi.fn(),
+  },
+  CONTENT_TYPES: { ".pdf": "application/pdf", ".jpg": "image/jpeg", ".png": "image/png" },
+}));
+
 import { prisma } from "../../lib/prisma.js";
 import { syncOnStageFromResponses, applySurveyToOnStage } from "../../services/onstage.js";
+import { storage } from "../../services/storage.js";
 import { concertsRouter } from "../concerts.js";
 
 // ────────────────────────────
@@ -103,6 +121,21 @@ const testConcert = {
   venue: "○○ホール",
   status: "draft",
 };
+
+const PDF_MAGIC_BYTES = Buffer.from([0x25, 0x50, 0x44, 0x46]);
+
+function makeConcertFile(overrides: Partial<{ id: string; label: string; fileName: string }> = {}) {
+  return {
+    id: "file-1",
+    concertId: testConcert.id,
+    label: "フライヤー",
+    storageKey: "concerts/abc.pdf",
+    fileName: "flyer.pdf",
+    uploadedBy: "member-1",
+    uploadedAt: new Date("2026-01-01T00:00:00Z"),
+    ...overrides,
+  };
+}
 
 function createTestApp(actingMember: Member) {
   const app = new Hono<TenantEnv>();
@@ -2294,5 +2327,564 @@ describe("PUT /concerts/:concertId/surveys/:surveyId/respond", () => {
       where: { surveyId: "survey-1", memberId: actingMember.id, stageId: "stage-1" },
       data: { status: "attending" },
     });
+  });
+});
+
+describe("POST /concerts/:concertId/files/presign", () => {
+  it("バリデーションエラー: fileNameが空は400を返す", async () => {
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/presign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label: "フライヤー", fileName: "", contentType: "application/pdf" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request("/concerts/nonexistent/files/presign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        label: "フライヤー",
+        fileName: "a.pdf",
+        contentType: "application/pdf",
+      }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("tech未満（member）は403を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/presign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        label: "フライヤー",
+        fileName: "a.pdf",
+        contentType: "application/pdf",
+      }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("拡張子不一致: 対象外拡張子は400を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/presign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        label: "資料",
+        fileName: "a.docx",
+        contentType: "application/octet-stream",
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("正常: presignedUrlとkeyを返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(storage.getPresignedPutUrl).mockResolvedValue("https://r2.example.com/presigned");
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/presign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        label: "フライヤー",
+        fileName: "a.pdf",
+        contentType: "application/pdf",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.presignedUrl).toBe("https://r2.example.com/presigned");
+    expect(body.data.key).toMatch(/^concerts\/.+\.pdf$/);
+    expect(body.data.contentType).toBe("application/pdf");
+  });
+
+  it("クライアント指定のcontentTypeは無視し拡張子から決まる値で署名する", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(storage.getPresignedPutUrl).mockResolvedValue("https://r2.example.com/presigned");
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/presign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        label: "フライヤー",
+        fileName: "a.pdf",
+        contentType: "text/html",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.contentType).toBe("application/pdf");
+    expect(storage.getPresignedPutUrl).toHaveBeenCalledWith(
+      expect.stringMatching(/^concerts\/.+\.pdf$/),
+      "application/pdf",
+    );
+  });
+});
+
+describe("POST /concerts/:concertId/files/confirm", () => {
+  it("バリデーションエラー: keyの形式が不正は400を返す", async () => {
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "invalid-key", label: "フライヤー", fileName: "a.pdf" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request("/concerts/nonexistent/files/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "concerts/abc.pdf", label: "フライヤー", fileName: "a.pdf" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("tech未満（member）は403を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "concerts/abc.pdf", label: "フライヤー", fileName: "a.pdf" }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("拡張子不一致: 対象外拡張子は400を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "concerts/abc.docx", label: "資料", fileName: "a.docx" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("正常: ConcertFileを作成し201を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(storage.getFileHeader).mockResolvedValue(PDF_MAGIC_BYTES);
+    const created = makeConcertFile();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concertFile.create).mockResolvedValue(created as any);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        key: "concerts/abc.pdf",
+        label: "フライヤー",
+        fileName: "flyer.pdf",
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    const body = await json(res);
+    expect(body.data.id).toBe(created.id);
+    expect(body.data.label).toBe("フライヤー");
+  });
+
+  it("内容が拡張子と一致しない（拡張子偽装）: 400を返す（オブジェクトは削除しない）", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(storage.getFileHeader).mockResolvedValue(Buffer.from("not-a-pdf"));
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        key: "concerts/abc.pdf",
+        label: "フライヤー",
+        fileName: "flyer.pdf",
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    expect(storage.delete).not.toHaveBeenCalled();
+  });
+
+  it("アップロード内容を取得できない（R2の一時的な失敗等）: 400 UPLOAD_VERIFICATION_FAILEDを返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(storage.getFileHeader).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        key: "concerts/abc.pdf",
+        label: "フライヤー",
+        fileName: "flyer.pdf",
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("UPLOAD_VERIFICATION_FAILED");
+    expect(storage.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /concerts/:concertId/files（フォールバックアップロード）", () => {
+  it("ファイル未選択: 400を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const fd = new FormData();
+    fd.append("label", "フライヤー");
+    const res = await app.request(`/concerts/${testConcert.id}/files`, {
+      method: "POST",
+      body: fd,
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("ラベル未入力: 400を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const fd = new FormData();
+    fd.append("file", new File(["dummy"], "a.pdf", { type: "application/pdf" }));
+    const res = await app.request(`/concerts/${testConcert.id}/files`, {
+      method: "POST",
+      body: fd,
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("tech未満（member）は403を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+
+    const app = createTestApp(makeMember(["member"]));
+    const fd = new FormData();
+    fd.append("file", new File(["dummy"], "a.pdf", { type: "application/pdf" }));
+    fd.append("label", "フライヤー");
+    const res = await app.request(`/concerts/${testConcert.id}/files`, {
+      method: "POST",
+      body: fd,
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("ファイルサイズ超過: 400 FILE_TOO_LARGEを返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const bigContent = new Uint8Array(21 * 1024 * 1024);
+    const fd = new FormData();
+    fd.append("file", new File([bigContent], "big.pdf", { type: "application/pdf" }));
+    fd.append("label", "フライヤー");
+    const res = await app.request(`/concerts/${testConcert.id}/files`, {
+      method: "POST",
+      body: fd,
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("FILE_TOO_LARGE");
+  });
+
+  it("拡張子不一致: 対象外拡張子は400を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const fd = new FormData();
+    fd.append("file", new File(["dummy"], "a.docx", { type: "application/octet-stream" }));
+    fd.append("label", "資料");
+    const res = await app.request(`/concerts/${testConcert.id}/files`, {
+      method: "POST",
+      body: fd,
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("正常: アップロードしConcertFileを作成する", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(storage.upload).mockResolvedValue(undefined);
+    const created = makeConcertFile();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concertFile.create).mockResolvedValue(created as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const fd = new FormData();
+    fd.append("file", new File([PDF_MAGIC_BYTES], "flyer.pdf", { type: "application/pdf" }));
+    fd.append("label", "フライヤー");
+    const res = await app.request(`/concerts/${testConcert.id}/files`, {
+      method: "POST",
+      body: fd,
+    });
+
+    expect(res.status).toBe(201);
+    expect(storage.upload).toHaveBeenCalled();
+    const body = await json(res);
+    expect(body.data.label).toBe("フライヤー");
+  });
+
+  it("内容が拡張子と一致しない（拡張子偽装）: 400を返しアップロードしない", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const fd = new FormData();
+    fd.append("file", new File(["not-a-pdf"], "flyer.pdf", { type: "application/pdf" }));
+    fd.append("label", "フライヤー");
+    const res = await app.request(`/concerts/${testConcert.id}/files`, {
+      method: "POST",
+      body: fd,
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    expect(storage.upload).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /concerts/:concertId/files", () => {
+  it("存在しない/別テナント: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/concerts/nonexistent/files");
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("visitorでも一覧を取得できる", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concertFile.findMany).mockResolvedValue([makeConcertFile()] as any);
+
+    const app = createTestApp(makeMember(["visitor"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files`);
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].label).toBe("フライヤー");
+  });
+});
+
+describe("DELETE /concerts/:concertId/files/:fileId", () => {
+  it("演奏会が存在しない: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/file-1`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("ファイルが存在しない: 404を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.concertFile.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/file-1`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("tech未満（member）は403を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concertFile.findUnique).mockResolvedValue(makeConcertFile() as any);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/file-1`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("正常: 204を返しストレージとDBから削除する", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    const file = makeConcertFile();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concertFile.findUnique).mockResolvedValue(file as any);
+    vi.mocked(storage.delete).mockResolvedValue(undefined);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concertFile.delete).mockResolvedValue(file as any);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/file-1`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(204);
+    expect(storage.delete).toHaveBeenCalledWith(file.storageKey);
+    expect(prisma.concertFile.delete).toHaveBeenCalledWith({
+      where: { id: "file-1", concertId: testConcert.id },
+    });
+  });
+});
+
+describe("GET /concerts/:concertId/files/:fileId/download", () => {
+  it("演奏会が存在しない: 404のHTMLを返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/file-1/download`);
+
+    expect(res.status).toBe(404);
+    expect(res.headers.get("content-type")).toContain("text/html");
+  });
+
+  it("ファイルが存在しない: 404のHTMLを返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.concertFile.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/file-1/download`);
+
+    expect(res.status).toBe(404);
+    expect(res.headers.get("content-type")).toContain("text/html");
+  });
+
+  it("visitorでもダウンロードできる", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    const file = makeConcertFile();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concertFile.findUnique).mockResolvedValue(file as any);
+    vi.mocked(storage.getFileDownload).mockResolvedValue({
+      type: "buffer",
+      data: Buffer.from("dummy"),
+      contentType: "application/pdf",
+      disposition: "attachment; filename*=UTF-8''flyer.pdf",
+    });
+
+    const app = createTestApp(makeMember(["visitor"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/file-1/download`);
+
+    expect(res.status).toBe(200);
+  });
+
+  it("ストレージ上にファイルが存在しない: 404のHTMLを返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concertFile.findUnique).mockResolvedValue(makeConcertFile() as any);
+    vi.mocked(storage.getFileDownload).mockRejectedValue(new Error("not found"));
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/file-1/download`);
+
+    expect(res.status).toBe(404);
+    expect(res.headers.get("content-type")).toContain("text/html");
+  });
+
+  it("R2設定時: リダイレクトを返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    const file = makeConcertFile();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concertFile.findUnique).mockResolvedValue(file as any);
+    vi.mocked(storage.getFileDownload).mockResolvedValue({
+      type: "redirect",
+      url: "https://r2.example.com/signed",
+    });
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/file-1/download`, {
+      redirect: "manual",
+    });
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("https://r2.example.com/signed");
   });
 });

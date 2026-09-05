@@ -33,7 +33,8 @@ vi.mock("../../services/storage.js", () => ({
     getPresignedPutUrl: vi.fn(),
     upload: vi.fn(),
     delete: vi.fn(),
-    getScoreDownload: vi.fn(),
+    getFileHeader: vi.fn(),
+    getFileDownload: vi.fn(),
   },
   CONTENT_TYPES: { ".pdf": "application/pdf", ".mid": "audio/midi", ".mp3": "audio/mpeg" },
 }));
@@ -109,6 +110,8 @@ const makeScoreFile = (overrides: Partial<Record<string, unknown>> = {}) => ({
   uploadedAt: new Date("2024-01-01"),
   ...overrides,
 });
+
+const PDF_MAGIC_BYTES = Buffer.from([0x25, 0x50, 0x44, 0x46]);
 
 function createTestApp(actingMember: Member) {
   const app = new Hono<TenantEnv>();
@@ -1227,6 +1230,32 @@ describe("POST /scores/:scoreId/files/presign", () => {
     const body = await json(res);
     expect(body.data.presignedUrl).toBe("https://r2.example.com/presigned");
     expect(body.data.key).toMatch(/^scores\/.+\.pdf$/);
+    expect(body.data.contentType).toBe("application/pdf");
+  });
+
+  it("クライアント指定のcontentTypeは無視し拡張子から決まる値で署名する", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.scoreFile.findFirst).mockResolvedValue(null);
+    vi.mocked(storage.getPresignedPutUrl).mockResolvedValue("https://r2.example.com/presigned");
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/files/presign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileType: "full_score",
+        fileName: "a.pdf",
+        contentType: "text/html",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.contentType).toBe("application/pdf");
+    expect(storage.getPresignedPutUrl).toHaveBeenCalledWith(
+      expect.stringMatching(/^scores\/.+\.pdf$/),
+      "application/pdf",
+    );
   });
 });
 
@@ -1365,6 +1394,7 @@ describe("POST /scores/:scoreId/files/confirm", () => {
     vi.mocked(prisma.scoreFile.aggregate).mockResolvedValue({ _max: { version: null } } as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.scoreFile.findFirst).mockResolvedValue({ id: "existing-file" } as any);
+    vi.mocked(storage.getFileHeader).mockResolvedValue(PDF_MAGIC_BYTES);
 
     const app = createTestApp(makeMember(["score"]));
     const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
@@ -1384,6 +1414,7 @@ describe("POST /scores/:scoreId/files/confirm", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.scoreFile.aggregate).mockResolvedValue({ _max: { version: 1 } } as any);
     vi.mocked(prisma.scoreFile.findFirst).mockResolvedValue(null);
+    vi.mocked(storage.getFileHeader).mockResolvedValue(PDF_MAGIC_BYTES);
     vi.mocked(prisma.scoreFile.create).mockResolvedValue({
       id: "file-1",
       fileType: "full_score",
@@ -1422,6 +1453,40 @@ describe("POST /scores/:scoreId/files/confirm", () => {
         uploadedBy: "member-1",
       },
     });
+  });
+
+  it("内容が拡張子と一致しない（拡張子偽装）: 400を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.scoreFile.findFirst).mockResolvedValue(null);
+    vi.mocked(storage.getFileHeader).mockResolvedValue(Buffer.from("not-a-pdf"));
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "scores/abc.pdf", fileType: "full_score", fileName: "a.pdf" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("アップロード内容を取得できない（R2の一時的な失敗等）: 400 UPLOAD_VERIFICATION_FAILEDを返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.scoreFile.findFirst).mockResolvedValue(null);
+    vi.mocked(storage.getFileHeader).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "scores/abc.pdf", fileType: "full_score", fileName: "a.pdf" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("UPLOAD_VERIFICATION_FAILED");
   });
 });
 
@@ -1547,7 +1612,7 @@ describe("POST /scores/:scoreId/files（フォールバックアップロード�
 
     const app = createTestApp(makeMember(["score"]));
     const fd = new FormData();
-    fd.append("file", new File(["dummy"], "a.pdf", { type: "application/pdf" }));
+    fd.append("file", new File([PDF_MAGIC_BYTES], "a.pdf", { type: "application/pdf" }));
     fd.append("fileType", "full_score");
     const res = await app.request(`/scores/${testScore.id}/files`, { method: "POST", body: fd });
 
@@ -1571,7 +1636,7 @@ describe("POST /scores/:scoreId/files（フォールバックアップロード�
 
     const app = createTestApp(makeMember(["score"]));
     const fd = new FormData();
-    fd.append("file", new File(["dummy"], "a.pdf", { type: "application/pdf" }));
+    fd.append("file", new File([PDF_MAGIC_BYTES], "a.pdf", { type: "application/pdf" }));
     fd.append("fileType", "full_score");
     const res = await app.request(`/scores/${testScore.id}/files`, { method: "POST", body: fd });
 
@@ -1581,6 +1646,22 @@ describe("POST /scores/:scoreId/files（フォールバックアップロード�
     expect(storage.upload).toHaveBeenCalled();
     expect(storage.delete).toHaveBeenCalled();
     expect(prisma.scoreFile.create).not.toHaveBeenCalled();
+  });
+
+  it("内容が拡張子と一致しない（拡張子偽装）: 400を返しアップロードしない", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.scoreFile.findFirst).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["score"]));
+    const fd = new FormData();
+    fd.append("file", new File(["not-a-pdf"], "a.pdf", { type: "application/pdf" }));
+    fd.append("fileType", "full_score");
+    const res = await app.request(`/scores/${testScore.id}/files`, { method: "POST", body: fd });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    expect(storage.upload).not.toHaveBeenCalled();
   });
 });
 
@@ -1713,7 +1794,7 @@ describe("GET /scores/:scoreId/files/:fileId/download", () => {
     const file = makeScoreFile();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(file as any);
-    vi.mocked(storage.getScoreDownload).mockResolvedValue({
+    vi.mocked(storage.getFileDownload).mockResolvedValue({
       type: "buffer",
       data: Buffer.from("dummy"),
       contentType: "application/pdf",
@@ -1772,7 +1853,7 @@ describe("GET /scores/:scoreId/files/:fileId/download", () => {
     vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(file as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.scorePurchase.findFirst).mockResolvedValue({ id: "purchase-1" } as any);
-    vi.mocked(storage.getScoreDownload).mockResolvedValue({
+    vi.mocked(storage.getFileDownload).mockResolvedValue({
       type: "buffer",
       data: Buffer.from("dummy"),
       contentType: "application/pdf",
@@ -1790,7 +1871,7 @@ describe("GET /scores/:scoreId/files/:fileId/download", () => {
     const file = makeScoreFile();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(file as any);
-    vi.mocked(storage.getScoreDownload).mockResolvedValue({
+    vi.mocked(storage.getFileDownload).mockResolvedValue({
       type: "buffer",
       data: Buffer.from("dummy"),
       contentType: "application/pdf",
@@ -1811,7 +1892,7 @@ describe("GET /scores/:scoreId/files/:fileId/download", () => {
     vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(file as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.scorePurchase.findFirst).mockResolvedValue({ id: "purchase-1" } as any);
-    vi.mocked(storage.getScoreDownload).mockRejectedValue(new Error("not found"));
+    vi.mocked(storage.getFileDownload).mockRejectedValue(new Error("not found"));
 
     const app = createTestApp(makeMember(["member"]));
     const res = await app.request(`/scores/${testScore.id}/files/file-1/download`);
@@ -1827,7 +1908,7 @@ describe("GET /scores/:scoreId/files/:fileId/download", () => {
     vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(file as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.scorePurchase.findFirst).mockResolvedValue({ id: "purchase-1" } as any);
-    vi.mocked(storage.getScoreDownload).mockResolvedValue({
+    vi.mocked(storage.getFileDownload).mockResolvedValue({
       type: "redirect",
       url: "https://r2.example.com/signed-url",
     });
@@ -1849,7 +1930,7 @@ describe("GET /scores/:scoreId/files/:fileId/download", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.scorePurchase.findFirst).mockResolvedValue({ id: "purchase-1" } as any);
     const data = Buffer.from("dummy-pdf-content");
-    vi.mocked(storage.getScoreDownload).mockResolvedValue({
+    vi.mocked(storage.getFileDownload).mockResolvedValue({
       type: "buffer",
       data,
       contentType: "application/pdf",

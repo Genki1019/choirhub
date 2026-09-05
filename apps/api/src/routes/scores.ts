@@ -7,39 +7,13 @@ import { prisma } from "../lib/prisma.js";
 import { isAdmin, isVisitor } from "../services/access.js";
 import { storage, CONTENT_TYPES } from "../services/storage.js";
 import { toDateString } from "../lib/date.js";
+import { fileErrorPage } from "../lib/file-error-page.js";
+import { matchesFileSignature, FILE_SIGNATURE_CHECK_LENGTH } from "../lib/file-signature.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 import type { Prisma } from "../generated/prisma/index.js";
 
 const SCORE_FILE_TYPES = ["full_score", "part_score", "midi", "audio", "other"] as const;
 type ScoreFileType = (typeof SCORE_FILE_TYPES)[number];
-
-function fileErrorPage(status: 403 | 404, message: string): Response {
-  const title = status === 404 ? "ファイルが見つかりません" : "アクセスできません";
-  const html = `<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>${title}</title>
-  <style>
-    body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f9fafb}
-    .box{text-align:center;padding:2rem}
-    h1{font-size:3rem;font-weight:bold;color:#9ca3af;margin:0 0 .5rem}
-    p{color:#6b7280;margin:.25rem 0}
-    a{color:#3b82f6;text-decoration:none}
-    a:hover{text-decoration:underline}
-  </style>
-</head>
-<body>
-  <div class="box">
-    <h1>${status}</h1>
-    <p>${message}</p>
-    <p style="margin-top:1rem"><a href="javascript:history.back()">← 戻る</a></p>
-  </div>
-</body>
-</html>`;
-  return new Response(html, { status, headers: { "Content-Type": "text/html; charset=utf-8" } });
-}
 
 // ファイル閲覧・購入記録参照（privileged viewer）
 function isScorePrivileged(roles: string[]): boolean {
@@ -560,7 +534,7 @@ export const scoresRouter = new Hono<TenantEnv>()
         return c.json({ error: { code: "NOT_FOUND", message: "楽譜が見つかりません" } }, 404);
       }
 
-      const { fileType, fileName, partId, contentType } = c.req.valid("json");
+      const { fileType, fileName, partId } = c.req.valid("json");
 
       if (fileType === "midi") {
         if (!canManageScoreMidi(actingMember.roles)) {
@@ -651,10 +625,13 @@ export const scoresRouter = new Hono<TenantEnv>()
         }
       }
 
+      // クライアント指定のcontentTypeは信用せず、拡張子から一意に決まる値を署名する
+      // （偽装したContentTypeでR2に保存されるのを防ぐ。署名した値をレスポンスで返しPUTヘッダーに使わせる）
       const key = `scores/${randomUUID()}${ext}`;
-      const presignedUrl = await storage.getPresignedPutUrl(key, contentType);
+      const signedContentType = CONTENT_TYPES[ext] ?? "application/octet-stream";
+      const presignedUrl = await storage.getPresignedPutUrl(key, signedContentType);
 
-      return c.json({ data: { presignedUrl, key } });
+      return c.json({ data: { presignedUrl, key, contentType: signedContentType } });
     },
   )
 
@@ -738,6 +715,25 @@ export const scoresRouter = new Hono<TenantEnv>()
               message: "その他ファイルは .pdf / .mp3 / .wav 形式でアップロードしてください",
             },
           },
+          400,
+        );
+      }
+
+      const header = await storage.getFileHeader(key, FILE_SIGNATURE_CHECK_LENGTH);
+      if (!header) {
+        return c.json(
+          {
+            error: {
+              code: "UPLOAD_VERIFICATION_FAILED",
+              message: "アップロード内容を確認できませんでした。もう一度お試しください",
+            },
+          },
+          400,
+        );
+      }
+      if (!matchesFileSignature(ext, header)) {
+        return c.json(
+          { error: { code: "VALIDATION_ERROR", message: "ファイルの内容が拡張子と一致しません" } },
           400,
         );
       }
@@ -925,6 +921,14 @@ export const scoresRouter = new Hono<TenantEnv>()
       );
     }
 
+    const buffer = Buffer.from(await file.arrayBuffer());
+    if (!matchesFileSignature(ext, buffer)) {
+      return c.json(
+        { error: { code: "VALIDATION_ERROR", message: "ファイルの内容が拡張子と一致しません" } },
+        400,
+      );
+    }
+
     const maxVer = await prisma.scoreFile.aggregate({
       where: { scoreId, fileType: fileType as ScoreFileType, partId },
       _max: { version: true },
@@ -932,11 +936,7 @@ export const scoresRouter = new Hono<TenantEnv>()
     const version = (maxVer._max.version ?? 0) + 1;
 
     const storageKey = `scores/${randomUUID()}${ext}`;
-    await storage.upload(
-      storageKey,
-      Buffer.from(await file.arrayBuffer()),
-      CONTENT_TYPES[ext] ?? "application/octet-stream",
-    );
+    await storage.upload(storageKey, buffer, CONTENT_TYPES[ext] ?? "application/octet-stream");
 
     if (fileType === "full_score") {
       const conflict = await prisma.scoreFile.findFirst({
@@ -1079,7 +1079,7 @@ export const scoresRouter = new Hono<TenantEnv>()
     }
 
     const download = await storage
-      .getScoreDownload(scoreFile.storageKey, scoreFile.fileName)
+      .getFileDownload(scoreFile.storageKey, scoreFile.fileName)
       .catch(() => null);
     if (!download) {
       return fileErrorPage(404, "ファイルが見つかりません");

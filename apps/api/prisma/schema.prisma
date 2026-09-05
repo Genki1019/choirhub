@@ -302,10 +302,26 @@ model Event {
   expenses    Expense[]
   collections Collection[]
   concert     Concert?      @relation("EventConcert", fields: [concertId], references: [id], onDelete: SetNull)
+  files       EventFile[]
 
   @@index([orgId, startsAt])
   @@index([categoryId])
   @@map("events")
+}
+
+model EventFile {
+  id         String   @id @default(cuid())
+  eventId    String   @map("event_id")
+  label      String
+  storageKey String   @map("storage_key")
+  fileName   String   @map("file_name")
+  uploadedBy String   @map("uploaded_by")
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("event_files")
 }
 
 model Attendance {
@@ -414,9 +430,25 @@ model Concert {
   ticketBatches      TicketBatch[]
   outreachActivities OutreachActivity[]
   linkedEvent        Event?              @relation("EventConcert")
+  files              ConcertFile[]
 
   @@index([orgId, heldOn])
   @@map("concerts")
+}
+
+model ConcertFile {
+  id         String   @id @default(cuid())
+  concertId  String   @map("concert_id")
+  label      String
+  storageKey String   @map("storage_key")
+  fileName   String   @map("file_name")
+  uploadedBy String   @map("uploaded_by")
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  concert Concert @relation(fields: [concertId], references: [id], onDelete: Cascade)
+
+  @@index([concertId])
+  @@map("concert_files")
 }
 
 model Stage {

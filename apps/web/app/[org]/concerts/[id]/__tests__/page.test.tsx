@@ -22,6 +22,9 @@ vi.mock("@/lib/concerts-api", async () => {
     concertsApi: {
       get: vi.fn(),
       delete: vi.fn(),
+      listFiles: vi.fn(),
+      uploadFile: vi.fn(),
+      deleteFile: vi.fn(),
     },
   };
 });
@@ -200,5 +203,36 @@ describe("ConcertDetailPage（visitorのタブ制御）", () => {
     await screen.findByText("第1ステージ");
     expect(screen.getByText("オンステ調査")).toBeInTheDocument();
     expect(screen.getByText("出演メンバー")).toBeInTheDocument();
+  });
+
+  it("visitorのみでも「ファイル」タブは表示される", async () => {
+    vi.mocked(concertsApi.get).mockResolvedValue(makeConcert());
+    renderPage(["visitor"]);
+
+    await screen.findByText("第1ステージ");
+    expect(screen.getByText("ファイル")).toBeInTheDocument();
+  });
+});
+
+describe("ConcertDetailPage（ファイルタブ）", () => {
+  it("「ファイル」タブクリックで添付ファイル一覧を表示する", async () => {
+    vi.mocked(concertsApi.get).mockResolvedValue(makeConcert());
+    vi.mocked(concertsApi.listFiles).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderPage(["admin"]);
+
+    await screen.findByText("ステージを追加");
+    await user.click(screen.getByText("ファイル"));
+
+    expect(await screen.findByText("登録されているファイルはありません")).toBeInTheDocument();
+  });
+
+  it("visitorのみで?tab=filesを指定するとファイルタブが表示される", async () => {
+    searchParamsMock = new URLSearchParams("tab=files");
+    vi.mocked(concertsApi.get).mockResolvedValue(makeConcert());
+    vi.mocked(concertsApi.listFiles).mockResolvedValue([]);
+    renderPage(["visitor"]);
+
+    expect(await screen.findByText("登録されているファイルはありません")).toBeInTheDocument();
   });
 });

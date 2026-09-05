@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Pencil,
   Trash2,
+  Paperclip,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -27,7 +28,7 @@ import { formatJaDate } from "@/lib/date";
 import { concertKeys } from "@/lib/query-keys";
 import { mergeOrderedIds } from "@/lib/sort-order";
 import { useMember } from "@/contexts/MemberContext";
-import { MEMBER_LEVEL_ROLES } from "@/lib/roles";
+import { MEMBER_LEVEL_ROLES, canManageAttachments } from "@/lib/roles";
 import { StagesTab } from "./_components/StagesTab";
 import { AddStageModal } from "./_components/AddStageModal";
 import { MoveCopyModal, type MoveCopyTarget } from "./_components/MoveCopyModal";
@@ -38,6 +39,7 @@ import { EditProgramModal } from "./_components/EditProgramModal";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
 import { PageHeader } from "@/components/PageHeader";
+import { FileAttachmentSection } from "@/components/FileAttachmentSection";
 
 const STATUS_CONFIG: Record<ConcertStatus, { label: string; badge: string }> = {
   draft: { label: "準備中", badge: "bg-gray-100 text-gray-500" },
@@ -46,9 +48,9 @@ const STATUS_CONFIG: Record<ConcertStatus, { label: string; badge: string }> = {
   past: { label: "終了", badge: "bg-gray-100 text-gray-400" },
 };
 
-type Tab = "stages" | "survey" | "onstage";
+type Tab = "stages" | "survey" | "onstage" | "files";
 
-const VALID_TABS: Tab[] = ["stages", "survey", "onstage"];
+const VALID_TABS: Tab[] = ["stages", "survey", "onstage", "files"];
 
 export default function ConcertDetailPage() {
   const { org, id } = useParams<{ org: string; id: string }>();
@@ -64,7 +66,9 @@ export default function ConcertDetailPage() {
 
   const tabParam = searchParams.get("tab") as Tab | null;
   const initialTab: Tab =
-    tabParam && VALID_TABS.includes(tabParam) && (!isVisitorOnly || tabParam === "stages")
+    tabParam &&
+    VALID_TABS.includes(tabParam) &&
+    (!isVisitorOnly || tabParam === "stages" || tabParam === "files")
       ? tabParam
       : "stages";
   const fromParam = searchParams.get("from");
@@ -279,6 +283,7 @@ export default function ConcertDetailPage() {
           { id: "survey" as Tab, label: "オンステ調査", icon: <ClipboardList size={13} /> },
           { id: "onstage" as Tab, label: "出演メンバー", icon: <Users size={13} /> },
         ]),
+    { id: "files", label: "ファイル", icon: <Paperclip size={13} /> },
   ];
 
   return (
@@ -391,6 +396,15 @@ export default function ConcertDetailPage() {
             org={org}
             canManageStage={canManageStage}
             onStagesChanged={handleStagesChanged}
+          />
+        )}
+        {activeTab === "files" && (
+          <FileAttachmentSection
+            queryKey={concertKeys.files(org, id)}
+            canManage={canManageAttachments(roles)}
+            listFiles={() => concertsApi.listFiles(org, id)}
+            uploadFile={(file, label) => concertsApi.uploadFile(org, id, file, label)}
+            deleteFile={(fileId) => concertsApi.deleteFile(org, id, fileId)}
           />
         )}
       </PageMain>

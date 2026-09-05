@@ -1,6 +1,5 @@
 import { apiClient, ApiClientError } from "./api-client";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+import { uploadAttachment } from "./file-attachment-api";
 
 export interface ScoreFile {
   id: string;
@@ -158,59 +157,15 @@ export const scoresApi = {
 
     if (!file) throw new ApiClientError("BAD_REQUEST", "ファイルが選択されていません", 400);
 
-    // Step 1: プレサインド PUT URL を取得
-    const presignData = await apiClient.post<{ presignedUrl: string | null; key: string }>(
-      `/${orgSlug}/scores/${scoreId}/files/presign`,
-      {
-        fileType,
-        fileName: file.name,
-        partId,
-        contentType: file.type || "application/octet-stream",
-      },
-    );
-
-    if (presignData.presignedUrl) {
-      // Step 2: R2 に直接アップロード（Lambda を通さないので 4.5MB 制限なし）
-      const uploadRes = await fetch(presignData.presignedUrl, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-      });
-      if (!uploadRes.ok) {
-        throw new ApiClientError(
-          "UPLOAD_FAILED",
-          `R2へのアップロードに失敗しました (${uploadRes.status})`,
-          uploadRes.status,
-        );
-      }
-
-      // Step 3: API に DB 登録を依頼
-      return apiClient.post<ScoreFile>(`/${orgSlug}/scores/${scoreId}/files/confirm`, {
-        key: presignData.key,
-        fileType,
-        fileName: file.name,
-        partId,
-      });
-    }
-
-    // R2 未設定（ローカル開発）: 従来のマルチパート方式にフォールバック
-    const res = await fetch(`${API_BASE}/api/v1/${orgSlug}/scores/${scoreId}/files`, {
-      method: "POST",
-      credentials: "include",
-      body: formData,
+    return uploadAttachment<ScoreFile>({
+      presignPath: `/${orgSlug}/scores/${scoreId}/files/presign`,
+      confirmPath: `/${orgSlug}/scores/${scoreId}/files/confirm`,
+      fallbackPath: `/${orgSlug}/scores/${scoreId}/files`,
+      file,
+      presignExtra: { fileType, partId },
+      confirmExtra: { fileType, partId },
+      fallbackExtra: { fileType, ...(partId ? { partId } : {}) },
     });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as {
-        error?: { code: string; message: string };
-      } | null;
-      throw new ApiClientError(
-        body?.error?.code ?? "UNKNOWN",
-        body?.error?.message ?? res.statusText,
-        res.status,
-      );
-    }
-    const body = (await res.json()) as { data: ScoreFile };
-    return body.data;
   },
 
   deleteFile: (orgSlug: string, scoreId: string, fileId: string) =>

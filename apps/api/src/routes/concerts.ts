@@ -11,26 +11,44 @@ import {
 } from "../services/access.js";
 import { syncOnStageFromResponses, applySurveyToOnStage } from "../services/onstage.js";
 import { createAttachmentRoutes } from "../lib/attachment-routes.js";
+import { deleteStoredFiles } from "../services/files.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 const concertFileRoutes = createAttachmentRoutes({
   resourcePath: "concerts/:concertId",
   idParam: "concertId",
   keyPrefix: "concerts",
+  kind: "concert",
   notFoundMessage: "演奏会が見つかりません",
   resourceExists: async (id, orgId) => {
     const concert = await prisma.concert.findUnique({ where: { id } });
     return !!concert && concert.orgId === orgId;
   },
-  listFiles: (concertId) =>
-    prisma.concertFile.findMany({ where: { concertId }, orderBy: { uploadedAt: "asc" } }),
-  createFile: (concertId, data) => prisma.concertFile.create({ data: { concertId, ...data } }),
-  findFile: async (fileId) => {
-    const f = await prisma.concertFile.findUnique({ where: { id: fileId } });
-    return f && { ...f, resourceId: f.concertId };
+  listFiles: async (concertId) => {
+    const files = await prisma.concertFile.findMany({
+      where: { concertId },
+      orderBy: { file: { uploadedAt: "asc" } },
+      include: { file: true },
+    });
+    return files.map((f) => ({ id: f.id, label: f.label, fileName: f.file.fileName }));
   },
-  deleteFile: async (fileId, concertId) => {
-    await prisma.concertFile.delete({ where: { id: fileId, concertId } });
+  createFile: (tx, concertId, data) =>
+    tx.concertFile.create({ data: { concertId, label: data.label, fileId: data.fileId } }),
+  findFile: async (fileId) => {
+    const f = await prisma.concertFile.findUnique({
+      where: { id: fileId },
+      include: { file: true },
+    });
+    return (
+      f && {
+        id: f.id,
+        label: f.label,
+        fileName: f.file.fileName,
+        resourceId: f.concertId,
+        storedFileId: f.fileId,
+        storageKey: f.file.storageKey,
+      }
+    );
   },
 });
 
@@ -860,16 +878,26 @@ export const concertsRouter = new Hono<TenantEnv>()
 
     const concert = await prisma.concert.findUnique({
       where: { id },
-      include: { linkedEvent: { select: { id: true } } },
+      include: {
+        linkedEvent: { select: { id: true } },
+        files: { include: { file: true } },
+      },
     });
     if (!concert || concert.orgId !== org.id) {
       return c.json({ error: { code: "NOT_FOUND", message: "演奏会が見つかりません" } }, 404);
     }
 
+    const orphanedFiles = concert.files.map((f) => f.file);
     if (concert.linkedEvent) {
+      const linkedEventFiles = await prisma.eventFile.findMany({
+        where: { eventId: concert.linkedEvent.id },
+        include: { file: true },
+      });
+      orphanedFiles.push(...linkedEventFiles.map((f) => f.file));
       await prisma.event.delete({ where: { id: concert.linkedEvent.id } });
     }
     await prisma.concert.delete({ where: { id } });
+    await deleteStoredFiles(orphanedFiles);
 
     return new Response(null, { status: 204 });
   })

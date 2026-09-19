@@ -20,6 +20,13 @@ import { PageErrorState } from "@/components/PageErrorState";
 import { FileAttachmentSection } from "@/components/FileAttachmentSection";
 
 const STATUS_CYCLE = ["attending", "absent", "maybe", "undecided"] as const;
+const AUDIO_EXTENSIONS = [".mp3", ".wav"];
+const AUDIO_ACCEPT = AUDIO_EXTENSIONS.join(",");
+
+function isAudioFile(fileName: string) {
+  const lower = fileName.toLowerCase();
+  return AUDIO_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
 
 function formatDatetime(iso: string) {
   const d = new Date(iso);
@@ -79,6 +86,7 @@ export default function ScheduleDetailPage() {
   }, [event, members, id]);
 
   const isLocked = event?.isLocked ?? false;
+  const isRehearsal = event?.category.slug === "rehearsal" || event?.category.name === "練習";
 
   const cycleStatus = useCallback(
     (memberId: string) => {
@@ -271,11 +279,38 @@ export default function ScheduleDetailPage() {
             title="添付ファイル"
             queryKey={eventKeys.files(org, id)}
             canManage={canManageAttachments(roles)}
-            listFiles={() => eventsApi.listFiles(org, id)}
+            listFiles={async () =>
+              (await eventsApi.listFiles(org, id)).filter((f) => !isAudioFile(f.fileName))
+            }
             uploadFile={(file, label) => eventsApi.uploadFile(org, id, file, label)}
             deleteFile={(fileId) => eventsApi.deleteFile(org, id, fileId)}
           />
         </div>
+
+        {isRehearsal && (
+          <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
+            <FileAttachmentSection
+              title="練習録音"
+              queryKey={[...eventKeys.files(org, id), "recordings"]}
+              canManage={canManageAttachments(roles)}
+              listFiles={async () =>
+                (await eventsApi.listFiles(org, id)).filter((f) => isAudioFile(f.fileName))
+              }
+              uploadFile={(file, label) => eventsApi.uploadFile(org, id, file, label)}
+              deleteFile={(fileId) => eventsApi.deleteFile(org, id, fileId)}
+              accept={AUDIO_ACCEPT}
+              labelInput="text"
+              renderFile={(f) => (
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs text-gray-700">{f.fileName}</p>
+                  {f.downloadUrl && (
+                    <audio controls src={f.downloadUrl} className="mt-1 h-8 w-full max-w-xs" />
+                  )}
+                </div>
+              )}
+            />
+          </div>
+        )}
 
         <AttendanceTable
           partGroups={partGroups}

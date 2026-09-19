@@ -594,15 +594,17 @@ erDiagram
 
 ### EventFile（イベント添付ファイル）
 
-| カラム     | 型        | 制約                    | 説明                                                  |
-| ---------- | --------- | ----------------------- | ----------------------------------------------------- |
-| id         | CUID      | PK                      |                                                       |
-| eventId    | CUID      | NOT NULL, FK → Event    |                                                       |
-| label      | VARCHAR   | NOT NULL                | 種別ラベル（フライヤー/しおり/行程表/資料/その他 等） |
-| storageKey | VARCHAR   | NOT NULL                | R2 オブジェクトキー（直リンク不可）                   |
-| fileName   | VARCHAR   | NOT NULL                | 表示用ファイル名                                      |
-| uploadedBy | CUID      | NOT NULL, FK → Member   |                                                       |
-| uploadedAt | TIMESTAMP | NOT NULL, DEFAULT now() |                                                       |
+練習カテゴリのイベントでは、同モデルを練習録音アーカイブ（`.mp3`/`.wav`）にも利用する。拡張子で振り分けて画面上は別セクション（添付ファイル／練習録音）に表示する。
+
+| カラム     | 型        | 制約                    | 説明                                                                                          |
+| ---------- | --------- | ----------------------- | --------------------------------------------------------------------------------------------- |
+| id         | CUID      | PK                      |                                                                                               |
+| eventId    | CUID      | NOT NULL, FK → Event    |                                                                                               |
+| label      | VARCHAR   | NOT NULL                | 種別ラベル（文書: フライヤー/しおり/行程表/資料/その他 等。録音: 曲名・パート名等の自由入力） |
+| storageKey | VARCHAR   | NOT NULL                | R2 オブジェクトキー（直リンク不可）                                                           |
+| fileName   | VARCHAR   | NOT NULL                | 表示用ファイル名                                                                              |
+| uploadedBy | CUID      | NOT NULL, FK → Member   |                                                                                               |
+| uploadedAt | TIMESTAMP | NOT NULL, DEFAULT now() |                                                                                               |
 
 ---
 

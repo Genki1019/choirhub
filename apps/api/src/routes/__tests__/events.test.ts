@@ -43,7 +43,13 @@ vi.mock("../../services/storage.js", () => ({
     getFileHeader: vi.fn(),
     getFileDownload: vi.fn(),
   },
-  CONTENT_TYPES: { ".pdf": "application/pdf", ".jpg": "image/jpeg", ".png": "image/png" },
+  CONTENT_TYPES: {
+    ".pdf": "application/pdf",
+    ".jpg": "image/jpeg",
+    ".png": "image/png",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+  },
 }));
 
 import { prisma } from "../../lib/prisma.js";
@@ -120,6 +126,7 @@ const testEvent = {
 };
 
 const PDF_MAGIC_BYTES = Buffer.from([0x25, 0x50, 0x44, 0x46]);
+const MP3_MAGIC_BYTES = Buffer.from([0x49, 0x44, 0x33, 0x03, 0x00, 0x00]);
 
 function makeEventFile(overrides: Partial<{ id: string; label: string; fileName: string }> = {}) {
   return {
@@ -1212,6 +1219,50 @@ describe("POST /events/:id/files/presign", () => {
     expect(body.data.contentType).toBe("application/pdf");
   });
 
+  it("正常: 練習録音（.mp3）でもpresignedUrlとkeyを返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.event.findUnique).mockResolvedValue(testEvent as any);
+    vi.mocked(storage.getPresignedPutUrl).mockResolvedValue("https://r2.example.com/presigned");
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/events/${testEvent.id}/files/presign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        label: "第4楽章",
+        fileName: "rehearsal.mp3",
+        contentType: "audio/mpeg",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.key).toMatch(/^events\/.+\.mp3$/);
+    expect(body.data.contentType).toBe("audio/mpeg");
+  });
+
+  it("正常: 練習録音（.wav）でもpresignedUrlとkeyを返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.event.findUnique).mockResolvedValue(testEvent as any);
+    vi.mocked(storage.getPresignedPutUrl).mockResolvedValue("https://r2.example.com/presigned");
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/events/${testEvent.id}/files/presign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        label: "第4楽章",
+        fileName: "rehearsal.wav",
+        contentType: "audio/wav",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.key).toMatch(/^events\/.+\.wav$/);
+    expect(body.data.contentType).toBe("audio/wav");
+  });
+
   it("クライアント指定のcontentTypeは無視し拡張子から決まる値で署名する", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.event.findUnique).mockResolvedValue(testEvent as any);
@@ -1318,6 +1369,31 @@ describe("POST /events/:id/files/confirm", () => {
     const body = await json(res);
     expect(body.data.id).toBe(created.id);
     expect(body.data.label).toBe("行程表");
+  });
+
+  it("正常: 練習録音（.mp3）でもEventFileを作成し201を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.event.findUnique).mockResolvedValue(testEvent as any);
+    vi.mocked(storage.getFileHeader).mockResolvedValue(MP3_MAGIC_BYTES);
+    const created = makeEventFile({ label: "第4楽章", fileName: "rehearsal.mp3" });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.eventFile.create).mockResolvedValue(created as any);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/events/${testEvent.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        key: "events/abc.mp3",
+        label: "第4楽章",
+        fileName: "rehearsal.mp3",
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    const body = await json(res);
+    expect(body.data.id).toBe(created.id);
+    expect(body.data.label).toBe("第4楽章");
   });
 
   it("内容が拡張子と一致しない（拡張子偽装）: 400を返す（オブジェクトは削除しない）", async () => {
@@ -1458,6 +1534,26 @@ describe("POST /events/:id/files（フォールバックアップロード）", 
     expect(storage.upload).toHaveBeenCalled();
     const body = await json(res);
     expect(body.data.label).toBe("行程表");
+  });
+
+  it("正常: 練習録音（.mp3）でもアップロードしEventFileを作成する", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.event.findUnique).mockResolvedValue(testEvent as any);
+    vi.mocked(storage.upload).mockResolvedValue(undefined);
+    const created = makeEventFile({ label: "第4楽章", fileName: "rehearsal.mp3" });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.eventFile.create).mockResolvedValue(created as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const fd = new FormData();
+    fd.append("file", new File([MP3_MAGIC_BYTES], "rehearsal.mp3", { type: "audio/mpeg" }));
+    fd.append("label", "第4楽章");
+    const res = await app.request(`/events/${testEvent.id}/files`, { method: "POST", body: fd });
+
+    expect(res.status).toBe(201);
+    expect(storage.upload).toHaveBeenCalled();
+    const body = await json(res);
+    expect(body.data.label).toBe("第4楽章");
   });
 
   it("内容が拡張子と一致しない（拡張子偽装）: 400を返しアップロードしない", async () => {

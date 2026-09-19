@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -11,6 +12,9 @@ function renderSection(props: {
   listFiles?: () => Promise<AttachmentFile[]>;
   uploadFile?: (file: File, label: string) => Promise<AttachmentFile>;
   deleteFile?: (fileId: string) => Promise<void>;
+  accept?: string;
+  labelInput?: "select" | "text";
+  renderFile?: (file: AttachmentFile) => ReactNode;
 }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const listFiles = props.listFiles ?? vi.fn().mockResolvedValue(props.files ?? []);
@@ -25,6 +29,9 @@ function renderSection(props: {
         listFiles={listFiles}
         uploadFile={uploadFile}
         deleteFile={deleteFile}
+        accept={props.accept}
+        labelInput={props.labelInput}
+        renderFile={props.renderFile}
       />
     </QueryClientProvider>,
   );
@@ -114,6 +121,63 @@ describe("FileAttachmentSection（アップロード）", () => {
 
     expect(await screen.findByText("new.pdf")).toBeInTheDocument();
     expect(uploadFile).toHaveBeenCalledWith(file, "フライヤー");
+  });
+});
+
+describe("FileAttachmentSection（accept / labelInput / renderFile）", () => {
+  it("acceptを指定するとinput[type=file]のaccept属性に反映される", async () => {
+    renderSection({ files: [], accept: ".mp3,.wav" });
+
+    await screen.findByText("登録されているファイルはありません");
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(fileInput).toHaveAttribute("accept", ".mp3,.wav");
+  });
+
+  it("labelInput未指定時はプリセット選択式（select）になる", async () => {
+    renderSection({ files: [] });
+
+    await screen.findByText("登録されているファイルはありません");
+    expect(screen.getByRole("combobox")).toBeInTheDocument();
+  });
+
+  it("labelInput='text'の場合は自由入力欄になり、入力した値がlabelとしてuploadFileに渡る", async () => {
+    const uploadFile = vi.fn().mockResolvedValue(makeFile({ id: "new-file", fileName: "rec.mp3" }));
+    const user = userEvent.setup();
+    renderSection({ files: [], uploadFile, labelInput: "text", accept: ".mp3,.wav" });
+
+    await screen.findByText("登録されているファイルはありません");
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText("曲名・パート名など"), "第4楽章");
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["dummy"], "rec.mp3", { type: "audio/mpeg" });
+    await user.upload(fileInput, file);
+    await user.click(screen.getByRole("button", { name: "追加" }));
+
+    await waitFor(() => expect(uploadFile).toHaveBeenCalledWith(file, "第4楽章"));
+  });
+
+  it("labelInput='text'でラベル未入力のまま追加を押すとエラーを表示する", async () => {
+    const user = userEvent.setup();
+    renderSection({ files: [], labelInput: "text", accept: ".mp3,.wav" });
+
+    await screen.findByText("登録されているファイルはありません");
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["dummy"], "rec.mp3", { type: "audio/mpeg" });
+    await user.upload(fileInput, file);
+    await user.click(screen.getByRole("button", { name: "追加" }));
+
+    expect(await screen.findByText("ラベルを入力してください")).toBeInTheDocument();
+  });
+
+  it("renderFileを指定するとファイル行の表示をカスタマイズできる", async () => {
+    renderSection({
+      files: [makeFile({ fileName: "rec.mp3" })],
+      renderFile: (f) => <span data-testid="custom-row">{f.fileName}（カスタム）</span>,
+    });
+
+    expect(await screen.findByTestId("custom-row")).toHaveTextContent("rec.mp3（カスタム）");
+    expect(screen.queryByRole("link", { name: "rec.mp3" })).not.toBeInTheDocument();
   });
 });
 

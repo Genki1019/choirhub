@@ -67,7 +67,12 @@ vi.mock("../../services/storage.js", () => ({
     getFileHeader: vi.fn(),
     getFileDownload: vi.fn(),
   },
-  CONTENT_TYPES: { ".pdf": "application/pdf", ".jpg": "image/jpeg", ".png": "image/png" },
+  CONTENT_TYPES: {
+    ".pdf": "application/pdf",
+    ".jpg": "image/jpeg",
+    ".png": "image/png",
+    ".mp3": "audio/mpeg",
+  },
 }));
 
 import { prisma } from "../../lib/prisma.js";
@@ -2424,6 +2429,28 @@ describe("POST /concerts/:concertId/files/presign", () => {
     expect(body.data.presignedUrl).toBe("https://r2.example.com/presigned");
     expect(body.data.key).toMatch(/^concerts\/.+\.pdf$/);
     expect(body.data.contentType).toBe("application/pdf");
+  });
+
+  it("正常: 音声ファイル（.mp3）でもpresignedUrlとkeyを返す（イベントの練習録音と共通実装のため許可される）", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(storage.getPresignedPutUrl).mockResolvedValue("https://r2.example.com/presigned");
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/presign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        label: "資料",
+        fileName: "a.mp3",
+        contentType: "audio/mpeg",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.key).toMatch(/^concerts\/.+\.mp3$/);
+    expect(body.data.contentType).toBe("audio/mpeg");
   });
 
   it("クライアント指定のcontentTypeは無視し拡張子から決まる値で署名する", async () => {

@@ -182,14 +182,21 @@ describe("ScheduleDetailPage（編集・削除ボタンの権限）", () => {
   });
 });
 
+async function findSection(title: string) {
+  const heading = await screen.findByText(title);
+  return heading.closest(".space-y-3") as HTMLElement;
+}
+
 describe("ScheduleDetailPage（添付ファイル）", () => {
   it("添付ファイルセクションを表示する", async () => {
     vi.mocked(eventsApi.get).mockResolvedValue(makeEvent());
     vi.mocked(eventsApi.listFiles).mockResolvedValue([]);
     renderPage(["member"]);
 
-    expect(await screen.findByText("添付ファイル")).toBeInTheDocument();
-    expect(await screen.findByText("登録されているファイルはありません")).toBeInTheDocument();
+    const section = await findSection("添付ファイル");
+    expect(
+      await within(section).findByText("登録されているファイルはありません"),
+    ).toBeInTheDocument();
   });
 
   it("member: アップロードフォームを表示しない", async () => {
@@ -197,8 +204,8 @@ describe("ScheduleDetailPage（添付ファイル）", () => {
     vi.mocked(eventsApi.listFiles).mockResolvedValue([]);
     renderPage(["member"]);
 
-    await screen.findByText("添付ファイル");
-    expect(screen.queryByRole("button", { name: "追加" })).not.toBeInTheDocument();
+    const section = await findSection("添付ファイル");
+    expect(within(section).queryByRole("button", { name: "追加" })).not.toBeInTheDocument();
   });
 
   it("admin: アップロードフォームを表示する", async () => {
@@ -206,8 +213,71 @@ describe("ScheduleDetailPage（添付ファイル）", () => {
     vi.mocked(eventsApi.listFiles).mockResolvedValue([]);
     renderPage(["admin"]);
 
+    const section = await findSection("添付ファイル");
+    expect(within(section).getByRole("button", { name: "追加" })).toBeInTheDocument();
+  });
+});
+
+describe("ScheduleDetailPage（練習録音）", () => {
+  it("練習カテゴリのイベントでは練習録音セクションを表示する", async () => {
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent());
+    vi.mocked(eventsApi.listFiles).mockResolvedValue([]);
+    renderPage(["member"]);
+
+    expect(await screen.findByText("練習録音")).toBeInTheDocument();
+  });
+
+  it("本番カテゴリのイベントでは練習録音セクションを表示しない", async () => {
+    vi.mocked(eventsApi.get).mockResolvedValue(
+      makeEvent({
+        category: { id: "cat-2", name: "本番", slug: "concert", color: "#EF4444", sortOrder: 1 },
+      }),
+    );
+    vi.mocked(eventsApi.listFiles).mockResolvedValue([]);
+    renderPage(["member"]);
+
     await screen.findByText("添付ファイル");
-    expect(screen.getByRole("button", { name: "追加" })).toBeInTheDocument();
+    expect(screen.queryByText("練習録音")).not.toBeInTheDocument();
+  });
+
+  it("音声ファイルは練習録音セクションに、それ以外は添付ファイルセクションに振り分けて表示する", async () => {
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent());
+    vi.mocked(eventsApi.listFiles).mockResolvedValue([
+      { id: "f1", label: "行程表", fileName: "itinerary.pdf", downloadUrl: "/dl/f1" },
+      { id: "f2", label: "第4楽章", fileName: "movement4.mp3", downloadUrl: "/dl/f2" },
+    ]);
+    renderPage(["member"]);
+
+    const docs = await findSection("添付ファイル");
+    const recordings = await findSection("練習録音");
+
+    expect(within(docs).getByText("itinerary.pdf")).toBeInTheDocument();
+    expect(within(docs).queryByText("movement4.mp3")).not.toBeInTheDocument();
+    expect(within(recordings).getByText("movement4.mp3")).toBeInTheDocument();
+    expect(within(recordings).queryByText("itinerary.pdf")).not.toBeInTheDocument();
+  });
+
+  it("練習録音セクションのファイルは<audio>で再生できる", async () => {
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent());
+    vi.mocked(eventsApi.listFiles).mockResolvedValue([
+      { id: "f2", label: "第4楽章", fileName: "movement4.mp3", downloadUrl: "/dl/f2" },
+    ]);
+    renderPage(["member"]);
+
+    const recordings = await findSection("練習録音");
+    await within(recordings).findByText("movement4.mp3");
+    const audio = recordings.querySelector("audio");
+    expect(audio).toHaveAttribute("src", "/dl/f2");
+  });
+
+  it("admin: 練習録音セクションのラベルは自由入力欄になる", async () => {
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent());
+    vi.mocked(eventsApi.listFiles).mockResolvedValue([]);
+    renderPage(["admin"]);
+
+    const recordings = await findSection("練習録音");
+    expect(within(recordings).getByPlaceholderText("曲名・パート名など")).toBeInTheDocument();
+    expect(within(recordings).queryByRole("combobox")).not.toBeInTheDocument();
   });
 });
 

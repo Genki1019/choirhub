@@ -11,7 +11,7 @@ import { matchesFileSignature, FILE_SIGNATURE_CHECK_LENGTH } from "./file-signat
 import type { TenantEnv } from "../middleware/tenant.js";
 import type { Member } from "../generated/prisma/index.js";
 
-const ALLOWED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png"] as const;
+const ALLOWED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png", ".mp3", ".wav"] as const;
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
 function isAllowedExt(ext: string): boolean {
@@ -43,7 +43,8 @@ function extensionError(c: Context) {
     {
       error: {
         code: "VALIDATION_ERROR",
-        message: "ファイルは .pdf / .jpg / .jpeg / .png 形式でアップロードしてください",
+        message:
+          "ファイルは .pdf / .jpg / .jpeg / .png / .mp3 / .wav 形式でアップロードしてください",
       },
     },
     400,

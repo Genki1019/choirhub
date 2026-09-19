@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { FileText, Loader2, Paperclip, Trash2, Upload } from "lucide-react";
 import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import type { AttachmentFile } from "@/lib/file-attachment-api";
 
 const LABEL_OPTIONS = ["フライヤー", "しおり", "行程表", "資料", "その他"] as const;
 const OTHER_LABEL = "その他";
+const DEFAULT_ACCEPT = ".pdf,.jpg,.jpeg,.png";
 
 interface FileAttachmentSectionProps {
   queryKey: QueryKey;
@@ -15,6 +16,9 @@ interface FileAttachmentSectionProps {
   uploadFile: (file: File, label: string) => Promise<AttachmentFile>;
   deleteFile: (fileId: string) => Promise<void>;
   title?: string;
+  accept?: string;
+  labelInput?: "select" | "text";
+  renderFile?: (file: AttachmentFile) => ReactNode;
 }
 
 export function FileAttachmentSection({
@@ -24,22 +28,31 @@ export function FileAttachmentSection({
   uploadFile,
   deleteFile,
   title,
+  accept = DEFAULT_ACCEPT,
+  labelInput = "select",
+  renderFile,
 }: FileAttachmentSectionProps) {
   const queryClient = useQueryClient();
   const { data: files = [], isLoading } = useQuery({ queryKey, queryFn: listFiles });
 
   const [selectedLabel, setSelectedLabel] = useState<string>(LABEL_OPTIONS[0]);
   const [customLabel, setCustomLabel] = useState("");
+  const [textLabel, setTextLabel] = useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<AttachmentFile | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const resolveLabel = () => {
+    if (labelInput === "text") return textLabel.trim();
+    return selectedLabel === OTHER_LABEL ? customLabel.trim() : selectedLabel;
+  };
+
   const uploadMutation = useMutation({
     mutationFn: async () => {
       const file = fileInputRef.current?.files?.[0];
       if (!file) throw new Error("ファイルを選択してください");
-      const label = selectedLabel === OTHER_LABEL ? customLabel.trim() : selectedLabel;
+      const label = resolveLabel();
       if (!label) throw new Error("ラベルを入力してください");
       return uploadFile(file, label);
     },
@@ -47,6 +60,7 @@ export function FileAttachmentSection({
       queryClient.setQueryData<AttachmentFile[]>(queryKey, (prev) => [...(prev ?? []), created]);
       if (fileInputRef.current) fileInputRef.current.value = "";
       setCustomLabel("");
+      setTextLabel("");
       setUploadError(null);
     },
     onError: (err) => {
@@ -92,7 +106,9 @@ export function FileAttachmentSection({
               <span className="shrink-0 rounded bg-gray-200 px-1.5 py-0.5 text-[11px] text-gray-500">
                 {f.label}
               </span>
-              {f.downloadUrl ? (
+              {renderFile ? (
+                renderFile(f)
+              ) : f.downloadUrl ? (
                 <a
                   href={f.downloadUrl}
                   target="_blank"
@@ -129,32 +145,44 @@ export function FileAttachmentSection({
       {canManage && (
         <div className="space-y-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-3">
           <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={selectedLabel}
-              onChange={(e) => setSelectedLabel(e.target.value)}
-              className="focus:ring-brand-400 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:ring-1 focus:outline-none"
-            >
-              {LABEL_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-            {selectedLabel === OTHER_LABEL && (
+            {labelInput === "text" ? (
               <input
                 type="text"
-                value={customLabel}
-                onChange={(e) => setCustomLabel(e.target.value)}
-                placeholder="ラベルを入力"
+                value={textLabel}
+                onChange={(e) => setTextLabel(e.target.value)}
+                placeholder="曲名・パート名など"
                 className="focus:ring-brand-400 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:ring-1 focus:outline-none"
               />
+            ) : (
+              <>
+                <select
+                  value={selectedLabel}
+                  onChange={(e) => setSelectedLabel(e.target.value)}
+                  className="focus:ring-brand-400 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:ring-1 focus:outline-none"
+                >
+                  {LABEL_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+                {selectedLabel === OTHER_LABEL && (
+                  <input
+                    type="text"
+                    value={customLabel}
+                    onChange={(e) => setCustomLabel(e.target.value)}
+                    placeholder="ラベルを入力"
+                    className="focus:ring-brand-400 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:ring-1 focus:outline-none"
+                  />
+                )}
+              </>
             )}
           </div>
           <div className="flex items-center gap-2">
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.jpg,.jpeg,.png"
+              accept={accept}
               className="file:text-brand-600 file:border-brand-200 hover:file:bg-brand-50 flex-1 cursor-pointer text-xs text-gray-600 file:mr-3 file:rounded-md file:border file:border-0 file:bg-white file:px-2.5 file:py-1 file:text-xs file:font-medium"
             />
             <button

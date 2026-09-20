@@ -50,6 +50,14 @@ const concertFileRoutes = createAttachmentRoutes({
       }
     );
   },
+  deleteFile: async (fileId, concertId) => {
+    try {
+      await prisma.concertFile.delete({ where: { id: fileId, concertId } });
+      return true;
+    } catch {
+      return false;
+    }
+  },
 });
 
 export const concertsRouter = new Hono<TenantEnv>()

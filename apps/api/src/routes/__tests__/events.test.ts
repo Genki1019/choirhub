@@ -1772,12 +1772,14 @@ describe("DELETE /events/:id/files/:fileId", () => {
     expect(body.error.code).toBe("FORBIDDEN");
   });
 
-  it("正常: 204を返しストレージとDBから削除する", async () => {
+  it("正常: 204を返しEventFile→StoredFileの順にアトミック削除する", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.event.findUnique).mockResolvedValue(testEvent as any);
     const file = makeEventFile();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.eventFile.findUnique).mockResolvedValue(file as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.eventFile.delete).mockResolvedValue(file as any);
     vi.mocked(storage.delete).mockResolvedValue(undefined);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.storedFile.delete).mockResolvedValue(file.file as any);
@@ -1786,10 +1788,29 @@ describe("DELETE /events/:id/files/:fileId", () => {
     const res = await app.request(`/events/${testEvent.id}/files/file-1`, { method: "DELETE" });
 
     expect(res.status).toBe(204);
+    expect(prisma.eventFile.delete).toHaveBeenCalledWith({
+      where: { id: "file-1", eventId: testEvent.id },
+    });
     expect(storage.delete).toHaveBeenCalledWith(file.file.storageKey);
     expect(prisma.storedFile.delete).toHaveBeenCalledWith({
       where: { id: file.fileId },
     });
+  });
+
+  it("findFileとdeleteの間でファイルが別イベントに紐づけ替えられていた場合: 404を返しStoredFileは削除しない", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.event.findUnique).mockResolvedValue(testEvent as any);
+    const file = makeEventFile();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.eventFile.findUnique).mockResolvedValue(file as any);
+    vi.mocked(prisma.eventFile.delete).mockRejectedValue(new Error("Record not found"));
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/events/${testEvent.id}/files/file-1`, { method: "DELETE" });
+
+    expect(res.status).toBe(404);
+    expect(prisma.storedFile.delete).not.toHaveBeenCalled();
+    expect(storage.delete).not.toHaveBeenCalled();
   });
 });
 

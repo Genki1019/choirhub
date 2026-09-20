@@ -1051,6 +1051,11 @@ export const scoresRouter = new Hono<TenantEnv>()
       }
     }
 
+    try {
+      await prisma.scoreFile.delete({ where: { id: fileId, scoreId } });
+    } catch {
+      return c.json({ error: { code: "NOT_FOUND", message: "ファイルが見つかりません" } }, 404);
+    }
     await deleteStoredFile({ id: scoreFile.fileId, storageKey: scoreFile.file.storageKey });
 
     return new Response(null, { status: 204 });

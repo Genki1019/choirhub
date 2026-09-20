@@ -2916,12 +2916,14 @@ describe("DELETE /concerts/:concertId/files/:fileId", () => {
     expect(body.error.code).toBe("FORBIDDEN");
   });
 
-  it("正常: 204を返しストレージとDBから削除する", async () => {
+  it("正常: 204を返しConcertFile→StoredFileの順にアトミック削除する", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
     const file = makeConcertFile();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.concertFile.findUnique).mockResolvedValue(file as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concertFile.delete).mockResolvedValue(file as any);
     vi.mocked(storage.delete).mockResolvedValue(undefined);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.storedFile.delete).mockResolvedValue(file.file as any);
@@ -2932,10 +2934,31 @@ describe("DELETE /concerts/:concertId/files/:fileId", () => {
     });
 
     expect(res.status).toBe(204);
+    expect(prisma.concertFile.delete).toHaveBeenCalledWith({
+      where: { id: "file-1", concertId: testConcert.id },
+    });
     expect(storage.delete).toHaveBeenCalledWith(file.file.storageKey);
     expect(prisma.storedFile.delete).toHaveBeenCalledWith({
       where: { id: file.fileId },
     });
+  });
+
+  it("findFileとdeleteの間でファイルが別演奏会に紐づけ替えられていた場合: 404を返しStoredFileは削除しない", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    const file = makeConcertFile();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concertFile.findUnique).mockResolvedValue(file as any);
+    vi.mocked(prisma.concertFile.delete).mockRejectedValue(new Error("Record not found"));
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/file-1`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(404);
+    expect(prisma.storedFile.delete).not.toHaveBeenCalled();
+    expect(storage.delete).not.toHaveBeenCalled();
   });
 });
 

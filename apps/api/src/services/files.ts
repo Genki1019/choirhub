@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { prisma } from "../lib/prisma.js";
 import { storage } from "./storage.js";
+import { logger } from "../lib/logger.js";
 import type { FileKind, Prisma, StoredFile } from "../generated/prisma/index.js";
 
 export type { FileKind };
@@ -54,9 +55,16 @@ export async function deleteStoredFile(params: { id: string; storageKey: string 
  * Concert/Event等の親リソースを削除する際に使う。
  * 親→ConcertFile/EventFile へのFKカスケードは効くが、そこから先のStoredFileへは
  * カスケードが及ばない（FKの向きが逆）ため、呼び出し側が対象ファイルを削除前に集めて渡す。
+ * 親リソース自体の削除は既に完了しているため、ここでの失敗は例外化せずログのみに留める
+ * （一部のR2/DBエラーで親リソース削除ごと失敗したように見えるのを防ぐ）。
  */
 export async function deleteStoredFiles(
   files: { id: string; storageKey: string }[],
 ): Promise<void> {
-  await Promise.all(files.map((f) => deleteStoredFile(f)));
+  const results = await Promise.allSettled(files.map((f) => deleteStoredFile(f)));
+  results.forEach((result, i) => {
+    if (result.status === "rejected") {
+      logger.error(`StoredFile削除に失敗しました (id=${files[i].id}):`, result.reason);
+    }
+  });
 }

@@ -68,3 +68,8 @@ export const ticketKeys = {
   outreach: (org: string, concertId: string) => ["tickets", org, "outreach", concertId] as const,
   race: (org: string, concertId: string) => ["tickets", org, "race", concertId] as const,
 };
+
+export const libraryKeys = {
+  all: (org: string) => ["documents", org] as const,
+  list: (org: string, category?: string) => ["documents", org, category ?? "all"] as const,
+};

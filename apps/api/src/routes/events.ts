@@ -50,6 +50,14 @@ const eventFileRoutes = createAttachmentRoutes({
       }
     );
   },
+  deleteFile: async (fileId, eventId) => {
+    try {
+      await prisma.eventFile.delete({ where: { id: fileId, eventId } });
+      return true;
+    } catch {
+      return false;
+    }
+  },
 });
 
 // ────────────────────────────

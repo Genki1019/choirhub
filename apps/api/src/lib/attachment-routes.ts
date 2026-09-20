@@ -117,6 +117,11 @@ export interface AttachmentRoutesConfig {
   ) => Promise<
     (AttachmentFile & { resourceId: string; storedFileId: string; storageKey: string }) | null
   >;
+  /**
+   * ドメイン拡張行を resourceId 込みの複合条件でアトミックに削除する（見つからなければ false）。
+   * findFile での事前チェックとの間にTOCTOUの隙を作らないためのDBレベルの安全網。
+   */
+  deleteFile: (fileId: string, resourceId: string) => Promise<boolean>;
 }
 
 /**
@@ -135,6 +140,7 @@ export function createAttachmentRoutes(config: AttachmentRoutesConfig) {
     listFiles,
     createFile,
     findFile,
+    deleteFile,
   } = config;
 
   const getResourceId = (c: Context) => c.req.param(idParam) as string;
@@ -379,6 +385,9 @@ export function createAttachmentRoutes(config: AttachmentRoutesConfig) {
           return forbiddenError(c);
         }
 
+        if (!(await deleteFile(fileId, resourceId))) {
+          return notFoundError(c, "ファイルが見つかりません");
+        }
         await deleteStoredFile({ id: file.storedFileId, storageKey: file.storageKey });
 
         return new Response(null, { status: 204 });

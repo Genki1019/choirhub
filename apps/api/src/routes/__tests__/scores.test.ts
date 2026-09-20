@@ -1798,11 +1798,13 @@ describe("DELETE /scores/:scoreId/files/:fileId", () => {
     expect(body.error.code).toBe("FORBIDDEN");
   });
 
-  it("MIDIファイル: MIDI権限あり（tech）は204を返しファイルが削除される", async () => {
+  it("MIDIファイル: MIDI権限あり（tech）は204を返しScoreFile→StoredFileの順にアトミック削除される", async () => {
     vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
     const file = makeScoreFile({ fileType: "midi" });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(file as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.delete).mockResolvedValue(file as any);
     vi.mocked(storage.delete).mockResolvedValue(undefined);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.storedFile.delete).mockResolvedValue(file.file as any);
@@ -1811,10 +1813,28 @@ describe("DELETE /scores/:scoreId/files/:fileId", () => {
     const res = await app.request(`/scores/${testScore.id}/files/file-1`, { method: "DELETE" });
 
     expect(res.status).toBe(204);
+    expect(prisma.scoreFile.delete).toHaveBeenCalledWith({
+      where: { id: "file-1", scoreId: testScore.id },
+    });
     expect(storage.delete).toHaveBeenCalledWith(file.file.storageKey);
     expect(prisma.storedFile.delete).toHaveBeenCalledWith({
       where: { id: file.fileId },
     });
+  });
+
+  it("findFileとdeleteの間でファイルが別楽譜に紐づけ替えられていた場合: 404を返しStoredFileは削除しない", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    const file = makeScoreFile({ fileType: "midi" });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(file as any);
+    vi.mocked(prisma.scoreFile.delete).mockRejectedValue(new Error("Record not found"));
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1`, { method: "DELETE" });
+
+    expect(res.status).toBe(404);
+    expect(prisma.storedFile.delete).not.toHaveBeenCalled();
+    expect(storage.delete).not.toHaveBeenCalled();
   });
 
   it("PDF等ファイル: PDF権限なし（tech）は403を返す", async () => {

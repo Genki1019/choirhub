@@ -1,7 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Hono } from "hono";
-import type { Member, Organization } from "../../generated/prisma/index.js";
+import { Prisma, type Member, type Organization } from "../../generated/prisma/index.js";
 import type { TenantEnv } from "../../middleware/tenant.js";
+
+function recordNotFoundError(): Prisma.PrismaClientKnownRequestError {
+  return new Prisma.PrismaClientKnownRequestError("Record to delete does not exist.", {
+    code: "P2025",
+    clientVersion: "test",
+  });
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function json(res: Response): Promise<Record<string, any>> {
@@ -9,8 +16,9 @@ async function json(res: Response): Promise<Record<string, any>> {
   return res.json() as Promise<Record<string, any>>;
 }
 
-vi.mock("../../lib/prisma.js", () => ({
-  prisma: {
+vi.mock("../../lib/prisma.js", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const prisma: any = {
     event: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
@@ -22,6 +30,7 @@ vi.mock("../../lib/prisma.js", () => ({
     eventCategory: { findFirst: vi.fn(), findUnique: vi.fn() },
     attendance: { findMany: vi.fn(), upsert: vi.fn() },
     concert: { findMany: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    concertFile: { findMany: vi.fn() },
     onStageAssignment: { findMany: vi.fn() },
     member: { findMany: vi.fn(), findUnique: vi.fn() },
     collection: { create: vi.fn() },
@@ -32,8 +41,11 @@ vi.mock("../../lib/prisma.js", () => ({
       findUnique: vi.fn(),
       delete: vi.fn(),
     },
-  },
-}));
+    storedFile: { create: vi.fn(), delete: vi.fn() },
+  };
+  prisma.$transaction = vi.fn((cb: (tx: unknown) => unknown) => cb(prisma));
+  return { prisma };
+});
 
 vi.mock("../../services/storage.js", () => ({
   storage: {
@@ -128,16 +140,32 @@ const testEvent = {
 const PDF_MAGIC_BYTES = Buffer.from([0x25, 0x50, 0x44, 0x46]);
 const MP3_MAGIC_BYTES = Buffer.from([0x49, 0x44, 0x33, 0x03, 0x00, 0x00]);
 
-function makeEventFile(overrides: Partial<{ id: string; label: string; fileName: string }> = {}) {
+function makeStoredFile(
+  overrides: Partial<{ id: string; storageKey: string; fileName: string }> = {},
+) {
   return {
-    id: "file-1",
-    eventId: testEvent.id,
-    label: "行程表",
-    storageKey: "events/abc.pdf",
+    id: "stored-file-1",
+    orgId: testOrg.id,
+    kind: "event",
+    storageKey: "events/event-1/abc.pdf",
     fileName: "itinerary.pdf",
     uploadedBy: "member-1",
     uploadedAt: new Date("2026-01-01T00:00:00Z"),
     ...overrides,
+  };
+}
+
+function makeEventFile(
+  overrides: Partial<{ id: string; label: string; file: ReturnType<typeof makeStoredFile> }> = {},
+) {
+  const { file, ...rest } = overrides;
+  return {
+    id: "file-1",
+    eventId: testEvent.id,
+    fileId: "stored-file-1",
+    label: "行程表",
+    file: file ?? makeStoredFile(),
+    ...rest,
   };
 }
 
@@ -871,8 +899,10 @@ describe("DELETE /events/:id", () => {
     vi.mocked(prisma.event.findUnique).mockResolvedValue({
       ...testEvent,
       concertId: "concert-1",
+      files: [],
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
+    vi.mocked(prisma.concertFile.findMany).mockResolvedValue([]);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.event.delete).mockResolvedValue({} as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -887,8 +917,11 @@ describe("DELETE /events/:id", () => {
   });
 
   it("正常（concertIdなし）: concert.deleteは呼ばれない", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.event.findUnique).mockResolvedValue(testEvent as any);
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({
+      ...testEvent,
+      files: [],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.event.delete).mockResolvedValue({} as any);
 
@@ -897,6 +930,46 @@ describe("DELETE /events/:id", () => {
 
     expect(res.status).toBe(204);
     expect(prisma.concert.delete).not.toHaveBeenCalled();
+  });
+
+  it("正常: 自身の添付ファイルとlinkedConcertの添付ファイルのStoredFileが両方削除される", async () => {
+    const ownFile = makeEventFile({ id: "own-file", file: makeStoredFile({ id: "stored-own" }) });
+    const linkedConcertFile = makeStoredFile({
+      id: "stored-linked",
+      storageKey: "concerts/concert-1/x.pdf",
+    });
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({
+      ...testEvent,
+      concertId: "concert-1",
+      files: [ownFile],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.concertFile.findMany).mockResolvedValue([
+      {
+        id: "cf-1",
+        concertId: "concert-1",
+        fileId: "stored-linked",
+        label: "フライヤー",
+        file: linkedConcertFile,
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.event.delete).mockResolvedValue({} as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.delete).mockResolvedValue({} as any);
+    vi.mocked(storage.delete).mockResolvedValue(undefined);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.storedFile.delete).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request("/events/event-1", { method: "DELETE" });
+
+    expect(res.status).toBe(204);
+    expect(storage.delete).toHaveBeenCalledWith(ownFile.file.storageKey);
+    expect(storage.delete).toHaveBeenCalledWith(linkedConcertFile.storageKey);
+    expect(prisma.storedFile.delete).toHaveBeenCalledWith({ where: { id: "stored-own" } });
+    expect(prisma.storedFile.delete).toHaveBeenCalledWith({ where: { id: "stored-linked" } });
   });
 });
 
@@ -1306,12 +1379,32 @@ describe("POST /events/:id/files/confirm", () => {
     const res = await app.request("/events/nonexistent/files/confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "events/abc.pdf", label: "行程表", fileName: "a.pdf" }),
+      body: JSON.stringify({ key: "events/event-1/abc.pdf", label: "行程表", fileName: "a.pdf" }),
     });
 
     expect(res.status).toBe(404);
     const body = await json(res);
     expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("別リソース宛てに発行されたkey: 400を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.event.findUnique).mockResolvedValue(testEvent as any);
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/events/${testEvent.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        key: "events/other-event-id/abc.pdf",
+        label: "行程表",
+        fileName: "a.pdf",
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 
   it("tech未満（member）は403を返す", async () => {
@@ -1322,7 +1415,7 @@ describe("POST /events/:id/files/confirm", () => {
     const res = await app.request(`/events/${testEvent.id}/files/confirm`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "events/abc.pdf", label: "行程表", fileName: "a.pdf" }),
+      body: JSON.stringify({ key: "events/event-1/abc.pdf", label: "行程表", fileName: "a.pdf" }),
     });
 
     expect(res.status).toBe(403);
@@ -1338,7 +1431,7 @@ describe("POST /events/:id/files/confirm", () => {
     const res = await app.request(`/events/${testEvent.id}/files/confirm`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "events/abc.docx", label: "資料", fileName: "a.docx" }),
+      body: JSON.stringify({ key: "events/event-1/abc.docx", label: "資料", fileName: "a.docx" }),
     });
 
     expect(res.status).toBe(400);
@@ -1352,6 +1445,8 @@ describe("POST /events/:id/files/confirm", () => {
     vi.mocked(storage.getFileHeader).mockResolvedValue(PDF_MAGIC_BYTES);
     const created = makeEventFile();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.storedFile.create).mockResolvedValue(created.file as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.eventFile.create).mockResolvedValue(created as any);
 
     const app = createTestApp(makeMember(["tech"]));
@@ -1359,7 +1454,7 @@ describe("POST /events/:id/files/confirm", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        key: "events/abc.pdf",
+        key: "events/event-1/abc.pdf",
         label: "行程表",
         fileName: "itinerary.pdf",
       }),
@@ -1375,7 +1470,12 @@ describe("POST /events/:id/files/confirm", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.event.findUnique).mockResolvedValue(testEvent as any);
     vi.mocked(storage.getFileHeader).mockResolvedValue(MP3_MAGIC_BYTES);
-    const created = makeEventFile({ label: "第4楽章", fileName: "rehearsal.mp3" });
+    const created = makeEventFile({
+      label: "第4楽章",
+      file: makeStoredFile({ fileName: "rehearsal.mp3" }),
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.storedFile.create).mockResolvedValue(created.file as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.eventFile.create).mockResolvedValue(created as any);
 
@@ -1384,7 +1484,7 @@ describe("POST /events/:id/files/confirm", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        key: "events/abc.mp3",
+        key: "events/event-1/abc.mp3",
         label: "第4楽章",
         fileName: "rehearsal.mp3",
       }),
@@ -1406,7 +1506,7 @@ describe("POST /events/:id/files/confirm", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        key: "events/abc.pdf",
+        key: "events/event-1/abc.pdf",
         label: "行程表",
         fileName: "itinerary.pdf",
       }),
@@ -1428,7 +1528,7 @@ describe("POST /events/:id/files/confirm", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        key: "events/abc.pdf",
+        key: "events/event-1/abc.pdf",
         label: "行程表",
         fileName: "itinerary.pdf",
       }),
@@ -1522,6 +1622,8 @@ describe("POST /events/:id/files（フォールバックアップロード）", 
     vi.mocked(storage.upload).mockResolvedValue(undefined);
     const created = makeEventFile();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.storedFile.create).mockResolvedValue(created.file as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.eventFile.create).mockResolvedValue(created as any);
 
     const app = createTestApp(makeMember(["admin"]));
@@ -1540,7 +1642,12 @@ describe("POST /events/:id/files（フォールバックアップロード）", 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.event.findUnique).mockResolvedValue(testEvent as any);
     vi.mocked(storage.upload).mockResolvedValue(undefined);
-    const created = makeEventFile({ label: "第4楽章", fileName: "rehearsal.mp3" });
+    const created = makeEventFile({
+      label: "第4楽章",
+      file: makeStoredFile({ fileName: "rehearsal.mp3" }),
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.storedFile.create).mockResolvedValue(created.file as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.eventFile.create).mockResolvedValue(created as any);
 
@@ -1672,24 +1779,60 @@ describe("DELETE /events/:id/files/:fileId", () => {
     expect(body.error.code).toBe("FORBIDDEN");
   });
 
-  it("正常: 204を返しストレージとDBから削除する", async () => {
+  it("正常: 204を返しEventFile→StoredFileの順にアトミック削除する", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.event.findUnique).mockResolvedValue(testEvent as any);
     const file = makeEventFile();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.eventFile.findUnique).mockResolvedValue(file as any);
-    vi.mocked(storage.delete).mockResolvedValue(undefined);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.eventFile.delete).mockResolvedValue(file as any);
+    vi.mocked(storage.delete).mockResolvedValue(undefined);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.storedFile.delete).mockResolvedValue(file.file as any);
 
     const app = createTestApp(makeMember(["tech"]));
     const res = await app.request(`/events/${testEvent.id}/files/file-1`, { method: "DELETE" });
 
     expect(res.status).toBe(204);
-    expect(storage.delete).toHaveBeenCalledWith(file.storageKey);
     expect(prisma.eventFile.delete).toHaveBeenCalledWith({
       where: { id: "file-1", eventId: testEvent.id },
     });
+    expect(storage.delete).toHaveBeenCalledWith(file.file.storageKey);
+    expect(prisma.storedFile.delete).toHaveBeenCalledWith({
+      where: { id: file.fileId },
+    });
+  });
+
+  it("findFileとdeleteの間でファイルが別イベントに紐づけ替えられていた場合: 404を返しStoredFileは削除しない", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.event.findUnique).mockResolvedValue(testEvent as any);
+    const file = makeEventFile();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.eventFile.findUnique).mockResolvedValue(file as any);
+    vi.mocked(prisma.eventFile.delete).mockRejectedValue(recordNotFoundError());
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/events/${testEvent.id}/files/file-1`, { method: "DELETE" });
+
+    expect(res.status).toBe(404);
+    expect(prisma.storedFile.delete).not.toHaveBeenCalled();
+    expect(storage.delete).not.toHaveBeenCalled();
+  });
+
+  it("削除時に想定外のDBエラーが起きた場合: 404にせず例外を伝播する", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.event.findUnique).mockResolvedValue(testEvent as any);
+    const file = makeEventFile();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.eventFile.findUnique).mockResolvedValue(file as any);
+    vi.mocked(prisma.eventFile.delete).mockRejectedValue(new Error("connection lost"));
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/events/${testEvent.id}/files/file-1`, { method: "DELETE" });
+
+    expect(res.status).toBe(500);
+    expect(prisma.storedFile.delete).not.toHaveBeenCalled();
   });
 });
 

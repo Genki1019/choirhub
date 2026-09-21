@@ -1,8 +1,8 @@
 # ChoirHub API設計書
 
-**バージョン**: 1.13  
+**バージョン**: 1.14  
 **作成日**: 2026-06-04  
-**更新日**: 2026-08-24  
+**更新日**: 2026-09-21  
 **ベースURL**: `/api/v1`
 
 ---
@@ -21,8 +21,10 @@
 9. [チケット管理 API](#9-チケット管理-api)
 10. [設定 API](#10-設定-api)
 11. [会計 API](#11-会計-api)
-12. [情宣活動 API](#情宣活動-outreachactivity)
+12. [情宣活動 API](#12-情宣活動-api)
 13. [見学申込 API](#13-見学申込-api)
+14. [資料ライブラリ API](#14-資料ライブラリ-api)
+15. [ファイル横断検索 API](#15-ファイル横断検索-api)
 
 ---
 
@@ -230,6 +232,23 @@
 | [見学申込Webhookトークン再発行](#settings-visitor-webhook-regenerate) | POST   | `/:orgSlug/settings/visitor-webhook/regenerate` | admin                    |
 | [紹介文テンプレート取得](#settings-visitor-intro-template-get)        | GET    | `/:orgSlug/settings/visitor-intro-template`     | admin                    |
 | [紹介文テンプレート更新](#settings-visitor-intro-template-patch)      | PATCH  | `/:orgSlug/settings/visitor-intro-template`     | admin                    |
+
+### 資料ライブラリ
+
+| API名                                                            | Method | Path                               | 権限                        |
+| ---------------------------------------------------------------- | ------ | ---------------------------------- | --------------------------- |
+| [資料一覧取得](#documents-list)                                  | GET    | `/:orgSlug/documents`              | 認証済み全員（visitor除く） |
+| [資料アップロード用URL発行](#documents-presign)                  | POST   | `/:orgSlug/documents/presign`      | admin                       |
+| [資料アップロード確定](#documents-confirm)                       | POST   | `/:orgSlug/documents/confirm`      | admin                       |
+| [資料アップロード（フォールバック）](#documents-upload-fallback) | POST   | `/:orgSlug/documents`              | admin                       |
+| [資料削除](#documents-delete)                                    | DELETE | `/:orgSlug/documents/:id`          | admin                       |
+| [資料ダウンロード](#documents-download)                          | GET    | `/:orgSlug/documents/:id/download` | accessLevelによる           |
+
+### ファイル横断検索
+
+| API名                               | Method | Path              | 権限                     |
+| ----------------------------------- | ------ | ----------------- | ------------------------ |
+| [ファイル横断一覧取得](#files-list) | GET    | `/:orgSlug/files` | 種別ごとの閲覧権限による |
 
 ---
 
@@ -4969,3 +4988,212 @@ Googleフォームからの回答をWebhook経由で見学申込として取り�
 **Response** `200` 更新後のテンプレート（`GET` と同じ形式）
 
 **Errors:**: `400` `VALIDATION_ERROR` いずれかが空文字・文字数上限超過（件名200字・本文2000字・行500字）・`bodyTemplate` に `{lines}` を含まない / `403` `FORBIDDEN` admin以外がアクセスした
+
+---
+
+## 14. 資料ライブラリ API
+
+団体規約・議事録・会員向けガイド・収支報告書など、特定のイベント/本番/楽譜に紐づかない団体共有ファイル（`OrgDocument`）を管理するAPI群。PDF限定。アップロードした団員個人ではなく`accessLevel`（`secret`/`restricted`/`public`）に応じて閲覧範囲が決まる。
+
+> 資料は他の添付ファイル（本番・イベント・楽譜）と同じく`StoredFile`共有コアテーブルに実体を持つ（[database.md 1.8](./database.md#18-ファイル管理基盤)参照）。R2ストレージキーは `documents/{orgId}/{category}/{uuid}.pdf` の形式（`category`だけでは団体をまたいで衝突しうるため`orgId`を含む）。
+
+<a id="documents-list"></a>
+
+### GET `/api/v1/:orgSlug/documents`
+
+資料の一覧を取得する。閲覧可能なもの（`accessLevel`が自分のロールで閲覧可能な範囲）のみが返る。`category`クエリパラメータで絞り込み可能（例: `?category=bylaws`）。
+
+**権限**: 認証済み全員（visitor除く。`guest`は`accessLevel: public`の資料のみ結果に含まれる）
+
+**Response** `200`
+
+```json
+{
+  "data": [
+    {
+      "id": "string",
+      "title": "団体規約",
+      "category": "bylaws",
+      "accessLevel": "restricted",
+      "fileName": "bylaws_2026.pdf",
+      "downloadUrl": "/api/v1/tokyo-men-choir/documents/xxx/download"
+    }
+  ]
+}
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` `category`が不正な値 / `403` `NOT_INVITED` visitorがアクセスした
+
+---
+
+<a id="documents-presign"></a>
+
+### POST `/api/v1/:orgSlug/documents/presign`
+
+資料PDFアップロード用のプレサインドPUT URLを発行する。
+
+**権限**: `admin`
+
+**Request Body:**
+
+```json
+{
+  "category": "bylaws",
+  "fileName": "bylaws_2026.pdf",
+  "contentType": "application/pdf"
+}
+```
+
+**Response** `200`
+
+```json
+{
+  "data": {
+    "presignedUrl": "string",
+    "key": "documents/{orgId}/bylaws/{uuid}.pdf",
+    "contentType": "application/pdf"
+  }
+}
+```
+
+> `contentType`はクライアント指定値をそのまま署名せず、`fileName`の拡張子から一意に決まる値を使う。拡張子が`.pdf`以外の場合は`VALIDATION_ERROR`。
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正、または拡張子がPDF以外 / `403` `FORBIDDEN` admin以外がアクセスした
+
+---
+
+<a id="documents-confirm"></a>
+
+### POST `/api/v1/:orgSlug/documents/confirm`
+
+プレサインドURLへのアップロード完了後、R2上のファイルを検証してDBに資料として登録する。
+
+**権限**: `admin`
+
+**Request Body:**
+
+```json
+{
+  "key": "documents/{orgId}/bylaws/{uuid}.pdf",
+  "title": "団体規約",
+  "category": "bylaws",
+  "accessLevel": "restricted",
+  "fileName": "bylaws_2026.pdf"
+}
+```
+
+**Response** `201`
+
+```json
+{
+  "data": {
+    "id": "string",
+    "title": "団体規約",
+    "category": "bylaws",
+    "accessLevel": "restricted",
+    "fileName": "bylaws_2026.pdf",
+    "downloadUrl": "/api/v1/tokyo-men-choir/documents/xxx/download"
+  }
+}
+```
+
+> `key`が`presign`で発行したスコープ（`org_document` / `{orgId}/{category}`）と一致するかを検証したうえで、R2上のファイル先頭バイトを読み取り拡張子と実体（マジックバイト）が一致するか確認する。`accessLevel`省略時は`restricted`。
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正、`key`のスコープ不一致、拡張子がPDF以外、またはファイル内容が拡張子と不一致 / `400` `UPLOAD_VERIFICATION_FAILED` R2上にアップロード済みファイルが見つからない / `403` `FORBIDDEN` admin以外がアクセスした
+
+---
+
+<a id="documents-upload-fallback"></a>
+
+### POST `/api/v1/:orgSlug/documents`
+
+ファイルをアップロードする（`multipart/form-data`、ローカル開発用・R2未設定時のフォールバック）。
+
+**権限**: `admin`
+
+**Request Body:** (multipart)
+
+| フィールド    | 説明                                       |
+| ------------- | ------------------------------------------ |
+| `file`        | バイナリファイル（PDF）                    |
+| `title`       | 資料タイトル                               |
+| `category`    | カテゴリ                                   |
+| `accessLevel` | 公開範囲（省略可、デフォルト`restricted`） |
+
+**Response** `201` → confirm と同じ形式
+
+**Errors:**: `400` `VALIDATION_ERROR` ファイル未選択・タイトル未入力・カテゴリ不正・アクセスレベル不正・拡張子がPDF以外・ファイル内容が拡張子と不一致 / `400` `FILE_TOO_LARGE` ファイルサイズが20MBを超過 / `403` `FORBIDDEN` admin以外がアクセスした
+
+---
+
+<a id="documents-delete"></a>
+
+### DELETE `/api/v1/:orgSlug/documents/:id`
+
+資料を削除する。R2上の実体ファイルと`StoredFile`レコードも合わせて削除する。
+
+**権限**: `admin`
+
+**Response** `204`
+
+**Errors:**: `403` `FORBIDDEN` admin以外がアクセスした / `404` `NOT_FOUND` 資料が存在しない
+
+---
+
+<a id="documents-download"></a>
+
+### GET `/api/v1/:orgSlug/documents/:id/download`
+
+ファイルをストリーミングダウンロードする。
+
+**権限**: `accessLevel`に応じて判定（`secret`=admin限定 / `restricted`=member以上 / `public`=guest以上。visitorは`accessLevel`を問わず一切不可）
+
+**Response** `200` → ファイルバイナリをストリーミング返却
+
+**Response** `302` → R2設定時（本番環境）は署名付きURLへのリダイレクト
+
+> エラー時のレスポンスは他のAPIと異なり、JSONではなく**HTMLエラーページ**を返す（`scores-file-download` と同様の設計）。
+
+**Errors:**: `404` `NOT_FOUND` 資料が存在しない / `403` `FORBIDDEN` 閲覧する権限がない / `404` `NOT_FOUND` ファイルが見つからない
+
+---
+
+## 15. ファイル横断検索 API
+
+楽譜・本番・イベントの添付ファイルを、各画面（曲目管理・本番詳細・イベント詳細）を横断してファイル単位で一覧するAPI。`/[org]/library`画面の「楽譜」「本番」「イベント」タブから利用する。閲覧・追加・削除の実処理はこのAPIでは行わず、既存の各ドメインAPI（[楽譜管理 API](#6-楽譜管理-api)・[本番・オンステ API](#7-本番オンステ-api)）にそのまま委譲する。
+
+<a id="files-list"></a>
+
+### GET `/api/v1/:orgSlug/files`
+
+`kind`クエリパラメータ（`score` / `concert` / `event`、省略時は3種すべて）で絞り込んだ添付ファイル一覧を、`uploadedAt`降順で返す。閲覧可能なもののみが返る。
+
+**権限**: 種別ごとに以下の閲覧判定を適用（visitorの扱いが種別で異なる点に注意）
+
+| kind    | 判定内容                                                                                                                                    |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| score   | 曲目個別ページと同じ判定（[GET `/scores/:scoreId`](#scores-detail)参照）。secret/購入記録/visitorはfull_score限定などを複数件分まとめて判定 |
+| concert | 制限なし（全団員が閲覧可）                                                                                                                  |
+| event   | `isAdmin` または対象ロール・パートへの招待あり（[GET `/events/:id`](#events-id-get)の`canView`と同一）                                      |
+
+**Response** `200`
+
+```json
+{
+  "data": [
+    {
+      "id": "string",
+      "kind": "score",
+      "title": "男声合唱のための〇〇",
+      "subtitle": "楽譜PDF",
+      "fileName": "full.pdf",
+      "downloadUrl": "/api/v1/tokyo-men-choir/scores/xxx/files/yyy/download",
+      "resourceLink": "/tokyo-men-choir/scores/xxx"
+    }
+  ]
+}
+```
+
+> `resourceLink`はフロントエンドのページパス（`/api/v1`を含まない）。一覧のファイル行から元のリソース詳細画面へ遷移する用途。
+
+**Errors:**: `400` `VALIDATION_ERROR` `kind`が不正な値

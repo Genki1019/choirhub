@@ -2,14 +2,20 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { randomUUID } from "crypto";
 import { extname } from "path";
 import { hasRole } from "../services/access.js";
 import { storage, CONTENT_TYPES } from "../services/storage.js";
+import {
+  makeStorageKey,
+  keyMatchesScope,
+  createStoredFileWithExtension,
+  deleteStoredFile,
+  type FileKind,
+} from "../services/files.js";
 import { fileErrorPage } from "./file-error-page.js";
 import { matchesFileSignature, FILE_SIGNATURE_CHECK_LENGTH } from "./file-signature.js";
 import type { TenantEnv } from "../middleware/tenant.js";
-import type { Member } from "../generated/prisma/index.js";
+import type { Member, Prisma } from "../generated/prisma/index.js";
 
 const ALLOWED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png", ".mp3", ".wav"] as const;
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -83,6 +89,8 @@ export interface AttachmentRoutesConfig {
   idParam: string;
   /** R2オブジェクトキー・ダウンロードURLの接頭辞。例: "concerts" / "events" */
   keyPrefix: string;
+  /** 共有ファイルコアテーブル（StoredFile）上での種別 */
+  kind: FileKind;
   /** リソースが存在しない場合のエラーメッセージ */
   notFoundMessage: string;
   /** リソースがorgに属し実在するか確認する */
@@ -98,14 +106,22 @@ export interface AttachmentRoutesConfig {
     orgId: string,
   ) => Promise<"ok" | "not_found" | "forbidden">;
   listFiles: (resourceId: string) => Promise<AttachmentFile[]>;
+  /** StoredFile作成と同一トランザクションでドメイン拡張行を作成する */
   createFile: (
+    tx: Prisma.TransactionClient,
     resourceId: string,
-    data: { label: string; storageKey: string; fileName: string; uploadedBy: string },
-  ) => Promise<AttachmentFile>;
+    data: { label: string; fileId: string },
+  ) => Promise<{ id: string; label: string }>;
   findFile: (
     fileId: string,
-  ) => Promise<(AttachmentFile & { resourceId: string; storageKey: string }) | null>;
-  deleteFile: (fileId: string, resourceId: string) => Promise<void>;
+  ) => Promise<
+    (AttachmentFile & { resourceId: string; storedFileId: string; storageKey: string }) | null
+  >;
+  /**
+   * ドメイン拡張行を resourceId 込みの複合条件でアトミックに削除する（見つからなければ false）。
+   * findFile での事前チェックとの間にTOCTOUの隙を作らないためのDBレベルの安全網。
+   */
+  deleteFile: (fileId: string, resourceId: string) => Promise<boolean>;
 }
 
 /**
@@ -117,6 +133,7 @@ export function createAttachmentRoutes(config: AttachmentRoutesConfig) {
     resourcePath,
     idParam,
     keyPrefix,
+    kind,
     notFoundMessage,
     resourceExists,
     canView,
@@ -127,7 +144,6 @@ export function createAttachmentRoutes(config: AttachmentRoutesConfig) {
   } = config;
 
   const getResourceId = (c: Context) => c.req.param(idParam) as string;
-  const makeKey = (ext: string) => `${keyPrefix}/${randomUUID()}${ext}`;
 
   async function checkReadAccess(
     member: Member,
@@ -189,7 +205,7 @@ export function createAttachmentRoutes(config: AttachmentRoutesConfig) {
           // クライアント指定のcontentTypeは信用せず、拡張子から一意に決まる値を署名する
           // （偽装したContentTypeでR2に保存されるのを防ぐ。実際のPUTもこの値と一致しないと署名検証で弾かれるため、
           // 署名した値をレスポンスで返しクライアント側のPUTヘッダーに使わせる）
-          const key = makeKey(ext);
+          const key = makeStorageKey(kind, resourceId, ext);
           const signedContentType = CONTENT_TYPES[ext] ?? "application/octet-stream";
           const presignedUrl = await storage.getPresignedPutUrl(key, signedContentType);
 
@@ -203,7 +219,7 @@ export function createAttachmentRoutes(config: AttachmentRoutesConfig) {
         zValidator(
           "json",
           z.object({
-            key: z.string().regex(new RegExp(`^${keyPrefix}/[0-9a-f-]+\\.[a-z0-9]+$`, "i")),
+            key: z.string().regex(new RegExp(`^${keyPrefix}/[^/]+/[0-9a-f-]+\\.[a-z0-9]+$`, "i")),
             label: z.string().min(1).max(50),
             fileName: z.string().min(1),
           }),
@@ -228,6 +244,12 @@ export function createAttachmentRoutes(config: AttachmentRoutesConfig) {
           }
 
           const { key, label, fileName } = c.req.valid("json");
+          if (!keyMatchesScope(kind, resourceId, key)) {
+            return c.json(
+              { error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } },
+              400,
+            );
+          }
           const ext = extname(key).toLowerCase();
           if (!isAllowedExt(ext)) {
             return extensionError(c);
@@ -243,14 +265,17 @@ export function createAttachmentRoutes(config: AttachmentRoutesConfig) {
             return contentMismatchError(c);
           }
 
-          const created = await createFile(resourceId, {
-            label,
-            storageKey: key,
-            fileName,
-            uploadedBy: actingMember.id,
-          });
+          const { storedFile, created } = await createStoredFileWithExtension(
+            { orgId: org.id, kind, storageKey: key, fileName, uploadedBy: actingMember.id },
+            (tx, sf) => createFile(tx, resourceId, { label, fileId: sf.id }),
+          );
 
-          return c.json({ data: formatFile(org.slug, resourceId, created) }, 201);
+          return c.json(
+            {
+              data: formatFile(org.slug, resourceId, { ...created, fileName: storedFile.fileName }),
+            },
+            201,
+          );
         },
       )
 
@@ -305,17 +330,24 @@ export function createAttachmentRoutes(config: AttachmentRoutesConfig) {
           return contentMismatchError(c);
         }
 
-        const key = makeKey(ext);
+        const key = makeStorageKey(kind, resourceId, ext);
         await storage.upload(key, buffer, CONTENT_TYPES[ext] ?? "application/octet-stream");
 
-        const created = await createFile(resourceId, {
-          label,
-          storageKey: key,
-          fileName: file.name,
-          uploadedBy: actingMember.id,
-        });
+        const { storedFile, created } = await createStoredFileWithExtension(
+          {
+            orgId: org.id,
+            kind,
+            storageKey: key,
+            fileName: file.name,
+            uploadedBy: actingMember.id,
+          },
+          (tx, sf) => createFile(tx, resourceId, { label, fileId: sf.id }),
+        );
 
-        return c.json({ data: formatFile(org.slug, resourceId, created) }, 201);
+        return c.json(
+          { data: formatFile(org.slug, resourceId, { ...created, fileName: storedFile.fileName }) },
+          201,
+        );
       })
 
       // ── GET {resourcePath}/files ── ファイル一覧（全団員閲覧可。招待制リソースは canView で絞り込み）
@@ -353,8 +385,10 @@ export function createAttachmentRoutes(config: AttachmentRoutesConfig) {
           return forbiddenError(c);
         }
 
-        await storage.delete(file.storageKey);
-        await deleteFile(fileId, resourceId);
+        if (!(await deleteFile(fileId, resourceId))) {
+          return notFoundError(c, "ファイルが見つかりません");
+        }
+        await deleteStoredFile({ id: file.storedFileId, storageKey: file.storageKey });
 
         return new Response(null, { status: 204 });
       })

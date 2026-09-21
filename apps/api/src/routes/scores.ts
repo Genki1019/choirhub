@@ -1,16 +1,22 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { randomUUID } from "crypto";
 import { extname } from "path";
 import { prisma } from "../lib/prisma.js";
 import { isAdmin, isVisitor } from "../services/access.js";
 import { storage, CONTENT_TYPES } from "../services/storage.js";
+import {
+  makeStorageKey,
+  keyMatchesScope,
+  createStoredFileWithExtension,
+  deleteStoredFile,
+} from "../services/files.js";
 import { toDateString } from "../lib/date.js";
 import { fileErrorPage } from "../lib/file-error-page.js";
 import { matchesFileSignature, FILE_SIGNATURE_CHECK_LENGTH } from "../lib/file-signature.js";
+import { Prisma } from "../generated/prisma/index.js";
 import type { TenantEnv } from "../middleware/tenant.js";
-import type { Prisma } from "../generated/prisma/index.js";
+import type { AccessLevel, Member } from "../generated/prisma/index.js";
 
 const SCORE_FILE_TYPES = ["full_score", "part_score", "midi", "audio", "other"] as const;
 type ScoreFileType = (typeof SCORE_FILE_TYPES)[number];
@@ -40,18 +46,43 @@ function canManageScoreMidi(roles: string[]): boolean {
   return roles.includes("admin") || roles.includes("tech") || roles.includes("conductor");
 }
 
+/**
+ * 横断ファイル一覧（GET /files）用。複数楽譜の閲覧可否を一括判定する
+ * （`GET /scores/:scoreId`の単一楽譜版と同じロジックのN+1回避版。単一版は変更しない）。
+ * visitorはfull_score以外のファイル種別を見られない制約は呼び出し側（files.ts）で別途適用する。
+ */
+export async function getVisibleScoreIds(
+  member: Member,
+  scores: { id: string; accessLevel: AccessLevel }[],
+): Promise<Set<string>> {
+  if (scores.length === 0) return new Set();
+
+  if (isVisitor(member) || isScorePrivileged(member.roles)) {
+    return new Set(scores.map((s) => s.id));
+  }
+
+  const purchasableIds = scores.filter((s) => s.accessLevel !== "secret").map((s) => s.id);
+  if (purchasableIds.length === 0) return new Set();
+
+  const purchases = await prisma.scorePurchase.findMany({
+    where: { memberId: member.id, scoreId: { in: purchasableIds } },
+    select: { scoreId: true },
+  });
+  return new Set(purchases.map((p) => p.scoreId));
+}
+
 function makeFileFormatter(orgSlug: string, partMap: Map<string, string>) {
   return (f: {
     id: string;
     scoreId: string;
     fileType: string;
-    fileName: string;
     partId: string | null;
     version: number;
+    file: { fileName: string };
   }) => ({
     id: f.id,
     fileType: f.fileType,
-    fileName: f.fileName,
+    fileName: f.file.fileName,
     partId: f.partId,
     partName: f.partId ? (partMap.get(f.partId) ?? null) : null,
     version: f.version,
@@ -212,7 +243,9 @@ export const scoresRouter = new Hono<TenantEnv>()
 
     const score = await prisma.score.findUnique({
       where: { id: scoreId },
-      include: { files: { orderBy: [{ fileType: "asc" }, { version: "asc" }] } },
+      include: {
+        files: { orderBy: [{ fileType: "asc" }, { version: "asc" }], include: { file: true } },
+      },
     });
     if (!score || score.orgId !== org.id) {
       return c.json({ error: { code: "NOT_FOUND", message: "楽譜が見つかりません" } }, 404);
@@ -627,7 +660,7 @@ export const scoresRouter = new Hono<TenantEnv>()
 
       // クライアント指定のcontentTypeは信用せず、拡張子から一意に決まる値を署名する
       // （偽装したContentTypeでR2に保存されるのを防ぐ。署名した値をレスポンスで返しPUTヘッダーに使わせる）
-      const key = `scores/${randomUUID()}${ext}`;
+      const key = makeStorageKey("score", scoreId, ext);
       const signedContentType = CONTENT_TYPES[ext] ?? "application/octet-stream";
       const presignedUrl = await storage.getPresignedPutUrl(key, signedContentType);
 
@@ -641,7 +674,7 @@ export const scoresRouter = new Hono<TenantEnv>()
     zValidator(
       "json",
       z.object({
-        key: z.string().regex(/^scores\/[0-9a-f-]+\.[a-z0-9]+$/i),
+        key: z.string().regex(/^scores\/[^/]+\/[0-9a-f-]+\.[a-z0-9]+$/i),
         fileType: z.enum(SCORE_FILE_TYPES),
         fileName: z.string().min(1),
         partId: z.string().nullable().optional(),
@@ -663,6 +696,10 @@ export const scoresRouter = new Hono<TenantEnv>()
 
       const { key, fileType, fileName, partId } = c.req.valid("json");
       const resolvedPartId = partId ?? null;
+
+      if (!keyMatchesScope("score", scoreId, key)) {
+        return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      }
 
       if (fileType === "midi") {
         if (!canManageScoreMidi(actingMember.roles)) {
@@ -756,17 +793,19 @@ export const scoresRouter = new Hono<TenantEnv>()
           );
         }
       }
-      const created = await prisma.scoreFile.create({
-        data: {
-          scoreId,
-          fileType: fileType as ScoreFileType,
-          partId: resolvedPartId,
-          storageKey: key,
-          fileName,
-          version,
-          uploadedBy: actingMember.id,
-        },
-      });
+      const { storedFile, created } = await createStoredFileWithExtension(
+        { orgId: org.id, kind: "score", storageKey: key, fileName, uploadedBy: actingMember.id },
+        (tx, sf) =>
+          tx.scoreFile.create({
+            data: {
+              fileId: sf.id,
+              scoreId,
+              fileType: fileType as ScoreFileType,
+              partId: resolvedPartId,
+              version,
+            },
+          }),
+      );
 
       const partName = resolvedPartId
         ? ((await prisma.part.findUnique({ where: { id: resolvedPartId }, select: { name: true } }))
@@ -778,7 +817,7 @@ export const scoresRouter = new Hono<TenantEnv>()
           data: {
             id: created.id,
             fileType: created.fileType,
-            fileName: created.fileName,
+            fileName: storedFile.fileName,
             partId: created.partId,
             partName,
             version: created.version,
@@ -935,7 +974,7 @@ export const scoresRouter = new Hono<TenantEnv>()
     });
     const version = (maxVer._max.version ?? 0) + 1;
 
-    const storageKey = `scores/${randomUUID()}${ext}`;
+    const storageKey = makeStorageKey("score", scoreId, ext);
     await storage.upload(storageKey, buffer, CONTENT_TYPES[ext] ?? "application/octet-stream");
 
     if (fileType === "full_score") {
@@ -956,17 +995,19 @@ export const scoresRouter = new Hono<TenantEnv>()
         );
       }
     }
-    const created = await prisma.scoreFile.create({
-      data: {
-        scoreId,
-        fileType: fileType as ScoreFileType,
-        partId,
+    const { storedFile, created } = await createStoredFileWithExtension(
+      {
+        orgId: org.id,
+        kind: "score",
         storageKey,
         fileName: file.name,
-        version,
         uploadedBy: actingMember.id,
       },
-    });
+      (tx, sf) =>
+        tx.scoreFile.create({
+          data: { fileId: sf.id, scoreId, fileType: fileType as ScoreFileType, partId, version },
+        }),
+    );
 
     const partName = partId
       ? ((await prisma.part.findUnique({ where: { id: partId }, select: { name: true } }))?.name ??
@@ -978,7 +1019,7 @@ export const scoresRouter = new Hono<TenantEnv>()
         data: {
           id: created.id,
           fileType: created.fileType,
-          fileName: created.fileName,
+          fileName: storedFile.fileName,
           partId: created.partId,
           partName,
           version: created.version,
@@ -1001,7 +1042,10 @@ export const scoresRouter = new Hono<TenantEnv>()
       return c.json({ error: { code: "NOT_FOUND", message: "楽譜が見つかりません" } }, 404);
     }
 
-    const scoreFile = await prisma.scoreFile.findUnique({ where: { id: fileId } });
+    const scoreFile = await prisma.scoreFile.findUnique({
+      where: { id: fileId },
+      include: { file: true },
+    });
     if (!scoreFile || scoreFile.scoreId !== scoreId) {
       return c.json({ error: { code: "NOT_FOUND", message: "ファイルが見つかりません" } }, 404);
     }
@@ -1033,8 +1077,16 @@ export const scoresRouter = new Hono<TenantEnv>()
       }
     }
 
-    await storage.delete(scoreFile.storageKey);
-    await prisma.scoreFile.delete({ where: { id: fileId, scoreId } });
+    try {
+      await prisma.scoreFile.delete({ where: { id: fileId, scoreId } });
+    } catch (err) {
+      // findUniqueでの確認後に他リクエストで削除済み/紐付け変更された場合のみ404。それ以外の例外は再送出する
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
+        return c.json({ error: { code: "NOT_FOUND", message: "ファイルが見つかりません" } }, 404);
+      }
+      throw err;
+    }
+    await deleteStoredFile({ id: scoreFile.fileId, storageKey: scoreFile.file.storageKey });
 
     return new Response(null, { status: 204 });
   })
@@ -1051,7 +1103,10 @@ export const scoresRouter = new Hono<TenantEnv>()
       return fileErrorPage(404, "楽譜が見つかりません");
     }
 
-    const scoreFile = await prisma.scoreFile.findUnique({ where: { id: fileId } });
+    const scoreFile = await prisma.scoreFile.findUnique({
+      where: { id: fileId },
+      include: { file: true },
+    });
     if (!scoreFile || scoreFile.scoreId !== scoreId) {
       return fileErrorPage(404, "ファイルが見つかりません");
     }
@@ -1079,7 +1134,7 @@ export const scoresRouter = new Hono<TenantEnv>()
     }
 
     const download = await storage
-      .getFileDownload(scoreFile.storageKey, scoreFile.fileName)
+      .getFileDownload(scoreFile.file.storageKey, scoreFile.file.fileName)
       .catch(() => null);
     if (!download) {
       return fileErrorPage(404, "ファイルが見つかりません");

@@ -1,8 +1,8 @@
 # ChoirHub DB設計書
 
-**バージョン**: 1.12  
+**バージョン**: 1.13  
 **作成日**: 2026-06-04  
-**更新日**: 2026-08-24  
+**更新日**: 2026-09-21  
 **対応 Prisma Schema**: `apps/api/prisma/schema.prisma`
 
 ---
@@ -38,6 +38,7 @@ erDiagram
     Organization ||--o{ Collection             : "has"
     Organization ||--o{ EventCategory          : "has"
     Organization ||--o{ VisitorApplication     : "has"
+    Organization ||--o{ StoredFile              : "has"
 
     Part             ||--o{ Member : "belongs to"
     MemberType ||--o{ Member : "categorizes"
@@ -95,6 +96,11 @@ erDiagram
     TicketBatch    ||--o{ TicketAllocation : "has"
     Collection     ||--o{ CollectionPayment : "has"
     ExpenseCategory ||--o{ Expense   : "categorizes"
+
+    StoredFile ||--o| ScoreFile   : "backs"
+    StoredFile ||--o| ConcertFile : "backs"
+    StoredFile ||--o| EventFile   : "backs"
+    StoredFile ||--o| OrgDocument : "backs"
 ```
 
 ### 1.2 コアドメイン（ユーザー・団体・メンバー）
@@ -180,13 +186,10 @@ erDiagram
         string           dayMemo
     }
     EventFile {
-        string   id PK
-        string   eventId FK
-        string   label
-        string   storageKey
-        string   fileName
-        string   uploadedBy FK
-        datetime uploadedAt
+        string id PK
+        string fileId FK
+        string eventId FK
+        string label
     }
 
     EventCategory ||--o{ Event      : "categorizes"
@@ -213,14 +216,12 @@ erDiagram
     }
     ScoreFile {
         string      id PK
+        string      fileId FK
         string      scoreId FK
         FileType    fileType
         string      partId FK
-        string      storageKey
-        string      fileName
         AccessLevel accessLevel
         int         version
-        string      uploadedBy FK
     }
     ScoreAccessLog {
         string   id PK
@@ -319,13 +320,10 @@ erDiagram
         int    positionOrder
     }
     ConcertFile {
-        string   id PK
-        string   concertId FK
-        string   label
-        string   storageKey
-        string   fileName
-        string   uploadedBy FK
-        datetime uploadedAt
+        string id PK
+        string fileId FK
+        string concertId FK
+        string label
     }
 
     Concert          ||--o{ Stage             : "has"
@@ -440,6 +438,38 @@ erDiagram
     Collection            ||--o{ CollectionPayment     : "has"
     Member                ||--o{ CollectionPayment     : "pays"
 ```
+
+### 1.8 ファイル管理基盤
+
+`StoredFile` は楽譜・本番・イベント・団体共有資料が共通で持つ「ファイル実体の情報」（保存先キー・ファイル名・アップロード者）を集約した共有コアテーブル。各ドメインテーブル（`ScoreFile`/`ConcertFile`/`EventFile`/`OrgDocument`）は `fileId` で1件の `StoredFile` を参照し、ドメイン固有の列（`fileType`・`version`・`category`・`accessLevel` 等）だけを持つ。
+
+```mermaid
+erDiagram
+    StoredFile {
+        string   id PK
+        string   orgId FK
+        FileKind kind
+        string   storageKey
+        string   fileName
+        string   uploadedBy FK
+        datetime uploadedAt
+    }
+    OrgDocument {
+        string           id PK
+        string           fileId FK
+        string           title
+        DocumentCategory category
+        AccessLevel      accessLevel
+    }
+
+    Organization ||--o{ StoredFile  : "has"
+    StoredFile   ||--o| ScoreFile   : "backs"
+    StoredFile   ||--o| ConcertFile : "backs"
+    StoredFile   ||--o| EventFile   : "backs"
+    StoredFile   ||--o| OrgDocument : "backs"
+```
+
+> R2オブジェクトキーは `{kind}/{リソースIDまたはカテゴリ}/{uuid}.{拡張子}` の形式に統一されている（詳細は[4.4 ファイルストレージ](#44-ファイルストレージ)）。既存ファイルは移行前のフラットなキー（`scores/{uuid}.pdf`等）のまま残り、新規アップロード分から新形式が適用される。
 
 ---
 
@@ -596,15 +626,14 @@ erDiagram
 
 練習カテゴリのイベントでは、同モデルを練習録音アーカイブ（`.mp3`/`.wav`）にも利用する。拡張子で振り分けて画面上は別セクション（添付ファイル／練習録音）に表示する。
 
-| カラム     | 型        | 制約                    | 説明                                                                                          |
-| ---------- | --------- | ----------------------- | --------------------------------------------------------------------------------------------- |
-| id         | CUID      | PK                      |                                                                                               |
-| eventId    | CUID      | NOT NULL, FK → Event    |                                                                                               |
-| label      | VARCHAR   | NOT NULL                | 種別ラベル（文書: フライヤー/しおり/行程表/資料/その他 等。録音: 曲名・パート名等の自由入力） |
-| storageKey | VARCHAR   | NOT NULL                | R2 オブジェクトキー（直リンク不可）                                                           |
-| fileName   | VARCHAR   | NOT NULL                | 表示用ファイル名                                                                              |
-| uploadedBy | CUID      | NOT NULL, FK → Member   |                                                                                               |
-| uploadedAt | TIMESTAMP | NOT NULL, DEFAULT now() |                                                                                               |
+| カラム  | 型      | 制約                              | 説明                                                                                          |
+| ------- | ------- | --------------------------------- | --------------------------------------------------------------------------------------------- |
+| id      | CUID    | PK                                |                                                                                               |
+| fileId  | CUID    | NOT NULL, UNIQUE, FK → StoredFile |                                                                                               |
+| eventId | CUID    | NOT NULL, FK → Event              |                                                                                               |
+| label   | VARCHAR | NOT NULL                          | 種別ラベル（文書: フライヤー/しおり/行程表/資料/その他 等。録音: 曲名・パート名等の自由入力） |
+
+> ファイル実体（保存先キー・ファイル名・アップロード者・日時）は `StoredFile`（[2章](#storedfile共有ファイルコア)）を参照する。
 
 ---
 
@@ -647,18 +676,17 @@ erDiagram
 
 ### ScoreFile（楽譜ファイル）
 
-| カラム      | 型        | 制約                    | 説明                                           |
-| ----------- | --------- | ----------------------- | ---------------------------------------------- |
-| id          | CUID      | PK                      |                                                |
-| scoreId     | CUID      | NOT NULL, FK → Score    |                                                |
-| fileType    | ENUM      | NOT NULL                | full_score / part_score / midi / audio / other |
-| partId      | CUID      | FK → Part               | パート別ファイルの場合に指定                   |
-| storageKey  | VARCHAR   | NOT NULL                | R2 オブジェクトキー（直リンク不可）            |
-| fileName    | VARCHAR   | NOT NULL                | 表示用ファイル名                               |
-| accessLevel | ENUM      |                         | NULL = Score の accessLevel を継承             |
-| version     | INT       | NOT NULL, DEFAULT 1     | バージョン番号                                 |
-| uploadedBy  | CUID      | NOT NULL, FK → Member   |                                                |
-| uploadedAt  | TIMESTAMP | NOT NULL, DEFAULT now() |                                                |
+| カラム      | 型   | 制約                              | 説明                                           |
+| ----------- | ---- | --------------------------------- | ---------------------------------------------- |
+| id          | CUID | PK                                |                                                |
+| fileId      | CUID | NOT NULL, UNIQUE, FK → StoredFile |                                                |
+| scoreId     | CUID | NOT NULL, FK → Score              |                                                |
+| fileType    | ENUM | NOT NULL                          | full_score / part_score / midi / audio / other |
+| partId      | CUID | FK → Part                         | パート別ファイルの場合に指定                   |
+| accessLevel | ENUM |                                   | NULL = Score の accessLevel を継承             |
+| version     | INT  | NOT NULL, DEFAULT 1               | バージョン番号                                 |
+
+> ファイル実体（保存先キー・ファイル名・アップロード者・日時）は `StoredFile`（[2章](#storedfile共有ファイルコア)）を参照する。
 
 ---
 
@@ -723,15 +751,14 @@ draft → survey_open → confirmed → past
 
 ### ConcertFile（演奏会添付ファイル）
 
-| カラム     | 型        | 制約                    | 説明                                                  |
-| ---------- | --------- | ----------------------- | ----------------------------------------------------- |
-| id         | CUID      | PK                      |                                                       |
-| concertId  | CUID      | NOT NULL, FK → Concert  |                                                       |
-| label      | VARCHAR   | NOT NULL                | 種別ラベル（フライヤー/しおり/行程表/資料/その他 等） |
-| storageKey | VARCHAR   | NOT NULL                | R2 オブジェクトキー（直リンク不可）                   |
-| fileName   | VARCHAR   | NOT NULL                | 表示用ファイル名                                      |
-| uploadedBy | CUID      | NOT NULL, FK → Member   |                                                       |
-| uploadedAt | TIMESTAMP | NOT NULL, DEFAULT now() |                                                       |
+| カラム    | 型      | 制約                              | 説明                                                  |
+| --------- | ------- | --------------------------------- | ----------------------------------------------------- |
+| id        | CUID    | PK                                |                                                       |
+| fileId    | CUID    | NOT NULL, UNIQUE, FK → StoredFile |                                                       |
+| concertId | CUID    | NOT NULL, FK → Concert            |                                                       |
+| label     | VARCHAR | NOT NULL                          | 種別ラベル（フライヤー/しおり/行程表/資料/その他 等） |
+
+> ファイル実体（保存先キー・ファイル名・アップロード者・日時）は `StoredFile`（[2章](#storedfile共有ファイルコア)）を参照する。
 
 ---
 
@@ -1072,6 +1099,129 @@ draft → survey_open → confirmed → past
 
 ---
 
+### StoredFile（共有ファイルコア）
+
+楽譜・本番・イベント・団体共有資料のファイル実体（保存先キー・ファイル名・アップロード者）を集約する共有テーブル。ドメイン固有の情報（`fileType`・`version`・`category`・`accessLevel` 等）は持たず、各ドメインテーブルが `fileId` で1件ずつ参照する。
+
+| カラム     | 型        | 制約                        | 説明                                   |
+| ---------- | --------- | --------------------------- | -------------------------------------- |
+| id         | CUID      | PK                          |                                        |
+| orgId      | CUID      | NOT NULL, FK → Organization |                                        |
+| kind       | ENUM      | NOT NULL                    | score / concert / event / org_document |
+| storageKey | VARCHAR   | NOT NULL                    | R2 オブジェクトキー（直リンク不可）    |
+| fileName   | VARCHAR   | NOT NULL                    | 表示用ファイル名                       |
+| uploadedBy | CUID      | NOT NULL, FK → Member       |                                        |
+| uploadedAt | TIMESTAMP | NOT NULL, DEFAULT now()     |                                        |
+
+> `StoredFile` 削除時は各ドメインテーブルの行がFKカスケードで自動削除される。逆方向（Score/Concert/Event削除→StoredFile削除）はカスケードが効かないため、Concert/Event削除時はアプリケーション側で明示的に対象StoredFileを収集して削除している（[4.4 ファイルストレージ](#44-ファイルストレージ)参照）。
+
+---
+
+### OrgDocument（団体共有資料）
+
+演奏会・楽譜に紐づかない団体全体の共有資料（規約・議事録・団員ガイド等）。
+
+| カラム      | 型      | 制約                              | 説明                                                                                                             |
+| ----------- | ------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| id          | CUID    | PK                                |                                                                                                                  |
+| fileId      | CUID    | NOT NULL, UNIQUE, FK → StoredFile |                                                                                                                  |
+| title       | VARCHAR | NOT NULL                          | 資料タイトル                                                                                                     |
+| category    | ENUM    | NOT NULL                          | bylaws（規約・規則）/ minutes（議事録）/ member_guide（団員ガイド）/ finance_report（会計報告）/ other（その他） |
+| accessLevel | ENUM    | NOT NULL, DEFAULT restricted      | secret（admin限定）/ restricted（member以上）/ public（guest以上）。visitorは一律不可                            |
+
+---
+
+### EventCategory（イベント区分マスタ）
+
+| カラム    | 型        | 制約                        | 説明                                                                                     |
+| --------- | --------- | --------------------------- | ---------------------------------------------------------------------------------------- |
+| id        | CUID      | PK                          |                                                                                          |
+| orgId     | CUID      | NOT NULL, FK → Organization |                                                                                          |
+| name      | VARCHAR   | NOT NULL                    | 表示名（例: 練習・本番）                                                                 |
+| slug      | VARCHAR   |                             | システム標準区分の識別子。rehearsal / concert / meeting / other。ユーザー作成区分は null |
+| color     | VARCHAR   | NOT NULL, DEFAULT `#6B7280` | 16進カラーコード                                                                         |
+| sortOrder | INT       | NOT NULL, DEFAULT 0         |                                                                                          |
+| createdAt | TIMESTAMP | NOT NULL, DEFAULT now()     |                                                                                          |
+
+- `@@unique([orgId, name])` — 同一団体内での名前重複を禁止
+- `@@unique([orgId, slug])` — 同一団体内での slug 重複を禁止（slug が null の行は複数許容）
+- slug が null でない区分（標準4種）は削除不可、名前・色の変更のみ可
+- Concert自動生成・per_rehearsal会費自動生成は `slug === "concert" / "rehearsal"` で判定
+
+---
+
+### MailTemplate（メールテンプレート）
+
+| カラム      | 型        | 制約                        | 説明           |
+| ----------- | --------- | --------------------------- | -------------- |
+| id          | CUID      | PK                          |                |
+| orgId       | CUID      | NOT NULL, FK → Organization |                |
+| createdById | CUID      | NOT NULL, FK → Member       | 作成者         |
+| name        | VARCHAR   | NOT NULL                    | テンプレート名 |
+| subject     | VARCHAR   | NOT NULL                    | 件名           |
+| body        | TEXT      | NOT NULL                    | 本文           |
+| createdAt   | TIMESTAMP | NOT NULL, DEFAULT now()     |                |
+| updatedAt   | TIMESTAMP | NOT NULL                    |                |
+
+---
+
+### OutreachActivity（情宣活動）
+
+| カラム       | 型             | 制約                             | 説明                   |
+| ------------ | -------------- | -------------------------------- | ---------------------- |
+| id           | CUID           | PK                               |                        |
+| concertId    | CUID           | NOT NULL, FK → Concert (Cascade) |                        |
+| destination  | VARCHAR        | NOT NULL                         | 行き先（例: 渋谷駅前） |
+| activityDate | DATE           | NOT NULL                         | 活動日                 |
+| note         | VARCHAR        |                                  | メモ                   |
+| status       | OutreachStatus | NOT NULL, DEFAULT pending        | pending / paid         |
+| paidAt       | TIMESTAMP      |                                  | 支払日時               |
+| createdById  | CUID           | NOT NULL, FK → Member            | 申請者                 |
+| createdAt    | TIMESTAMP      | NOT NULL, DEFAULT now()          |                        |
+
+- `@@index([concertId])`
+
+---
+
+### OutreachParticipant（情宣活動参加者）
+
+| カラム      | 型   | 制約                                      | 説明                        |
+| ----------- | ---- | ----------------------------------------- | --------------------------- |
+| id          | CUID | PK                                        |                             |
+| activityId  | CUID | NOT NULL, FK → OutreachActivity (Cascade) |                             |
+| memberId    | CUID | NOT NULL, FK → Member                     | 参加団員                    |
+| ticketsSold | INT  | NOT NULL, DEFAULT 0                       | 当日販売枚数                |
+| expense     | INT  |                                           | 交通費（円）。null = 未入力 |
+
+- `@@unique([activityId, memberId])` — 同一活動への重複参加を禁止
+
+---
+
+### VisitorApplication（見学申込）
+
+> 見学希望者の情報を記録する申込レコード。Member/User アカウントは作成しない（見学者本人はシステムにログインしない）。
+
+| カラム       | 型                       | 制約                        | 説明                                                                                                               |
+| ------------ | ------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| id           | CUID                     | PK                          |                                                                                                                    |
+| orgId        | CUID                     | NOT NULL, FK → Organization |                                                                                                                    |
+| name         | VARCHAR                  | NOT NULL                    | 見学希望者の氏名                                                                                                   |
+| partHope     | VARCHAR                  |                             | 希望パート（Part名の文字列。手入力登録はUI上その団体のPart一覧からのプルダウン選択、Googleフォーム経由は自由記述） |
+| originGroup  | VARCHAR                  |                             | 出身団体                                                                                                           |
+| contact      | VARCHAR                  |                             | 連絡先（メール・電話等）。admin確認用、団員向け紹介メールには含めない                                              |
+| message      | VARCHAR                  |                             | 自由記述・紹介コメント                                                                                             |
+| source       | VARCHAR                  | NOT NULL, DEFAULT `manual`  | `manual`（団員による手入力） / `google_form`（Webhook経由）                                                        |
+| status       | VisitorApplicationStatus | NOT NULL, DEFAULT `pending` | pending / approved / rejected                                                                                      |
+| createdById  | CUID                     | FK → Member                 | 手入力登録した団員（`google_form`経由はNULL）                                                                      |
+| reviewedById | CUID                     | FK → Member                 | 承認・却下したadmin                                                                                                |
+| reviewedAt   | TIMESTAMP                |                             | 承認・却下日時                                                                                                     |
+| createdAt    | TIMESTAMP                | NOT NULL, DEFAULT now()     |                                                                                                                    |
+
+- `@@index([orgId, status])`
+- 承認・却下は団員一覧への `Member` 作成を伴わない。承認すると `Organization.visitorIntroSubjectTemplate` / `visitorIntroBodyTemplate` / `visitorIntroLineTemplate` を使って組み立てた紹介文下書き（件名・本文）がAPIレスポンスとして返るのみで、通知はその場でメール送信するかテキストをコピーして使うかをadminが選択する
+
+---
+
 ## 3. インデックス定義
 
 | テーブル           | カラム                         | 種別   | 目的                                 |
@@ -1089,13 +1239,16 @@ draft → survey_open → confirmed → past
 | Event              | (orgId, startsAt)              | INDEX  | 月カレンダー表示                     |
 | Attendance         | (eventId, memberId)            | UNIQUE | 重複回答防止                         |
 | EventFile          | eventId                        | INDEX  | イベントに紐づく添付ファイル取得     |
+| EventFile          | fileId                         | UNIQUE | 1つのStoredFileに1つの添付ファイル   |
 | Score              | (orgId, accessLevel)           | INDEX  | 権限別楽譜一覧                       |
 | ScoreFile          | scoreId                        | INDEX  | 楽譜に紐づくファイル取得             |
+| ScoreFile          | fileId                         | UNIQUE | 1つのStoredFileに1つの楽譜ファイル   |
 | ScoreAccessLog     | (scoreId, createdAt)           | INDEX  | アクセス履歴の時系列取得             |
 | ScorePurchase      | (scoreId, memberId)            | UNIQUE | 同一楽譜の重複購入登録防止           |
 | ScorePurchase      | scoreId                        | INDEX  | 楽譜別購入者一覧                     |
 | Concert            | (orgId, heldOn)                | INDEX  | 本番一覧の日付ソート                 |
 | ConcertFile        | concertId                      | INDEX  | 演奏会に紐づく添付ファイル取得       |
+| ConcertFile        | fileId                         | UNIQUE | 1つのStoredFileに1つの添付ファイル   |
 | Program            | (stageId, sortOrder)           | INDEX  | 演目の表示順取得                     |
 | SurveyResponse     | (surveyId, memberId, stageId)  | UNIQUE | 重複回答防止                         |
 | OnStageAssignment  | (concertId, memberId, stageId) | UNIQUE | 重複登録防止                         |
@@ -1111,6 +1264,8 @@ draft → survey_open → confirmed → past
 | CollectionPayment  | (collectionId, memberId)       | UNIQUE | 重複記録防止                         |
 | CollectionPayment  | collectionId                   | INDEX  | 徴収別の支払い状況取得               |
 | Expense            | (orgId, paidAt)                | INDEX  | 支出一覧の時系列取得                 |
+| StoredFile         | (orgId, kind)                  | INDEX  | 種別別・横断ファイル一覧取得         |
+| OrgDocument        | fileId                         | UNIQUE | 1つのStoredFileに1つの資料           |
 
 ---
 
@@ -1142,9 +1297,15 @@ draft → survey_open → confirmed → past
 
 ### 4.4 ファイルストレージ
 
-- `ScoreFile.storageKey` / `ConcertFile.storageKey` / `EventFile.storageKey` は Cloudflare R2 のオブジェクトキーのみ保存する
+- `StoredFile.storageKey` は Cloudflare R2 のオブジェクトキーのみ保存する（`ScoreFile`/`ConcertFile`/`EventFile`/`OrgDocument` は `StoredFile` を参照するのみで、自身は保存先キーを持たない）
 - ダウンロード時は API 側で Presigned URL を発行する（有効期限: 5分）
 - ファイルの直リンクは禁止する
+- R2オブジェクトキーは `{kind}/{リソースIDまたはカテゴリ}/{uuid}.{拡張子}` の形式に統一する
+  - 楽譜: `scores/{scoreId}/{uuid}.{ext}`
+  - 本番添付: `concerts/{concertId}/{uuid}.{ext}`
+  - イベント添付: `events/{eventId}/{uuid}.{ext}`
+  - 団体共有資料: `documents/{orgId}/{category}/{uuid}.pdf`（categoryだけでは団体をまたいで共通の値になりテナント固有性がないため、orgIdをキーに含める）
+  - 既存ファイルは移行前のフラットなキー（`scores/{uuid}.pdf` 等）のまま残り、新規アップロード分から新形式が適用される
 
 ### 4.5 権限判定の実装位置
 
@@ -1155,21 +1316,23 @@ draft → survey_open → confirmed → past
 
 ### 4.6 ENUM 定義まとめ
 
-| ENUM名                   | 値                                             |
-| ------------------------ | ---------------------------------------------- |
-| MemberStatus             | active / offstage                              |
-| AttendanceStatus         | attending / absent / maybe / undecided         |
-| AccessLevel              | secret / restricted / public                   |
-| FileType                 | full_score / part_score / midi / audio / other |
-| ConcertStatus            | draft / survey_open / confirmed / past         |
-| OnStageStatus            | on / off / undecided                           |
-| PianoPosition            | center / kamite                                |
-| FormationBoxKind         | conductor / piano / custom                     |
-| FeeType                  | per_rehearsal / monthly                        |
-| PaymentMethod            | cash / paypay / bank_transfer / other          |
-| CollectionPaymentStatus  | pending / paid / waived                        |
-| VisitorApplicationStatus | pending / approved / rejected                  |
-| OrgApplicationStatus     | pending / approved / rejected                  |
+| ENUM名                   | 値                                                       |
+| ------------------------ | -------------------------------------------------------- |
+| MemberStatus             | active / offstage                                        |
+| AttendanceStatus         | attending / absent / maybe / undecided                   |
+| AccessLevel              | secret / restricted / public                             |
+| FileType                 | full_score / part_score / midi / audio / other           |
+| ConcertStatus            | draft / survey_open / confirmed / past                   |
+| OnStageStatus            | on / off / undecided                                     |
+| PianoPosition            | center / kamite                                          |
+| FormationBoxKind         | conductor / piano / custom                               |
+| FeeType                  | per_rehearsal / monthly                                  |
+| PaymentMethod            | cash / paypay / bank_transfer / other                    |
+| CollectionPaymentStatus  | pending / paid / waived                                  |
+| VisitorApplicationStatus | pending / approved / rejected                            |
+| OrgApplicationStatus     | pending / approved / rejected                            |
+| FileKind                 | score / concert / event / org_document                   |
+| DocumentCategory         | bylaws / minutes / member_guide / finance_report / other |
 
 ### 4.7 命名規則（Prisma `@map` 規約）
 
@@ -1186,84 +1349,3 @@ Prisma クライアント側とDB側で命名規則を分離する。
 - モデル名に `Master` サフィックスは付けない（`EventCategory` / `MemberType` / `ExpenseCategory`）
 - Boolean フィールドには `is` プレフィックスを付ける（`isCollected`, `isOutreachExpensePaid`）
 - FK フィールドには `Id` サフィックスを付ける（`createdById`, `recordedById`）
-
-### EventCategory（イベント区分マスタ）
-
-| カラム    | 型        | 制約                        | 説明                                                                                     |
-| --------- | --------- | --------------------------- | ---------------------------------------------------------------------------------------- |
-| id        | CUID      | PK                          |                                                                                          |
-| orgId     | CUID      | NOT NULL, FK → Organization |                                                                                          |
-| name      | VARCHAR   | NOT NULL                    | 表示名（例: 練習・本番）                                                                 |
-| slug      | VARCHAR   |                             | システム標準区分の識別子。rehearsal / concert / meeting / other。ユーザー作成区分は null |
-| color     | VARCHAR   | NOT NULL, DEFAULT `#6B7280` | 16進カラーコード                                                                         |
-| sortOrder | INT       | NOT NULL, DEFAULT 0         |                                                                                          |
-| createdAt | TIMESTAMP | NOT NULL, DEFAULT now()     |                                                                                          |
-
-- `@@unique([orgId, name])` — 同一団体内での名前重複を禁止
-- `@@unique([orgId, slug])` — 同一団体内での slug 重複を禁止（slug が null の行は複数許容）
-- slug が null でない区分（標準4種）は削除不可、名前・色の変更のみ可
-- Concert自動生成・per_rehearsal会費自動生成は `slug === "concert" / "rehearsal"` で判定
-
-### MailTemplate（メールテンプレート）
-
-| カラム      | 型        | 制約                        | 説明           |
-| ----------- | --------- | --------------------------- | -------------- |
-| id          | CUID      | PK                          |                |
-| orgId       | CUID      | NOT NULL, FK → Organization |                |
-| createdById | CUID      | NOT NULL, FK → Member       | 作成者         |
-| name        | VARCHAR   | NOT NULL                    | テンプレート名 |
-| subject     | VARCHAR   | NOT NULL                    | 件名           |
-| body        | TEXT      | NOT NULL                    | 本文           |
-| createdAt   | TIMESTAMP | NOT NULL, DEFAULT now()     |                |
-| updatedAt   | TIMESTAMP | NOT NULL                    |                |
-
-### OutreachActivity（情宣活動）
-
-| カラム       | 型             | 制約                             | 説明                   |
-| ------------ | -------------- | -------------------------------- | ---------------------- |
-| id           | CUID           | PK                               |                        |
-| concertId    | CUID           | NOT NULL, FK → Concert (Cascade) |                        |
-| destination  | VARCHAR        | NOT NULL                         | 行き先（例: 渋谷駅前） |
-| activityDate | DATE           | NOT NULL                         | 活動日                 |
-| note         | VARCHAR        |                                  | メモ                   |
-| status       | OutreachStatus | NOT NULL, DEFAULT pending        | pending / paid         |
-| paidAt       | TIMESTAMP      |                                  | 支払日時               |
-| createdById  | CUID           | NOT NULL, FK → Member            | 申請者                 |
-| createdAt    | TIMESTAMP      | NOT NULL, DEFAULT now()          |                        |
-
-- `@@index([concertId])`
-
-### OutreachParticipant（情宣活動参加者）
-
-| カラム      | 型   | 制約                                      | 説明                        |
-| ----------- | ---- | ----------------------------------------- | --------------------------- |
-| id          | CUID | PK                                        |                             |
-| activityId  | CUID | NOT NULL, FK → OutreachActivity (Cascade) |                             |
-| memberId    | CUID | NOT NULL, FK → Member                     | 参加団員                    |
-| ticketsSold | INT  | NOT NULL, DEFAULT 0                       | 当日販売枚数                |
-| expense     | INT  |                                           | 交通費（円）。null = 未入力 |
-
-- `@@unique([activityId, memberId])` — 同一活動への重複参加を禁止
-
-### VisitorApplication（見学申込）
-
-> 見学希望者の情報を記録する申込レコード。Member/User アカウントは作成しない（見学者本人はシステムにログインしない）。
-
-| カラム       | 型                       | 制約                        | 説明                                                                                                               |
-| ------------ | ------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| id           | CUID                     | PK                          |                                                                                                                    |
-| orgId        | CUID                     | NOT NULL, FK → Organization |                                                                                                                    |
-| name         | VARCHAR                  | NOT NULL                    | 見学希望者の氏名                                                                                                   |
-| partHope     | VARCHAR                  |                             | 希望パート（Part名の文字列。手入力登録はUI上その団体のPart一覧からのプルダウン選択、Googleフォーム経由は自由記述） |
-| originGroup  | VARCHAR                  |                             | 出身団体                                                                                                           |
-| contact      | VARCHAR                  |                             | 連絡先（メール・電話等）。admin確認用、団員向け紹介メールには含めない                                              |
-| message      | VARCHAR                  |                             | 自由記述・紹介コメント                                                                                             |
-| source       | VARCHAR                  | NOT NULL, DEFAULT `manual`  | `manual`（団員による手入力） / `google_form`（Webhook経由）                                                        |
-| status       | VisitorApplicationStatus | NOT NULL, DEFAULT `pending` | pending / approved / rejected                                                                                      |
-| createdById  | CUID                     | FK → Member                 | 手入力登録した団員（`google_form`経由はNULL）                                                                      |
-| reviewedById | CUID                     | FK → Member                 | 承認・却下したadmin                                                                                                |
-| reviewedAt   | TIMESTAMP                |                             | 承認・却下日時                                                                                                     |
-| createdAt    | TIMESTAMP                | NOT NULL, DEFAULT now()     |                                                                                                                    |
-
-- `@@index([orgId, status])`
-- 承認・却下は団員一覧への `Member` 作成を伴わない。承認すると `Organization.visitorIntroSubjectTemplate` / `visitorIntroBodyTemplate` / `visitorIntroLineTemplate` を使って組み立てた紹介文下書き（件名・本文）がAPIレスポンスとして返るのみで、通知はその場でメール送信するかテキストをコピーして使うかをadminが選択する

@@ -1,7 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Hono } from "hono";
-import type { Member, Organization, Score } from "../../generated/prisma/index.js";
+import {
+  Prisma,
+  type Member,
+  type Organization,
+  type Score,
+} from "../../generated/prisma/index.js";
 import type { TenantEnv } from "../../middleware/tenant.js";
+
+function recordNotFoundError(): Prisma.PrismaClientKnownRequestError {
+  return new Prisma.PrismaClientKnownRequestError("Record to delete does not exist.", {
+    code: "P2025",
+    clientVersion: "test",
+  });
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function json(res: Response): Promise<Record<string, any>> {
@@ -9,8 +21,9 @@ async function json(res: Response): Promise<Record<string, any>> {
   return res.json() as Promise<Record<string, any>>;
 }
 
-vi.mock("../../lib/prisma.js", () => ({
-  prisma: {
+vi.mock("../../lib/prisma.js", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const prisma: any = {
     score: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     concert: { findMany: vi.fn() },
     part: { findMany: vi.fn(), findUnique: vi.fn() },
@@ -24,9 +37,12 @@ vi.mock("../../lib/prisma.js", () => ({
       create: vi.fn(),
       delete: vi.fn(),
     },
+    storedFile: { create: vi.fn(), delete: vi.fn() },
     $executeRaw: vi.fn(),
-  },
-}));
+  };
+  prisma.$transaction = vi.fn((cb: (tx: unknown) => unknown) => cb(prisma));
+  return { prisma };
+});
 
 vi.mock("../../services/storage.js", () => ({
   storage: {
@@ -97,17 +113,26 @@ const testScore: Score = {
   createdAt: new Date("2024-01-01"),
 };
 
+const makeStoredFile = (overrides: Partial<Record<string, unknown>> = {}) => ({
+  id: "stored-file-1",
+  orgId: "org-1",
+  kind: "score",
+  storageKey: "scores/score-1/file-1.pdf",
+  fileName: "楽譜.pdf",
+  uploadedBy: "member-1",
+  uploadedAt: new Date("2024-01-01"),
+  ...overrides,
+});
+
 const makeScoreFile = (overrides: Partial<Record<string, unknown>> = {}) => ({
   id: "file-1",
+  fileId: "stored-file-1",
   scoreId: "score-1",
   fileType: "full_score",
   partId: null,
-  storageKey: "org-1/score-1/full_score/file-1.pdf",
-  fileName: "楽譜.pdf",
   accessLevel: null,
   version: 1,
-  uploadedBy: "member-1",
-  uploadedAt: new Date("2024-01-01"),
+  file: makeStoredFile(),
   ...overrides,
 });
 
@@ -347,7 +372,7 @@ describe("GET /scores/:scoreId", () => {
           id: "file-1",
           scoreId: testScore.id,
           fileType: "full_score",
-          fileName: "full.pdf",
+          file: { fileName: "full.pdf" },
           partId: null,
           version: 1,
         },
@@ -355,7 +380,7 @@ describe("GET /scores/:scoreId", () => {
           id: "file-2",
           scoreId: testScore.id,
           fileType: "midi",
-          fileName: "part.mid",
+          file: { fileName: "part.mid" },
           partId: null,
           version: 1,
         },
@@ -386,7 +411,7 @@ describe("GET /scores/:scoreId", () => {
           id: "file-1",
           scoreId: testScore.id,
           fileType: "full_score",
-          fileName: "full.pdf",
+          file: { fileName: "full.pdf" },
           partId: null,
           version: 1,
         },
@@ -419,7 +444,7 @@ describe("GET /scores/:scoreId", () => {
           id: "file-1",
           scoreId: testScore.id,
           fileType: "full_score",
-          fileName: "full.pdf",
+          file: { fileName: "full.pdf" },
           partId: null,
           version: 1,
         },
@@ -451,7 +476,7 @@ describe("GET /scores/:scoreId", () => {
           id: "file-1",
           scoreId: testScore.id,
           fileType: "full_score",
-          fileName: "full.pdf",
+          file: { fileName: "full.pdf" },
           partId: null,
           version: 1,
         },
@@ -479,7 +504,7 @@ describe("GET /scores/:scoreId", () => {
           id: "file-1",
           scoreId: testScore.id,
           fileType: "full_score",
-          fileName: "full.pdf",
+          file: { fileName: "full.pdf" },
           partId: null,
           version: 1,
         },
@@ -511,7 +536,7 @@ describe("GET /scores/:scoreId", () => {
           id: "file-1",
           scoreId: testScore.id,
           fileType: "full_score",
-          fileName: "full.pdf",
+          file: { fileName: "full.pdf" },
           partId: null,
           version: 1,
         },
@@ -537,7 +562,7 @@ describe("GET /scores/:scoreId", () => {
           id: "file-1",
           scoreId: testScore.id,
           fileType: "part_score",
-          fileName: "tenor1.pdf",
+          file: { fileName: "tenor1.pdf" },
           partId: "part-1",
           version: 1,
         },
@@ -1280,12 +1305,35 @@ describe("POST /scores/:scoreId/files/confirm", () => {
     const res = await app.request("/scores/nonexistent/files/confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "scores/abc.pdf", fileType: "full_score", fileName: "a.pdf" }),
+      body: JSON.stringify({
+        key: "scores/score-1/abc.pdf",
+        fileType: "full_score",
+        fileName: "a.pdf",
+      }),
     });
 
     expect(res.status).toBe(404);
     const body = await json(res);
     expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("別リソース宛てに発行されたkey: 400を返す", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+
+    const app = createTestApp(makeMember(["score"]));
+    const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        key: "scores/other-score-id/abc.pdf",
+        fileType: "full_score",
+        fileName: "a.pdf",
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 
   it("MIDI: tech+以外は403を返す", async () => {
@@ -1295,7 +1343,7 @@ describe("POST /scores/:scoreId/files/confirm", () => {
     const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "scores/abc.mid", fileType: "midi", fileName: "a.mid" }),
+      body: JSON.stringify({ key: "scores/score-1/abc.mid", fileType: "midi", fileName: "a.mid" }),
     });
 
     expect(res.status).toBe(403);
@@ -1310,7 +1358,11 @@ describe("POST /scores/:scoreId/files/confirm", () => {
     const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "scores/abc.pdf", fileType: "full_score", fileName: "a.pdf" }),
+      body: JSON.stringify({
+        key: "scores/score-1/abc.pdf",
+        fileType: "full_score",
+        fileName: "a.pdf",
+      }),
     });
 
     expect(res.status).toBe(403);
@@ -1331,7 +1383,7 @@ describe("POST /scores/:scoreId/files/confirm", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        key: "scores/abc.pdf",
+        key: "scores/score-1/abc.pdf",
         fileType: "full_score",
         fileName: "a.pdf",
         partId: "part-1",
@@ -1350,7 +1402,11 @@ describe("POST /scores/:scoreId/files/confirm", () => {
     const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "scores/abc.docx", fileType: "full_score", fileName: "a.docx" }),
+      body: JSON.stringify({
+        key: "scores/score-1/abc.docx",
+        fileType: "full_score",
+        fileName: "a.docx",
+      }),
     });
 
     expect(res.status).toBe(400);
@@ -1365,7 +1421,7 @@ describe("POST /scores/:scoreId/files/confirm", () => {
     const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "scores/abc.wav", fileType: "midi", fileName: "a.wav" }),
+      body: JSON.stringify({ key: "scores/score-1/abc.wav", fileType: "midi", fileName: "a.wav" }),
     });
 
     expect(res.status).toBe(400);
@@ -1380,7 +1436,11 @@ describe("POST /scores/:scoreId/files/confirm", () => {
     const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "scores/abc.docx", fileType: "other", fileName: "a.docx" }),
+      body: JSON.stringify({
+        key: "scores/score-1/abc.docx",
+        fileType: "other",
+        fileName: "a.docx",
+      }),
     });
 
     expect(res.status).toBe(400);
@@ -1400,13 +1460,17 @@ describe("POST /scores/:scoreId/files/confirm", () => {
     const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "scores/abc.pdf", fileType: "full_score", fileName: "a.pdf" }),
+      body: JSON.stringify({
+        key: "scores/score-1/abc.pdf",
+        fileType: "full_score",
+        fileName: "a.pdf",
+      }),
     });
 
     expect(res.status).toBe(409);
     const body = await json(res);
     expect(body.error.code).toBe("CONFLICT");
-    expect(storage.delete).toHaveBeenCalledWith("scores/abc.pdf");
+    expect(storage.delete).toHaveBeenCalledWith("scores/score-1/abc.pdf");
   });
 
   it("正常: 201を返しファイルが登録される", async () => {
@@ -1415,10 +1479,14 @@ describe("POST /scores/:scoreId/files/confirm", () => {
     vi.mocked(prisma.scoreFile.aggregate).mockResolvedValue({ _max: { version: 1 } } as any);
     vi.mocked(prisma.scoreFile.findFirst).mockResolvedValue(null);
     vi.mocked(storage.getFileHeader).mockResolvedValue(PDF_MAGIC_BYTES);
+    vi.mocked(prisma.storedFile.create).mockResolvedValue({
+      id: "stored-file-1",
+      fileName: "a.pdf",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
     vi.mocked(prisma.scoreFile.create).mockResolvedValue({
       id: "file-1",
       fileType: "full_score",
-      fileName: "a.pdf",
       partId: null,
       version: 2,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1428,7 +1496,11 @@ describe("POST /scores/:scoreId/files/confirm", () => {
     const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "scores/abc.pdf", fileType: "full_score", fileName: "a.pdf" }),
+      body: JSON.stringify({
+        key: "scores/score-1/abc.pdf",
+        fileType: "full_score",
+        fileName: "a.pdf",
+      }),
     });
 
     expect(res.status).toBe(201);
@@ -1442,15 +1514,22 @@ describe("POST /scores/:scoreId/files/confirm", () => {
       version: 2,
       downloadUrl: `/api/v1/${testOrg.slug}/scores/${testScore.id}/files/file-1/download`,
     });
+    expect(prisma.storedFile.create).toHaveBeenCalledWith({
+      data: {
+        orgId: testOrg.id,
+        kind: "score",
+        storageKey: "scores/score-1/abc.pdf",
+        fileName: "a.pdf",
+        uploadedBy: "member-1",
+      },
+    });
     expect(prisma.scoreFile.create).toHaveBeenCalledWith({
       data: {
+        fileId: "stored-file-1",
         scoreId: testScore.id,
         fileType: "full_score",
         partId: null,
-        storageKey: "scores/abc.pdf",
-        fileName: "a.pdf",
         version: 2,
-        uploadedBy: "member-1",
       },
     });
   });
@@ -1464,7 +1543,11 @@ describe("POST /scores/:scoreId/files/confirm", () => {
     const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "scores/abc.pdf", fileType: "full_score", fileName: "a.pdf" }),
+      body: JSON.stringify({
+        key: "scores/score-1/abc.pdf",
+        fileType: "full_score",
+        fileName: "a.pdf",
+      }),
     });
 
     expect(res.status).toBe(400);
@@ -1481,7 +1564,11 @@ describe("POST /scores/:scoreId/files/confirm", () => {
     const res = await app.request(`/scores/${testScore.id}/files/confirm`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "scores/abc.pdf", fileType: "full_score", fileName: "a.pdf" }),
+      body: JSON.stringify({
+        key: "scores/score-1/abc.pdf",
+        fileType: "full_score",
+        fileName: "a.pdf",
+      }),
     });
 
     expect(res.status).toBe(400);
@@ -1601,10 +1688,14 @@ describe("POST /scores/:scoreId/files（フォールバックアップロード�
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.scoreFile.aggregate).mockResolvedValue({ _max: { version: null } } as any);
     vi.mocked(storage.upload).mockResolvedValue(undefined);
+    vi.mocked(prisma.storedFile.create).mockResolvedValue({
+      id: "stored-file-1",
+      fileName: "a.pdf",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
     vi.mocked(prisma.scoreFile.create).mockResolvedValue({
       id: "file-1",
       fileType: "full_score",
-      fileName: "a.pdf",
       partId: null,
       version: 1,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1719,23 +1810,57 @@ describe("DELETE /scores/:scoreId/files/:fileId", () => {
     expect(body.error.code).toBe("FORBIDDEN");
   });
 
-  it("MIDIファイル: MIDI権限あり（tech）は204を返しファイルが削除される", async () => {
+  it("MIDIファイル: MIDI権限あり（tech）は204を返しScoreFile→StoredFileの順にアトミック削除される", async () => {
     vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
     const file = makeScoreFile({ fileType: "midi" });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(file as any);
-    vi.mocked(storage.delete).mockResolvedValue(undefined);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.scoreFile.delete).mockResolvedValue(file as any);
+    vi.mocked(storage.delete).mockResolvedValue(undefined);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.storedFile.delete).mockResolvedValue(file.file as any);
 
     const app = createTestApp(makeMember(["tech"]));
     const res = await app.request(`/scores/${testScore.id}/files/file-1`, { method: "DELETE" });
 
     expect(res.status).toBe(204);
-    expect(storage.delete).toHaveBeenCalledWith(file.storageKey);
     expect(prisma.scoreFile.delete).toHaveBeenCalledWith({
       where: { id: "file-1", scoreId: testScore.id },
     });
+    expect(storage.delete).toHaveBeenCalledWith(file.file.storageKey);
+    expect(prisma.storedFile.delete).toHaveBeenCalledWith({
+      where: { id: file.fileId },
+    });
+  });
+
+  it("findFileとdeleteの間でファイルが別楽譜に紐づけ替えられていた場合: 404を返しStoredFileは削除しない", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    const file = makeScoreFile({ fileType: "midi" });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(file as any);
+    vi.mocked(prisma.scoreFile.delete).mockRejectedValue(recordNotFoundError());
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1`, { method: "DELETE" });
+
+    expect(res.status).toBe(404);
+    expect(prisma.storedFile.delete).not.toHaveBeenCalled();
+    expect(storage.delete).not.toHaveBeenCalled();
+  });
+
+  it("削除時に想定外のDBエラーが起きた場合: 404にせず例外を伝播する", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    const file = makeScoreFile({ fileType: "midi" });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(file as any);
+    vi.mocked(prisma.scoreFile.delete).mockRejectedValue(new Error("connection lost"));
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1`, { method: "DELETE" });
+
+    expect(res.status).toBe(500);
+    expect(prisma.storedFile.delete).not.toHaveBeenCalled();
   });
 
   it("PDF等ファイル: PDF権限なし（tech）は403を返す", async () => {
@@ -1758,7 +1883,7 @@ describe("DELETE /scores/:scoreId/files/:fileId", () => {
     vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(file as any);
     vi.mocked(storage.delete).mockResolvedValue(undefined);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.scoreFile.delete).mockResolvedValue(file as any);
+    vi.mocked(prisma.storedFile.delete).mockResolvedValue(file.file as any);
 
     const app = createTestApp(makeMember(["score"]));
     const res = await app.request(`/scores/${testScore.id}/files/file-1`, { method: "DELETE" });

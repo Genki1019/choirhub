@@ -204,7 +204,7 @@ describe("OutreachExpenseTab（削除操作）", () => {
     await screen.findByText("渋谷駅前");
     const deleteButton = screen
       .getAllByRole("button")
-      .find((b) => b.querySelector("svg.lucide-trash2"))!;
+      .find((b) => b.querySelector("svg.lucide-trash-2"))!;
     await user.click(deleteButton);
 
     expect(ticketsApi.deleteOutreachActivity).not.toHaveBeenCalled();
@@ -221,7 +221,7 @@ describe("OutreachExpenseTab（削除操作）", () => {
     await screen.findByText("渋谷駅前");
     const deleteButton = screen
       .getAllByRole("button")
-      .find((b) => b.querySelector("svg.lucide-trash2"))!;
+      .find((b) => b.querySelector("svg.lucide-trash-2"))!;
     await user.click(deleteButton);
 
     expect(ticketsApi.deleteOutreachActivity).toHaveBeenCalledWith("o", "concert-1", "activity-1");
@@ -238,7 +238,7 @@ describe("OutreachExpenseTab（削除操作）", () => {
     await screen.findByText("渋谷駅前");
     const deleteButton = screen
       .getAllByRole("button")
-      .find((b) => b.querySelector("svg.lucide-trash2"))!;
+      .find((b) => b.querySelector("svg.lucide-trash-2"))!;
     await user.click(deleteButton);
 
     expect(await screen.findByText("削除できません")).toBeInTheDocument();

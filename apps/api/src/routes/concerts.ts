@@ -12,6 +12,7 @@ import {
 import { syncOnStageFromResponses, applySurveyToOnStage } from "../services/onstage.js";
 import { createAttachmentRoutes } from "../lib/attachment-routes.js";
 import { deleteStoredFiles } from "../services/files.js";
+import { Prisma } from "../generated/prisma/index.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 const concertFileRoutes = createAttachmentRoutes({
@@ -54,8 +55,12 @@ const concertFileRoutes = createAttachmentRoutes({
     try {
       await prisma.concertFile.delete({ where: { id: fileId, concertId } });
       return true;
-    } catch {
-      return false;
+    } catch (err) {
+      // findFileの確認後に他リクエストで削除済み/紐付け変更された場合のみfalse。それ以外の例外は再送出する
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
+        return false;
+      }
+      throw err;
     }
   },
 });

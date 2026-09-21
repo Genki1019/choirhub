@@ -20,7 +20,7 @@ import { scoresApi, type ScoreDetail } from "@/lib/scores-api";
 import { membersApi } from "@/lib/members-api";
 import { useMember } from "@/contexts/MemberContext";
 import { settingsApi } from "@/lib/settings-api";
-import { MEMBER_LEVEL_ROLES } from "@/lib/roles";
+import { MEMBER_LEVEL_ROLES, canManageScorePdf, canManageScoreMidi } from "@/lib/roles";
 import { scoresKeys, memberKeys } from "@/lib/query-keys";
 import { MidiModal } from "../_components/MidiModal";
 import { PurchaseModal } from "../_components/PurchaseModal";
@@ -51,8 +51,8 @@ export default function ScoreDetailPage() {
   const savingPriceRef = useRef(false);
 
   const isAdmin = myRoles.includes("admin");
-  const isPrivileged = isAdmin || myRoles.includes("score");
-  const canManageMidi = isAdmin || myRoles.includes("tech") || myRoles.includes("conductor");
+  const isPrivileged = canManageScorePdf(myRoles);
+  const canManageMidi = canManageScoreMidi(myRoles);
   const isFileManager = isPrivileged || canManageMidi;
   const canViewPrice = myRoles.some((r) => MEMBER_LEVEL_ROLES.has(r));
 

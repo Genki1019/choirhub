@@ -14,8 +14,9 @@ import {
 import { toDateString } from "../lib/date.js";
 import { fileErrorPage } from "../lib/file-error-page.js";
 import { matchesFileSignature, FILE_SIGNATURE_CHECK_LENGTH } from "../lib/file-signature.js";
+import { Prisma } from "../generated/prisma/index.js";
 import type { TenantEnv } from "../middleware/tenant.js";
-import type { Prisma } from "../generated/prisma/index.js";
+import type { AccessLevel, Member } from "../generated/prisma/index.js";
 
 const SCORE_FILE_TYPES = ["full_score", "part_score", "midi", "audio", "other"] as const;
 type ScoreFileType = (typeof SCORE_FILE_TYPES)[number];
@@ -43,6 +44,31 @@ function canManageScorePdf(roles: string[]): boolean {
 // MIDIファイルの管理
 function canManageScoreMidi(roles: string[]): boolean {
   return roles.includes("admin") || roles.includes("tech") || roles.includes("conductor");
+}
+
+/**
+ * 横断ファイル一覧（GET /files）用。複数楽譜の閲覧可否を一括判定する
+ * （`GET /scores/:scoreId`の単一楽譜版と同じロジックのN+1回避版。単一版は変更しない）。
+ * visitorはfull_score以外のファイル種別を見られない制約は呼び出し側（files.ts）で別途適用する。
+ */
+export async function getVisibleScoreIds(
+  member: Member,
+  scores: { id: string; accessLevel: AccessLevel }[],
+): Promise<Set<string>> {
+  if (scores.length === 0) return new Set();
+
+  if (isVisitor(member) || isScorePrivileged(member.roles)) {
+    return new Set(scores.map((s) => s.id));
+  }
+
+  const purchasableIds = scores.filter((s) => s.accessLevel !== "secret").map((s) => s.id);
+  if (purchasableIds.length === 0) return new Set();
+
+  const purchases = await prisma.scorePurchase.findMany({
+    where: { memberId: member.id, scoreId: { in: purchasableIds } },
+    select: { scoreId: true },
+  });
+  return new Set(purchases.map((p) => p.scoreId));
 }
 
 function makeFileFormatter(orgSlug: string, partMap: Map<string, string>) {
@@ -1053,8 +1079,12 @@ export const scoresRouter = new Hono<TenantEnv>()
 
     try {
       await prisma.scoreFile.delete({ where: { id: fileId, scoreId } });
-    } catch {
-      return c.json({ error: { code: "NOT_FOUND", message: "ファイルが見つかりません" } }, 404);
+    } catch (err) {
+      // findUniqueでの確認後に他リクエストで削除済み/紐付け変更された場合のみ404。それ以外の例外は再送出する
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
+        return c.json({ error: { code: "NOT_FOUND", message: "ファイルが見つかりません" } }, 404);
+      }
+      throw err;
     }
     await deleteStoredFile({ id: scoreFile.fileId, storageKey: scoreFile.file.storageKey });
 

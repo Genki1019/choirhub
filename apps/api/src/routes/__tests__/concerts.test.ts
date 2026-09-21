@@ -1,7 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Hono } from "hono";
-import type { Member, Organization } from "../../generated/prisma/index.js";
+import { Prisma, type Member, type Organization } from "../../generated/prisma/index.js";
 import type { TenantEnv } from "../../middleware/tenant.js";
+
+function recordNotFoundError(): Prisma.PrismaClientKnownRequestError {
+  return new Prisma.PrismaClientKnownRequestError("Record to delete does not exist.", {
+    code: "P2025",
+    clientVersion: "test",
+  });
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function json(res: Response): Promise<Record<string, any>> {
@@ -2949,7 +2956,7 @@ describe("DELETE /concerts/:concertId/files/:fileId", () => {
     const file = makeConcertFile();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.concertFile.findUnique).mockResolvedValue(file as any);
-    vi.mocked(prisma.concertFile.delete).mockRejectedValue(new Error("Record not found"));
+    vi.mocked(prisma.concertFile.delete).mockRejectedValue(recordNotFoundError());
 
     const app = createTestApp(makeMember(["tech"]));
     const res = await app.request(`/concerts/${testConcert.id}/files/file-1`, {
@@ -2959,6 +2966,23 @@ describe("DELETE /concerts/:concertId/files/:fileId", () => {
     expect(res.status).toBe(404);
     expect(prisma.storedFile.delete).not.toHaveBeenCalled();
     expect(storage.delete).not.toHaveBeenCalled();
+  });
+
+  it("削除時に想定外のDBエラーが起きた場合: 404にせず例外を伝播する", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    const file = makeConcertFile();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concertFile.findUnique).mockResolvedValue(file as any);
+    vi.mocked(prisma.concertFile.delete).mockRejectedValue(new Error("connection lost"));
+
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await app.request(`/concerts/${testConcert.id}/files/file-1`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(500);
+    expect(prisma.storedFile.delete).not.toHaveBeenCalled();
   });
 });
 

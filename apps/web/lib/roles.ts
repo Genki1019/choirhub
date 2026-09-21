@@ -90,6 +90,14 @@ export const canManageAttachments = (roles: string[]): boolean =>
   roles.includes("conductor") ||
   roles.includes("score");
 
+/** 楽譜PDF・その他ファイルの管理権限（admin / score。APIの canManageScorePdf と同じ判定） */
+export const canManageScorePdf = (roles: string[]): boolean =>
+  roles.includes("admin") || roles.includes("score");
+
+/** 楽譜MIDIファイルの管理権限（admin / tech / conductor。APIの canManageScoreMidi と同じ判定） */
+export const canManageScoreMidi = (roles: string[]): boolean =>
+  roles.includes("admin") || roles.includes("tech") || roles.includes("conductor");
+
 /** 設定画面・財務画面へのアクセス権限（admin / finance） */
 export const canAccessSettings = (roles: string[]): boolean =>
   roles.includes("admin") || roles.includes("finance");

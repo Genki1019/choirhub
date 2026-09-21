@@ -54,8 +54,12 @@ const eventFileRoutes = createAttachmentRoutes({
     try {
       await prisma.eventFile.delete({ where: { id: fileId, eventId } });
       return true;
-    } catch {
-      return false;
+    } catch (err) {
+      // findFileの確認後に他リクエストで削除済み/紐付け変更された場合のみfalse。それ以外の例外は再送出する
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
+        return false;
+      }
+      throw err;
     }
   },
 });
@@ -64,7 +68,10 @@ const eventFileRoutes = createAttachmentRoutes({
 // 招待判定ヘルパー
 // ────────────────────────────
 
-export function isInvited(member: Member, event: Event): boolean {
+export function isInvited(
+  member: Member,
+  event: Pick<Event, "targetRoles" | "targetPartIds">,
+): boolean {
   const roleMatch =
     event.targetRoles.length === 0 || event.targetRoles.some((r) => member.roles.includes(r));
 

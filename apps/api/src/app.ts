@@ -21,6 +21,7 @@ import {
 } from "./routes/visitor-applications.js";
 import { calendarRouter, handleCalendarFeed } from "./routes/calendar.js";
 import { documentsRouter } from "./routes/documents.js";
+import { filesRouter } from "./routes/files.js";
 import { storage } from "./services/storage.js";
 import { logger } from "./lib/logger.js";
 
@@ -67,6 +68,7 @@ v1.route("/:orgSlug", outreachRouter);
 v1.route("/:orgSlug", visitorApplicationsRouter);
 v1.route("/:orgSlug", calendarRouter);
 v1.route("/:orgSlug", documentsRouter);
+v1.route("/:orgSlug", filesRouter);
 
 // 見学申込Webhook (認証不要: Googleフォーム連携。トークンでorgを識別)
 // /:orgSlug/* ミドルウェアを通さないよう v1.route より先に登録

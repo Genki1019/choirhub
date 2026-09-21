@@ -20,6 +20,7 @@ export const orgApplicationKeys = {
 
 export const eventKeys = {
   list: (org: string, year: number, month: number) => ["events", org, year, month] as const,
+  all: (org: string) => ["events", org, "all"] as const,
   detail: (org: string, id: string) => ["event", org, id] as const,
   categories: (org: string) => ["eventCategories", org] as const,
   calendarFeedToken: (org: string) => ["events", org, "calendarFeedToken"] as const,
@@ -72,4 +73,5 @@ export const ticketKeys = {
 export const libraryKeys = {
   all: (org: string) => ["documents", org] as const,
   list: (org: string, category?: string) => ["documents", org, category ?? "all"] as const,
+  crossKind: (org: string, kind: string) => ["files", org, kind] as const,
 };

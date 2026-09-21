@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import LibraryPage from "../page";
 import { MemberProvider } from "@/contexts/MemberContext";
 import { documentsApi, type OrgDocument } from "@/lib/documents-api";
+import { filesApi, type CrossFileItem } from "@/lib/files-api";
 
 const replace = vi.fn();
 let searchParams = new URLSearchParams();
@@ -23,6 +24,16 @@ vi.mock("@/lib/documents-api", async () => {
       list: vi.fn(),
       upload: vi.fn(),
       delete: vi.fn(),
+    },
+  };
+});
+
+vi.mock("@/lib/files-api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/files-api")>("@/lib/files-api");
+  return {
+    ...actual,
+    filesApi: {
+      list: vi.fn(),
     },
   };
 });
@@ -160,5 +171,83 @@ describe("LibraryPage（削除）", () => {
 
     expect(documentsApi.delete).toHaveBeenCalledWith("tokyo-men-choir", "doc-1");
     expect(await screen.findByText("登録されている資料はありません")).toBeInTheDocument();
+  });
+});
+
+const sampleScoreFile: CrossFileItem = {
+  id: "stored-1",
+  kind: "score",
+  title: "男声合唱のための〇〇",
+  subtitle: "楽譜PDF",
+  fileName: "full.pdf",
+  downloadUrl: "/api/v1/tokyo-men-choir/scores/score-1/files/sf-1/download",
+  resourceLink: "/tokyo-men-choir/scores/score-1",
+};
+
+describe("LibraryPage（種別タブ）", () => {
+  it("楽譜タブをクリックするとURLにtab=scoreが付与される", async () => {
+    vi.mocked(documentsApi.list).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("登録されている資料はありません");
+    await user.click(screen.getByText("楽譜"));
+
+    expect(replace).toHaveBeenCalledWith("/tokyo-men-choir/library?tab=score");
+  });
+
+  it("tab=scoreの場合、filesApi.listがkind=scoreで呼ばれ横断一覧を表示する", async () => {
+    searchParams = new URLSearchParams("tab=score");
+    vi.mocked(filesApi.list).mockResolvedValue([sampleScoreFile]);
+    renderPage();
+
+    expect(await screen.findByText("男声合唱のための〇〇")).toBeInTheDocument();
+    expect(screen.getByText("楽譜PDF")).toBeInTheDocument();
+    expect(filesApi.list).toHaveBeenCalledWith("tokyo-men-choir", "score");
+    // 資料タブ専用のカテゴリサブタブは表示されない
+    expect(screen.queryByText("規約・規則")).not.toBeInTheDocument();
+  });
+
+  it("0件の場合は空表示を出す", async () => {
+    searchParams = new URLSearchParams("tab=concert");
+    vi.mocked(filesApi.list).mockResolvedValue([]);
+    renderPage();
+
+    expect(await screen.findByText("登録されているファイルはありません")).toBeInTheDocument();
+  });
+
+  it("取得エラー時はエラーメッセージを表示する", async () => {
+    searchParams = new URLSearchParams("tab=event");
+    vi.mocked(filesApi.list).mockRejectedValue(new Error("失敗"));
+    renderPage();
+
+    expect(await screen.findByText("ファイルの取得に失敗しました")).toBeInTheDocument();
+  });
+});
+
+describe("LibraryPage（種別タブの追加ボタン権限）", () => {
+  it("tech等の管理権限があるロール: 追加ボタンを表示する", async () => {
+    searchParams = new URLSearchParams("tab=concert");
+    vi.mocked(filesApi.list).mockResolvedValue([]);
+    renderPage(["tech"]);
+
+    expect(await screen.findByText("本番ファイルを追加")).toBeInTheDocument();
+  });
+
+  it("member: 追加ボタンを表示しない", async () => {
+    searchParams = new URLSearchParams("tab=concert");
+    vi.mocked(filesApi.list).mockResolvedValue([]);
+    renderPage(["member"]);
+
+    await screen.findByText("登録されているファイルはありません");
+    expect(screen.queryByText("本番ファイルを追加")).not.toBeInTheDocument();
+  });
+
+  it("楽譜タブ: scoreロールで追加ボタンを表示する", async () => {
+    searchParams = new URLSearchParams("tab=score");
+    vi.mocked(filesApi.list).mockResolvedValue([]);
+    renderPage(["score"]);
+
+    expect(await screen.findByText("楽譜ファイルを追加")).toBeInTheDocument();
   });
 });

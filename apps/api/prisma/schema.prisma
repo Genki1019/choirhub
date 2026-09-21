@@ -96,6 +96,21 @@ enum OrgApplicationStatus {
   rejected
 }
 
+enum FileKind {
+  score
+  concert
+  event
+  org_document
+}
+
+enum DocumentCategory {
+  bylaws
+  minutes
+  member_guide
+  finance_report
+  other
+}
+
 // ────────────────────────────
 // Core Domain
 // ────────────────────────────
@@ -171,8 +186,45 @@ model Organization {
   collections         Collection[]
   visitorApplications VisitorApplication[]
   organizerPeriods    OrganizerPeriod[]
+  storedFiles         StoredFile[]
 
   @@map("organizations")
+}
+
+// ────────────────────────────
+// File Storage
+// ────────────────────────────
+
+model StoredFile {
+  id         String   @id @default(cuid())
+  orgId      String   @map("org_id")
+  kind       FileKind
+  storageKey String   @map("storage_key")
+  fileName   String   @map("file_name")
+  uploadedBy String   @map("uploaded_by")
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  scoreFile   ScoreFile?
+  concertFile ConcertFile?
+  eventFile   EventFile?
+  orgDocument OrgDocument?
+
+  @@index([orgId, kind])
+  @@map("stored_files")
+}
+
+model OrgDocument {
+  id          String           @id @default(cuid())
+  fileId      String           @unique @map("file_id")
+  title       String
+  category    DocumentCategory
+  accessLevel AccessLevel      @default(restricted) @map("access_level")
+
+  file StoredFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@map("org_documents")
 }
 
 model Part {
@@ -310,15 +362,13 @@ model Event {
 }
 
 model EventFile {
-  id         String   @id @default(cuid())
-  eventId    String   @map("event_id")
-  label      String
-  storageKey String   @map("storage_key")
-  fileName   String   @map("file_name")
-  uploadedBy String   @map("uploaded_by")
-  uploadedAt DateTime @default(now()) @map("uploaded_at")
+  id      String @id @default(cuid())
+  fileId  String @unique @map("file_id")
+  eventId String @map("event_id")
+  label   String
 
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  file  StoredFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  event Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([eventId])
   @@map("event_files")
@@ -373,17 +423,15 @@ model Score {
 
 model ScoreFile {
   id          String       @id @default(cuid())
+  fileId      String       @unique @map("file_id")
   scoreId     String       @map("score_id")
   fileType    FileType     @map("file_type")
   partId      String?      @map("part_id")
-  storageKey  String       @map("storage_key")
-  fileName    String       @map("file_name")
   accessLevel AccessLevel? @map("access_level")
   version     Int          @default(1)
-  uploadedBy  String       @map("uploaded_by")
-  uploadedAt  DateTime     @default(now()) @map("uploaded_at")
 
-  score Score @relation(fields: [scoreId], references: [id], onDelete: Cascade)
+  file  StoredFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  score Score      @relation(fields: [scoreId], references: [id], onDelete: Cascade)
 
   @@index([scoreId])
   @@map("score_files")
@@ -437,15 +485,13 @@ model Concert {
 }
 
 model ConcertFile {
-  id         String   @id @default(cuid())
-  concertId  String   @map("concert_id")
-  label      String
-  storageKey String   @map("storage_key")
-  fileName   String   @map("file_name")
-  uploadedBy String   @map("uploaded_by")
-  uploadedAt DateTime @default(now()) @map("uploaded_at")
+  id        String @id @default(cuid())
+  fileId    String @unique @map("file_id")
+  concertId String @map("concert_id")
+  label     String
 
-  concert Concert @relation(fields: [concertId], references: [id], onDelete: Cascade)
+  file    StoredFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  concert Concert    @relation(fields: [concertId], references: [id], onDelete: Cascade)
 
   @@index([concertId])
   @@map("concert_files")

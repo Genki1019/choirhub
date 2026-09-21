@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { isAdmin, hasRole, isHiddenRole, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
 import { createAttachmentRoutes } from "../lib/attachment-routes.js";
+import { deleteStoredFiles } from "../services/files.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 import type { Event, EventCategory, Member } from "../generated/prisma/index.js";
 import { Prisma } from "../generated/prisma/index.js";
@@ -12,6 +13,7 @@ const eventFileRoutes = createAttachmentRoutes({
   resourcePath: "events/:id",
   idParam: "id",
   keyPrefix: "events",
+  kind: "event",
   notFoundMessage: "イベントが見つかりません",
   resourceExists: async (id, orgId) => {
     const event = await prisma.event.findUnique({ where: { id } });
@@ -22,15 +24,43 @@ const eventFileRoutes = createAttachmentRoutes({
     if (!event || event.orgId !== orgId) return "not_found";
     return isAdmin(member) || isInvited(member, event) ? "ok" : "forbidden";
   },
-  listFiles: (eventId) =>
-    prisma.eventFile.findMany({ where: { eventId }, orderBy: { uploadedAt: "asc" } }),
-  createFile: (eventId, data) => prisma.eventFile.create({ data: { eventId, ...data } }),
+  listFiles: async (eventId) => {
+    const files = await prisma.eventFile.findMany({
+      where: { eventId },
+      orderBy: { file: { uploadedAt: "asc" } },
+      include: { file: true },
+    });
+    return files.map((f) => ({ id: f.id, label: f.label, fileName: f.file.fileName }));
+  },
+  createFile: (tx, eventId, data) =>
+    tx.eventFile.create({ data: { eventId, label: data.label, fileId: data.fileId } }),
   findFile: async (fileId) => {
-    const f = await prisma.eventFile.findUnique({ where: { id: fileId } });
-    return f && { ...f, resourceId: f.eventId };
+    const f = await prisma.eventFile.findUnique({
+      where: { id: fileId },
+      include: { file: true },
+    });
+    return (
+      f && {
+        id: f.id,
+        label: f.label,
+        fileName: f.file.fileName,
+        resourceId: f.eventId,
+        storedFileId: f.fileId,
+        storageKey: f.file.storageKey,
+      }
+    );
   },
   deleteFile: async (fileId, eventId) => {
-    await prisma.eventFile.delete({ where: { id: fileId, eventId } });
+    try {
+      await prisma.eventFile.delete({ where: { id: fileId, eventId } });
+      return true;
+    } catch (err) {
+      // findFileの確認後に他リクエストで削除済み/紐付け変更された場合のみfalse。それ以外の例外は再送出する
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
+        return false;
+      }
+      throw err;
+    }
   },
 });
 
@@ -38,7 +68,10 @@ const eventFileRoutes = createAttachmentRoutes({
 // 招待判定ヘルパー
 // ────────────────────────────
 
-export function isInvited(member: Member, event: Event): boolean {
+export function isInvited(
+  member: Member,
+  event: Pick<Event, "targetRoles" | "targetPartIds">,
+): boolean {
   const roleMatch =
     event.targetRoles.length === 0 || event.targetRoles.some((r) => member.roles.includes(r));
 
@@ -501,15 +534,28 @@ export const eventsRouter = new Hono<TenantEnv>()
       return c.json({ error: { code: "FORBIDDEN", message: "技術系以上の権限が必要です" } }, 403);
     }
 
-    const event = await prisma.event.findUnique({ where: { id } });
+    const event = await prisma.event.findUnique({
+      where: { id },
+      include: { files: { include: { file: true } } },
+    });
     if (!event || event.orgId !== org.id) {
       return c.json({ error: { code: "NOT_FOUND", message: "イベントが見つかりません" } }, 404);
+    }
+
+    const orphanedFiles = event.files.map((f) => f.file);
+    if (event.concertId) {
+      const concertFiles = await prisma.concertFile.findMany({
+        where: { concertId: event.concertId },
+        include: { file: true },
+      });
+      orphanedFiles.push(...concertFiles.map((f) => f.file));
     }
 
     await prisma.event.delete({ where: { id } });
     if (event.concertId) {
       await prisma.concert.delete({ where: { id: event.concertId } });
     }
+    await deleteStoredFiles(orphanedFiles);
 
     return new Response(null, { status: 204 });
   })

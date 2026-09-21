@@ -15,6 +15,7 @@ import {
   ChevronsUpDown,
   ChevronDown,
   Wallet,
+  FolderOpen,
   X,
 } from "lucide-react";
 import { SETTINGS_NAV_ITEMS } from "@/lib/settings-nav";
@@ -27,6 +28,7 @@ const BASE_NAV_ITEMS = [
   { suffix: "/concerts", label: "本番", icon: Star },
   { suffix: "/mailing", label: "メール", icon: Mail },
   { suffix: "/tickets", label: "チケット", icon: Ticket },
+  { suffix: "/library", label: "資料", icon: FolderOpen },
 ];
 
 const FINANCE_NAV_ITEMS = [{ suffix: "/accounting", label: "会計", icon: Wallet }];
@@ -38,7 +40,7 @@ const SETTINGS_FINANCE_ITEMS = SETTINGS_NAV_ITEMS.filter((item) =>
 
 const DESKTOP_MQ = "(min-width: 1024px)";
 
-const VISITOR_HIDDEN_SUFFIXES = new Set(["/mailing", "/tickets"]);
+const VISITOR_HIDDEN_SUFFIXES = new Set(["/mailing", "/tickets", "/library"]);
 
 function isFinancePlus(roles: string[]): boolean {
   return roles.includes("admin") || roles.includes("finance");

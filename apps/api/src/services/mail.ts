@@ -299,6 +299,228 @@ export async function sendPasswordResetEmail(params: {
   logger.info("[mail] password reset sent to", actualTo, "via Resend");
 }
 
+function buildEmailChangeConfirmationHtml(params: {
+  nameJa: string;
+  confirmUrl: string;
+  expiresLabel: string;
+  devNotice?: string;
+}): string {
+  const { nameJa, confirmUrl, expiresLabel, devNotice } = params;
+  const safeNameJa = escapeHtml(nameJa);
+  const safeDevNotice = devNotice ? escapeHtml(devNotice) : undefined;
+  return `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>メールアドレス変更の確認</title>
+</head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;border:1px solid #e5e7eb;overflow:hidden;">
+          <tr>
+            <td style="background:#2563eb;padding:28px 40px;">
+              <p style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">ChoirHub</p>
+              <p style="margin:4px 0 0;font-size:13px;color:#bfdbfe;">合唱団運営支援サービス</p>
+            </td>
+          </tr>
+          ${safeDevNotice ? `<tr><td style="background:#fef3c7;padding:12px 40px;border-bottom:1px solid #fde68a;"><p style="margin:0;font-size:12px;color:#92400e;">🔧 開発環境テスト送信 — ${safeDevNotice}</p></td></tr>` : ""}
+          <tr>
+            <td style="padding:36px 40px 28px;">
+              <p style="margin:0 0 8px;font-size:15px;color:#374151;">${safeNameJa} さん</p>
+              <p style="margin:0 0 24px;font-size:15px;color:#374151;">
+                このメールアドレスをChoirHubのログイン用アドレスとして登録するリクエストを受け付けました。<br />
+                下のボタンから変更を確定してください。
+              </p>
+              <table cellpadding="0" cellspacing="0" style="margin:0 0 28px;">
+                <tr>
+                  <td style="background:#2563eb;border-radius:10px;">
+                    <a href="${confirmUrl}" style="display:block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">
+                      メールアドレスを変更する
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0 0 6px;font-size:12px;color:#9ca3af;">ボタンが表示されない場合は以下のURLをブラウザに貼り付けてください：</p>
+              <p style="margin:0 0 28px;font-size:12px;color:#2563eb;word-break:break-all;">
+                <a href="${confirmUrl}" style="color:#2563eb;">${confirmUrl}</a>
+              </p>
+              <hr style="border:none;border-top:1px solid #f3f4f6;margin:0 0 24px;" />
+              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.6;">
+                このリンクの有効期限は <strong style="color:#6b7280;">${expiresLabel}</strong> です。<br />
+                心当たりのない場合はこのメールを無視してください。メールアドレスは変更されません。
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f9fafb;padding:16px 40px;border-top:1px solid #f3f4f6;">
+              <p style="margin:0;font-size:11px;color:#d1d5db;text-align:center;">© ChoirHub — 合唱団運営支援サービス</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
+}
+
+export async function sendEmailChangeConfirmationEmail(params: {
+  to: string;
+  nameJa: string;
+  confirmToken: string;
+  expiresAt: Date;
+}): Promise<void> {
+  const { to, nameJa, confirmToken, expiresAt } = params;
+
+  const confirmUrl = `${FRONTEND_URL}/email-change/${confirmToken}`;
+  const expiresLabel = expiresAt.toLocaleString("ja-JP", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  if (!isResendConfigured()) {
+    logger.info("─────────────────────────────────────────────");
+    logger.info("[mail] RESEND_API_KEY 未設定 — コンソールにフォールバック");
+    logger.info(`[mail] 宛先       : ${to}`);
+    logger.info(`[mail] 確認URL    : ${confirmUrl}`);
+    logger.info(`[mail] 有効期限   : ${expiresLabel}`);
+    logger.info("─────────────────────────────────────────────");
+    return;
+  }
+
+  const actualTo = DEV_MAIL_TO || to;
+  const devNotice = DEV_MAIL_TO && DEV_MAIL_TO !== to ? `本来の宛先: ${to}` : undefined;
+
+  const html = buildEmailChangeConfirmationHtml({ nameJa, confirmUrl, expiresLabel, devNotice });
+
+  const resend = new Resend(RESEND_API_KEY);
+  const { error } = await resend.emails.send({
+    from: FROM_ADDRESS,
+    to: actualTo,
+    subject: "【ChoirHub】メールアドレス変更の確認",
+    html,
+  });
+
+  if (error) {
+    logger.error("[mail] Resend error:", error);
+    throw new Error(`メール送信に失敗しました: ${error.message}`);
+  }
+
+  logger.info("[mail] email change confirmation sent to", actualTo, "via Resend");
+}
+
+function buildEmailChangedNotificationHtml(params: {
+  nameJa: string;
+  newEmail: string;
+  changedLabel: string;
+  devNotice?: string;
+}): string {
+  const { nameJa, newEmail, changedLabel, devNotice } = params;
+  const safeNameJa = escapeHtml(nameJa);
+  const safeNewEmail = escapeHtml(newEmail);
+  const safeDevNotice = devNotice ? escapeHtml(devNotice) : undefined;
+  return `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>メールアドレスが変更されました</title>
+</head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;border:1px solid #e5e7eb;overflow:hidden;">
+          <tr>
+            <td style="background:#dc2626;padding:28px 40px;">
+              <p style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">ChoirHub</p>
+              <p style="margin:4px 0 0;font-size:13px;color:#fecaca;">合唱団運営支援サービス</p>
+            </td>
+          </tr>
+          ${safeDevNotice ? `<tr><td style="background:#fef3c7;padding:12px 40px;border-bottom:1px solid #fde68a;"><p style="margin:0;font-size:12px;color:#92400e;">🔧 開発環境テスト送信 — ${safeDevNotice}</p></td></tr>` : ""}
+          <tr>
+            <td style="padding:36px 40px 28px;">
+              <p style="margin:0 0 8px;font-size:15px;color:#374151;">${safeNameJa} さん</p>
+              <p style="margin:0 0 24px;font-size:15px;color:#374151;">
+                ${changedLabel} に、このメールアドレスに紐づくChoirHubアカウントのログイン用メールアドレスが
+                <strong>${safeNewEmail}</strong> に変更されました。安全のため、既存のログインセッションはすべて無効化されています。
+              </p>
+              <hr style="border:none;border-top:1px solid #f3f4f6;margin:0 0 24px;" />
+              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.6;">
+                心当たりがない場合は、第三者がアカウントを操作した可能性があります。至急パスワードの再設定を行ってください。
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f9fafb;padding:16px 40px;border-top:1px solid #f3f4f6;">
+              <p style="margin:0;font-size:11px;color:#d1d5db;text-align:center;">© ChoirHub — 合唱団運営支援サービス</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
+}
+
+export async function sendEmailChangedNotification(params: {
+  to: string;
+  nameJa: string;
+  newEmail: string;
+  changedAt: Date;
+}): Promise<void> {
+  const { to, nameJa, newEmail, changedAt } = params;
+
+  const changedLabel = changedAt.toLocaleString("ja-JP", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  if (!isResendConfigured()) {
+    logger.info("─────────────────────────────────────────────");
+    logger.info("[mail] RESEND_API_KEY 未設定 — コンソールにフォールバック");
+    logger.info(`[mail] 宛先       : ${to}`);
+    logger.info(`[mail] 新アドレス : ${newEmail}`);
+    logger.info(`[mail] 変更日時   : ${changedLabel}`);
+    logger.info("─────────────────────────────────────────────");
+    return;
+  }
+
+  const actualTo = DEV_MAIL_TO || to;
+  const devNotice = DEV_MAIL_TO && DEV_MAIL_TO !== to ? `本来の宛先: ${to}` : undefined;
+
+  const html = buildEmailChangedNotificationHtml({ nameJa, newEmail, changedLabel, devNotice });
+
+  const resend = new Resend(RESEND_API_KEY);
+  const { error } = await resend.emails.send({
+    from: FROM_ADDRESS,
+    to: actualTo,
+    subject: "【ChoirHub】メールアドレスが変更されました",
+    html,
+  });
+
+  if (error) {
+    logger.error("[mail] Resend error:", error);
+    throw new Error(`メール送信に失敗しました: ${error.message}`);
+  }
+
+  logger.info("[mail] email changed notification sent to", actualTo, "via Resend");
+}
+
 export async function sendBulkMail(params: {
   to: { email: string }[];
   subject: string;

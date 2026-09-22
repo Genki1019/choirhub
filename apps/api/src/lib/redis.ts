@@ -16,6 +16,8 @@ const ORG_APPLICATION_MAX = 5;
 const ORG_APPLICATION_WINDOW_S = 3600;
 const INVITE_ACCEPT_MAX = 5;
 const INVITE_ACCEPT_WINDOW_S = 900;
+const EMAIL_CHANGE_MAX = 3;
+const EMAIL_CHANGE_WINDOW_S = 900;
 
 async function checkRateLimit(
   prefix: string,
@@ -67,4 +69,8 @@ export function checkInviteAcceptRateLimit(ip: string): Promise<boolean> {
 
 export function clearInviteAcceptRateLimit(ip: string): Promise<void> {
   return clearRateLimit("invite-accept", ip);
+}
+
+export function checkEmailChangeRateLimit(ip: string): Promise<boolean> {
+  return checkRateLimit("email-change", ip, EMAIL_CHANGE_MAX, EMAIL_CHANGE_WINDOW_S);
 }

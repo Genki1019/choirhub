@@ -21,6 +21,7 @@ function makeMember(overrides: Partial<MemberProfile> = {}): MemberProfile {
     interests: null,
     originGroup: null,
     joinedAt: "2020-04-01",
+    email: "member@example.com",
     phone: null,
     adminMemo: null,
     ...overrides,
@@ -153,6 +154,63 @@ describe("AdminPanel（操作）", () => {
         phone: null,
         adminMemo: null,
       });
+    });
+  });
+
+  it("メールアドレスを変更していない場合、onUpdateのペイロードにemailを含めない", async () => {
+    const onUpdate = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      <AdminPanel
+        member={makeMember({ email: "unchanged@example.com" })}
+        parts={parts}
+        memberTypes={memberTypes}
+        onUpdate={onUpdate}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByText("変更を保存"));
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalled();
+    });
+    expect(onUpdate.mock.calls[0][0]).not.toHaveProperty("email");
+  });
+
+  it("メールアドレスの初期値を表示する", () => {
+    render(
+      <AdminPanel
+        member={makeMember({ email: "current@example.com" })}
+        parts={parts}
+        memberTypes={memberTypes}
+        onUpdate={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("メールアドレス")).toHaveValue("current@example.com");
+  });
+
+  it("メールアドレスを変更すると、onUpdateのペイロードに新しい値が含まれる", async () => {
+    const onUpdate = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      <AdminPanel
+        member={makeMember({ email: "old@example.com" })}
+        parts={parts}
+        memberTypes={memberTypes}
+        onUpdate={onUpdate}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    const emailInput = screen.getByLabelText("メールアドレス");
+    await user.clear(emailInput);
+    await user.type(emailInput, "new@example.com");
+    await user.click(screen.getByText("変更を保存"));
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ email: "new@example.com" }));
     });
   });
 

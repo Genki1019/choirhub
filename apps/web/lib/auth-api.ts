@@ -52,6 +52,12 @@ export const authApi = {
 
   confirmPasswordReset: (token: string, password: string) =>
     apiClient.post<{ message: string }>(`/auth/password-reset/${token}`, { password }),
+
+  getEmailChangeToken: (token: string) =>
+    apiClient.get<{ newEmail: string }>(`/auth/email-change/${token}`),
+
+  confirmEmailChange: (token: string) =>
+    apiClient.post<{ message: string; email: string }>(`/auth/email-change/${token}`, {}),
 };
 
 export { ApiClientError };

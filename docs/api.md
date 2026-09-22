@@ -1,8 +1,8 @@
 # ChoirHub API設計書
 
-**バージョン**: 1.14  
+**バージョン**: 1.15  
 **作成日**: 2026-06-04  
-**更新日**: 2026-09-21  
+**更新日**: 2026-09-22  
 **ベースURL**: `/api/v1`
 
 ---
@@ -42,6 +42,8 @@
 | [パスワードリセット申請](#auth-password-reset-request)     | POST   | `/auth/password-reset/request`       | 公開           |
 | [パスワードリセットトークン確認](#auth-password-reset-get) | GET    | `/auth/password-reset/:token`        | 公開           |
 | [パスワードリセット実行](#auth-password-reset-confirm)     | POST   | `/auth/password-reset/:token`        | 公開           |
+| [メールアドレス変更トークン確認](#auth-email-change-get)   | GET    | `/auth/email-change/:token`          | 公開           |
+| [メールアドレス変更確定](#auth-email-change-confirm)       | POST   | `/auth/email-change/:token`          | 公開           |
 | [団体作成の申請](#auth-org-applications-create)            | POST   | `/auth/org-applications`             | 公開           |
 | [団体作成申請の一覧](#auth-org-applications-list)          | GET    | `/auth/org-applications`             | システム管理者 |
 | [団体作成申請の承認](#auth-org-applications-approve)       | POST   | `/auth/org-applications/:id/approve` | システム管理者 |
@@ -56,17 +58,18 @@
 
 ### メンバー管理
 
-| API名                                           | Method | Path                          | 権限         |
-| ----------------------------------------------- | ------ | ----------------------------- | ------------ |
-| [メンバー一覧取得](#members-list)               | GET    | `/:orgSlug/members`           | 認証済み全員 |
-| [自分のプロフィール取得](#members-me-get)       | GET    | `/:orgSlug/members/me`        | member+      |
-| [自分のプロフィール更新](#members-me-patch)     | PATCH  | `/:orgSlug/members/me`        | member+      |
-| [アバター画像アップロード](#members-me-avatar)  | POST   | `/:orgSlug/members/me/avatar` | member+      |
-| [招待メール送信](#members-invite)               | POST   | `/:orgSlug/members/invite`    | admin        |
-| [メンバー詳細取得](#members-id-get)             | GET    | `/:orgSlug/members/:id`       | member+      |
-| [メンバー情報更新（管理者）](#members-id-patch) | PATCH  | `/:orgSlug/members/:id`       | admin        |
-| [メンバー退団処理](#members-id-delete)          | DELETE | `/:orgSlug/members/:id`       | admin        |
-| [パート一覧取得](#parts-list)                   | GET    | `/:orgSlug/parts`             | member+      |
+| API名                                              | Method | Path                                | 権限         |
+| -------------------------------------------------- | ------ | ----------------------------------- | ------------ |
+| [メンバー一覧取得](#members-list)                  | GET    | `/:orgSlug/members`                 | 認証済み全員 |
+| [自分のプロフィール取得](#members-me-get)          | GET    | `/:orgSlug/members/me`              | member+      |
+| [自分のプロフィール更新](#members-me-patch)        | PATCH  | `/:orgSlug/members/me`              | member+      |
+| [メールアドレス変更申請](#members-me-email-change) | POST   | `/:orgSlug/members/me/email-change` | member+      |
+| [アバター画像アップロード](#members-me-avatar)     | POST   | `/:orgSlug/members/me/avatar`       | member+      |
+| [招待メール送信](#members-invite)                  | POST   | `/:orgSlug/members/invite`          | admin        |
+| [メンバー詳細取得](#members-id-get)                | GET    | `/:orgSlug/members/:id`             | member+      |
+| [メンバー情報更新（管理者）](#members-id-patch)    | PATCH  | `/:orgSlug/members/:id`             | admin        |
+| [メンバー退団処理](#members-id-delete)             | DELETE | `/:orgSlug/members/:id`             | admin        |
+| [パート一覧取得](#parts-list)                      | GET    | `/:orgSlug/parts`                   | member+      |
 
 ### スケジュール・出欠
 
@@ -596,6 +599,42 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は3
 
 ---
 
+<a id="auth-email-change-get"></a>
+
+### GET `/api/v1/auth/email-change/:token`
+
+メールアドレス変更トークンを検証し、変更先の新メールアドレスを返す（確認画面の初期表示用）。
+
+**権限**: なし（公開）
+
+**Response** `200`
+
+```json
+{ "data": { "newEmail": "new@example.com" } }
+```
+
+**Errors:**: `404` `INVALID_TOKEN` トークンが存在しない / `404` `TOKEN_USED` 使用済み / `404` `TOKEN_EXPIRED` 期限切れ
+
+---
+
+<a id="auth-email-change-confirm"></a>
+
+### POST `/api/v1/auth/email-change/:token`
+
+メールアドレス変更を確定する。成功時は当該ユーザーの全セッションを削除し、旧メールアドレス宛に変更完了を通知する。
+
+**権限**: なし（公開）
+
+**Response** `200`
+
+```json
+{ "data": { "message": "メールアドレスを変更しました", "email": "new@example.com" } }
+```
+
+**Errors:**: `404` `INVALID_TOKEN` トークンが無効・期限切れ・使用済み（原子的な更新のため詳細な理由は区別しない） / `409` `CONFLICT` 発行後に他ユーザーが同じメールアドレスを取得済み
+
+---
+
 <a id="auth-org-applications-create"></a>
 
 ### POST `/api/v1/auth/org-applications`
@@ -902,7 +941,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は3
 
 ### PATCH `/api/v1/:orgSlug/members/me`
 
-自分のプロフィールを更新する。メールアドレスの変更はセキュリティ上このエンドポイントでは受け付けない（管理者が `PATCH /members/:id` で変更する）。
+自分のプロフィールを更新する。メールアドレスの変更はこのエンドポイントでは受け付けない（[メールアドレス変更申請](#members-me-email-change)による確認メール方式を使用する。管理者は[管理者による更新](#members-id-patch)で即時変更できる）。
 
 **権限**: `member+`
 
@@ -921,6 +960,30 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は3
 ```
 
 **Response** `200` → 更新後のメンバー情報
+
+---
+
+<a id="members-me-email-change"></a>
+
+### POST `/api/v1/:orgSlug/members/me/email-change`
+
+メールアドレス変更を申請する。新アドレス宛に確認メールを送信する（確定は [`POST /auth/email-change/:token`](#auth-email-change-confirm)）。対象アドレスが既に他ユーザーに使用されている場合も、列挙攻撃防止のため同一レスポンスを返す（メール送信は行われない）。
+
+**権限**: `member+`
+
+**Request Body:**
+
+```json
+{ "newEmail": "new@example.com" }
+```
+
+**Response** `200`
+
+```json
+{ "data": { "message": "確認メールを送信しました" } }
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正・現在のメールアドレスと同一 / `429` `TOO_MANY_REQUESTS` レート制限超過
 
 ---
 
@@ -990,7 +1053,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は3
 
 ### PATCH `/api/v1/:orgSlug/members/:id`
 
-メンバー情報を管理者が更新する（ロール変更・ステータス変更など）。
+メンバー情報を管理者が更新する（ロール変更・ステータス変更など）。`email`を指定した場合、確認リンクなしで即時にメールアドレスを変更する（本人の[メールアドレス変更申請](#members-me-email-change)とは異なる経路）。変更時は対象ユーザーの全セッションを削除し、新・旧両方のメールアドレスへ変更完了を通知する。
 
 **権限**: `admin`（ただし `self` は `PATCH /members/me` を使う）
 
@@ -1003,11 +1066,14 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は3
   "memberTypeId": "cuid",
   "status": "offstage",
   "phone": "090-xxxx-xxxx",
-  "adminMemo": "メモ"
+  "adminMemo": "メモ",
+  "email": "new@example.com"
 }
 ```
 
 **Response** `200` → 更新後のメンバー情報
+
+**Errors:**: `409` `CONFLICT` 指定したメールアドレスが既に他ユーザーに使用されている
 
 ---
 

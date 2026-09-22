@@ -46,6 +46,7 @@ export default function MemberManagePage() {
   const handleSave = async (data: Record<string, unknown>) => {
     await membersApi.updateById(org, id, data);
     queryClient.invalidateQueries({ queryKey: memberKeys.list(org) });
+    queryClient.invalidateQueries({ queryKey: memberKeys.detail(org, id) });
     router.push(`/${org}/members/${id}`);
   };
 

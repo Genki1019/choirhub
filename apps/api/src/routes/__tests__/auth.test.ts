@@ -25,6 +25,7 @@ vi.mock("../../lib/prisma.js", () => ({
     member: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
     inviteToken: { findUnique: vi.fn(), update: vi.fn() },
     passwordResetToken: { findUnique: vi.fn(), create: vi.fn() },
+    emailChangeToken: { findUnique: vi.fn(), update: vi.fn() },
     $executeRaw: vi.fn(),
   },
 }));
@@ -44,6 +45,7 @@ vi.mock("argon2", () => ({
 
 vi.mock("../../services/mail.js", () => ({
   sendPasswordResetEmail: vi.fn(),
+  sendEmailChangedNotification: vi.fn(),
 }));
 
 import { prisma } from "../../lib/prisma.js";
@@ -53,7 +55,7 @@ import {
   checkInviteAcceptRateLimit,
 } from "../../lib/redis.js";
 import { verify, hash } from "argon2";
-import { sendPasswordResetEmail } from "../../services/mail.js";
+import { sendPasswordResetEmail, sendEmailChangedNotification } from "../../services/mail.js";
 import { authRouter } from "../auth.js";
 
 function createTestApp() {
@@ -100,6 +102,14 @@ const testResetToken = {
   userId: testUser.id,
   usedAt: null as Date | null,
   expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+};
+
+const testEmailChangeToken = {
+  token: "email-change-token-abc",
+  userId: testUser.id,
+  newEmail: "new@example.com",
+  usedAt: null as Date | null,
+  expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
 };
 
 beforeEach(() => {
@@ -1016,5 +1026,183 @@ describe("POST /auth/password-reset/:token", () => {
     expect(prisma.session.deleteMany).toHaveBeenCalledWith({
       where: { userId: testResetToken.userId },
     });
+  });
+});
+
+describe("GET /auth/email-change/:token", () => {
+  it("トークンが存在しない: 404 INVALID_TOKENを返す", async () => {
+    vi.mocked(prisma.emailChangeToken.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp();
+    const res = await app.request("/auth/email-change/nonexistent");
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("INVALID_TOKEN");
+  });
+
+  it("使用済み: 404 TOKEN_USEDを返す", async () => {
+    vi.mocked(prisma.emailChangeToken.findUnique).mockResolvedValue({
+      ...testEmailChangeToken,
+      usedAt: new Date("2022-01-01"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/email-change/${testEmailChangeToken.token}`);
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("TOKEN_USED");
+  });
+
+  it("期限切れ: 404 TOKEN_EXPIREDを返す", async () => {
+    vi.mocked(prisma.emailChangeToken.findUnique).mockResolvedValue({
+      ...testEmailChangeToken,
+      expiresAt: new Date("2022-01-01"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/email-change/${testEmailChangeToken.token}`);
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("TOKEN_EXPIRED");
+  });
+
+  it("正常: 200を返し新アドレスを返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.emailChangeToken.findUnique).mockResolvedValue(testEmailChangeToken as any);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/email-change/${testEmailChangeToken.token}`);
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({ newEmail: testEmailChangeToken.newEmail });
+  });
+});
+
+describe("POST /auth/email-change/:token", () => {
+  it("トークンが存在しない: 404を返す", async () => {
+    vi.mocked(prisma.emailChangeToken.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/email-change/nonexistent`, { method: "POST" });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("INVALID_TOKEN");
+  });
+
+  it("使用済み・期限切れ・競合（原子的更新が0件）: 404を返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.emailChangeToken.findUnique).mockResolvedValue(testEmailChangeToken as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.$executeRaw).mockResolvedValue(0 as any);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/email-change/${testEmailChangeToken.token}`, {
+      method: "POST",
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("INVALID_TOKEN");
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("既に他ユーザーが取得済みのアドレス（P2002）: 409 CONFLICTを返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.emailChangeToken.findUnique).mockResolvedValue(testEmailChangeToken as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.$executeRaw).mockResolvedValue(1 as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+    vi.mocked(prisma.user.update).mockRejectedValue(uniqueConstraintError());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.emailChangeToken.update).mockResolvedValue(testEmailChangeToken as any);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/email-change/${testEmailChangeToken.token}`, {
+      method: "POST",
+    });
+
+    expect(res.status).toBe(409);
+    const body = await json(res);
+    expect(body.error.code).toBe("CONFLICT");
+    expect(prisma.session.deleteMany).not.toHaveBeenCalled();
+    // 本人が再試行できるよう、消費済みトークンを未使用状態に戻す
+    expect(prisma.emailChangeToken.update).toHaveBeenCalledWith({
+      where: { token: testEmailChangeToken.token },
+      data: { usedAt: null },
+    });
+  });
+
+  it("正常: 200を返しメール更新・全セッション削除・旧アドレスへの通知が行われる", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.emailChangeToken.findUnique).mockResolvedValue(testEmailChangeToken as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.$executeRaw).mockResolvedValue(1 as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+    vi.mocked(prisma.user.update).mockResolvedValue({
+      ...testUser,
+      email: testEmailChangeToken.newEmail,
+    });
+    vi.mocked(sendEmailChangedNotification).mockResolvedValue(undefined);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/email-change/${testEmailChangeToken.token}`, {
+      method: "POST",
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).toEqual({
+      message: "メールアドレスを変更しました",
+      email: testEmailChangeToken.newEmail,
+    });
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: testEmailChangeToken.userId },
+      data: { email: testEmailChangeToken.newEmail },
+    });
+    expect(prisma.session.deleteMany).toHaveBeenCalledWith({
+      where: { userId: testEmailChangeToken.userId },
+    });
+    expect(sendEmailChangedNotification).toHaveBeenCalledWith({
+      to: testUser.email,
+      nameJa: testUser.nameJa,
+      newEmail: testEmailChangeToken.newEmail,
+      changedAt: expect.any(Date),
+    });
+  });
+
+  it("二重POST（リプレイ）: 2回目は404 INVALID_TOKENを返す（アトミック消費）", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.emailChangeToken.findUnique).mockResolvedValue(testEmailChangeToken as any);
+    vi.mocked(prisma.$executeRaw)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .mockResolvedValueOnce(1 as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .mockResolvedValueOnce(0 as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+    vi.mocked(prisma.user.update).mockResolvedValue({
+      ...testUser,
+      email: testEmailChangeToken.newEmail,
+    });
+    vi.mocked(sendEmailChangedNotification).mockResolvedValue(undefined);
+
+    const app = createTestApp();
+    const first = await app.request(`/auth/email-change/${testEmailChangeToken.token}`, {
+      method: "POST",
+    });
+    expect(first.status).toBe(200);
+
+    const second = await app.request(`/auth/email-change/${testEmailChangeToken.token}`, {
+      method: "POST",
+    });
+    expect(second.status).toBe(404);
+    const body = await json(second);
+    expect(body.error.code).toBe("INVALID_TOKEN");
   });
 });

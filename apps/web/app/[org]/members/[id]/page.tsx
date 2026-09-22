@@ -12,6 +12,7 @@ import { MEMBER_LEVEL_ROLES } from "@/lib/roles";
 import { ProfileCard } from "./_components/ProfileCard";
 import { ProfileInfoSection } from "./_components/ProfileInfoSection";
 import { EditForm } from "./_components/EditForm";
+import { EmailChangeSection } from "./_components/EmailChangeSection";
 import { PageHeader } from "@/components/PageHeader";
 
 export default function MemberDetailPage() {
@@ -97,6 +98,10 @@ export default function MemberDetailPage() {
 
         {!isEditing && (
           <ProfileInfoSection member={member} isMemberPlus={isMemberPlus} isAdmin={isAdmin} />
+        )}
+
+        {!isEditing && isSelf && member.email && (
+          <EmailChangeSection org={org} currentEmail={member.email} />
         )}
 
         {isEditing && (

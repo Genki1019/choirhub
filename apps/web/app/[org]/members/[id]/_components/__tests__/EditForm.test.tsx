@@ -52,6 +52,11 @@ describe("EditForm（表示・入力）", () => {
     expect(screen.getByLabelText("電話番号")).toHaveValue("090-1234-5678");
   });
 
+  it("メールアドレス入力欄は表示されない（Issue #105でアカウント設定に移動）", () => {
+    render(<EditForm member={makeMember()} org="tokyo" onSave={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.queryByLabelText("メールアドレス")).not.toBeInTheDocument();
+  });
+
   it("入力すると値が更新される", async () => {
     const user = userEvent.setup();
     render(
@@ -172,6 +177,7 @@ describe("EditForm（保存・キャンセル）", () => {
     });
     const payload = onSave.mock.calls[0][0];
     expect(payload).not.toHaveProperty("avatarUrl");
+    expect(payload).not.toHaveProperty("email");
   });
 
   it("保存中はボタンがdisabledになる", async () => {

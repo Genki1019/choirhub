@@ -114,6 +114,11 @@ describe("MemberManagePage（管理者操作）", () => {
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: ["members", "tokyo-men-choir"],
     });
+    // 詳細画面（memberKeys.detail）も無効化しないと、保存後に詳細画面へ戻った際
+    // 古いキャッシュ（変更前のemail等）が表示されたままになる
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["member", "tokyo-men-choir", "member-2"],
+    });
     expect(pushMock).toHaveBeenCalledWith("/tokyo-men-choir/members/member-2");
   });
 

@@ -513,6 +513,12 @@ export const authRouter = new Hono()
       });
     } catch (e: unknown) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+        // トークンは既に消費済みだが、本人には何の問題もないリンクなので再試行できるよう
+        // 未使用状態に戻す（ベストエフォート。同一トークンへの同時アクセスは上のアトミック
+        // 消費で既に排他されているため、ここでの復元が新たな競合を生むことはない）。
+        await prisma.emailChangeToken
+          .update({ where: { token }, data: { usedAt: null } })
+          .catch((err: unknown) => logger.error("[auth] email change token restore failed:", err));
         return c.json(
           { error: { code: "CONFLICT", message: "このメールアドレスは既に使用されています" } },
           409,

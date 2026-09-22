@@ -25,7 +25,7 @@ vi.mock("../../lib/prisma.js", () => ({
     member: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
     inviteToken: { findUnique: vi.fn(), update: vi.fn() },
     passwordResetToken: { findUnique: vi.fn(), create: vi.fn() },
-    emailChangeToken: { findUnique: vi.fn() },
+    emailChangeToken: { findUnique: vi.fn(), update: vi.fn() },
     $executeRaw: vi.fn(),
   },
 }));
@@ -1120,6 +1120,8 @@ describe("POST /auth/email-change/:token", () => {
     vi.mocked(prisma.$executeRaw).mockResolvedValue(1 as any);
     vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
     vi.mocked(prisma.user.update).mockRejectedValue(uniqueConstraintError());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.emailChangeToken.update).mockResolvedValue(testEmailChangeToken as any);
 
     const app = createTestApp();
     const res = await app.request(`/auth/email-change/${testEmailChangeToken.token}`, {
@@ -1130,6 +1132,11 @@ describe("POST /auth/email-change/:token", () => {
     const body = await json(res);
     expect(body.error.code).toBe("CONFLICT");
     expect(prisma.session.deleteMany).not.toHaveBeenCalled();
+    // 本人が再試行できるよう、消費済みトークンを未使用状態に戻す
+    expect(prisma.emailChangeToken.update).toHaveBeenCalledWith({
+      where: { token: testEmailChangeToken.token },
+      data: { usedAt: null },
+    });
   });
 
   it("正常: 200を返しメール更新・全セッション削除・旧アドレスへの通知が行われる", async () => {

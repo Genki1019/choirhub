@@ -586,6 +586,11 @@ describe("GET /members/:id", () => {
 // ────────────────────────────
 
 describe("PATCH /members/:id", () => {
+  beforeEach(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.$transaction).mockImplementation((ops: any) => Promise.all(ops));
+  });
+
   it("admin はロールを変更できる", async () => {
     const target = makeNormalMember("member-2");
     const updated = { ...target, roles: ["member", "tech"], userRef: testUser, part: testPart };
@@ -708,6 +713,30 @@ describe("PATCH /members/:id", () => {
     expect(res.status).toBe(200);
     expect(prisma.user.update).not.toHaveBeenCalled();
     expect(prisma.session.deleteMany).not.toHaveBeenCalled();
+    expect(sendEmailChangedNotification).not.toHaveBeenCalled();
+  });
+
+  it("email変更と同時のmember.update失敗時は、email変更もロールバックされ副作用が起きない", async () => {
+    const target = makeNormalMember("member-2");
+    vi.mocked(prisma.member.findUnique).mockResolvedValueOnce(target as unknown as Member);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+    vi.mocked(prisma.user.update).mockResolvedValue({ ...testUser, email: "new@example.com" });
+    vi.mocked(prisma.member.update).mockRejectedValue(new Error("member update failed"));
+
+    const app = createTestApp(makeAdminMember());
+    const res = await app.request("/members/member-2", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "new@example.com", adminMemo: "メモ更新" }),
+    });
+
+    expect(res.status).toBe(500);
+    const body = await json(res);
+    expect(body.error.code).toBe("INTERNAL_ERROR");
+    // member.update失敗時はトランザクション全体が失敗したものとして扱い、
+    // セッション失効・トークン無効化・通知メールなどの副作用を一切実行しない
+    expect(prisma.session.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.emailChangeToken.updateMany).not.toHaveBeenCalled();
     expect(sendEmailChangedNotification).not.toHaveBeenCalled();
   });
 });

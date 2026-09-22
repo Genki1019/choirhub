@@ -12,7 +12,7 @@ import {
   checkInviteAcceptRateLimit,
   clearInviteAcceptRateLimit,
 } from "../lib/redis.js";
-import { sendPasswordResetEmail } from "../services/mail.js";
+import { sendPasswordResetEmail, sendEmailChangedNotification } from "../services/mail.js";
 import { storage } from "../services/storage.js";
 import { logger } from "../lib/logger.js";
 import { isSystemAdmin } from "../lib/systemAdmin.js";
@@ -61,6 +61,22 @@ function usedOrExpiredResetTokenError(resetToken: {
 }): { code: string; message: string } | null {
   if (resetToken.usedAt) return { code: "TOKEN_USED", message: "このリンクは既に使用されています" };
   if (resetToken.expiresAt < new Date())
+    return { code: "TOKEN_EXPIRED", message: "リンクの有効期限が切れています" };
+  return null;
+}
+
+const EMAIL_CHANGE_INVALID_TOKEN_ERROR = {
+  code: "INVALID_TOKEN",
+  message: "リンクが無効です",
+} as const;
+
+function usedOrExpiredEmailChangeTokenError(emailChangeToken: {
+  usedAt: Date | null;
+  expiresAt: Date;
+}): { code: string; message: string } | null {
+  if (emailChangeToken.usedAt)
+    return { code: "TOKEN_USED", message: "このリンクは既に使用されています" };
+  if (emailChangeToken.expiresAt < new Date())
     return { code: "TOKEN_EXPIRED", message: "リンクの有効期限が切れています" };
   return null;
 }
@@ -451,4 +467,74 @@ export const authRouter = new Hono()
 
       return c.json({ data: { message: "パスワードをリセットしました" } });
     },
-  );
+  )
+
+  // ── GET /auth/email-change/:token ── トークン検証（ページ初期表示用）
+  .get("/auth/email-change/:token", async (c) => {
+    const { token } = c.req.param();
+    const emailChangeToken = await prisma.emailChangeToken.findUnique({ where: { token } });
+
+    if (!emailChangeToken) return c.json({ error: EMAIL_CHANGE_INVALID_TOKEN_ERROR }, 404);
+    const tokenErr = usedOrExpiredEmailChangeTokenError(emailChangeToken);
+    if (tokenErr) return c.json({ error: tokenErr }, 404);
+
+    return c.json({ data: { newEmail: emailChangeToken.newEmail } });
+  })
+
+  // ── POST /auth/email-change/:token ── メールアドレス変更の確定
+  .post("/auth/email-change/:token", async (c) => {
+    const { token } = c.req.param();
+
+    const emailChangeToken = await prisma.emailChangeToken.findUnique({ where: { token } });
+    if (!emailChangeToken) return c.json({ error: EMAIL_CHANGE_INVALID_TOKEN_ERROR }, 404);
+
+    // 1 SQL でトークンを消費（並行リクエストは 0 行更新で弾かれる）
+    // NeonHTTP は updateMany が内部トランザクションを要求するため $executeRaw を使用
+    // expires_at は TIMESTAMP (UTC値) のため、NOW() を UTC に変換して比較する
+    const updatedCount = await prisma.$executeRaw`
+      UPDATE email_change_tokens
+      SET used_at = (NOW() AT TIME ZONE 'UTC')
+      WHERE token = ${token} AND used_at IS NULL AND expires_at > (NOW() AT TIME ZONE 'UTC')
+    `;
+    if (updatedCount === 0) {
+      return c.json({ error: EMAIL_CHANGE_INVALID_TOKEN_ERROR }, 404);
+    }
+
+    const currentUser = await prisma.user.findUnique({
+      where: { id: emailChangeToken.userId },
+      select: { email: true, nameJa: true },
+    });
+    if (!currentUser) return c.json({ error: EMAIL_CHANGE_INVALID_TOKEN_ERROR }, 404);
+
+    try {
+      await prisma.user.update({
+        where: { id: emailChangeToken.userId },
+        data: { email: emailChangeToken.newEmail },
+      });
+    } catch (e: unknown) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+        return c.json(
+          { error: { code: "CONFLICT", message: "このメールアドレスは既に使用されています" } },
+          409,
+        );
+      }
+      logger.error("[POST /auth/email-change/:token] Unexpected error:", e);
+      return c.json(
+        { error: { code: "INTERNAL_ERROR", message: "予期しないエラーが発生しました" } },
+        500,
+      );
+    }
+
+    await prisma.session.deleteMany({ where: { userId: emailChangeToken.userId } });
+
+    await sendEmailChangedNotification({
+      to: currentUser.email,
+      nameJa: currentUser.nameJa,
+      newEmail: emailChangeToken.newEmail,
+      changedAt: new Date(),
+    }).catch((err: unknown) => logger.error("[auth] email changed notification failed:", err));
+
+    return c.json({
+      data: { message: "メールアドレスを変更しました", email: emailChangeToken.newEmail },
+    });
+  });

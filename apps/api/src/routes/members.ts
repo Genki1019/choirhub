@@ -5,10 +5,17 @@ import { randomUUID } from "crypto";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "../lib/prisma.js";
 import { isAdmin, isMemberPlus, isHiddenRole, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
-import { sendInviteEmail, resolveInviteRecipient } from "../services/mail.js";
+import {
+  sendInviteEmail,
+  resolveInviteRecipient,
+  sendEmailChangeConfirmationEmail,
+  sendEmailChangedNotification,
+} from "../services/mail.js";
 import { storage } from "../services/storage.js";
 import { logger } from "../lib/logger.js";
 import { toDateString } from "../lib/date.js";
+import { checkEmailChangeRateLimit } from "../lib/redis.js";
+import { getClientIp } from "../lib/request.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -236,12 +243,6 @@ export const membersRouter = new Hono<TenantEnv>()
             },
           });
         } catch (e: unknown) {
-          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-            return c.json(
-              { error: { code: "CONFLICT", message: "このメールアドレスは既に使用されています" } },
-              409,
-            );
-          }
           logger.error("[PATCH /members/me] Unexpected error:", e);
           return c.json(
             { error: { code: "INTERNAL_ERROR", message: "予期しないエラーが発生しました" } },
@@ -271,6 +272,79 @@ export const membersRouter = new Hono<TenantEnv>()
         return c.json({ error: { code: "NOT_FOUND", message: "メンバーが見つかりません" } }, 404);
 
       return c.json({ data: formatMember(updated, true, true) });
+    },
+  )
+
+  // ── POST /members/me/email-change ── メールアドレス変更申請（確認メール送信）
+  .post(
+    "/members/me/email-change",
+    zValidator("json", z.object({ newEmail: z.string().email() }), (result, c) => {
+      if (!result.success) {
+        return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      }
+    }),
+    async (c) => {
+      const actingMember = c.get("member");
+
+      const ip = getClientIp(c);
+      if (!(await checkEmailChangeRateLimit(ip))) {
+        return c.json(
+          {
+            error: {
+              code: "TOO_MANY_REQUESTS",
+              message: "しばらく時間をおいてから再試行してください",
+            },
+          },
+          429,
+        );
+      }
+
+      const { newEmail } = c.req.valid("json");
+
+      const currentUser = await prisma.user.findUnique({
+        where: { id: actingMember.userId },
+        select: { email: true, nameJa: true },
+      });
+      if (!currentUser)
+        return c.json({ error: { code: "NOT_FOUND", message: "ユーザーが見つかりません" } }, 404);
+
+      if (currentUser.email === newEmail) {
+        return c.json(
+          {
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "現在のメールアドレスと同じです",
+            },
+          },
+          400,
+        );
+      }
+
+      // 既に他ユーザーが使用中のアドレスでも、列挙攻撃対策のため常に同一レスポンスを返す
+      const existingUser = await prisma.user.findUnique({ where: { email: newEmail } });
+
+      if (!existingUser) {
+        await prisma.emailChangeToken.updateMany({
+          where: { userId: actingMember.userId, usedAt: null },
+          data: { usedAt: new Date() },
+        });
+
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24時間有効
+        const emailChangeToken = await prisma.emailChangeToken.create({
+          data: { userId: actingMember.userId, newEmail, expiresAt },
+        });
+        await sendEmailChangeConfirmationEmail({
+          to: newEmail,
+          nameJa: currentUser.nameJa,
+          confirmToken: emailChangeToken.token,
+          expiresAt,
+        }).catch((err: unknown) => logger.error("[members] email change mail failed:", err));
+      } else {
+        // ユーザー存在確認防止のため、DB書き込み・メール送信相当の待機時間を確保する
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+
+      return c.json({ data: { message: "確認メールを送信しました" } });
     },
   )
 
@@ -411,6 +485,7 @@ export const membersRouter = new Hono<TenantEnv>()
         status: z.enum(["active", "offstage"]).optional(),
         phone: z.string().optional().nullable(),
         adminMemo: z.string().optional().nullable(),
+        email: z.string().email().optional(),
       }),
       (result, c) => {
         if (!result.success) {
@@ -453,9 +528,61 @@ export const membersRouter = new Hono<TenantEnv>()
         return c.json({ error: { code: "NOT_FOUND", message: "メンバーが見つかりません" } }, 404);
       }
 
+      const { email, ...memberFields } = c.req.valid("json");
+
+      let previousEmail: string | undefined;
+      if (email !== undefined) {
+        const targetUser = await prisma.user.findUnique({
+          where: { id: target.userId },
+          select: { email: true, nameJa: true },
+        });
+        if (!targetUser)
+          return c.json({ error: { code: "NOT_FOUND", message: "メンバーが見つかりません" } }, 404);
+
+        if (targetUser.email !== email) {
+          previousEmail = targetUser.email;
+          try {
+            await prisma.user.update({ where: { id: target.userId }, data: { email } });
+          } catch (e: unknown) {
+            if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+              return c.json(
+                {
+                  error: { code: "CONFLICT", message: "このメールアドレスは既に使用されています" },
+                },
+                409,
+              );
+            }
+            logger.error("[PATCH /members/:id] email update error:", e);
+            return c.json(
+              { error: { code: "INTERNAL_ERROR", message: "予期しないエラーが発生しました" } },
+              500,
+            );
+          }
+
+          await prisma.session.deleteMany({ where: { userId: target.userId } });
+
+          await Promise.all([
+            sendEmailChangedNotification({
+              to: previousEmail,
+              nameJa: targetUser.nameJa,
+              newEmail: email,
+              changedAt: new Date(),
+            }),
+            sendEmailChangedNotification({
+              to: email,
+              nameJa: targetUser.nameJa,
+              newEmail: email,
+              changedAt: new Date(),
+            }),
+          ]).catch((err: unknown) =>
+            logger.error("[members] admin email change notification failed:", err),
+          );
+        }
+      }
+
       await prisma.member.update({
         where: { id },
-        data: c.req.valid("json"),
+        data: memberFields,
       });
 
       const updated = await prisma.member.findUnique({

@@ -1,12 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Hono } from "hono";
-import type { Member, Organization, Part, User } from "../../generated/prisma/index.js";
+import {
+  Prisma,
+  type Member,
+  type Organization,
+  type Part,
+  type User,
+} from "../../generated/prisma/index.js";
 import type { TenantEnv } from "../../middleware/tenant.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function json(res: Response): Promise<Record<string, any>> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return res.json() as Promise<Record<string, any>>;
+}
+
+function uniqueConstraintError(): Prisma.PrismaClientKnownRequestError {
+  return new Prisma.PrismaClientKnownRequestError(
+    "Unique constraint failed on the fields: (`email`)",
+    {
+      code: "P2002",
+      clientVersion: "test",
+    },
+  );
 }
 
 vi.mock("../../lib/prisma.js", () => ({
@@ -22,6 +38,13 @@ vi.mock("../../lib/prisma.js", () => ({
     },
     inviteToken: {
       create: vi.fn(),
+    },
+    emailChangeToken: {
+      create: vi.fn(),
+      updateMany: vi.fn(),
+    },
+    session: {
+      deleteMany: vi.fn(),
     },
     part: {
       findMany: vi.fn(),
@@ -39,6 +62,8 @@ vi.mock("../../services/mail.js", () => ({
       isExistingUser: existingUser !== null,
     }),
   ),
+  sendEmailChangeConfirmationEmail: vi.fn(),
+  sendEmailChangedNotification: vi.fn(),
 }));
 
 vi.mock("../../services/storage.js", () => ({
@@ -53,7 +78,11 @@ vi.mock("../../services/storage.js", () => ({
 
 import { prisma } from "../../lib/prisma.js";
 import { storage } from "../../services/storage.js";
-import { sendInviteEmail } from "../../services/mail.js";
+import {
+  sendInviteEmail,
+  sendEmailChangeConfirmationEmail,
+  sendEmailChangedNotification,
+} from "../../services/mail.js";
 import { membersRouter } from "../members.js";
 
 // ────────────────────────────
@@ -316,6 +345,114 @@ describe("PATCH /members/me", () => {
 });
 
 // ────────────────────────────
+// POST /members/me/email-change — メールアドレス変更申請
+// ────────────────────────────
+
+describe("POST /members/me/email-change", () => {
+  it("未認証相当（userが見つからない）: 404を返す", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+
+    const app = createTestApp(makeNormalMember());
+    const res = await app.request("/members/me/email-change", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newEmail: "new@example.com" }),
+    });
+
+    expect(res.status).toBe(404);
+  });
+
+  it("不正なメール形式: 400 VALIDATION_ERRORを返す", async () => {
+    const app = createTestApp(makeNormalMember());
+    const res = await app.request("/members/me/email-change", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newEmail: "not-an-email" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("現在のメールアドレスと同一: 400を返す", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+
+    const app = createTestApp(makeNormalMember());
+    const res = await app.request("/members/me/email-change", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newEmail: testUser.email }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("正常系: 200を返し既存トークンの無効化・新規トークン作成・メール送信が行われる", async () => {
+    const me = makeNormalMember();
+    vi.mocked(prisma.user.findUnique)
+      .mockResolvedValueOnce(testUser) // currentUser取得
+      .mockResolvedValueOnce(null); // newEmailの重複チェック（未使用）
+    vi.mocked(prisma.emailChangeToken.create).mockResolvedValue({
+      id: "token-id",
+      token: "new-token-abc",
+      userId: me.userId,
+      newEmail: "new@example.com",
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+      usedAt: null,
+      createdAt: new Date(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(sendEmailChangeConfirmationEmail).mockResolvedValue(undefined);
+
+    const app = createTestApp(me);
+    const res = await app.request("/members/me/email-change", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newEmail: "new@example.com" }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.message).toBe("確認メールを送信しました");
+    expect(prisma.emailChangeToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: me.userId, usedAt: null },
+      data: { usedAt: expect.any(Date) },
+    });
+    expect(prisma.emailChangeToken.create).toHaveBeenCalledWith({
+      data: { userId: me.userId, newEmail: "new@example.com", expiresAt: expect.any(Date) },
+    });
+    expect(sendEmailChangeConfirmationEmail).toHaveBeenCalledWith({
+      to: "new@example.com",
+      nameJa: testUser.nameJa,
+      confirmToken: "new-token-abc",
+      expiresAt: expect.any(Date),
+    });
+  });
+
+  it("既に他ユーザーが使用中のアドレス: 正常系と区別できない同一レスポンスを返す（列挙対策）", async () => {
+    vi.mocked(prisma.user.findUnique)
+      .mockResolvedValueOnce(testUser) // currentUser取得
+      .mockResolvedValueOnce({ ...testUser, id: "user-other" }); // newEmailは既に他ユーザーが使用中
+
+    const app = createTestApp(makeNormalMember());
+    const res = await app.request("/members/me/email-change", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newEmail: "taken@example.com" }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.message).toBe("確認メールを送信しました");
+    expect(prisma.emailChangeToken.create).not.toHaveBeenCalled();
+    expect(sendEmailChangeConfirmationEmail).not.toHaveBeenCalled();
+  });
+});
+
+// ────────────────────────────
 // GET /members/:id — メンバー詳細
 // ────────────────────────────
 
@@ -399,6 +536,83 @@ describe("PATCH /members/:id", () => {
     expect(res.status).toBe(400);
     const body = await json(res);
     expect(body.error.code).toBe("SELF_UPDATE_FORBIDDEN");
+  });
+
+  it("admin はメンバーのメールアドレスを即時変更できる（セッション失効・通知メール送信を伴う）", async () => {
+    const target = makeNormalMember("member-2");
+    const updated = {
+      ...target,
+      userRef: { ...testUser, email: "new@example.com" },
+      part: testPart,
+    };
+    vi.mocked(prisma.member.findUnique)
+      .mockResolvedValueOnce(target as unknown as Member)
+      .mockResolvedValueOnce(updated as unknown as Member);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+    vi.mocked(prisma.user.update).mockResolvedValue({ ...testUser, email: "new@example.com" });
+    vi.mocked(prisma.member.update).mockResolvedValue(updated as unknown as Member);
+    vi.mocked(sendEmailChangedNotification).mockResolvedValue(undefined);
+
+    const app = createTestApp(makeAdminMember());
+    const res = await app.request("/members/member-2", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "new@example.com" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: target.userId },
+      data: { email: "new@example.com" },
+    });
+    expect(prisma.session.deleteMany).toHaveBeenCalledWith({ where: { userId: target.userId } });
+    expect(sendEmailChangedNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ to: testUser.email, newEmail: "new@example.com" }),
+    );
+    expect(sendEmailChangedNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "new@example.com", newEmail: "new@example.com" }),
+    );
+  });
+
+  it("admin が既に使用中のメールアドレスに変更しようとすると409 CONFLICTを返す", async () => {
+    const target = makeNormalMember("member-2");
+    vi.mocked(prisma.member.findUnique).mockResolvedValueOnce(target as unknown as Member);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+    vi.mocked(prisma.user.update).mockRejectedValue(uniqueConstraintError());
+
+    const app = createTestApp(makeAdminMember());
+    const res = await app.request("/members/member-2", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "taken@example.com" }),
+    });
+
+    expect(res.status).toBe(409);
+    const body = await json(res);
+    expect(body.error.code).toBe("CONFLICT");
+    expect(prisma.session.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("email が現在の値と同一なら User の更新・通知は行われない", async () => {
+    const target = makeNormalMember("member-2");
+    const updated = { ...target, userRef: testUser, part: testPart };
+    vi.mocked(prisma.member.findUnique)
+      .mockResolvedValueOnce(target as unknown as Member)
+      .mockResolvedValueOnce(updated as unknown as Member);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
+    vi.mocked(prisma.member.update).mockResolvedValue(updated as unknown as Member);
+
+    const app = createTestApp(makeAdminMember());
+    const res = await app.request("/members/member-2", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: testUser.email }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.session.deleteMany).not.toHaveBeenCalled();
+    expect(sendEmailChangedNotification).not.toHaveBeenCalled();
   });
 });
 

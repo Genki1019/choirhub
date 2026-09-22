@@ -29,6 +29,9 @@ export const membersApi = {
   updateMe: (orgSlug: string, data: Partial<MemberProfile>) =>
     apiClient.patch<MemberProfile>(`/${orgSlug}/members/me`, data),
 
+  requestEmailChange: (orgSlug: string, newEmail: string) =>
+    apiClient.post<{ message: string }>(`/${orgSlug}/members/me/email-change`, { newEmail }),
+
   updateById: (orgSlug: string, memberId: string, data: Record<string, unknown>) =>
     apiClient.patch<MemberProfile>(`/${orgSlug}/members/${memberId}`, data),
 

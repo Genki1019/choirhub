@@ -40,7 +40,6 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
   const [form, setForm] = useState({
     nameJa: member.nameJa,
     nameKana: member.nameKana ?? "",
-    email: member.email ?? "",
     bio: member.bio ?? "",
     job: member.job ?? "",
     interests: member.interests ?? "",
@@ -100,7 +99,6 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
       await onSave({
         nameJa: form.nameJa || undefined,
         nameKana: form.nameKana || null,
-        email: form.email || undefined,
         bio: form.bio || null,
         job: form.job || null,
         interests: form.interests || null,
@@ -212,15 +210,6 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
 
       <div className="space-y-3 border-t border-gray-100 pt-1">
         <p className="text-xs font-semibold text-gray-500">連絡先</p>
-        <FormField id="edit-email" label="メールアドレス">
-          <input
-            id="edit-email"
-            className={INPUT_CLS}
-            type="email"
-            placeholder="example@mail.com"
-            {...field("email")}
-          />
-        </FormField>
         <FormField id="edit-phone" label="電話番号">
           <input
             id="edit-phone"

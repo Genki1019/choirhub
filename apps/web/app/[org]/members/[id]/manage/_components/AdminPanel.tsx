@@ -23,6 +23,7 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
   const [localMemberTypeId, setLocalMemberTypeId] = useState(member.memberType?.id ?? "");
   const [localStatus, setLocalStatus] = useState<MemberStatus>(member.status);
   const [localMemo, setLocalMemo] = useState(member.adminMemo ?? "");
+  const [localEmail, setLocalEmail] = useState(member.email ?? "");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +44,7 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
         status: localStatus,
         phone: member.phone || null,
         adminMemo: localMemo || null,
+        ...(localEmail && { email: localEmail }),
       });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "保存に失敗しました");
@@ -92,6 +94,22 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
             </button>
           ))}
         </div>
+      </div>
+
+      <div>
+        <label htmlFor="admin-email" className="mb-1 block text-xs font-medium text-gray-600">
+          メールアドレス
+        </label>
+        <input
+          id="admin-email"
+          type="email"
+          value={localEmail}
+          onChange={(e) => setLocalEmail(e.target.value)}
+          className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+        />
+        <p className="mt-1 text-xs text-gray-400">
+          変更すると即時反映され、対象メンバーの既存ログインは無効化されます。
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

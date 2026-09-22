@@ -15,6 +15,7 @@ vi.mock("@/lib/members-api", () => ({
   membersApi: {
     get: vi.fn(),
     updateMe: vi.fn(),
+    requestEmailChange: vi.fn(),
   },
 }));
 
@@ -110,6 +111,22 @@ describe("MemberDetailPage（権限分岐）", () => {
 
     await screen.findByText("山田太郎");
     expect(screen.queryByRole("link", { name: /管理者操作/ })).not.toBeInTheDocument();
+  });
+
+  it("自分自身かつ非編集時: アカウント設定（メールアドレス変更）セクションを表示する", async () => {
+    vi.mocked(membersApi.get).mockResolvedValue(makeMember({ email: "self@example.com" }));
+    renderPage({ myMemberId: "member-2" });
+
+    expect(await screen.findByText("アカウント設定")).toBeInTheDocument();
+    expect(screen.getAllByText("self@example.com").length).toBeGreaterThan(0);
+  });
+
+  it("自分以外の場合: アカウント設定セクションを表示しない", async () => {
+    vi.mocked(membersApi.get).mockResolvedValue(makeMember({ email: "other@example.com" }));
+    renderPage({ myMemberId: "member-self" });
+
+    await screen.findByText("山田太郎");
+    expect(screen.queryByText("アカウント設定")).not.toBeInTheDocument();
   });
 });
 

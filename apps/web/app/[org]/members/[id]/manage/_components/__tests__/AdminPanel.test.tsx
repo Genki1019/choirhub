@@ -153,9 +153,29 @@ describe("AdminPanel（操作）", () => {
         status: "active",
         phone: null,
         adminMemo: null,
-        email: "member@example.com",
       });
     });
+  });
+
+  it("メールアドレスを変更していない場合、onUpdateのペイロードにemailを含めない", async () => {
+    const onUpdate = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      <AdminPanel
+        member={makeMember({ email: "unchanged@example.com" })}
+        parts={parts}
+        memberTypes={memberTypes}
+        onUpdate={onUpdate}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByText("変更を保存"));
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalled();
+    });
+    expect(onUpdate.mock.calls[0][0]).not.toHaveProperty("email");
   });
 
   it("メールアドレスの初期値を表示する", () => {

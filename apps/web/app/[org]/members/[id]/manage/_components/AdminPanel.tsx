@@ -44,7 +44,7 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
         status: localStatus,
         phone: member.phone || null,
         adminMemo: localMemo || null,
-        ...(localEmail && { email: localEmail }),
+        ...(localEmail && localEmail !== member.email && { email: localEmail }),
       });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "保存に失敗しました");

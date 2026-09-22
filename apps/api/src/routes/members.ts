@@ -286,6 +286,13 @@ export const membersRouter = new Hono<TenantEnv>()
     async (c) => {
       const actingMember = c.get("member");
 
+      if (!isMemberPlus(actingMember)) {
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "この操作を行う権限がありません" } },
+          403,
+        );
+      }
+
       const ip = getClientIp(c);
       if (!(await checkEmailChangeRateLimit(ip))) {
         return c.json(
@@ -324,21 +331,32 @@ export const membersRouter = new Hono<TenantEnv>()
       const existingUser = await prisma.user.findUnique({ where: { email: newEmail } });
 
       if (!existingUser) {
-        await prisma.emailChangeToken.updateMany({
-          where: { userId: actingMember.userId, usedAt: null },
-          data: { usedAt: new Date() },
-        });
-
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24時間有効
-        const emailChangeToken = await prisma.emailChangeToken.create({
-          data: { userId: actingMember.userId, newEmail, expiresAt },
-        });
-        await sendEmailChangeConfirmationEmail({
-          to: newEmail,
-          nameJa: currentUser.nameJa,
-          confirmToken: emailChangeToken.token,
-          expiresAt,
-        }).catch((err: unknown) => logger.error("[members] email change mail failed:", err));
+        try {
+          // 無効化と作成を1トランザクションにまとめ、かつ「ユーザーにつき未使用トークン1件」を
+          // DB側の部分ユニークインデックスで保証する（同時リクエストで複数の有効トークンが並存しないように）
+          const [, emailChangeToken] = await prisma.$transaction([
+            prisma.emailChangeToken.updateMany({
+              where: { userId: actingMember.userId, usedAt: null },
+              data: { usedAt: new Date() },
+            }),
+            prisma.emailChangeToken.create({
+              data: { userId: actingMember.userId, newEmail, expiresAt },
+            }),
+          ]);
+          await sendEmailChangeConfirmationEmail({
+            to: newEmail,
+            nameJa: currentUser.nameJa,
+            confirmToken: emailChangeToken.token,
+            expiresAt,
+          }).catch((err: unknown) => logger.error("[members] email change mail failed:", err));
+        } catch (e: unknown) {
+          if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) {
+            throw e;
+          }
+          // 同時リクエストで既に有効なトークンが作成済み（部分ユニークインデックス違反）。
+          // 列挙攻撃対策のレスポンス一貫性を保つため、エラーにはせず同一の成功レスポンスを返す。
+        }
       } else {
         // ユーザー存在確認防止のため、DB書き込み・メール送信相当の待機時間を確保する
         await new Promise((resolve) => setTimeout(resolve, 300));
@@ -456,7 +474,8 @@ export const membersRouter = new Hono<TenantEnv>()
     }
 
     const admin = isAdmin(actingMember);
-    return c.json({ data: formatMember(member, admin, admin) });
+    const isSelf = member.userId === actingMember.userId;
+    return c.json({ data: formatMember(member, admin || isSelf, admin) });
   })
 
   // ── PATCH /members/:id ──
@@ -560,6 +579,14 @@ export const membersRouter = new Hono<TenantEnv>()
           }
 
           await prisma.session.deleteMany({ where: { userId: target.userId } });
+
+          // 本人が発行済みの未使用メールアドレス変更トークンを無効化する。
+          // 無効化しないと、管理者による変更後も古い確認リンクを踏むことでメールアドレスが
+          // 静かに元へ巻き戻されてしまう（Issue #105 レビュー指摘）。
+          await prisma.emailChangeToken.updateMany({
+            where: { userId: target.userId, usedAt: null },
+            data: { usedAt: new Date() },
+          });
 
           await Promise.all([
             sendEmailChangedNotification({

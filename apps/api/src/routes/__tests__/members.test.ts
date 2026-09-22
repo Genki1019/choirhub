@@ -53,6 +53,10 @@ vi.mock("../../lib/prisma.js", () => ({
   },
 }));
 
+vi.mock("../../lib/redis.js", () => ({
+  checkEmailChangeRateLimit: vi.fn(),
+}));
+
 vi.mock("../../services/mail.js", () => ({
   sendInviteEmail: vi.fn(),
   resolveInviteRecipient: vi.fn(
@@ -78,6 +82,7 @@ vi.mock("../../services/storage.js", () => ({
 
 import { prisma } from "../../lib/prisma.js";
 import { storage } from "../../services/storage.js";
+import { checkEmailChangeRateLimit } from "../../lib/redis.js";
 import {
   sendInviteEmail,
   sendEmailChangeConfirmationEmail,
@@ -349,6 +354,10 @@ describe("PATCH /members/me", () => {
 // ────────────────────────────
 
 describe("POST /members/me/email-change", () => {
+  beforeEach(() => {
+    vi.mocked(checkEmailChangeRateLimit).mockResolvedValue(true);
+  });
+
   it("未認証相当（userが見つからない）: 404を返す", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
 
@@ -390,12 +399,41 @@ describe("POST /members/me/email-change", () => {
     expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 
+  it("member 未満のロール（guest/visitor）は 403 を返す", async () => {
+    const app = createTestApp({ ...makeNormalMember(), roles: ["visitor"] });
+    const res = await app.request("/members/me/email-change", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newEmail: "new@example.com" }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("レート制限中: 429を返す", async () => {
+    vi.mocked(checkEmailChangeRateLimit).mockResolvedValue(false);
+
+    const app = createTestApp(makeNormalMember());
+    const res = await app.request("/members/me/email-change", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newEmail: "new@example.com" }),
+    });
+
+    expect(res.status).toBe(429);
+    const body = await json(res);
+    expect(body.error.code).toBe("TOO_MANY_REQUESTS");
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
   it("正常系: 200を返し既存トークンの無効化・新規トークン作成・メール送信が行われる", async () => {
     const me = makeNormalMember();
     vi.mocked(prisma.user.findUnique)
       .mockResolvedValueOnce(testUser) // currentUser取得
       .mockResolvedValueOnce(null); // newEmailの重複チェック（未使用）
-    vi.mocked(prisma.emailChangeToken.create).mockResolvedValue({
+    const newToken = {
       id: "token-id",
       token: "new-token-abc",
       userId: me.userId,
@@ -403,8 +441,13 @@ describe("POST /members/me/email-change", () => {
       expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
       usedAt: null,
       createdAt: new Date(),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
+    };
+    vi.mocked(prisma.emailChangeToken.updateMany).mockResolvedValue({ count: 0 });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.emailChangeToken.create).mockResolvedValue(newToken as any);
+    // $transaction([updateMany, create]) を配列の結果を返す実装としてモックする
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.$transaction).mockImplementation((ops: any) => Promise.all(ops));
     vi.mocked(sendEmailChangeConfirmationEmail).mockResolvedValue(undefined);
 
     const app = createTestApp(me);
@@ -450,6 +493,25 @@ describe("POST /members/me/email-change", () => {
     expect(prisma.emailChangeToken.create).not.toHaveBeenCalled();
     expect(sendEmailChangeConfirmationEmail).not.toHaveBeenCalled();
   });
+
+  it("同時リクエストで部分ユニークインデックスに違反（P2002）した場合も200を返す（列挙対策の一貫性維持）", async () => {
+    vi.mocked(prisma.user.findUnique)
+      .mockResolvedValueOnce(testUser) // currentUser取得
+      .mockResolvedValueOnce(null); // newEmailの重複チェック（未使用）
+    vi.mocked(prisma.$transaction).mockRejectedValue(uniqueConstraintError());
+
+    const app = createTestApp(makeNormalMember());
+    const res = await app.request("/members/me/email-change", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newEmail: "new@example.com" }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.message).toBe("確認メールを送信しました");
+    expect(sendEmailChangeConfirmationEmail).not.toHaveBeenCalled();
+  });
 });
 
 // ────────────────────────────
@@ -486,6 +548,36 @@ describe("GET /members/:id", () => {
     const app = createTestApp(makeNormalMember());
     const res = await app.request("/members/other-org-member");
     expect(res.status).toBe(404);
+  });
+
+  it("自分自身を閲覧している場合（admin以外）: emailを含む", async () => {
+    const me = makeNormalMember("member-1");
+    vi.mocked(prisma.member.findUnique).mockResolvedValue({
+      ...me,
+      userRef: testUser,
+      part: testPart,
+    } as unknown as Member);
+
+    const app = createTestApp(me);
+    const res = await app.request("/members/member-1");
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.email).toBe(testUser.email);
+  });
+
+  it("自分以外を閲覧している場合（admin以外）: emailを含まない", async () => {
+    const target = makeNormalMember("member-2");
+    vi.mocked(prisma.member.findUnique).mockResolvedValue({
+      ...target,
+      userRef: testUser,
+      part: testPart,
+    } as unknown as Member);
+
+    const app = createTestApp(makeNormalMember("member-1"));
+    const res = await app.request("/members/member-2");
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data).not.toHaveProperty("email");
   });
 });
 
@@ -566,6 +658,10 @@ describe("PATCH /members/:id", () => {
       data: { email: "new@example.com" },
     });
     expect(prisma.session.deleteMany).toHaveBeenCalledWith({ where: { userId: target.userId } });
+    expect(prisma.emailChangeToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: target.userId, usedAt: null },
+      data: { usedAt: expect.any(Date) },
+    });
     expect(sendEmailChangedNotification).toHaveBeenCalledWith(
       expect.objectContaining({ to: testUser.email, newEmail: "new@example.com" }),
     );

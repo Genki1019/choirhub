@@ -1,8 +1,8 @@
 # ChoirHub DB設計書
 
-**バージョン**: 1.13  
+**バージョン**: 1.14  
 **作成日**: 2026-06-04  
-**更新日**: 2026-09-21  
+**更新日**: 2026-09-22  
 **対応 Prisma Schema**: `apps/api/prisma/schema.prisma`
 
 ---
@@ -24,6 +24,7 @@
 erDiagram
     User           ||--o{ Member               : "has memberships"
     User           ||--o{ PasswordResetToken  : "requests"
+    User           ||--o{ EmailChangeToken    : "requests"
 
     Organization ||--o{ Member                 : "has"
     Organization ||--o{ Part                   : "has"
@@ -989,6 +990,27 @@ draft → survey_open → confirmed → past
 
 ---
 
+### EmailChangeToken（メールアドレス変更トークン）
+
+> メールアドレス変更の確認メール経由で使用する使い捨てトークン。24時間有効。使用後は usedAt が設定される。
+
+| カラム    | 型        | 制約                    | 説明                       |
+| --------- | --------- | ----------------------- | -------------------------- |
+| id        | CUID      | PK                      |                            |
+| token     | VARCHAR   | NOT NULL, UNIQUE        | URL埋め込み用トークン      |
+| userId    | CUID      | NOT NULL, FK → User     | 変更対象ユーザー           |
+| newEmail  | VARCHAR   | NOT NULL                | 変更先メールアドレス       |
+| expiresAt | TIMESTAMP | NOT NULL                | 有効期限（発行から24時間） |
+| usedAt    | TIMESTAMP |                         | 使用日時（NULL = 未使用）  |
+| createdAt | TIMESTAMP | NOT NULL, DEFAULT now() |                            |
+
+- 新規発行時、同一ユーザーの既存未使用トークンは全て使用済み扱いにして無効化する（最新のリンクのみ有効）
+- `newEmail`自体には一意制約を付けない。既に他ユーザーが使用中でも申請時点では区別せず同一レスポンスを返し（列挙防止）、確定時に`User.email`のUNIQUE制約違反（409 CONFLICT）で弾く
+- トークン確定時に全セッションを削除し、旧メールアドレス宛に変更完了を通知する
+- 管理者による`PATCH /members/:id`経由の直接変更ではこのトークンを使用しない（確認リンクなしで即時反映）
+
+---
+
 ### ExpenseCategory（支出カテゴリマスタ）
 
 > 団ごとにカスタマイズできる支出カテゴリ。団体作成時に下記デフォルト値が投入される。
@@ -1235,6 +1257,8 @@ draft → survey_open → confirmed → past
 | InviteToken        | token                          | UNIQUE | トークン検索                         |
 | PasswordResetToken | token                          | UNIQUE | トークン検索                         |
 | PasswordResetToken | userId                         | INDEX  | ユーザー別トークン取得               |
+| EmailChangeToken   | token                          | UNIQUE | トークン検索                         |
+| EmailChangeToken   | userId                         | INDEX  | ユーザー別トークン取得               |
 | OrgApplication     | status                         | INDEX  | 保留中申請の絞り込み（`/admin`一覧） |
 | Event              | (orgId, startsAt)              | INDEX  | 月カレンダー表示                     |
 | Attendance         | (eventId, memberId)            | UNIQUE | 重複回答防止                         |

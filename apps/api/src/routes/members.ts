@@ -626,6 +626,20 @@ export const membersRouter = new Hono<TenantEnv>()
         ]).catch((err: unknown) =>
           logger.error("[members] admin email change notification failed:", err),
         );
+
+        try {
+          await prisma.notification.create({
+            data: {
+              orgId: org.id,
+              memberId: target.id,
+              type: "email_changed",
+              title: "メールアドレスが変更されました",
+              link: `/members/${target.id}`,
+            },
+          });
+        } catch (err) {
+          logger.error("[members] email_changed 通知作成失敗:", err);
+        }
       }
 
       const updated = await prisma.member.findUnique({

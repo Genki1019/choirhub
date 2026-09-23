@@ -203,6 +203,7 @@ model Organization {
   visitorApplications VisitorApplication[]
   organizerPeriods    OrganizerPeriod[]
   storedFiles         StoredFile[]
+  notifications       Notification[]
 
   @@map("organizations")
 }
@@ -315,6 +316,7 @@ model Member {
   outreachParticipations      OutreachParticipant[] @relation("OutreachParticipantMember")
   createdVisitorApplications  VisitorApplication[]  @relation("VisitorApplicationCreator")
   reviewedVisitorApplications VisitorApplication[]  @relation("VisitorApplicationReviewer")
+  notifications               Notification[]
 
   @@unique([userId, orgId])
   @@index([userId])
@@ -711,6 +713,25 @@ model MailLog {
 
   @@index([orgId, sentAt])
   @@map("mail_logs")
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  orgId     String    @map("org_id")
+  memberId  String    @map("member_id")
+  type      String
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  member Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, memberId, readAt])
+  @@index([memberId, type, link])
+  @@map("notifications")
 }
 
 // ────────────────────────────

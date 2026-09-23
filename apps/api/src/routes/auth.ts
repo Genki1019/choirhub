@@ -18,6 +18,7 @@ import { logger } from "../lib/logger.js";
 import { isSystemAdmin } from "../lib/systemAdmin.js";
 import { getClientIp } from "../lib/request.js";
 import { isVisitorOnlyAccount } from "../services/access.js";
+import { notifyEmailChanged } from "./notifications.js";
 import { Prisma } from "../generated/prisma/index.js";
 
 const ARGON2_OPTIONS = {
@@ -539,6 +540,8 @@ export const authRouter = new Hono()
       newEmail: emailChangeToken.newEmail,
       changedAt: new Date(),
     }).catch((err: unknown) => logger.error("[auth] email changed notification failed:", err));
+
+    await notifyEmailChanged(emailChangeToken.userId);
 
     return c.json({
       data: { message: "メールアドレスを変更しました", email: emailChangeToken.newEmail },

@@ -6,6 +6,7 @@ import { prisma } from "../lib/prisma.js";
 import { sendBulkMail, getResendEmail } from "../services/mail.js";
 import { isMemberPlus, isAdmin, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
 import { storage } from "../services/storage.js";
+import { logger } from "../lib/logger.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 const BODY_PREVIEW_LEN = 200;
@@ -344,6 +345,20 @@ export const mailingRouter = new Hono<TenantEnv>()
           recipientMemberIds,
         },
       });
+
+      try {
+        await prisma.notification.createMany({
+          data: recipientMemberIds.map((memberId) => ({
+            orgId: org.id,
+            memberId,
+            type: "mailing_received",
+            title: subject,
+            link: `/mailing/${mailLog.id}`,
+          })),
+        });
+      } catch (err) {
+        logger.error("[mailing] 通知作成失敗:", err);
+      }
 
       return c.json(
         {

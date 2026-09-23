@@ -117,6 +117,20 @@ async function notifyAdmins(org: Organization, application: VisitorApplication):
   } catch (err) {
     logger.error("[visitor-applications] 通知メール送信失敗:", err);
   }
+
+  try {
+    await prisma.notification.createMany({
+      data: admins.map((m) => ({
+        orgId: org.id,
+        memberId: m.id,
+        type: "visitor_application_received",
+        title: `見学申込がありました（${application.name}）`,
+        link: `/members/applications`,
+      })),
+    });
+  } catch (err) {
+    logger.error("[visitor-applications] 通知作成失敗:", err);
+  }
 }
 
 type ReviewResult =

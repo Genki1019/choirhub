@@ -49,6 +49,9 @@ vi.mock("../../lib/prisma.js", () => ({
     part: {
       findMany: vi.fn(),
     },
+    notification: {
+      create: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }));
@@ -673,6 +676,15 @@ describe("PATCH /members/:id", () => {
     expect(sendEmailChangedNotification).toHaveBeenCalledWith(
       expect.objectContaining({ to: "new@example.com", newEmail: "new@example.com" }),
     );
+    expect(prisma.notification.create).toHaveBeenCalledWith({
+      data: {
+        orgId: testOrg.id,
+        memberId: target.id,
+        type: "email_changed",
+        title: "メールアドレスが変更されました",
+        link: `/members/${target.id}`,
+      },
+    });
   });
 
   it("admin が既に使用中のメールアドレスに変更しようとすると409 CONFLICTを返す", async () => {

@@ -22,6 +22,7 @@ import {
 import { calendarRouter, handleCalendarFeed } from "./routes/calendar.js";
 import { documentsRouter } from "./routes/documents.js";
 import { filesRouter } from "./routes/files.js";
+import { notificationsRouter, handleAttendanceDueCron } from "./routes/notifications.js";
 import { storage } from "./services/storage.js";
 import { logger } from "./lib/logger.js";
 
@@ -69,6 +70,7 @@ v1.route("/:orgSlug", visitorApplicationsRouter);
 v1.route("/:orgSlug", calendarRouter);
 v1.route("/:orgSlug", documentsRouter);
 v1.route("/:orgSlug", filesRouter);
+v1.route("/:orgSlug", notificationsRouter);
 
 // 見学申込Webhook (認証不要: Googleフォーム連携。トークンでorgを識別)
 // /:orgSlug/* ミドルウェアを通さないよう v1.route より先に登録
@@ -77,6 +79,10 @@ app.post("/api/v1/public/visitor-applications", handlePublicVisitorApplication);
 // 個人スケジュールのiCalフィード (認証不要: 外部カレンダーアプリが直接ポーリングするための公開URL)
 // /:orgSlug/* ミドルウェアを通さないよう v1.route より先に登録
 app.get("/api/v1/calendar/:orgSlug/feed.ics", handleCalendarFeed);
+
+// 出欠期限接近通知バッチ (認証不要: Vercel Cronからの呼び出し。CRON_SECRETで検証)
+// /:orgSlug/* ミドルウェアを通さないよう v1.route より先に登録
+app.post("/api/v1/internal/cron/attendance-due", handleAttendanceDueCron);
 
 // アバター画像配信 (認証不要: プロフィール画像は公開情報)
 // R2からプロキシして返すことで Next.js <Image> の外部ドメイン制限を回避

@@ -2,13 +2,13 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { notificationsApi, type NotificationItem } from "@/lib/notifications-api";
 import { notificationKeys } from "@/lib/query-keys";
 import { formatDate } from "@/lib/format-date";
 import { useClickOutside } from "@/lib/useClickOutside";
+import { useNotificationClick } from "@/lib/useNotificationClick";
 
 const DROPDOWN_ITEM_LIMIT = 8;
 const POLL_INTERVAL_MS = 60_000;
@@ -20,8 +20,8 @@ interface Props {
 export default function NotificationBell({ org }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const router = useRouter();
   const queryClient = useQueryClient();
+  const notificationClick = useNotificationClick(org);
 
   useClickOutside(ref, () => setOpen(false), open);
 
@@ -35,25 +35,15 @@ export default function NotificationBell({ org }: Props) {
   const unreadCount = data?.meta.unreadCount ?? 0;
   const badgeLabel = unreadCount > 9 ? "9+" : String(unreadCount);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: notificationKeys.list(org) });
-
   const handleItemClick = async (item: NotificationItem) => {
     setOpen(false);
-    if (!item.readAt) {
-      try {
-        await notificationsApi.markRead(org, item.id);
-        invalidate();
-      } catch {
-        // 既読化に失敗しても遷移は継続する
-      }
-    }
-    if (item.link) router.push(`/${org}${item.link}`);
+    await notificationClick(item);
   };
 
   const handleMarkAllRead = async () => {
     try {
       await notificationsApi.markAllRead(org);
-      invalidate();
+      queryClient.invalidateQueries({ queryKey: notificationKeys.list(org) });
     } catch {
       // 失敗時は次回ポーリングで状態が復元される
     }

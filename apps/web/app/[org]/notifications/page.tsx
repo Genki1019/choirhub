@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { AlertCircle, Bell } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { notificationsApi, type NotificationItem } from "@/lib/notifications-api";
+import { useQuery } from "@tanstack/react-query";
+import { notificationsApi } from "@/lib/notifications-api";
 import { notificationKeys } from "@/lib/query-keys";
 import { formatDate } from "@/lib/format-date";
+import { useNotificationClick } from "@/lib/useNotificationClick";
 import { Pagination } from "@/components/Pagination";
 import { PageWithHeader } from "@/components/PageWithHeader";
 
@@ -14,9 +15,8 @@ const PER_PAGE = 20;
 
 export default function NotificationsPage() {
   const { org } = useParams<{ org: string }>();
-  const router = useRouter();
-  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
+  const handleClick = useNotificationClick(org);
 
   const {
     data: result,
@@ -29,18 +29,6 @@ export default function NotificationsPage() {
 
   const notifications = result?.data ?? [];
   const meta = result?.meta ?? { total: 0, page, perPage: PER_PAGE, unreadCount: 0 };
-
-  const handleClick = async (item: NotificationItem) => {
-    if (!item.readAt) {
-      try {
-        await notificationsApi.markRead(org, item.id);
-        queryClient.invalidateQueries({ queryKey: notificationKeys.list(org) });
-      } catch {
-        // 既読化に失敗しても遷移は継続する
-      }
-    }
-    if (item.link) router.push(`/${org}${item.link}`);
-  };
 
   return (
     <PageWithHeader

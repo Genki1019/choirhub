@@ -158,6 +158,9 @@ describe("PATCH /notifications/:id/read", () => {
     const res = await app.request("/notifications/notif-1/read", { method: "PATCH" });
 
     expect(res.status).toBe(204);
+    expect(prisma.notification.findFirst).toHaveBeenCalledWith({
+      where: { id: "notif-1", orgId: testOrg.id },
+    });
     expect(prisma.notification.update).toHaveBeenCalledWith({
       where: { id: "notif-1" },
       data: { readAt: expect.any(Date) },

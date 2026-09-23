@@ -141,12 +141,22 @@ describe("NotificationsPage（一覧表示）", () => {
 describe("NotificationsPage（絞り込み）", () => {
   it("「未読」タブをクリックするとstatus=unreadで再取得しページが1に戻る", async () => {
     vi.mocked(notificationsApi.list).mockResolvedValue(
-      makeResponse([makeItem()], { total: 1, page: 1, perPage: 20, unreadCount: 1 }),
+      makeResponse([makeItem()], { total: 25, page: 1, perPage: 20, unreadCount: 1 }),
     );
     const user = userEvent.setup();
     renderPage();
 
+    // 先にページ2へ進めてから絞り込みを変更し、ページが1へリセットされることを検証する
     await screen.findByText("6月練習のご案内");
+    await user.click(screen.getByLabelText("次のページ"));
+    await waitFor(() =>
+      expect(notificationsApi.list).toHaveBeenLastCalledWith("tokyo-men-choir", {
+        page: 2,
+        perPage: 20,
+        status: "all",
+      }),
+    );
+
     await user.click(screen.getByText("未読"));
 
     await waitFor(() =>

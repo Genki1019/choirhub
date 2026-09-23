@@ -134,10 +134,13 @@ export async function notifyEmailChanged(userId: string): Promise<void> {
 // 内部cron専用エンドポイント（認証ミドルウェアを通さない。CRON_SECRETで検証）
 // ────────────────────────────
 
-export async function handleAttendanceDueCron(c: Context): Promise<Response> {
+function isValidCronSecret(c: Context): boolean {
   const secret = process.env.CRON_SECRET;
-  const authHeader = c.req.header("Authorization");
-  if (!secret || authHeader !== `Bearer ${secret}`) {
+  return Boolean(secret) && c.req.header("Authorization") === `Bearer ${secret}`;
+}
+
+export async function handleAttendanceDueCron(c: Context): Promise<Response> {
+  if (!isValidCronSecret(c)) {
     return c.json({ error: { code: "UNAUTHORIZED", message: "許可されていません" } }, 401);
   }
 
@@ -198,9 +201,7 @@ export async function handleAttendanceDueCron(c: Context): Promise<Response> {
 
 // 既読から一定期間経過した通知を削除する。未読は対象外（本人が確認するまで保持する）
 export async function handleNotificationsCleanupCron(c: Context): Promise<Response> {
-  const secret = process.env.CRON_SECRET;
-  const authHeader = c.req.header("Authorization");
-  if (!secret || authHeader !== `Bearer ${secret}`) {
+  if (!isValidCronSecret(c)) {
     return c.json({ error: { code: "UNAUTHORIZED", message: "許可されていません" } }, 401);
   }
 

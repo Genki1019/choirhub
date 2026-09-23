@@ -1,6 +1,6 @@
 # ChoirHub API設計書
 
-**バージョン**: 1.16  
+**バージョン**: 1.17  
 **作成日**: 2026-06-04  
 **更新日**: 2026-09-23  
 **ベースURL**: `/api/v1`
@@ -256,12 +256,13 @@
 
 ### 通知
 
-| API名                                                   | Method | Path                               | 権限                        |
-| ------------------------------------------------------- | ------ | ---------------------------------- | --------------------------- |
-| [通知一覧取得](#notifications-list)                     | GET    | `/:orgSlug/notifications`          | 自分宛のみ                  |
-| [通知既読化](#notifications-read)                       | PATCH  | `/:orgSlug/notifications/:id/read` | 自分宛のみ                  |
-| [通知一括既読化](#notifications-read-all)               | PATCH  | `/:orgSlug/notifications/read-all` | -                           |
-| [出欠期限接近通知バッチ](#internal-cron-attendance-due) | POST   | `/internal/cron/attendance-due`    | 内部バッチ（`CRON_SECRET`） |
+| API名                                                            | Method | Path                                   | 権限                        |
+| ---------------------------------------------------------------- | ------ | -------------------------------------- | --------------------------- |
+| [通知一覧取得](#notifications-list)                              | GET    | `/:orgSlug/notifications`              | 自分宛のみ                  |
+| [通知既読化](#notifications-read)                                | PATCH  | `/:orgSlug/notifications/:id/read`     | 自分宛のみ                  |
+| [通知一括既読化](#notifications-read-all)                        | PATCH  | `/:orgSlug/notifications/read-all`     | -                           |
+| [出欠期限接近通知バッチ](#internal-cron-attendance-due)          | POST   | `/internal/cron/attendance-due`        | 内部バッチ（`CRON_SECRET`） |
+| [既読通知の自動削除バッチ](#internal-cron-notifications-cleanup) | POST   | `/internal/cron/notifications-cleanup` | 内部バッチ（`CRON_SECRET`） |
 
 ---
 
@@ -5290,10 +5291,11 @@ Googleフォームからの回答をWebhook経由で見学申込として取り�
 
 **Query Parameters:**
 
-| パラメータ | 型     | 説明                     |
-| ---------- | ------ | ------------------------ |
-| page       | number | ページ番号（default: 1） |
-| perPage    | number | 件数（default: 20）      |
+| パラメータ | 型     | 説明                                            |
+| ---------- | ------ | ----------------------------------------------- |
+| page       | number | ページ番号（default: 1）                        |
+| perPage    | number | 件数（default: 20）                             |
+| status     | string | `all`（default） / `unread` / `read` で絞り込み |
 
 **Response** `200`
 
@@ -5314,9 +5316,9 @@ Googleフォームからの回答をWebhook経由で見学申込として取り�
 }
 ```
 
-> `Cache-Control: no-store` ヘッダーを付与する（未読件数のポーリング取得のため）。
+> `Cache-Control: no-store` ヘッダーを付与する（未読件数のポーリング取得のため）。`meta.total`は`status`で絞り込んだ後の件数。`meta.unreadCount`は`status`に関わらず常に全体の未読数。
 
-**Errors:**: `400` `VALIDATION_ERROR` page・perPageが正の整数でない
+**Errors:**: `400` `VALIDATION_ERROR` page・perPageが正の整数でない、またはstatusがall/unread/read以外
 
 ---
 
@@ -5361,5 +5363,23 @@ Googleフォームからの回答をWebhook経由で見学申込として取り�
 ```
 
 > 対象団員の判定は[ホームAPI](#home-get)の未回答バッジ算出と同じロジック（`targetRoles`/`targetPartIds`による可視範囲判定、adminは常に対象）を用いる。同一団員・同一イベントには`link`（`/schedule/:eventId`）を判定キーとして重複作成しない。
+
+**Errors:**: `401` `UNAUTHORIZED` `CRON_SECRET`が未設定または不一致
+
+---
+
+<a id="internal-cron-notifications-cleanup"></a>
+
+### POST `/api/v1/internal/cron/notifications-cleanup`
+
+既読化されてから90日以上経過した通知を削除する内部バッチ。Vercel Cronから毎日1時（UTC）に呼び出される（`attendance-due`バッチと1時間ずらして実行）。未読の通知は削除対象外（本人が確認するまで保持する）。認証方式は`attendance-due`バッチと同じ。
+
+**権限**: 内部バッチのみ（`CRON_SECRET`環境変数と一致するヘッダーが必須）
+
+**Response** `200`
+
+```json
+{ "data": { "deletedCount": 12 } }
+```
 
 **Errors:**: `401` `UNAUTHORIZED` `CRON_SECRET`が未設定または不一致

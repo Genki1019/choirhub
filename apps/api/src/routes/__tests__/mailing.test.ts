@@ -20,6 +20,7 @@ vi.mock("../../lib/prisma.js", () => ({
       delete: vi.fn(),
     },
     member: { findMany: vi.fn() },
+    notification: { createMany: vi.fn() },
   },
 }));
 
@@ -640,6 +641,47 @@ describe("POST /mailing/send", () => {
         },
       }),
     );
+    expect(prisma.notification.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          orgId: testOrg.id,
+          memberId: "member-2",
+          type: "mailing_received",
+          title: validBody.subject,
+          link: "/mailing/mail-1",
+        },
+        {
+          orgId: testOrg.id,
+          memberId: "member-3",
+          type: "mailing_received",
+          title: validBody.subject,
+          link: "/mailing/mail-1",
+        },
+      ],
+    });
+  });
+
+  it("通知作成が失敗してもメール送信自体は成功する", async () => {
+    vi.mocked(prisma.member.findMany).mockResolvedValue([
+      { id: "member-2", userRef: { email: "b@example.com" } },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+    vi.mocked(sendBulkMail).mockResolvedValue(["resend-1"]);
+    vi.mocked(prisma.mailLog.create).mockResolvedValue({
+      id: "mail-1",
+      sentAt: new Date("2026-06-04T10:00:00Z"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.notification.createMany).mockRejectedValue(new Error("db error"));
+
+    const app = createTestApp(makeMember(["member"], "member-1"));
+    const res = await app.request("/mailing/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validBody),
+    });
+
+    expect(res.status).toBe(201);
   });
 
   it("正常（recipientType: part）: partIdsで絞り込みされguest/visitorは除外される", async () => {

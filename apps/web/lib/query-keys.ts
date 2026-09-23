@@ -70,6 +70,10 @@ export const ticketKeys = {
   race: (org: string, concertId: string) => ["tickets", org, "race", concertId] as const,
 };
 
+export const notificationKeys = {
+  list: (org: string) => ["notifications", org] as const,
+};
+
 export const libraryKeys = {
   all: (org: string) => ["documents", org] as const,
   list: (org: string, category?: string) => ["documents", org, category ?? "all"] as const,

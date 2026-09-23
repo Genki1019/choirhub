@@ -20,6 +20,7 @@ vi.mock("../../lib/prisma.js", () => ({
     },
     member: { findMany: vi.fn() },
     organization: { findUnique: vi.fn() },
+    notification: { createMany: vi.fn() },
   },
 }));
 
@@ -90,6 +91,7 @@ const makeApplication = (overrides: Partial<VisitorApplication> = {}): VisitorAp
 });
 
 const adminMemberRow = {
+  id: "admin-member-1",
   userRef: { email: "admin@example.com" },
 };
 
@@ -129,6 +131,17 @@ describe("POST /visitor-applications", () => {
     expect(body.data.name).toBe("見学 太郎");
     expect(sendBulkMail).toHaveBeenCalledTimes(1);
     expect(vi.mocked(sendBulkMail).mock.calls[0][0].to).toEqual([{ email: "admin@example.com" }]);
+    expect(prisma.notification.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          orgId: "org-1",
+          memberId: "admin-member-1",
+          type: "visitor_application_received",
+          title: "見学申込がありました（見学 太郎）",
+          link: "/members/applications",
+        },
+      ],
+    });
   });
 
   it("visitor: 403", async () => {
@@ -163,6 +176,7 @@ describe("POST /visitor-applications", () => {
     });
     expect(res.status).toBe(201);
     expect(sendBulkMail).not.toHaveBeenCalled();
+    expect(prisma.notification.createMany).not.toHaveBeenCalled();
   });
 });
 

@@ -1,8 +1,8 @@
 # ChoirHub DB設計書
 
-**バージョン**: 1.14  
+**バージョン**: 1.15  
 **作成日**: 2026-06-04  
-**更新日**: 2026-09-22  
+**更新日**: 2026-09-23  
 **対応 Prisma Schema**: `apps/api/prisma/schema.prisma`
 
 ---
@@ -40,6 +40,7 @@ erDiagram
     Organization ||--o{ EventCategory          : "has"
     Organization ||--o{ VisitorApplication     : "has"
     Organization ||--o{ StoredFile              : "has"
+    Organization ||--o{ Notification            : "has"
 
     Part             ||--o{ Member : "belongs to"
     MemberType ||--o{ Member : "categorizes"
@@ -54,6 +55,7 @@ erDiagram
     Member ||--o{ ScorePurchase       : "purchases"
     Member ||--o{ CollectionPayment   : "pays"
     Member ||--o{ Expense             : "records"
+    Member ||--o{ Notification        : "receives"
 
     Event  ||--o{ Attendance    : "has"
     Event  ||--o{ Expense       : "linked to"
@@ -1244,6 +1246,24 @@ draft → survey_open → confirmed → past
 
 ---
 
+### Notification（アプリ内通知）
+
+> `type`はenumにせず自由文字列とし、将来の通知種別追加時にマイグレーションを不要にする。個人向け・複数人向け（見学申込受付のadmin全員等）を問わず、生成時に対象者分のレコードを作成する「Fan-out on write」方式で1テーブルに統一する。
+
+| カラム    | 型        | 制約                        | 説明                                                                                     |
+| --------- | --------- | --------------------------- | ---------------------------------------------------------------------------------------- |
+| id        | CUID      | PK                          |                                                                                          |
+| orgId     | CUID      | NOT NULL, FK → Organization |                                                                                          |
+| memberId  | CUID      | NOT NULL, FK → Member       | 受信者                                                                                   |
+| type      | VARCHAR   | NOT NULL                    | `mailing_received` / `visitor_application_received` / `email_changed` / `attendance_due` |
+| title     | VARCHAR   | NOT NULL                    |                                                                                          |
+| body      | VARCHAR   |                             |                                                                                          |
+| link      | VARCHAR   |                             | クリック時の遷移先パス。`attendance_due`は重複生成防止の判定キーも兼ねる                 |
+| readAt    | TIMESTAMP |                             | NULLなら未読                                                                             |
+| createdAt | TIMESTAMP | NOT NULL, DEFAULT now()     |                                                                                          |
+
+---
+
 ## 3. インデックス定義
 
 | テーブル           | カラム                         | 種別   | 目的                                 |
@@ -1290,6 +1310,8 @@ draft → survey_open → confirmed → past
 | Expense            | (orgId, paidAt)                | INDEX  | 支出一覧の時系列取得                 |
 | StoredFile         | (orgId, kind)                  | INDEX  | 種別別・横断ファイル一覧取得         |
 | OrgDocument        | fileId                         | UNIQUE | 1つのStoredFileに1つの資料           |
+| Notification       | (orgId, memberId, readAt)      | INDEX  | 団員別の通知一覧・未読件数取得       |
+| Notification       | (memberId, type, link)         | INDEX  | `attendance_due`等の重複生成防止判定 |
 
 ---
 

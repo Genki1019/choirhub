@@ -26,6 +26,7 @@ vi.mock("../../lib/prisma.js", () => ({
     inviteToken: { findUnique: vi.fn(), update: vi.fn() },
     passwordResetToken: { findUnique: vi.fn(), create: vi.fn() },
     emailChangeToken: { findUnique: vi.fn(), update: vi.fn() },
+    notification: { createMany: vi.fn() },
     $executeRaw: vi.fn(),
   },
 }));
@@ -114,6 +115,7 @@ const testEmailChangeToken = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(prisma.member.findMany).mockResolvedValue([]);
 });
 
 describe("POST /auth/login", () => {
@@ -1150,6 +1152,10 @@ describe("POST /auth/email-change/:token", () => {
       email: testEmailChangeToken.newEmail,
     });
     vi.mocked(sendEmailChangedNotification).mockResolvedValue(undefined);
+    vi.mocked(prisma.member.findMany).mockResolvedValue([
+      { id: "member-1", orgId: "org-1" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
 
     const app = createTestApp();
     const res = await app.request(`/auth/email-change/${testEmailChangeToken.token}`, {
@@ -1174,6 +1180,17 @@ describe("POST /auth/email-change/:token", () => {
       nameJa: testUser.nameJa,
       newEmail: testEmailChangeToken.newEmail,
       changedAt: expect.any(Date),
+    });
+    expect(prisma.notification.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          orgId: "org-1",
+          memberId: "member-1",
+          type: "email_changed",
+          title: "メールアドレスが変更されました",
+          link: "/members/member-1",
+        },
+      ],
     });
   });
 

@@ -2,16 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Users } from "lucide-react";
 import { type MailSummary } from "@/lib/mailing-api";
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days === 0) return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
-  if (days < 7) return `${days}日前`;
-  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
-}
+import { formatDate } from "@/lib/format-date";
 
 function SenderAvatar({ nameJa, avatarUrl }: { nameJa: string; avatarUrl: string | null }) {
   if (avatarUrl) {

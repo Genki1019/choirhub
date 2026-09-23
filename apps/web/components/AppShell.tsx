@@ -9,6 +9,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createAppQueryClient } from "@/lib/query-client";
 import Sidebar from "@/components/Sidebar";
 import UserMenu from "@/components/UserMenu";
+import NotificationBell from "@/components/NotificationBell";
 import { AppFooter } from "@/components/AppFooter";
 import { MemberProvider } from "@/contexts/MemberContext";
 
@@ -83,7 +84,15 @@ export default function AppShell({
               <span className="cursor-pointer text-sm font-bold text-gray-700">ChoirHub</span>
             </Link>
             <div className="flex-1" />
-            <UserMenu nameJa={nameJa || "？"} avatarUrl={avatarUrl} org={org} memberId={memberId} />
+            <div className="flex items-center gap-1">
+              <NotificationBell org={org} />
+              <UserMenu
+                nameJa={nameJa || "？"}
+                avatarUrl={avatarUrl}
+                org={org}
+                memberId={memberId}
+              />
+            </div>
           </div>
           <div className="flex flex-1 flex-col overflow-y-auto">
             <div className="flex-1">

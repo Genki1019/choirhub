@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import { AlertCircle, Bell } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { notificationsApi } from "@/lib/notifications-api";
+import { notificationsApi, type NotificationStatusFilter } from "@/lib/notifications-api";
 import { notificationKeys } from "@/lib/query-keys";
 import { formatDate } from "@/lib/format-date";
 import { useNotificationClick } from "@/lib/useNotificationClick";
@@ -13,18 +13,36 @@ import { PageWithHeader } from "@/components/PageWithHeader";
 
 const PER_PAGE = 20;
 
+const STATUS_TABS: { key: NotificationStatusFilter; label: string }[] = [
+  { key: "all", label: "すべて" },
+  { key: "unread", label: "未読" },
+  { key: "read", label: "既読" },
+];
+
+const EMPTY_MESSAGE: Record<NotificationStatusFilter, string> = {
+  all: "通知はありません",
+  unread: "未読の通知はありません",
+  read: "既読の通知はありません",
+};
+
 export default function NotificationsPage() {
   const { org } = useParams<{ org: string }>();
   const [page, setPage] = useState(1);
+  const [status, setStatus] = useState<NotificationStatusFilter>("all");
   const handleClick = useNotificationClick(org);
+
+  const handleStatusChange = (next: NotificationStatusFilter) => {
+    setStatus(next);
+    setPage(1);
+  };
 
   const {
     data: result,
     isLoading: loading,
     error,
   } = useQuery({
-    queryKey: [...notificationKeys.list(org), page],
-    queryFn: () => notificationsApi.list(org, { page, perPage: PER_PAGE }),
+    queryKey: [...notificationKeys.list(org), status, page],
+    queryFn: () => notificationsApi.list(org, { page, perPage: PER_PAGE, status }),
   });
 
   const notifications = result?.data ?? [];
@@ -37,6 +55,20 @@ export default function NotificationsPage() {
       loading={loading}
       mainClassName="space-y-4"
     >
+      <div className="flex w-fit overflow-hidden rounded-lg border border-gray-200">
+        {STATUS_TABS.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => handleStatusChange(key)}
+            className={`border-r border-gray-200 px-4 py-1.5 text-xs font-medium transition-colors last:border-0 ${
+              status === key ? "bg-brand-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {error && (
         <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
           <AlertCircle size={16} />
@@ -47,7 +79,7 @@ export default function NotificationsPage() {
       {!error && notifications.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-gray-400">
           <Bell size={28} className="mb-3 opacity-40" />
-          <p className="text-sm">通知はありません</p>
+          <p className="text-sm">{EMPTY_MESSAGE[status]}</p>
         </div>
       )}
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import NotificationsPage from "../page";
@@ -108,6 +108,7 @@ describe("NotificationsPage（一覧表示）", () => {
     expect(notificationsApi.list).toHaveBeenLastCalledWith("tokyo-men-choir", {
       page: 2,
       perPage: 20,
+      status: "all",
     });
   });
 
@@ -134,5 +135,37 @@ describe("NotificationsPage（一覧表示）", () => {
 
     expect(notificationsApi.markRead).not.toHaveBeenCalled();
     expect(push).toHaveBeenCalledWith("/tokyo-men-choir/mailing/mail-1");
+  });
+});
+
+describe("NotificationsPage（絞り込み）", () => {
+  it("「未読」タブをクリックするとstatus=unreadで再取得しページが1に戻る", async () => {
+    vi.mocked(notificationsApi.list).mockResolvedValue(
+      makeResponse([makeItem()], { total: 1, page: 1, perPage: 20, unreadCount: 1 }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("6月練習のご案内");
+    await user.click(screen.getByText("未読"));
+
+    await waitFor(() =>
+      expect(notificationsApi.list).toHaveBeenLastCalledWith("tokyo-men-choir", {
+        page: 1,
+        perPage: 20,
+        status: "unread",
+      }),
+    );
+  });
+
+  it("「既読」タブで0件の場合は専用の空状態メッセージを表示する", async () => {
+    vi.mocked(notificationsApi.list).mockResolvedValue(makeResponse([]));
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("通知はありません");
+    await user.click(screen.getByText("既読"));
+
+    expect(await screen.findByText("既読の通知はありません")).toBeInTheDocument();
   });
 });

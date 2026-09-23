@@ -1,8 +1,8 @@
 # ChoirHub API設計書
 
-**バージョン**: 1.15  
+**バージョン**: 1.16  
 **作成日**: 2026-06-04  
-**更新日**: 2026-09-22  
+**更新日**: 2026-09-23  
 **ベースURL**: `/api/v1`
 
 ---
@@ -25,6 +25,7 @@
 13. [見学申込 API](#13-見学申込-api)
 14. [資料ライブラリ API](#14-資料ライブラリ-api)
 15. [ファイル横断検索 API](#15-ファイル横断検索-api)
+16. [通知 API](#16-通知-api)
 
 ---
 
@@ -252,6 +253,15 @@
 | API名                               | Method | Path              | 権限                     |
 | ----------------------------------- | ------ | ----------------- | ------------------------ |
 | [ファイル横断一覧取得](#files-list) | GET    | `/:orgSlug/files` | 種別ごとの閲覧権限による |
+
+### 通知
+
+| API名                                                   | Method | Path                               | 権限                        |
+| ------------------------------------------------------- | ------ | ---------------------------------- | --------------------------- |
+| [通知一覧取得](#notifications-list)                     | GET    | `/:orgSlug/notifications`          | 自分宛のみ                  |
+| [通知既読化](#notifications-read)                       | PATCH  | `/:orgSlug/notifications/:id/read` | 自分宛のみ                  |
+| [通知一括既読化](#notifications-read-all)               | PATCH  | `/:orgSlug/notifications/read-all` | -                           |
+| [出欠期限接近通知バッチ](#internal-cron-attendance-due) | POST   | `/internal/cron/attendance-due`    | 内部バッチ（`CRON_SECRET`） |
 
 ---
 
@@ -5263,3 +5273,93 @@ Googleフォームからの回答をWebhook経由で見学申込として取り�
 > `resourceLink`はフロントエンドのページパス（`/api/v1`を含まない）。一覧のファイル行から元のリソース詳細画面へ遷移する用途。
 
 **Errors:**: `400` `VALIDATION_ERROR` `kind`が不正な値
+
+---
+
+## 16. 通知 API
+
+> **設計方針**: 個人向け通知・複数人向け通知（見学申込受付のadmin全員等）を問わず、生成時に対象者分の`Notification`レコードをまとめて作成する「Fan-out on write」方式を採用し、単一のテーブル・API・UIで扱う。`type`は自由文字列で、新しい通知種別を追加してもマイグレーションは不要。招待メールは受信者がまだ`Member`を持たないためアプリ内通知の対象外（メール送信のみ）。
+
+<a id="notifications-list"></a>
+
+### GET `/api/v1/:orgSlug/notifications`
+
+自分宛の通知一覧を取得する。
+
+**権限**: 自分宛のみ
+
+**Query Parameters:**
+
+| パラメータ | 型     | 説明                     |
+| ---------- | ------ | ------------------------ |
+| page       | number | ページ番号（default: 1） |
+| perPage    | number | 件数（default: 20）      |
+
+**Response** `200`
+
+```json
+{
+  "data": [
+    {
+      "id": "cuid",
+      "type": "mailing_received",
+      "title": "7月練習のご案内",
+      "body": null,
+      "link": "/mailing/cuid",
+      "readAt": null,
+      "createdAt": "2026-07-01T00:00:00.000Z"
+    }
+  ],
+  "meta": { "total": 5, "page": 1, "perPage": 20, "unreadCount": 2 }
+}
+```
+
+> `Cache-Control: no-store` ヘッダーを付与する（未読件数のポーリング取得のため）。
+
+**Errors:**: `400` `VALIDATION_ERROR` page・perPageが正の整数でない
+
+---
+
+<a id="notifications-read"></a>
+
+### PATCH `/api/v1/:orgSlug/notifications/:id/read`
+
+指定した通知を既読化する。
+
+**権限**: 自分宛の通知のみ
+
+**Response** `204`
+
+**Errors:**: `404` `NOT_FOUND` 通知が存在しない・自分宛でない（権限なしを知らせないため404で統一）
+
+---
+
+<a id="notifications-read-all"></a>
+
+### PATCH `/api/v1/:orgSlug/notifications/read-all`
+
+自分宛の未読通知をすべて既読化する。
+
+**権限**: -
+
+**Response** `204`
+
+---
+
+<a id="internal-cron-attendance-due"></a>
+
+### POST `/api/v1/internal/cron/attendance-due`
+
+出欠回答期限が3日以内に迫ったイベントについて、未回答の対象団員へ`attendance_due`通知を作成する内部バッチ。Vercel Cronから毎日0時（UTC）に呼び出される。`/:orgSlug/*`の認証ミドルウェアは通さず、`Authorization: Bearer <CRON_SECRET>`ヘッダーで検証する。
+
+**権限**: 内部バッチのみ（`CRON_SECRET`環境変数と一致するヘッダーが必須）
+
+**Response** `200`
+
+```json
+{ "data": { "createdCount": 3 } }
+```
+
+> 対象団員の判定は[ホームAPI](#home-get)の未回答バッジ算出と同じロジック（`targetRoles`/`targetPartIds`による可視範囲判定、adminは常に対象）を用いる。同一団員・同一イベントには`link`（`/schedule/:eventId`）を判定キーとして重複作成しない。
+
+**Errors:**: `401` `UNAUTHORIZED` `CRON_SECRET`が未設定または不一致

@@ -5,6 +5,10 @@ import { logger } from "../lib/logger.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 const ATTENDANCE_DUE_THRESHOLD_DAYS = 3;
+const NOTIFICATION_RETENTION_DAYS = 90;
+
+const STATUS_FILTERS = ["all", "unread", "read"] as const;
+type StatusFilter = (typeof STATUS_FILTERS)[number];
 
 export const notificationsRouter = new Hono<TenantEnv>()
 
@@ -15,27 +19,38 @@ export const notificationsRouter = new Hono<TenantEnv>()
 
     const pageRaw = c.req.query("page");
     const perPageRaw = c.req.query("perPage");
+    const statusRaw = c.req.query("status");
     if (
       (pageRaw !== undefined && !/^\d+$/.test(pageRaw)) ||
-      (perPageRaw !== undefined && !/^\d+$/.test(perPageRaw))
+      (perPageRaw !== undefined && !/^\d+$/.test(perPageRaw)) ||
+      (statusRaw !== undefined && !STATUS_FILTERS.includes(statusRaw as StatusFilter))
     ) {
       return c.json(
         {
-          error: { code: "VALIDATION_ERROR", message: "page・perPageは正の整数で指定してください" },
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "page・perPageは正の整数、statusはall/unread/readのいずれかで指定してください",
+          },
         },
         400,
       );
     }
     const page = Math.max(1, Number(pageRaw ?? 1));
     const perPage = Math.min(50, Math.max(1, Number(perPageRaw ?? 20)));
+    const status = (statusRaw as StatusFilter | undefined) ?? "all";
 
     const where = { orgId: org.id, memberId: member.id };
+    const listWhere = {
+      ...where,
+      ...(status === "unread" ? { readAt: null } : {}),
+      ...(status === "read" ? { readAt: { not: null } } : {}),
+    };
 
     const [total, unreadCount, notifications] = await Promise.all([
-      prisma.notification.count({ where }),
+      prisma.notification.count({ where: listWhere }),
       prisma.notification.count({ where: { ...where, readAt: null } }),
       prisma.notification.findMany({
-        where,
+        where: listWhere,
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * perPage,
         take: perPage,
@@ -179,4 +194,20 @@ export async function handleAttendanceDueCron(c: Context): Promise<Response> {
   }
 
   return c.json({ data: { createdCount } });
+}
+
+// 既読から一定期間経過した通知を削除する。未読は対象外（本人が確認するまで保持する）
+export async function handleNotificationsCleanupCron(c: Context): Promise<Response> {
+  const secret = process.env.CRON_SECRET;
+  const authHeader = c.req.header("Authorization");
+  if (!secret || authHeader !== `Bearer ${secret}`) {
+    return c.json({ error: { code: "UNAUTHORIZED", message: "許可されていません" } }, 401);
+  }
+
+  const cutoff = new Date(Date.now() - NOTIFICATION_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  const { count } = await prisma.notification.deleteMany({
+    where: { readAt: { not: null, lt: cutoff } },
+  });
+
+  return c.json({ data: { deletedCount: count } });
 }

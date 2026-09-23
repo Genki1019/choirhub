@@ -8,5 +8,8 @@
       "maxDuration": 30
     }
   },
-  "crons": [{ "path": "/api/v1/internal/cron/attendance-due", "schedule": "0 0 * * *" }]
+  "crons": [
+    { "path": "/api/v1/internal/cron/attendance-due", "schedule": "0 0 * * *" },
+    { "path": "/api/v1/internal/cron/notifications-cleanup", "schedule": "0 1 * * *" }
+  ]
 }

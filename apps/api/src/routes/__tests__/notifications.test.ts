@@ -19,6 +19,7 @@ vi.mock("../../lib/prisma.js", () => ({
       updateMany: vi.fn(),
       create: vi.fn(),
       createMany: vi.fn(),
+      deleteMany: vi.fn(),
     },
     member: { findMany: vi.fn() },
     event: { findMany: vi.fn() },
@@ -29,6 +30,7 @@ import { prisma } from "../../lib/prisma.js";
 import {
   notificationsRouter,
   handleAttendanceDueCron,
+  handleNotificationsCleanupCron,
   notifyEmailChanged,
 } from "../notifications.js";
 
@@ -124,6 +126,45 @@ describe("GET /notifications", () => {
     expect(body.meta).toEqual({ total: 5, page: 1, perPage: 20, unreadCount: 2 });
     expect(prisma.notification.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { orgId: testOrg.id, memberId: actingMember.id } }),
+    );
+  });
+
+  it("バリデーションエラー: statusがall/unread/read以外は400を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/notifications?status=archived");
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("status=unread: readAtがnullの通知のみに絞り込む", async () => {
+    vi.mocked(prisma.notification.count).mockResolvedValue(0);
+    vi.mocked(prisma.notification.findMany).mockResolvedValue([]);
+
+    const actingMember = makeMember(["member"], "member-1");
+    const app = createTestApp(actingMember);
+    await app.request("/notifications?status=unread");
+
+    expect(prisma.notification.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { orgId: testOrg.id, memberId: actingMember.id, readAt: null },
+      }),
+    );
+  });
+
+  it("status=read: readAtが設定済みの通知のみに絞り込む", async () => {
+    vi.mocked(prisma.notification.count).mockResolvedValue(0);
+    vi.mocked(prisma.notification.findMany).mockResolvedValue([]);
+
+    const actingMember = makeMember(["member"], "member-1");
+    const app = createTestApp(actingMember);
+    await app.request("/notifications?status=read");
+
+    expect(prisma.notification.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { orgId: testOrg.id, memberId: actingMember.id, readAt: { not: null } },
+      }),
     );
   });
 });
@@ -284,6 +325,43 @@ describe("handleAttendanceDueCron", () => {
           link: "/schedule/event-1",
         },
       ],
+    });
+  });
+});
+
+describe("handleNotificationsCleanupCron", () => {
+  function createCronApp() {
+    const app = new Hono();
+    app.post("/cron/notifications-cleanup", handleNotificationsCleanupCron);
+    return app;
+  }
+
+  it("Authorizationヘッダーが不一致: 401を返す", async () => {
+    process.env.CRON_SECRET = "secret-abc";
+    const app = createCronApp();
+    const res = await app.request("/cron/notifications-cleanup", {
+      method: "POST",
+      headers: { Authorization: "Bearer wrong" },
+    });
+    expect(res.status).toBe(401);
+    expect(prisma.notification.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("正常: 既読から90日以上経過した通知のみ削除する", async () => {
+    process.env.CRON_SECRET = "secret-abc";
+    vi.mocked(prisma.notification.deleteMany).mockResolvedValue({ count: 12 });
+
+    const app = createCronApp();
+    const res = await app.request("/cron/notifications-cleanup", {
+      method: "POST",
+      headers: { Authorization: "Bearer secret-abc" },
+    });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.deletedCount).toBe(12);
+    expect(prisma.notification.deleteMany).toHaveBeenCalledWith({
+      where: { readAt: { not: null, lt: expect.any(Date) } },
     });
   });
 });

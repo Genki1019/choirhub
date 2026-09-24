@@ -2,13 +2,14 @@
 
 import { useState, type FormEvent } from "react";
 import { CheckCircle, Loader2 } from "lucide-react";
-import { settingsApi } from "@/lib/settings-api";
+import { settingsApi, type OrgSettings } from "@/lib/settings-api";
 
 interface OrgSettingsFormProps {
   orgSlug: string;
   initialName: string;
   initialSlug: string;
   canEdit: boolean;
+  onSaved?: (settings: OrgSettings) => void;
 }
 
 export function OrgSettingsForm({
@@ -16,6 +17,7 @@ export function OrgSettingsForm({
   initialName,
   initialSlug,
   canEdit,
+  onSaved,
 }: OrgSettingsFormProps) {
   const [orgName, setOrgName] = useState(initialName);
   const [saving, setSaving] = useState(false);
@@ -27,7 +29,8 @@ export function OrgSettingsForm({
     setError(null);
     setSaving(true);
     try {
-      await settingsApi.update(orgSlug, { name: orgName });
+      const updated = await settingsApi.update(orgSlug, { name: orgName });
+      onSaved?.(updated);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch {

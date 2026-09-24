@@ -12,6 +12,7 @@ import { ApiClientError } from "@/lib/auth-api";
 import { orgApplicationKeys } from "@/lib/query-keys";
 import { OrgApplicationForm } from "@/components/OrgApplicationForm";
 import { SLUG_REGEX, sanitizeSlug } from "@/lib/slug";
+import { DeletedOrgsSection } from "./_components/DeletedOrgsSection";
 
 export default function AdminPage() {
   const queryClient = useQueryClient();
@@ -198,6 +199,8 @@ export default function AdminPage() {
           ))}
         </div>
       )}
+
+      <DeletedOrgsSection />
     </div>
   );
 }

@@ -51,6 +51,8 @@ const testOrg: Organization = {
   visitorIntroBodyTemplate: "以下の方が見学にいらっしゃいます。\n\n{lines}",
   visitorIntroLineTemplate: "・{name}さん（希望パート: {part}[ / 出身団体: {origin}]）",
   createdAt: new Date("2024-01-01"),
+  deletedAt: null,
+  deletedByEmail: null,
 };
 
 const makeMember = (roles: string[], id = "member-1"): Member => ({
@@ -440,6 +442,21 @@ describe("handlePublicVisitorApplication", () => {
       body: JSON.stringify({ token: "wrong-token", name: "見学 太郎" }),
     });
     expect(res.status).toBe(404);
+  });
+
+  it("論理削除済みの団体のtoken: 404で申込を作成しない", async () => {
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue({
+      ...testOrg,
+      deletedAt: new Date("2026-09-01"),
+    });
+    const app = createPublicApp();
+    const res = await app.request("/public/visitor-applications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: "webhook-token-abc", name: "見学 太郎" }),
+    });
+    expect(res.status).toBe(404);
+    expect(prisma.visitorApplication.create).not.toHaveBeenCalled();
   });
 
   it("name未入力: 400", async () => {

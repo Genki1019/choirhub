@@ -60,7 +60,7 @@ export async function handleCalendarFeed(c: Context): Promise<Response> {
   }
 
   const org = await prisma.organization.findUnique({ where: { slug: orgSlug } });
-  if (!org) {
+  if (!org || org.deletedAt) {
     return c.json({ error: { code: "NOT_FOUND", message: "団体が見つかりません" } }, 404);
   }
 

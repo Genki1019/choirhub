@@ -1,12 +1,12 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { createMiddleware } from "hono/factory";
 import { prisma } from "../lib/prisma.js";
 import { authMiddleware, type AuthEnv } from "../middleware/auth.js";
+import { requireSystemAdmin } from "../middleware/system-admin.js";
 import { checkOrgApplicationRateLimit } from "../lib/redis.js";
 import { getClientIp } from "../lib/request.js";
-import { isSystemAdmin, getSystemAdminEmails } from "../lib/systemAdmin.js";
+import { getSystemAdminEmails } from "../lib/systemAdmin.js";
 import { PART_TEMPLATES, type PartTemplateKey } from "../lib/partTemplates.js";
 import {
   sendOrgApplicationEmail,
@@ -35,13 +35,6 @@ function formatApplication(a: OrgApplication) {
     createdAt: a.createdAt,
   };
 }
-
-const requireSystemAdmin = createMiddleware<AuthEnv>(async (c, next) => {
-  if (!isSystemAdmin(c.get("user").email)) {
-    return c.json({ error: { code: "FORBIDDEN", message: "システム管理者権限が必要です" } }, 403);
-  }
-  await next();
-});
 
 const slugSchema = z
   .string()

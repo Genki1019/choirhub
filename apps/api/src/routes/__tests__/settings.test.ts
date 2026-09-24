@@ -11,7 +11,8 @@ async function json(res: Response): Promise<Record<string, any>> {
 
 vi.mock("../../lib/prisma.js", () => ({
   prisma: {
-    organization: { update: vi.fn() },
+    organization: { update: vi.fn(), updateMany: vi.fn() },
+    user: { findUniqueOrThrow: vi.fn() },
     part: {
       aggregate: vi.fn(),
       create: vi.fn(),
@@ -19,7 +20,7 @@ vi.mock("../../lib/prisma.js", () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
-    member: { count: vi.fn() },
+    member: { count: vi.fn(), findMany: vi.fn() },
     expenseCategory: {
       findMany: vi.fn(),
       aggregate: vi.fn(),
@@ -49,7 +50,19 @@ vi.mock("../../lib/prisma.js", () => ({
   },
 }));
 
+vi.mock("../../lib/password.js", () => ({ verifyPassword: vi.fn() }));
+
+vi.mock("../../lib/redis.js", () => ({
+  checkOrgDeleteRateLimit: vi.fn(),
+  clearOrgDeleteRateLimit: vi.fn(),
+}));
+
+vi.mock("../../services/mail.js", () => ({ sendOrgDeletedEmail: vi.fn() }));
+
 import { prisma } from "../../lib/prisma.js";
+import { verifyPassword } from "../../lib/password.js";
+import { checkOrgDeleteRateLimit, clearOrgDeleteRateLimit } from "../../lib/redis.js";
+import { sendOrgDeletedEmail } from "../../services/mail.js";
 import { settingsRouter } from "../settings.js";
 
 // ────────────────────────────
@@ -68,6 +81,15 @@ const testOrg: Organization = {
   visitorIntroBodyTemplate: "以下の方が見学にいらっしゃいます。\n\n{lines}",
   visitorIntroLineTemplate: "・{name}さん（希望パート: {part}[ / 出身団体: {origin}]）",
   createdAt: new Date("2024-01-01"),
+  deletedAt: null,
+  deletedByEmail: null,
+};
+
+const testUser = {
+  id: "user-member-1",
+  nameJa: "山田 太郎",
+  email: "admin@example.com",
+  avatarUrl: null,
 };
 
 const makeMember = (roles: string[], id = "member-1"): Member => ({
@@ -93,6 +115,7 @@ const makeMember = (roles: string[], id = "member-1"): Member => ({
 function createTestApp(actingMember: Member) {
   const app = new Hono<TenantEnv>();
   app.use("*", (c, next) => {
+    c.set("user", testUser);
     c.set("org", testOrg);
     c.set("member", actingMember);
     return next();
@@ -174,6 +197,162 @@ describe("PATCH /settings", () => {
       body: JSON.stringify({ name: "" }),
     });
     expect(res.status).toBe(400);
+  });
+});
+
+// ────────────────────────────
+// POST /settings/delete
+// ────────────────────────────
+
+describe("POST /settings/delete", () => {
+  const validBody = { confirmName: "東京男声合唱団", password: "correct-password" };
+
+  function postDelete(app: ReturnType<typeof createTestApp>, body: unknown) {
+    return app.request("/settings/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  function mockPassingChecks() {
+    vi.mocked(checkOrgDeleteRateLimit).mockResolvedValue(true);
+    vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue({
+      passwordHash: "hash",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(verifyPassword).mockResolvedValue(true);
+    vi.mocked(prisma.organization.updateMany).mockResolvedValue({ count: 1 });
+    vi.mocked(prisma.member.findMany).mockResolvedValue([]);
+  }
+
+  it("admin以外: 403を返し削除しない", async () => {
+    const app = createTestApp(makeMember(["tech"]));
+    const res = await postDelete(app, validBody);
+    expect(res.status).toBe(403);
+    expect(prisma.organization.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("削除保護された団体（公開デモ等）: 403(PROTECTED_ORG)を返し、パスワード照合も削除もしない", async () => {
+    mockPassingChecks();
+    process.env.PROTECTED_ORG_SLUGS = "harmonia, tokyo-men-choir";
+    try {
+      const app = createTestApp(makeMember(["admin"]));
+      const res = await postDelete(app, validBody);
+      const body = await json(res);
+
+      expect(res.status).toBe(403);
+      expect(body.error.code).toBe("PROTECTED_ORG");
+      expect(verifyPassword).not.toHaveBeenCalled();
+      expect(prisma.organization.updateMany).not.toHaveBeenCalled();
+    } finally {
+      delete process.env.PROTECTED_ORG_SLUGS;
+    }
+  });
+
+  it("passwordが空: 400を返す", async () => {
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await postDelete(app, { confirmName: "東京男声合唱団", password: "" });
+    expect(res.status).toBe(400);
+  });
+
+  it("団体名が一致しない: 400を返し、パスワード照合もしない", async () => {
+    mockPassingChecks();
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await postDelete(app, { ...validBody, confirmName: "東京男声合唱" });
+    const body = await json(res);
+    expect(res.status).toBe(400);
+    expect(body.error.message).toBe("団体名が一致しません");
+    expect(verifyPassword).not.toHaveBeenCalled();
+    expect(prisma.organization.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("レート制限超過: 429を返し、パスワード照合もしない", async () => {
+    mockPassingChecks();
+    vi.mocked(checkOrgDeleteRateLimit).mockResolvedValue(false);
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await postDelete(app, validBody);
+    expect(res.status).toBe(429);
+    expect(verifyPassword).not.toHaveBeenCalled();
+  });
+
+  it("パスワード不一致: 403(INVALID_PASSWORD)を返し削除しない", async () => {
+    mockPassingChecks();
+    vi.mocked(verifyPassword).mockResolvedValue(false);
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await postDelete(app, validBody);
+    const body = await json(res);
+    expect(res.status).toBe(403);
+    expect(body.error.code).toBe("INVALID_PASSWORD");
+    expect(prisma.organization.updateMany).not.toHaveBeenCalled();
+    expect(clearOrgDeleteRateLimit).not.toHaveBeenCalled();
+  });
+
+  it("既に削除済み（同時リクエスト）: 404を返し通知メールを送らない", async () => {
+    mockPassingChecks();
+    vi.mocked(prisma.organization.updateMany).mockResolvedValue({ count: 0 });
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await postDelete(app, validBody);
+    expect(res.status).toBe(404);
+    expect(sendOrgDeletedEmail).not.toHaveBeenCalled();
+  });
+
+  it("成功: 未削除のときのみdeletedAt・削除者を記録し、30日後の完全削除予定日を返す", async () => {
+    mockPassingChecks();
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await postDelete(app, validBody);
+    const body = await json(res);
+
+    expect(res.status).toBe(200);
+    expect(prisma.user.findUniqueOrThrow).toHaveBeenCalledWith({
+      where: { id: "user-member-1" },
+      select: { passwordHash: true },
+    });
+    expect(verifyPassword).toHaveBeenCalledWith("correct-password", "hash");
+    expect(clearOrgDeleteRateLimit).toHaveBeenCalledWith("user-member-1");
+    expect(prisma.organization.updateMany).toHaveBeenCalledWith({
+      where: { id: "org-1", deletedAt: null },
+      data: { deletedAt: expect.any(Date), deletedByEmail: "admin@example.com" },
+    });
+    const deletedAt = new Date(body.data.deletedAt);
+    const purgeScheduledAt = new Date(body.data.purgeScheduledAt);
+    expect(purgeScheduledAt.getTime() - deletedAt.getTime()).toBe(30 * 24 * 60 * 60 * 1000);
+  });
+
+  it("成功: visitorを除く未削除団員全員に削除通知メールを送る", async () => {
+    mockPassingChecks();
+    vi.mocked(prisma.member.findMany).mockResolvedValue([
+      { ...makeMember(["admin"], "m-admin"), userRef: { email: "admin@example.com" } },
+      { ...makeMember(["member"], "m-member"), userRef: { email: "member@example.com" } },
+      { ...makeMember(["guest"], "m-guest"), userRef: { email: "guest@example.com" } },
+      { ...makeMember(["visitor"], "m-visitor"), userRef: { email: "visitor@example.com" } },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+    const app = createTestApp(makeMember(["admin"]));
+    await postDelete(app, validBody);
+
+    expect(prisma.member.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { orgId: "org-1", deletedAt: null } }),
+    );
+    expect(sendOrgDeletedEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: [
+          { email: "admin@example.com" },
+          { email: "member@example.com" },
+          { email: "guest@example.com" },
+        ],
+        orgName: "東京男声合唱団",
+        deletedByName: "山田 太郎",
+      }),
+    );
+  });
+
+  it("通知メール送信に失敗しても削除自体は成功として200を返す", async () => {
+    mockPassingChecks();
+    vi.mocked(sendOrgDeletedEmail).mockRejectedValue(new Error("resend down"));
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await postDelete(app, validBody);
+    expect(res.status).toBe(200);
   });
 });
 

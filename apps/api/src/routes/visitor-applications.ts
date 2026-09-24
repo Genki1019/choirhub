@@ -347,7 +347,7 @@ export async function handlePublicVisitorApplication(c: Context): Promise<Respon
   const { token, ...body } = parsed.data;
 
   const org = await prisma.organization.findUnique({ where: { visitorFormToken: token } });
-  if (!org) {
+  if (!org || org.deletedAt) {
     return c.json({ error: { code: "NOT_FOUND", message: "無効なトークンです" } }, 404);
   }
 

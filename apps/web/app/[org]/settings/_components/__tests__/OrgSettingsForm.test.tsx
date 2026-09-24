@@ -60,6 +60,47 @@ describe("OrgSettingsForm（canEdit: true）", () => {
     expect(await screen.findByText("保存に失敗しました")).toBeInTheDocument();
   });
 
+  it("保存に成功するとonSavedに更新後の団体情報を渡す", async () => {
+    const updated = { id: "org-1", name: "新団体名", slug: "tokyo-men-choir" };
+    vi.mocked(settingsApi.update).mockResolvedValue(updated);
+    const onSaved = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <OrgSettingsForm
+        orgSlug="tokyo-men-choir"
+        initialName="東京男声合唱団"
+        initialSlug="tokyo-men-choir"
+        canEdit={true}
+        onSaved={onSaved}
+      />,
+    );
+
+    await user.click(screen.getByText("保存する"));
+
+    expect(await screen.findByText("保存しました")).toBeInTheDocument();
+    expect(onSaved).toHaveBeenCalledWith(updated);
+  });
+
+  it("保存に失敗した場合はonSavedを呼ばない", async () => {
+    vi.mocked(settingsApi.update).mockRejectedValue(new Error("failed"));
+    const onSaved = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <OrgSettingsForm
+        orgSlug="tokyo-men-choir"
+        initialName="東京男声合唱団"
+        initialSlug="tokyo-men-choir"
+        canEdit={true}
+        onSaved={onSaved}
+      />,
+    );
+
+    await user.click(screen.getByText("保存する"));
+
+    expect(await screen.findByText("保存に失敗しました")).toBeInTheDocument();
+    expect(onSaved).not.toHaveBeenCalled();
+  });
+
   it("スラッグ欄は常に読み取り専用", () => {
     render(
       <OrgSettingsForm

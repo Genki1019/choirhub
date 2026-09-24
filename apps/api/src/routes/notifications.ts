@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 import { prisma } from "../lib/prisma.js";
 import { isAdmin } from "../services/access.js";
 import { logger } from "../lib/logger.js";
+import { isValidCronSecret } from "../lib/cron.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 const ATTENDANCE_DUE_THRESHOLD_DAYS = 3;
@@ -134,11 +135,6 @@ export async function notifyEmailChanged(userId: string): Promise<void> {
 // 内部cron専用エンドポイント（認証ミドルウェアを通さない。CRON_SECRETで検証）
 // ────────────────────────────
 
-function isValidCronSecret(c: Context): boolean {
-  const secret = process.env.CRON_SECRET;
-  return Boolean(secret) && c.req.header("Authorization") === `Bearer ${secret}`;
-}
-
 export async function handleAttendanceDueCron(c: Context): Promise<Response> {
   if (!isValidCronSecret(c)) {
     return c.json({ error: { code: "UNAUTHORIZED", message: "許可されていません" } }, 401);
@@ -148,7 +144,7 @@ export async function handleAttendanceDueCron(c: Context): Promise<Response> {
   const threshold = new Date(now.getTime() + ATTENDANCE_DUE_THRESHOLD_DAYS * 24 * 60 * 60 * 1000);
 
   const events = await prisma.event.findMany({
-    where: { deadline: { gte: now, lte: threshold } },
+    where: { deadline: { gte: now, lte: threshold }, org: { deletedAt: null } },
     include: { attendances: { select: { memberId: true, status: true } } },
   });
 

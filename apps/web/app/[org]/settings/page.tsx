@@ -1,8 +1,8 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import { settingsApi } from "@/lib/settings-api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { settingsApi, type OrgSettings } from "@/lib/settings-api";
 import { settingsKeys } from "@/lib/query-keys";
 import { useMember } from "@/contexts/MemberContext";
 import { settingsPageTitle, SETTINGS_MAIN_CLASS_NAME } from "@/lib/settings-nav";
@@ -13,6 +13,7 @@ import { DangerZone } from "./_components/DangerZone";
 export default function SettingsPage() {
   const { org } = useParams<{ org: string }>();
   const { roles } = useMember();
+  const queryClient = useQueryClient();
 
   const {
     data: settings,
@@ -40,8 +41,11 @@ export default function SettingsPage() {
             initialName={settings?.name ?? ""}
             initialSlug={settings?.slug ?? ""}
             canEdit={roles.includes("admin")}
+            onSaved={(updated) =>
+              queryClient.setQueryData<OrgSettings>(settingsKeys.org(org), updated)
+            }
           />
-          {roles.includes("admin") && <DangerZone />}
+          {roles.includes("admin") && <DangerZone orgSlug={org} orgName={settings?.name ?? ""} />}
         </>
       )}
     </PageWithHeader>

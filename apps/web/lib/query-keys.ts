@@ -18,6 +18,10 @@ export const orgApplicationKeys = {
   pending: () => ["orgApplications", "pending"] as const,
 };
 
+export const deletedOrgKeys = {
+  list: () => ["deletedOrgs"] as const,
+};
+
 export const eventKeys = {
   list: (org: string, year: number, month: number) => ["events", org, year, month] as const,
   all: (org: string) => ["events", org, "all"] as const,

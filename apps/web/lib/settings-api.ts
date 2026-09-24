@@ -24,6 +24,11 @@ export interface OrgSettings {
   slug: string;
 }
 
+export interface OrgDeletionResult {
+  deletedAt: string;
+  purgeScheduledAt: string;
+}
+
 export interface FeeSettings {
   feeType: "per_rehearsal" | "monthly";
   defaultFeeAmount: number | null;
@@ -40,6 +45,9 @@ export const settingsApi = {
 
   update: (orgSlug: string, data: { name?: string }) =>
     apiClient.patch<OrgSettings>(`/${orgSlug}/settings`, data),
+
+  deleteOrg: (orgSlug: string, data: { confirmName: string; password: string }) =>
+    apiClient.post<OrgDeletionResult>(`/${orgSlug}/settings/delete`, data),
 
   createPart: (orgSlug: string, data: { name: string; voiceType?: string }) =>
     apiClient.post<PartSummary>(`/${orgSlug}/parts`, data),

@@ -175,17 +175,19 @@ model EmailChangeToken {
 }
 
 model Organization {
-  id                          String   @id @default(cuid())
+  id                          String    @id @default(cuid())
   name                        String
-  slug                        String   @unique
-  partTemplate                Json     @map("part_template")
-  feeType                     FeeType  @default(per_rehearsal) @map("fee_type")
-  defaultFeeAmount            Int?     @map("default_fee_amount")
-  visitorFormToken            String?  @unique @map("visitor_form_token")
-  visitorIntroSubjectTemplate String   @default("見学者のご紹介") @map("visitor_intro_subject_template")
-  visitorIntroBodyTemplate    String   @default("以下の方が見学にいらっしゃいます。\n\n{lines}") @map("visitor_intro_body_template")
-  visitorIntroLineTemplate    String   @default("・{name}さん（希望パート: {part}[ / 出身団体: {origin}]）") @map("visitor_intro_line_template")
-  createdAt                   DateTime @default(now()) @map("created_at")
+  slug                        String    @unique
+  partTemplate                Json      @map("part_template")
+  feeType                     FeeType   @default(per_rehearsal) @map("fee_type")
+  defaultFeeAmount            Int?      @map("default_fee_amount")
+  visitorFormToken            String?   @unique @map("visitor_form_token")
+  visitorIntroSubjectTemplate String    @default("見学者のご紹介") @map("visitor_intro_subject_template")
+  visitorIntroBodyTemplate    String    @default("以下の方が見学にいらっしゃいます。\n\n{lines}") @map("visitor_intro_body_template")
+  visitorIntroLineTemplate    String    @default("・{name}さん（希望パート: {part}[ / 出身団体: {origin}]）") @map("visitor_intro_line_template")
+  createdAt                   DateTime  @default(now()) @map("created_at")
+  deletedAt                   DateTime? @map("deleted_at")
+  deletedByEmail              String?   @map("deleted_by_email")
 
   parts               Part[]
   members             Member[]

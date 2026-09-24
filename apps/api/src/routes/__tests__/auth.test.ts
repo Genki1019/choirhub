@@ -94,6 +94,7 @@ const testInvite = {
   orgId: "org-1",
   roles: ["member"],
   partId: "part-1",
+  org: { name: "東京男声合唱団", slug: "tokyo-men-choir", deletedAt: null as Date | null },
   usedAt: null as Date | null,
   expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
 };
@@ -198,6 +199,11 @@ describe("POST /auth/login", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("set-cookie")).toContain("session=");
+    expect(prisma.member.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: testUser.id, deletedAt: null, org: { deletedAt: null } },
+      }),
+    );
 
     const body = await json(res);
     expect(body.data.user).toEqual({
@@ -328,6 +334,11 @@ describe("GET /auth/me", () => {
         status: "active",
       },
     ]);
+    expect(prisma.member.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: testUser.id, deletedAt: null, org: { deletedAt: null } },
+      }),
+    );
     expect(prisma.session.update).not.toHaveBeenCalled();
     expect(res.headers.get("set-cookie")).toBeNull();
   });
@@ -389,6 +400,21 @@ describe("GET /auth/me", () => {
 });
 
 describe("GET /auth/invite/:token", () => {
+  it("招待先の団体が論理削除済み: 404 INVALID_TOKENを返す", async () => {
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue({
+      ...testInvite,
+      org: { ...testInvite.org, deletedAt: new Date("2026-09-01") },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/invite/${testInvite.token}`);
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("INVALID_TOKEN");
+  });
+
   it("トークンが存在しない: 404 INVALID_TOKENを返す", async () => {
     vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue(null);
 
@@ -494,6 +520,26 @@ describe("POST /auth/invite/:token", () => {
     expect(res.status).toBe(429);
     const body = await json(res);
     expect(body.error.code).toBe("TOO_MANY_REQUESTS");
+  });
+
+  it("招待先の団体が論理削除済み: 404 INVALID_TOKENを返し参加させない", async () => {
+    vi.mocked(prisma.inviteToken.findUnique).mockResolvedValue({
+      ...testInvite,
+      org: { ...testInvite.org, deletedAt: new Date("2026-09-01") },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp();
+    const res = await app.request(`/auth/invite/${testInvite.token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nameJa: "新人 太郎", password: "password123" }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("INVALID_TOKEN");
+    expect(prisma.member.create).not.toHaveBeenCalled();
   });
 
   it("無効なトークンではレート制限を消費しない", async () => {
@@ -663,6 +709,9 @@ describe("POST /auth/invite/:token", () => {
     expect(body.data.orgSlug).toBe("tokyo-men-choir");
     expect(res.headers.get("set-cookie")).toContain("session=");
     expect(prisma.user.create).not.toHaveBeenCalled();
+    expect(prisma.member.findMany).toHaveBeenCalledWith({
+      where: { userId: testUser.id, deletedAt: null, org: { deletedAt: null } },
+    });
     expect(prisma.session.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ userId: testUser.id, isVisitor: false }),
     });

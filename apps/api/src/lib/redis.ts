@@ -18,6 +18,8 @@ const INVITE_ACCEPT_MAX = 5;
 const INVITE_ACCEPT_WINDOW_S = 900;
 const EMAIL_CHANGE_MAX = 3;
 const EMAIL_CHANGE_WINDOW_S = 900;
+const ORG_DELETE_MAX = 5;
+const ORG_DELETE_WINDOW_S = 900;
 
 async function checkRateLimit(
   prefix: string,
@@ -73,4 +75,13 @@ export function clearInviteAcceptRateLimit(ip: string): Promise<void> {
 
 export function checkEmailChangeRateLimit(ip: string): Promise<boolean> {
   return checkRateLimit("email-change", ip, EMAIL_CHANGE_MAX, EMAIL_CHANGE_WINDOW_S);
+}
+
+// 団体削除はパスワード再確認（総当たり対象）を伴うため、ユーザーID単位で独立したバケットで制限する
+export function checkOrgDeleteRateLimit(userId: string): Promise<boolean> {
+  return checkRateLimit("org-delete", userId, ORG_DELETE_MAX, ORG_DELETE_WINDOW_S);
+}
+
+export function clearOrgDeleteRateLimit(userId: string): Promise<void> {
+  return clearRateLimit("org-delete", userId);
 }

@@ -50,6 +50,8 @@ const testOrg: Organization = {
   visitorIntroBodyTemplate: "以下の方が見学にいらっしゃいます。\n\n{lines}",
   visitorIntroLineTemplate: "・{name}さん（希望パート: {part}[ / 出身団体: {origin}]）",
   createdAt: new Date("2024-01-01"),
+  deletedAt: null,
+  deletedByEmail: null,
 };
 
 const makeMember = (roles: string[], id = "member-1"): Member => ({

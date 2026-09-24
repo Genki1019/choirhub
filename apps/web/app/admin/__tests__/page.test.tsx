@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AdminPage from "../page";
 import { orgApplicationsApi } from "@/lib/org-applications-api";
 import { ApiClientError } from "@/lib/auth-api";
+import { deletedOrgsApi } from "@/lib/deleted-orgs-api";
 
 vi.mock("@/lib/org-applications-api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/org-applications-api")>(
@@ -20,6 +21,10 @@ vi.mock("@/lib/org-applications-api", async () => {
     },
   };
 });
+
+vi.mock("@/lib/deleted-orgs-api", () => ({
+  deletedOrgsApi: { list: vi.fn(), restore: vi.fn() },
+}));
 
 const testApplication = {
   id: "app-1",
@@ -46,6 +51,7 @@ function renderPage() {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(deletedOrgsApi.list).mockResolvedValue([]);
 });
 
 describe("AdminPage（表示）", () => {

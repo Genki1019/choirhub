@@ -120,10 +120,11 @@ erDiagram
         string avatarUrl
     }
     Organization {
-        string id PK
-        string name
-        string slug UK
-        json   partTemplate
+        string   id PK
+        string   name
+        string   slug UK
+        json     partTemplate
+        datetime deletedAt
     }
     Part {
         string id PK
@@ -523,6 +524,10 @@ erDiagram
 | visitorIntroBodyTemplate    | VARCHAR   | NOT NULL                           | 見学者紹介文（本文）のテンプレート。`{lines}` に見学者ごとの行が展開される                                                                                                      |
 | visitorIntroLineTemplate    | VARCHAR   | NOT NULL                           | 見学者1名分の行テンプレート。`{name}` `{part}` `{origin}` を使用可能。`[...]` で囲むと中の変数が空の場合その区間ごと非表示になる                                                |
 | createdAt                   | TIMESTAMP | NOT NULL, DEFAULT now()            |                                                                                                                                                                                 |
+| deletedAt                   | TIMESTAMP |                                    | 論理削除日時（NULL=有効）。セットされた団体は全APIで存在しないものとして扱われ、30日後にcronで物理削除される                                                                    |
+| deletedByEmail              | VARCHAR   |                                    | 論理削除を実行した団体adminのメールアドレス（システム管理者コンソールでの確認用）。復元時にNULLへ戻す                                                                           |
+
+> **削除のライフサイクル**: 団体adminが削除 → `deletedAt`をセット（論理削除・団員へ通知メール）→ 30日以内はシステム管理者が復元可能 → 30日経過後、日次cronがR2上のファイル（`StoredFile.storageKey`）を削除してから`Organization`行を物理削除し、配下の全テーブルは`onDelete: Cascade`で連動削除される。子テーブルには`deletedAt`を持たせず、テナント解決（`tenantMiddleware`）など団体を引く入口で遮断する。論理削除中もスラグは保持され、物理削除後に再利用可能になる。
 
 ---
 
@@ -958,19 +963,38 @@ draft → survey_open → confirmed → past
 
 > 団体作成申請フォーム（`/apply`・`/select-org`）から送信される申請。承認前は団体が存在しないため `orgId` を持たない。承認されると `Organization`・`Part`・`EventCategory` が作成され、`applicantEmail` 宛に `roles: ["admin"]` の `InviteToken`（上記）が発行される。レビュアーはシステム管理者（環境変数 `SYSTEM_ADMIN_EMAILS` ベースの運用上の概念で `Member` ではない）のため、`reviewedByEmail` にメールアドレスを文字列で記録する。
 
-| カラム          | 型                   | 制約                        | 説明                                                                                                                                              |
-| --------------- | -------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id              | CUID                 | PK                          |                                                                                                                                                   |
-| orgName         | VARCHAR              | NOT NULL                    | 申請する団体名                                                                                                                                    |
-| slug            | VARCHAR              | NOT NULL                    | 希望するURLスラグ。承認時にシステム管理者が確認・変更でき、`Organization.slug` に一意性チェックした上で反映される（本カラム自体には一意制約なし） |
-| templateKey     | VARCHAR              | NOT NULL                    | パートテンプレートキー（`mixed4` / `women3` / `mens4` / `custom`）                                                                                |
-| applicantName   | VARCHAR              | NOT NULL                    | 新団体の管理者となる氏名                                                                                                                          |
-| applicantEmail  | VARCHAR              | NOT NULL                    | 新団体の管理者となるメールアドレス                                                                                                                |
-| message         | VARCHAR              |                             | 補足メッセージ（任意）                                                                                                                            |
-| status          | OrgApplicationStatus | NOT NULL, DEFAULT `pending` | pending / approved / rejected                                                                                                                     |
-| reviewedByEmail | VARCHAR              |                             | 承認・却下したシステム管理者のメールアドレス                                                                                                      |
-| reviewedAt      | TIMESTAMP            |                             | 承認・却下日時                                                                                                                                    |
-| createdAt       | TIMESTAMP            | NOT NULL, DEFAULT now()     |                                                                                                                                                   |
+| カラム          | 型                   | 制約                        | 説明                                                                                                                                                                                                                                                   |
+| --------------- | -------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| id              | CUID                 | PK                          |                                                                                                                                                                                                                                                        |
+| orgName         | VARCHAR              | NOT NULL                    | 申請する団体名                                                                                                                                                                                                                                         |
+| slug            | VARCHAR              | NOT NULL                    | 希望するURLスラグ。承認時にシステム管理者が確認・変更でき、`Organization.slug` に一意性チェックした上で反映される（本カラム自体には一意制約なし）。フロントエンドの固定ルートと同名のスラグ（`admin`・`contact`・`privacy`・`terms`等）はAPIで拒否する |
+| templateKey     | VARCHAR              | NOT NULL                    | パートテンプレートキー（`mixed4` / `women3` / `mens4` / `custom`）                                                                                                                                                                                     |
+| applicantName   | VARCHAR              | NOT NULL                    | 新団体の管理者となる氏名                                                                                                                                                                                                                               |
+| applicantEmail  | VARCHAR              | NOT NULL                    | 新団体の管理者となるメールアドレス                                                                                                                                                                                                                     |
+| message         | VARCHAR              |                             | 補足メッセージ（任意）                                                                                                                                                                                                                                 |
+| status          | OrgApplicationStatus | NOT NULL, DEFAULT `pending` | pending / approved / rejected                                                                                                                                                                                                                          |
+| reviewedByEmail | VARCHAR              |                             | 承認・却下したシステム管理者のメールアドレス                                                                                                                                                                                                           |
+| reviewedAt      | TIMESTAMP            |                             | 承認・却下日時                                                                                                                                                                                                                                         |
+| createdAt       | TIMESTAMP            | NOT NULL, DEFAULT now()     |                                                                                                                                                                                                                                                        |
+
+---
+
+### Inquiry（運営への問い合わせ）
+
+> お問い合わせフォーム（`/contact`）から送信される、ChoirHub運営（システム管理者）宛の問い合わせ。未ログインでも送れるため `User`・`Organization` を参照せず、送信者の氏名・メールアドレス・団体名を文字列で保持する。対応者はシステム管理者のため `OrgApplication` と同様に `resolvedByEmail` にメールアドレスを記録する。
+
+| カラム          | 型              | 制約                     | 説明                                                                                                         |
+| --------------- | --------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| id              | CUID            | PK                       |                                                                                                              |
+| category        | InquiryCategory | NOT NULL                 | 種類（org_restore: 削除した団体の復元 / account / privacy: 個人情報の開示・訂正・削除 / bug_report / other） |
+| name            | VARCHAR         | NOT NULL                 | 送信者の氏名                                                                                                 |
+| email           | VARCHAR         | NOT NULL                 | 返信先メールアドレス                                                                                         |
+| orgName         | VARCHAR         |                          | 関係する団体名（任意・自由入力）                                                                             |
+| message         | VARCHAR         | NOT NULL                 | 問い合わせ内容（最大2000文字）                                                                               |
+| status          | InquiryStatus   | NOT NULL, DEFAULT `open` | open / resolved                                                                                              |
+| resolvedByEmail | VARCHAR         |                          | 対応済みにしたシステム管理者のメールアドレス                                                                 |
+| resolvedAt      | TIMESTAMP       |                          | 対応済みにした日時                                                                                           |
+| createdAt       | TIMESTAMP       | NOT NULL, DEFAULT now()  |                                                                                                              |
 
 ---
 
@@ -1266,52 +1290,53 @@ draft → survey_open → confirmed → past
 
 ## 3. インデックス定義
 
-| テーブル           | カラム                         | 種別   | 目的                                 |
-| ------------------ | ------------------------------ | ------ | ------------------------------------ |
-| Organization       | slug                           | UNIQUE | テナント識別子の検索                 |
-| User               | email                          | UNIQUE | ログイン認証                         |
-| Member             | (userId, orgId)                | UNIQUE | 1ユーザーが同一団体に重複所属しない  |
-| Member             | userId                         | INDEX  | ユーザーの所属団体一覧取得           |
-| Member             | orgId                          | INDEX  | テナント絞り込み                     |
-| Member             | (orgId, partId)                | INDEX  | パート別メンバー一覧                 |
-| InviteToken        | token                          | UNIQUE | トークン検索                         |
-| PasswordResetToken | token                          | UNIQUE | トークン検索                         |
-| PasswordResetToken | userId                         | INDEX  | ユーザー別トークン取得               |
-| EmailChangeToken   | token                          | UNIQUE | トークン検索                         |
-| EmailChangeToken   | userId                         | INDEX  | ユーザー別トークン取得               |
-| OrgApplication     | status                         | INDEX  | 保留中申請の絞り込み（`/admin`一覧） |
-| Event              | (orgId, startsAt)              | INDEX  | 月カレンダー表示                     |
-| Attendance         | (eventId, memberId)            | UNIQUE | 重複回答防止                         |
-| EventFile          | eventId                        | INDEX  | イベントに紐づく添付ファイル取得     |
-| EventFile          | fileId                         | UNIQUE | 1つのStoredFileに1つの添付ファイル   |
-| Score              | (orgId, accessLevel)           | INDEX  | 権限別楽譜一覧                       |
-| ScoreFile          | scoreId                        | INDEX  | 楽譜に紐づくファイル取得             |
-| ScoreFile          | fileId                         | UNIQUE | 1つのStoredFileに1つの楽譜ファイル   |
-| ScoreAccessLog     | (scoreId, createdAt)           | INDEX  | アクセス履歴の時系列取得             |
-| ScorePurchase      | (scoreId, memberId)            | UNIQUE | 同一楽譜の重複購入登録防止           |
-| ScorePurchase      | scoreId                        | INDEX  | 楽譜別購入者一覧                     |
-| Concert            | (orgId, heldOn)                | INDEX  | 本番一覧の日付ソート                 |
-| ConcertFile        | concertId                      | INDEX  | 演奏会に紐づく添付ファイル取得       |
-| ConcertFile        | fileId                         | UNIQUE | 1つのStoredFileに1つの添付ファイル   |
-| Program            | (stageId, sortOrder)           | INDEX  | 演目の表示順取得                     |
-| SurveyResponse     | (surveyId, memberId, stageId)  | UNIQUE | 重複回答防止                         |
-| OnStageAssignment  | (concertId, memberId, stageId) | UNIQUE | 重複登録防止                         |
-| FormationPattern   | (stageId, sortOrder)           | INDEX  | パターンの表示順取得                 |
-| FormationBox       | (patternId, sortOrder)         | INDEX  | 枠の表示順取得                       |
-| FormationSlot      | patternId                      | INDEX  | パターンに紐づくスロット取得         |
-| FormationSlot      | boxId                          | INDEX  | 枠に紐づくスロット取得               |
-| MailLog            | (orgId, sentAt)                | INDEX  | メール履歴の時系列取得               |
-| TicketAllocation   | (batchId, memberId)            | UNIQUE | 団員別チケット集計・重複配布防止     |
-| Collection         | orgId                          | INDEX  | 団ごとの徴収一覧取得                 |
-| Collection         | (orgId, yearMonth)             | INDEX  | 月会費の月次検索                     |
-| Collection         | scoreId                        | INDEX  | 楽譜別の徴収取得                     |
-| CollectionPayment  | (collectionId, memberId)       | UNIQUE | 重複記録防止                         |
-| CollectionPayment  | collectionId                   | INDEX  | 徴収別の支払い状況取得               |
-| Expense            | (orgId, paidAt)                | INDEX  | 支出一覧の時系列取得                 |
-| StoredFile         | (orgId, kind)                  | INDEX  | 種別別・横断ファイル一覧取得         |
-| OrgDocument        | fileId                         | UNIQUE | 1つのStoredFileに1つの資料           |
-| Notification       | (orgId, memberId, readAt)      | INDEX  | 団員別の通知一覧・未読件数取得       |
-| Notification       | (memberId, type, link)         | INDEX  | `attendance_due`等の重複生成防止判定 |
+| テーブル           | カラム                         | 種別   | 目的                                       |
+| ------------------ | ------------------------------ | ------ | ------------------------------------------ |
+| Organization       | slug                           | UNIQUE | テナント識別子の検索                       |
+| User               | email                          | UNIQUE | ログイン認証                               |
+| Member             | (userId, orgId)                | UNIQUE | 1ユーザーが同一団体に重複所属しない        |
+| Member             | userId                         | INDEX  | ユーザーの所属団体一覧取得                 |
+| Member             | orgId                          | INDEX  | テナント絞り込み                           |
+| Member             | (orgId, partId)                | INDEX  | パート別メンバー一覧                       |
+| InviteToken        | token                          | UNIQUE | トークン検索                               |
+| PasswordResetToken | token                          | UNIQUE | トークン検索                               |
+| PasswordResetToken | userId                         | INDEX  | ユーザー別トークン取得                     |
+| EmailChangeToken   | token                          | UNIQUE | トークン検索                               |
+| EmailChangeToken   | userId                         | INDEX  | ユーザー別トークン取得                     |
+| OrgApplication     | status                         | INDEX  | 保留中申請の絞り込み（`/admin`一覧）       |
+| Inquiry            | status                         | INDEX  | 未対応問い合わせの絞り込み（`/admin`一覧） |
+| Event              | (orgId, startsAt)              | INDEX  | 月カレンダー表示                           |
+| Attendance         | (eventId, memberId)            | UNIQUE | 重複回答防止                               |
+| EventFile          | eventId                        | INDEX  | イベントに紐づく添付ファイル取得           |
+| EventFile          | fileId                         | UNIQUE | 1つのStoredFileに1つの添付ファイル         |
+| Score              | (orgId, accessLevel)           | INDEX  | 権限別楽譜一覧                             |
+| ScoreFile          | scoreId                        | INDEX  | 楽譜に紐づくファイル取得                   |
+| ScoreFile          | fileId                         | UNIQUE | 1つのStoredFileに1つの楽譜ファイル         |
+| ScoreAccessLog     | (scoreId, createdAt)           | INDEX  | アクセス履歴の時系列取得                   |
+| ScorePurchase      | (scoreId, memberId)            | UNIQUE | 同一楽譜の重複購入登録防止                 |
+| ScorePurchase      | scoreId                        | INDEX  | 楽譜別購入者一覧                           |
+| Concert            | (orgId, heldOn)                | INDEX  | 本番一覧の日付ソート                       |
+| ConcertFile        | concertId                      | INDEX  | 演奏会に紐づく添付ファイル取得             |
+| ConcertFile        | fileId                         | UNIQUE | 1つのStoredFileに1つの添付ファイル         |
+| Program            | (stageId, sortOrder)           | INDEX  | 演目の表示順取得                           |
+| SurveyResponse     | (surveyId, memberId, stageId)  | UNIQUE | 重複回答防止                               |
+| OnStageAssignment  | (concertId, memberId, stageId) | UNIQUE | 重複登録防止                               |
+| FormationPattern   | (stageId, sortOrder)           | INDEX  | パターンの表示順取得                       |
+| FormationBox       | (patternId, sortOrder)         | INDEX  | 枠の表示順取得                             |
+| FormationSlot      | patternId                      | INDEX  | パターンに紐づくスロット取得               |
+| FormationSlot      | boxId                          | INDEX  | 枠に紐づくスロット取得                     |
+| MailLog            | (orgId, sentAt)                | INDEX  | メール履歴の時系列取得                     |
+| TicketAllocation   | (batchId, memberId)            | UNIQUE | 団員別チケット集計・重複配布防止           |
+| Collection         | orgId                          | INDEX  | 団ごとの徴収一覧取得                       |
+| Collection         | (orgId, yearMonth)             | INDEX  | 月会費の月次検索                           |
+| Collection         | scoreId                        | INDEX  | 楽譜別の徴収取得                           |
+| CollectionPayment  | (collectionId, memberId)       | UNIQUE | 重複記録防止                               |
+| CollectionPayment  | collectionId                   | INDEX  | 徴収別の支払い状況取得                     |
+| Expense            | (orgId, paidAt)                | INDEX  | 支出一覧の時系列取得                       |
+| StoredFile         | (orgId, kind)                  | INDEX  | 種別別・横断ファイル一覧取得               |
+| OrgDocument        | fileId                         | UNIQUE | 1つのStoredFileに1つの資料                 |
+| Notification       | (orgId, memberId, readAt)      | INDEX  | 団員別の通知一覧・未読件数取得             |
+| Notification       | (memberId, type, link)         | INDEX  | `attendance_due`等の重複生成防止判定       |
 
 ---
 
@@ -1377,6 +1402,8 @@ draft → survey_open → confirmed → past
 | CollectionPaymentStatus  | pending / paid / waived                                  |
 | VisitorApplicationStatus | pending / approved / rejected                            |
 | OrgApplicationStatus     | pending / approved / rejected                            |
+| InquiryCategory          | org_restore / account / privacy / bug_report / other     |
+| InquiryStatus            | open / resolved                                          |
 | FileKind                 | score / concert / event / org_document                   |
 | DocumentCategory         | bylaws / minutes / member_guide / finance_report / other |
 

@@ -1,4 +1,5 @@
 import { prisma } from "../src/lib/prisma.js";
+import { storage } from "../src/services/storage.js";
 import { hash } from "argon2";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -12,6 +13,137 @@ function atTime(date: Date, h: number, m = 0): Date {
   const d = new Date(date);
   d.setHours(h, m, 0, 0);
   return d;
+}
+
+function addMonths(base: Date, months: number): Date {
+  const d = new Date(base);
+  d.setMonth(d.getMonth() + months);
+  return d;
+}
+
+function monthKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+// 実際にダウンロード・プレビューできるよう、ダミーではなく最小限の有効なPDFを生成する
+function buildPdf(pageContent: string): Buffer {
+  const objs = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 4 0 R >> >> /MediaBox [0 0 400 200] /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${pageContent.length} >>\nstream\n${pageContent}\nendstream`,
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets: number[] = [];
+  objs.forEach((obj, i) => {
+    offsets.push(Buffer.byteLength(pdf, "latin1"));
+    pdf += `${i + 1} 0 obj\n${obj}\nendobj\n`;
+  });
+  const xrefStart = Buffer.byteLength(pdf, "latin1");
+  pdf += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n`;
+  for (const off of offsets) pdf += `${String(off).padStart(10, "0")} 00000 n \n`;
+  pdf += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
+  return Buffer.from(pdf, "latin1");
+}
+
+function makePlaceholderPdf(): Buffer {
+  return buildPdf("BT /F1 16 Tf 20 100 Td (ChoirHub sample document) Tj ET");
+}
+
+// 著作権フリーの童謡「きらきら星」冒頭を、五線譜っぽい見た目のPDFとして描画する
+// （実データではなく自前生成のため、内容が実在の楽譜スキャン等と混同されることはない）
+const TWINKLE_MELODY = [
+  { step: 0, beats: 1 }, // C4
+  { step: 0, beats: 1 },
+  { step: 4, beats: 1 }, // G4
+  { step: 4, beats: 1 },
+  { step: 5, beats: 1 }, // A4
+  { step: 5, beats: 1 },
+  { step: 4, beats: 2 }, // G4
+  { step: 3, beats: 1 }, // F4
+  { step: 3, beats: 1 },
+  { step: 2, beats: 1 }, // E4
+  { step: 2, beats: 1 },
+  { step: 1, beats: 1 }, // D4
+  { step: 1, beats: 1 },
+  { step: 0, beats: 2 }, // C4
+];
+
+function makeScorePdf(): Buffer {
+  const lines: string[] = [];
+  const staffTop = 150;
+  const lineGap = 10;
+  // 五線
+  for (let i = 0; i < 5; i++) {
+    const y = staffTop - i * lineGap;
+    lines.push(`10 ${y} m 390 ${y} l S`);
+  }
+  // 音符（C4=五線の下、1段刻みで配置。塗りつぶし楕円をベジエ曲線で近似）
+  let x = 30;
+  for (const note of TWINKLE_MELODY) {
+    const y = staffTop - lineGap * 2 - note.step * (lineGap / 2);
+    const rx = 4.5;
+    const ry = 3.5;
+    const k = 0.55;
+    lines.push(
+      `${x - rx} ${y} m ` +
+        `${x - rx} ${y + ry * k} ${x - rx * k} ${y + ry} ${x} ${y + ry} c ` +
+        `${x + rx * k} ${y + ry} ${x + rx} ${y + ry * k} ${x + rx} ${y} c ` +
+        `${x + rx} ${y - ry * k} ${x + rx * k} ${y - ry} ${x} ${y - ry} c ` +
+        `${x - rx * k} ${y - ry} ${x - rx} ${y - ry * k} ${x - rx} ${y} c f`,
+    );
+    if (note.step < 0 || note.step > 8) {
+      // 五線の外に出る音符には補助線（今回の音域では未使用だが将来の音域拡張に備える）
+      lines.push(`${x - 7} ${y} m ${x + 7} ${y} l S`);
+    }
+    x += note.beats * 20;
+  }
+  const content = `1 w\n${lines.join("\n")}`;
+  return buildPdf(content);
+}
+
+// 実際に再生できるよう、無音ではなく実在の音階（きらきら星冒頭）を正弦波合成したWAVを生成する
+// 演奏音源は使わず自前合成のみとする（既存の合唱音源を転用しない）
+const NOTE_FREQ = [261.63, 293.66, 329.63, 349.23, 392.0, 440.0]; // C4 D4 E4 F4 G4 A4
+
+function makeMelodyWav(bpm = 96): Buffer {
+  const sampleRate = 22050;
+  const secPerBeat = 60 / bpm;
+  const totalSamples = TWINKLE_MELODY.reduce(
+    (sum, n) => sum + Math.round(sampleRate * n.beats * secPerBeat),
+    0,
+  );
+  const buf = Buffer.alloc(44 + totalSamples * 2);
+  buf.write("RIFF", 0);
+  buf.writeUInt32LE(36 + totalSamples * 2, 4);
+  buf.write("WAVE", 8);
+  buf.write("fmt ", 12);
+  buf.writeUInt32LE(16, 16);
+  buf.writeUInt16LE(1, 20);
+  buf.writeUInt16LE(1, 22);
+  buf.writeUInt32LE(sampleRate, 24);
+  buf.writeUInt32LE(sampleRate * 2, 28);
+  buf.writeUInt16LE(2, 32);
+  buf.writeUInt16LE(16, 34);
+  buf.write("data", 36);
+  buf.writeUInt32LE(totalSamples * 2, 40);
+
+  let offset = 44;
+  for (const note of TWINKLE_MELODY) {
+    const freq = NOTE_FREQ[note.step] ?? NOTE_FREQ[0];
+    const numSamples = Math.round(sampleRate * note.beats * secPerBeat);
+    const fadeLen = Math.max(1, Math.floor(numSamples * 0.08));
+    for (let i = 0; i < numSamples; i++) {
+      let amp = 0.25;
+      if (i < fadeLen) amp *= i / fadeLen;
+      else if (i > numSamples - fadeLen) amp *= (numSamples - i) / fadeLen;
+      const sample = amp * Math.sin((2 * Math.PI * freq * i) / sampleRate);
+      buf.writeInt16LE(Math.round(sample * 32767), offset);
+      offset += 2;
+    }
+  }
+  return buf;
 }
 
 // ─── main seed（既存: 自分の団体） ───────────────────────────────────────────
@@ -784,6 +916,143 @@ async function seedDemo() {
       },
     });
   }
+
+  // ── 15. 幹事パートローテーション ──────────────────────────────────────────
+  const organizerRotation = [pAlto, pTenor, pBass];
+  for (let i = 0; i < organizerRotation.length; i++) {
+    const from = addMonths(today, i * 2);
+    const to = addMonths(today, i * 2 + 1);
+    await prisma.organizerPeriod.create({
+      data: {
+        orgId: org.id,
+        partId: organizerRotation[i].id,
+        fromMonth: monthKey(from),
+        toMonth: monthKey(to),
+      },
+    });
+  }
+
+  // ── 16. 見学申込（承認待ち1件） ────────────────────────────────────────────
+  await prisma.visitorApplication.create({
+    data: {
+      orgId: org.id,
+      name: "小川 陽菜",
+      partHope: "ソプラノ",
+      originGroup: "○○大学グリークラブ",
+      contact: "ogawa.example@example.com",
+      message: "学生時代に混声合唱をしていました。見学させていただきたいです。",
+      source: "manual",
+      createdById: adminMemberId,
+    },
+  });
+
+  // ── 17. 資料ライブラリ（団体共有資料） ────────────────────────────────────
+  const placeholderPdf = makePlaceholderPdf();
+  const orgDocumentDefs = [
+    {
+      title: "団体規約",
+      category: "bylaws" as const,
+      accessLevel: "restricted" as const,
+      fileName: "bylaws.pdf",
+    },
+    {
+      title: "第16回運営会議 議事録",
+      category: "minutes" as const,
+      accessLevel: "restricted" as const,
+      fileName: `minutes_${monthKey(today)}.pdf`,
+    },
+    {
+      title: `${today.getFullYear()}年度上半期 会計報告`,
+      category: "finance_report" as const,
+      accessLevel: "public" as const,
+      fileName: "finance_report.pdf",
+    },
+  ];
+  for (const def of orgDocumentDefs) {
+    const storageKey = `org-documents/${org.id}/${def.fileName}`;
+    await storage.upload(storageKey, placeholderPdf, "application/pdf");
+    const file = await prisma.storedFile.create({
+      data: {
+        orgId: org.id,
+        kind: "org_document",
+        storageKey,
+        fileName: def.fileName,
+        uploadedBy: adminMemberId,
+      },
+    });
+    await prisma.orgDocument.create({
+      data: {
+        fileId: file.id,
+        title: def.title,
+        category: def.category,
+        accessLevel: def.accessLevel,
+      },
+    });
+  }
+
+  // ── 18. スケジュール添付ファイル・練習録音 ────────────────────────────────
+  const latestPastRehearsal = rehearsalEvents[4];
+  const flyerKey = `events/${latestPastRehearsal.id}/flyer.pdf`;
+  await storage.upload(flyerKey, placeholderPdf, "application/pdf");
+  const flyerFile = await prisma.storedFile.create({
+    data: {
+      orgId: org.id,
+      kind: "event",
+      storageKey: flyerKey,
+      fileName: "flyer.pdf",
+      uploadedBy: adminMemberId,
+    },
+  });
+  await prisma.eventFile.create({
+    data: { fileId: flyerFile.id, eventId: latestPastRehearsal.id, label: "フライヤー" },
+  });
+  const recordingKey = `events/${latestPastRehearsal.id}/pitch_practice.wav`;
+  const melodyWav = makeMelodyWav();
+  await storage.upload(recordingKey, melodyWav, "audio/wav");
+  const recordingFile = await prisma.storedFile.create({
+    data: {
+      orgId: org.id,
+      kind: "event",
+      storageKey: recordingKey,
+      fileName: "pitch_practice.wav",
+      uploadedBy: adminMemberId,
+    },
+  });
+  await prisma.eventFile.create({
+    data: { fileId: recordingFile.id, eventId: latestPastRehearsal.id, label: "音とり音源" },
+  });
+
+  // ── 19. 楽譜ファイル（PDF・MIDI） ──────────────────────────────────────────
+  const scorePdf = makeScorePdf();
+  const scorePdfKey = `scores/${sAveVerum.id}/full_score.pdf`;
+  await storage.upload(scorePdfKey, scorePdf, "application/pdf");
+  const scorePdfFile = await prisma.storedFile.create({
+    data: {
+      orgId: org.id,
+      kind: "score",
+      storageKey: scorePdfKey,
+      fileName: "ave_verum_corpus.pdf",
+      uploadedBy: adminMemberId,
+    },
+  });
+  await prisma.scoreFile.create({
+    data: { fileId: scorePdfFile.id, scoreId: sAveVerum.id, fileType: "full_score" },
+  });
+
+  const scoreMidiKey = `scores/${sAveVerum.id}/pitch_practice.wav`;
+  await storage.upload(scoreMidiKey, melodyWav, "audio/wav");
+  const scoreMidiFile = await prisma.storedFile.create({
+    data: {
+      orgId: org.id,
+      kind: "score",
+      storageKey: scoreMidiKey,
+      fileName: "ave_verum_corpus_pitch.wav",
+      uploadedBy: adminMemberId,
+    },
+  });
+  await prisma.scoreFile.create({
+    data: { fileId: scoreMidiFile.id, scoreId: sAveVerum.id, fileType: "midi" },
+  });
 
   console.log("✅ デモシード完了");
   console.log(`   URL     : https://choirhub-web.vercel.app/${DEMO_SLUG}`);

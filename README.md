@@ -58,6 +58,22 @@
 
 ---
 
+### 本番・オンステ管理
+
+演奏会 → ステージ → 演目の階層管理と、立ち位置（フォーメーション）のドラッグ&ドロップ編集。
+
+![本番管理](docs/images/concert.png)
+
+---
+
+### 資料ライブラリ・通知
+
+| 資料ライブラリ                             | 通知                                   |
+| ------------------------------------------ | -------------------------------------- |
+| ![資料ライブラリ](docs/images/library.png) | ![通知](docs/images/notifications.png) |
+
+---
+
 ### チケット・メーリス
 
 | チケット管理                            | メーリス                             |
@@ -92,22 +108,25 @@
 | 団内連絡・アーカイブ   | メーリングリスト（履歴が消える） | 送受信履歴の一元管理              |
 | チケット販売管理       | Excel スプレッドシート           | チケット配布・集計 + パートレース |
 | 会計・費用管理         | 手作業の帳簿                     | 支出・徴収の一元管理              |
+| 更新の見落とし         | メールのみで気づきにくい         | アプリ内通知（既読管理付き）      |
 
 ---
 
 ## 主要機能
 
-| モジュール             | 機能概要                                                 |
-| ---------------------- | -------------------------------------------------------- |
-| **ホーム**             | 直近イベント・未回答出欠・最新メールをダッシュボード表示 |
-| **メンバー管理**       | 招待メールによる入団フロー・プロフィール・顔写真管理     |
-| **スケジュール・出欠** | 月カレンダー + 伝助ビュー（縦軸: メンバー / ○△✕回答）    |
-| **楽譜・MIDI 管理**    | PDF/MIDI アップロード・アクセスレベル制御・購入記録管理  |
-| **本番・オンステ管理** | 演奏会 → ステージ → 演目の階層管理・オンステ調査フロー   |
-| **メーリス管理**       | 宛先絞り込み送信・テンプレート・履歴の永続アーカイブ     |
-| **チケット管理**       | 席種別配布・自己入力・集計・パートセールスレース         |
-| **会計・費用管理**     | 支出登録・場所代徴収・月次収支サマリー                   |
-| **設定**               | パート・会費方式のカスタマイズ                           |
+| モジュール             | 機能概要                                                                     |
+| ---------------------- | ---------------------------------------------------------------------------- |
+| **ホーム**             | 直近イベント・未回答出欠・最新メールをダッシュボード表示                     |
+| **メンバー管理**       | 招待メールによる入団フロー・見学申込の受付/承認・プロフィール・顔写真管理    |
+| **スケジュール・出欠** | 月カレンダー + 伝助ビュー・外部カレンダー（iCal）連携・練習録音アーカイブ    |
+| **楽譜・MIDI 管理**    | PDF/MIDI アップロード・アクセスレベル制御・購入記録管理                      |
+| **本番・オンステ管理** | 演奏会 → ステージ → 演目の階層管理・オンステ調査フロー・フォーメーション管理 |
+| **メーリス管理**       | 宛先絞り込み送信・テンプレート・履歴の永続アーカイブ                         |
+| **チケット管理**       | 席種別配布・自己入力・集計・パートセールスレース・情宣活動の支払管理         |
+| **会計・費用管理**     | 支出登録・場所代徴収・月次収支サマリー                                       |
+| **資料ライブラリ**     | 団体共有資料・楽譜/本番/イベント添付ファイルの横断閲覧・管理                 |
+| **通知**               | 通知ベル・既読管理。メーリス受信・見学申込受付・出欠期限接近等を自動通知     |
+| **設定**               | パート・会費方式のカスタマイズ                                               |
 
 ---
 
@@ -124,12 +143,14 @@
 
 ### UI
 
-| 技術            | バージョン | 用途                   |
-| --------------- | ---------- | ---------------------- |
-| Tailwind CSS    | v4         | スタイリング           |
-| lucide-react    | -          | アイコン               |
-| React Hook Form | v7         | フォーム管理           |
-| Zod             | v4         | スキーマバリデーション |
+| 技術            | バージョン | 用途                                        |
+| --------------- | ---------- | ------------------------------------------- |
+| Tailwind CSS    | v4         | スタイリング                                |
+| lucide-react    | -          | アイコン                                    |
+| TanStack Query  | v5         | サーバーステート管理（キャッシュ・再取得）  |
+| React Hook Form | v7         | フォーム管理                                |
+| Zod             | v4         | スキーマバリデーション                      |
+| @dnd-kit        | -          | ドラッグ&ドロップ（並び替え・オンステ配置） |
 
 ### バックエンド・インフラ
 
@@ -144,12 +165,12 @@
 
 ### インフラ・サービス
 
-| サービス        | 用途                                               |
-| --------------- | -------------------------------------------------- |
-| Vercel          | フロントエンド・API それぞれを独立デプロイ         |
-| Neon            | サーバーレス PostgreSQL（HTTP アダプタ経由）       |
-| Cloudflare R2   | ファイルストレージ（楽譜 PDF・MIDI・アバター画像） |
-| pnpm workspaces | モノレポ管理                                       |
+| サービス        | 用途                                                     |
+| --------------- | -------------------------------------------------------- |
+| Vercel          | フロントエンド・API それぞれを独立デプロイ + Cron バッチ |
+| Neon            | サーバーレス PostgreSQL（HTTP アダプタ経由）             |
+| Cloudflare R2   | ファイルストレージ（楽譜 PDF・MIDI・アバター画像）       |
+| pnpm workspaces | モノレポ管理                                             |
 
 ---
 
@@ -164,12 +185,13 @@ choirhub/
 ├── apps/
 │   ├── web/                  # フロントエンド（Next.js 16）
 │   │   ├── app/
-│   │   │   ├── (auth)/       # 認証系（login / invite）
+│   │   │   ├── (auth)/       # 認証系（login / invite / password-reset 等）
+│   │   │   ├── admin/        # システム管理者コンソール
 │   │   │   └── [org]/        # テナント別ルート
 │   │   └── lib/              # API クライアント・型定義
 │   └── api/                  # バックエンド API（Hono）
 │       ├── src/
-│       │   ├── routes/       # エンドポイント定義
+│       │   ├── routes/       # エンドポイント定義（internal/cron/* を含む）
 │       │   ├── middleware/   # 認証・テナント解決
 │       │   └── services/     # ストレージ・メール・権限
 │       └── prisma/           # スキーマ・マイグレーション・シード
@@ -185,14 +207,15 @@ choirhub/
   │
   └─→ /api/v1/*  ──────────→ Hono API (Vercel)
                                   ├── Prisma ──→ Neon (PostgreSQL)
-                                  └── Storage → Cloudflare R2
+                                  ├── Storage → Cloudflare R2
+                                  └── Vercel Cron → 通知バッチ（出欠期限リマインド・既読通知の自動削除）
 ```
 
 ### マルチテナント設計
 
 - URL パターン: `/:orgSlug/...`（テナント識別子をパスに含める）
 - 全 DB クエリに `orgId` を必ず付与（テナント間データ漏えい防止）
-- `middleware.ts` が `orgSlug → orgId` を解決し、リクエストコンテキストにセット
+- API 側の Hono ミドルウェア（`tenant.ts`）が `orgSlug → orgId` を解決し、リクエストコンテキストにセット
 - 1 ユーザーが複数団体に所属可能（`User` と `Member` を別エンティティで管理）
 
 ### ファイルストレージ
@@ -203,16 +226,17 @@ choirhub/
 
 ## ロール・権限設計
 
-| ロール       | 英名      | 主な権限                                |
-| ------------ | --------- | --------------------------------------- |
-| 最高管理者   | `admin`   | 全権限                                  |
-| 技術系       | `tech`    | スケジュール・ステージ構成・MIDI 管理   |
-| 楽譜がかり   | `score`   | 楽譜 PDF・購入記録管理                  |
-| チケット担当 | `ticket`  | チケット配布・集計・パートレース        |
-| 会計係       | `finance` | 支出・徴収管理                          |
-| 一般         | `member`  | 閲覧・出欠回答・自分のチケット入力      |
-| 客演         | `guest`   | スケジュール・楽譜閲覧・出欠回答        |
-| 体験         | `visitor` | 共有アカウント。全楽譜 PDF を閲覧のみ可 |
+| ロール       | 英名        | 主な権限                                |
+| ------------ | ----------- | --------------------------------------- |
+| 最高管理者   | `admin`     | 全権限                                  |
+| 技術系       | `tech`      | スケジュール・ステージ構成・MIDI 管理   |
+| 指揮者       | `conductor` | `tech` と同等の権限                     |
+| 楽譜がかり   | `score`     | 楽譜 PDF・購入記録管理                  |
+| チケット担当 | `ticket`    | チケット配布・集計・パートレース        |
+| 会計係       | `finance`   | 支出・徴収管理                          |
+| 一般         | `member`    | 閲覧・出欠回答・自分のチケット入力      |
+| 客演         | `guest`     | スケジュール・楽譜閲覧・出欠回答        |
+| 体験         | `visitor`   | 共有アカウント。全楽譜 PDF を閲覧のみ可 |
 
 - 複数ロール付与可（例: `["ticket", "member"]`）
 
@@ -222,33 +246,44 @@ choirhub/
 
 ### 認証系
 
-| 画面     | URL               |
-| -------- | ----------------- |
-| ログイン | `/login`          |
-| 招待受諾 | `/invite/[token]` |
-| 団体選択 | `/select-org`     |
+| 画面                     | URL                       |
+| ------------------------ | ------------------------- |
+| ログイン                 | `/login`                  |
+| 招待受諾                 | `/invite/[token]`         |
+| パスワードリセット申請   | `/password-reset`         |
+| パスワードリセット実行   | `/password-reset/[token]` |
+| メールアドレス変更確認   | `/email-change/[token]`   |
+| 団体選択                 | `/select-org`             |
+| 団体作成申請             | `/apply`                  |
+| システム管理者コンソール | `/admin`                  |
 
 ### テナント別（`/[org]/` 配下）
 
-| 画面                     | URL                                   |
-| ------------------------ | ------------------------------------- |
-| ホーム                   | `/[org]`                              |
-| メンバー一覧             | `/[org]/members`                      |
-| メンバー詳細             | `/[org]/members/[id]`                 |
-| スケジュール一覧         | `/[org]/schedule`                     |
-| イベント詳細・出欠表     | `/[org]/schedule/[id]`                |
-| 楽譜一覧                 | `/[org]/scores`                       |
-| 本番一覧                 | `/[org]/concerts`                     |
-| 本番詳細                 | `/[org]/concerts/[id]`                |
-| メール一覧・作成         | `/[org]/mailing`                      |
-| チケット管理             | `/[org]/tickets`                      |
-| チケット集計（管理者）   | `/[org]/tickets/[concertId]`          |
-| チケット自己入力（団員） | `/[org]/tickets/[concertId]/my`       |
-| 情宣活動申請             | `/[org]/tickets/[concertId]/outreach` |
-| パートレース             | `/[org]/tickets/[concertId]/race`     |
-| 会計                     | `/[org]/accounting`                   |
-| 徴収詳細                 | `/[org]/accounting/collections/[id]`  |
-| 設定                     | `/[org]/settings`                     |
+| 画面                     | URL                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------- |
+| ホーム                   | `/[org]`                                                                                    |
+| メンバー一覧             | `/[org]/members`                                                                            |
+| メンバー詳細             | `/[org]/members/[id]`                                                                       |
+| 見学申込（承認キュー）   | `/[org]/members/applications`                                                               |
+| スケジュール一覧         | `/[org]/schedule`                                                                           |
+| イベント詳細・出欠表     | `/[org]/schedule/[id]`                                                                      |
+| イベント作成・編集       | `/[org]/schedule/new`・`/[org]/schedule/[id]/edit`                                          |
+| 楽譜一覧                 | `/[org]/scores`                                                                             |
+| 楽譜詳細                 | `/[org]/scores/[scoreId]`                                                                   |
+| 本番一覧                 | `/[org]/concerts`                                                                           |
+| 本番登録                 | `/[org]/concerts/new`                                                                       |
+| 本番詳細                 | `/[org]/concerts/[id]`                                                                      |
+| 資料ライブラリ           | `/[org]/library`                                                                            |
+| 通知一覧                 | `/[org]/notifications`                                                                      |
+| メール一覧・作成         | `/[org]/mailing`                                                                            |
+| チケット管理             | `/[org]/tickets`                                                                            |
+| チケット集計（管理者）   | `/[org]/tickets/[concertId]`                                                                |
+| チケット自己入力（団員） | `/[org]/tickets/[concertId]/my`                                                             |
+| 情宣活動申請             | `/[org]/tickets/[concertId]/outreach`                                                       |
+| パートレース             | `/[org]/tickets/[concertId]/race`                                                           |
+| 会計                     | `/[org]/accounting`                                                                         |
+| 徴収詳細                 | `/[org]/accounting/collections/[id]`                                                        |
+| 設定・各種サブページ     | `/[org]/settings`（パート/会費/支出カテゴリ/メンバー区分/イベントカテゴリ/見学申込Webhook） |
 
 ---
 
@@ -269,10 +304,14 @@ Organization（団体）
   ├── Concert（演奏会）
   │     ├── Stage（ステージ）→ Program（演目）→ Score
   │     ├── ConcertSurvey（オンステ調査）→ SurveyResponse
+  │     ├── FormationPattern（立ち位置パターン）
   │     └── TicketBatch（席種）→ TicketAllocation（配布）
   ├── Collection（徴収）→ CollectionPayment（支払い）
   ├── Expense（支出）
-  └── MailLog（メール履歴）
+  ├── MailLog（メール履歴）
+  ├── VisitorApplication（見学申込）
+  ├── StoredFile（共有ファイル基盤）→ OrgDocument（団体共有資料）
+  └── Notification（通知）
 ```
 
 ### ER 図（コアドメイン）
@@ -285,8 +324,11 @@ erDiagram
     Organization   ||--o{ Event             : "has"
     Organization   ||--o{ Score             : "has"
     Organization   ||--o{ Concert           : "has"
+    Organization   ||--o{ StoredFile        : "has"
+    Organization   ||--o{ Notification      : "has"
     Part           ||--o{ Member            : "belongs to"
     Member         ||--o{ Attendance        : "answers"
+    Member         ||--o{ Notification      : "receives"
     Event          ||--o{ Attendance        : "has"
     Concert        ||--o{ Stage             : "has"
     Stage          ||--o{ Program           : "has"
@@ -297,6 +339,7 @@ erDiagram
     TicketBatch    ||--o{ TicketAllocation  : "allocated to"
     Organization   ||--o{ Collection        : "has"
     Collection     ||--o{ CollectionPayment : "has"
+    StoredFile     ||--o| OrgDocument       : "backs"
 ```
 
 ### 設計方針
@@ -346,26 +389,30 @@ pnpm --filter web dev    # http://localhost:3000
 
 ### `apps/api/.env`（バックエンド）
 
-| 変数名                     | 必須 | 説明                                                             |
-| -------------------------- | :--: | ---------------------------------------------------------------- |
-| `DATABASE_URL`             |  ✅  | PostgreSQL 接続 URL（コネクションプール用）                      |
-| `DATABASE_DIRECT_URL`      |  ✅  | PostgreSQL 直接接続 URL（マイグレーション用。Neon 利用時は必須） |
-| `RESEND_API_KEY`           |  ✅  | Resend API キー                                                  |
-| `MAIL_FROM`                |  ✅  | 送信元メールアドレス                                             |
-| `R2_ACCOUNT_ID`            |  -   | Cloudflare R2 アカウント ID                                      |
-| `R2_ACCESS_KEY_ID`         |  -   | R2 アクセスキー                                                  |
-| `R2_SECRET_ACCESS_KEY`     |  -   | R2 シークレットキー                                              |
-| `R2_BUCKET_NAME`           |  -   | R2 バケット名（未設定時はローカルの `./uploads/` を使用）        |
-| `R2_PUBLIC_URL`            |  -   | アバター公開用 CDN URL                                           |
-| `UPSTASH_REDIS_REST_URL`   |  -   | Upstash Redis URL                                                |
-| `UPSTASH_REDIS_REST_TOKEN` |  -   | Upstash Redis トークン                                           |
+| 変数名                     | 必須 | 説明                                                                 |
+| -------------------------- | :--: | -------------------------------------------------------------------- |
+| `DATABASE_URL`             |  ✅  | PostgreSQL 接続 URL（コネクションプール用）                          |
+| `DATABASE_DIRECT_URL`      |  ✅  | PostgreSQL 直接接続 URL（マイグレーション用。Neon 利用時は必須）     |
+| `RESEND_API_KEY`           |  ✅  | Resend API キー                                                      |
+| `MAIL_FROM`                |  ✅  | 送信元メールアドレス                                                 |
+| `SYSTEM_ADMIN_EMAILS`      |  -   | 新規団体作成を許可するメールアドレス（カンマ区切り）                 |
+| `CRON_SECRET`              |  -   | Vercel Cron バッチ（出欠期限通知・既読通知の自動削除）の認証トークン |
+| `R2_ACCOUNT_ID`            |  -   | Cloudflare R2 アカウント ID                                          |
+| `R2_ACCESS_KEY_ID`         |  -   | R2 アクセスキー                                                      |
+| `R2_SECRET_ACCESS_KEY`     |  -   | R2 シークレットキー                                                  |
+| `R2_BUCKET_NAME`           |  -   | R2 バケット名（未設定時はローカルの `./uploads/` を使用）            |
+| `R2_PUBLIC_URL`            |  -   | アバター公開用 CDN URL                                               |
+| `UPSTASH_REDIS_REST_URL`   |  -   | Upstash Redis URL                                                    |
+| `UPSTASH_REDIS_REST_TOKEN` |  -   | Upstash Redis トークン                                               |
 
 ### `apps/web/.env.local`（フロントエンド）
 
-| 変数名                | 必須 | 説明                           |
-| --------------------- | :--: | ------------------------------ |
-| `NEXT_PUBLIC_API_URL` |  ✅  | バックエンド API の URL        |
-| `GOOGLE_MAPS_API_KEY` |  -   | 会場住所の Places Autocomplete |
+| 変数名                | 必須 | 説明                                                                |
+| --------------------- | :--: | ------------------------------------------------------------------- |
+| `API_INTERNAL_URL`    |  ✅  | Next.js サーバーから API へのリライト先（内部 URL）                 |
+| `NEXT_PUBLIC_API_URL` |  -   | ブラウザからの fetch で使うベース URL（未設定時は同一オリジン経由） |
+| `R2_BUCKET_NAME`      |  -   | 設定するとビルド時に `/uploads/*` リライトを省略                    |
+| `GOOGLE_MAPS_API_KEY` |  -   | 会場住所の Places Autocomplete                                      |
 
 詳細は各 `.env.example` を参照してください。
 
@@ -382,12 +429,13 @@ Vercel に **2 プロジェクト**を作成してデプロイします。
 3. **Build Command**: `prisma generate && tsc`
 4. **Output Directory**: `dist`
 5. 環境変数を設定してデプロイ
+6. `CRON_SECRET` を設定すると、`vercel.json` の `crons` 設定に従って通知バッチ（出欠期限リマインド・既読通知の自動削除）が毎日自動実行される
 
 ### Web（`apps/web`）
 
 1. 別プロジェクトとして同リポジトリを連携
 2. **Root Directory** を `apps/web` に設定
-3. `NEXT_PUBLIC_API_URL` に API の Vercel URL を設定
+3. `API_INTERNAL_URL`（必須）・`NEXT_PUBLIC_API_URL`（任意）に API の Vercel URL を設定
 4. デプロイ実行
 
 > データベースマイグレーション（`prisma migrate deploy`）は API の build コマンドに含まれています。

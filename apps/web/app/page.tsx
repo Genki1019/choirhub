@@ -82,12 +82,20 @@ export default async function RootPage() {
             />
             <span className="cursor-pointer text-lg font-bold tracking-tight">ChoirHub</span>
           </ScrollTopLink>
-          <Link
-            href={loginHref}
-            className="text-brand-600 hover:text-brand-700 text-sm font-medium transition-colors"
-          >
-            ログイン
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/apply"
+              className="border-brand-200 text-brand-700 hover:bg-brand-50 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors"
+            >
+              団体作成を申請
+            </Link>
+            <Link
+              href={loginHref}
+              className="text-brand-600 hover:text-brand-700 text-sm font-medium transition-colors"
+            >
+              ログイン
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -114,6 +122,12 @@ export default async function RootPage() {
             >
               ログインしてはじめる
               <ChevronRight size={16} />
+            </Link>
+            <Link
+              href="/apply"
+              className="border-brand-200 text-brand-700 hover:bg-brand-50 inline-flex w-full items-center justify-center gap-2 rounded-xl border px-6 py-3 font-semibold transition-colors sm:w-auto"
+            >
+              団体作成を申請する
             </Link>
           </div>
         </section>

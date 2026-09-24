@@ -105,6 +105,13 @@ export default function LoginPage() {
             </Link>
           </p>
         </form>
+
+        <p className="mt-5 text-center text-xs text-gray-400">
+          団体をこれから始める方は
+          <Link href="/apply" className="text-brand-500 ml-1 hover:underline">
+            団体作成を申請
+          </Link>
+        </p>
       </div>
     </div>
   );

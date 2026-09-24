@@ -26,16 +26,13 @@ function monthKey(d: Date): string {
 }
 
 // 実際にダウンロード・プレビューできるよう、ダミーではなく最小限の有効なPDFを生成する
-function makePlaceholderPdf(): Buffer {
+function buildPdf(pageContent: string): Buffer {
   const objs = [
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
     "<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 4 0 R >> >> /MediaBox [0 0 400 200] /Contents 5 0 R >>",
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    (() => {
-      const content = "BT /F1 16 Tf 20 100 Td (ChoirHub sample document) Tj ET";
-      return `<< /Length ${content.length} >>\nstream\n${content}\nendstream`;
-    })(),
+    `<< /Length ${pageContent.length} >>\nstream\n${pageContent}\nendstream`,
   ];
   let pdf = "%PDF-1.4\n";
   const offsets: number[] = [];
@@ -50,13 +47,76 @@ function makePlaceholderPdf(): Buffer {
   return Buffer.from(pdf, "latin1");
 }
 
-// 実際に再生できるよう、無音のWAVを生成する（.mp3は正しいフレーム構造が必要で手組みできないため.wavを使う）
-function makeSilentWav(seconds: number): Buffer {
-  const sampleRate = 8000;
-  const dataSize = sampleRate * seconds * 2;
-  const buf = Buffer.alloc(44 + dataSize);
+function makePlaceholderPdf(): Buffer {
+  return buildPdf("BT /F1 16 Tf 20 100 Td (ChoirHub sample document) Tj ET");
+}
+
+// 著作権フリーの童謡「きらきら星」冒頭を、五線譜っぽい見た目のPDFとして描画する
+// （実データではなく自前生成のため、内容が実在の楽譜スキャン等と混同されることはない）
+const TWINKLE_MELODY = [
+  { step: 0, beats: 1 }, // C4
+  { step: 0, beats: 1 },
+  { step: 4, beats: 1 }, // G4
+  { step: 4, beats: 1 },
+  { step: 5, beats: 1 }, // A4
+  { step: 5, beats: 1 },
+  { step: 4, beats: 2 }, // G4
+  { step: 3, beats: 1 }, // F4
+  { step: 3, beats: 1 },
+  { step: 2, beats: 1 }, // E4
+  { step: 2, beats: 1 },
+  { step: 1, beats: 1 }, // D4
+  { step: 1, beats: 1 },
+  { step: 0, beats: 2 }, // C4
+];
+
+function makeScorePdf(): Buffer {
+  const lines: string[] = [];
+  const staffTop = 150;
+  const lineGap = 10;
+  // 五線
+  for (let i = 0; i < 5; i++) {
+    const y = staffTop - i * lineGap;
+    lines.push(`10 ${y} m 390 ${y} l S`);
+  }
+  // 音符（C4=五線の下、1段刻みで配置。塗りつぶし楕円をベジエ曲線で近似）
+  let x = 30;
+  for (const note of TWINKLE_MELODY) {
+    const y = staffTop - lineGap * 2 - note.step * (lineGap / 2);
+    const rx = 4.5;
+    const ry = 3.5;
+    const k = 0.55;
+    lines.push(
+      `${x - rx} ${y} m ` +
+        `${x - rx} ${y + ry * k} ${x - rx * k} ${y + ry} ${x} ${y + ry} c ` +
+        `${x + rx * k} ${y + ry} ${x + rx} ${y + ry * k} ${x + rx} ${y} c ` +
+        `${x + rx} ${y - ry * k} ${x + rx * k} ${y - ry} ${x} ${y - ry} c ` +
+        `${x - rx * k} ${y - ry} ${x - rx} ${y - ry * k} ${x - rx} ${y} c f`,
+    );
+    if (note.step < 0 || note.step > 8) {
+      // 五線の外に出る音符には補助線（今回の音域では未使用だが将来の音域拡張に備える）
+      lines.push(`${x - 7} ${y} m ${x + 7} ${y} l S`);
+    }
+    x += note.beats * 20;
+  }
+  const content = `1 w\n${lines.join("\n")}`;
+  return buildPdf(content);
+}
+
+// 実際に再生できるよう、無音ではなく実在の音階（きらきら星冒頭）を正弦波合成したWAVを生成する
+// 演奏音源は使わず自前合成のみとする（既存の合唱音源を転用しない）
+const NOTE_FREQ = [261.63, 293.66, 329.63, 349.23, 392.0, 440.0]; // C4 D4 E4 F4 G4 A4
+
+function makeMelodyWav(bpm = 96): Buffer {
+  const sampleRate = 22050;
+  const secPerBeat = 60 / bpm;
+  const totalSamples = TWINKLE_MELODY.reduce(
+    (sum, n) => sum + Math.round(sampleRate * n.beats * secPerBeat),
+    0,
+  );
+  const buf = Buffer.alloc(44 + totalSamples * 2);
   buf.write("RIFF", 0);
-  buf.writeUInt32LE(36 + dataSize, 4);
+  buf.writeUInt32LE(36 + totalSamples * 2, 4);
   buf.write("WAVE", 8);
   buf.write("fmt ", 12);
   buf.writeUInt32LE(16, 16);
@@ -67,7 +127,22 @@ function makeSilentWav(seconds: number): Buffer {
   buf.writeUInt16LE(2, 32);
   buf.writeUInt16LE(16, 34);
   buf.write("data", 36);
-  buf.writeUInt32LE(dataSize, 40);
+  buf.writeUInt32LE(totalSamples * 2, 40);
+
+  let offset = 44;
+  for (const note of TWINKLE_MELODY) {
+    const freq = NOTE_FREQ[note.step] ?? NOTE_FREQ[0];
+    const numSamples = Math.round(sampleRate * note.beats * secPerBeat);
+    const fadeLen = Math.max(1, Math.floor(numSamples * 0.08));
+    for (let i = 0; i < numSamples; i++) {
+      let amp = 0.25;
+      if (i < fadeLen) amp *= i / fadeLen;
+      else if (i > numSamples - fadeLen) amp *= (numSamples - i) / fadeLen;
+      const sample = amp * Math.sin((2 * Math.PI * freq * i) / sampleRate);
+      buf.writeInt16LE(Math.round(sample * 32767), offset);
+      offset += 2;
+    }
+  }
   return buf;
 }
 
@@ -931,23 +1006,52 @@ async function seedDemo() {
   await prisma.eventFile.create({
     data: { fileId: flyerFile.id, eventId: latestPastRehearsal.id, label: "フライヤー" },
   });
-  const recordingKey = `events/${latestPastRehearsal.id}/ave_verum_chorus.wav`;
-  await storage.upload(recordingKey, makeSilentWav(3), "audio/wav");
+  const recordingKey = `events/${latestPastRehearsal.id}/pitch_practice.wav`;
+  const melodyWav = makeMelodyWav();
+  await storage.upload(recordingKey, melodyWav, "audio/wav");
   const recordingFile = await prisma.storedFile.create({
     data: {
       orgId: org.id,
       kind: "event",
       storageKey: recordingKey,
-      fileName: "ave_verum_chorus.wav",
+      fileName: "pitch_practice.wav",
       uploadedBy: adminMemberId,
     },
   });
   await prisma.eventFile.create({
+    data: { fileId: recordingFile.id, eventId: latestPastRehearsal.id, label: "音とり音源" },
+  });
+
+  // ── 19. 楽譜ファイル（PDF・MIDI） ──────────────────────────────────────────
+  const scorePdf = makeScorePdf();
+  const scorePdfKey = `scores/${sAveVerum.id}/full_score.pdf`;
+  await storage.upload(scorePdfKey, scorePdf, "application/pdf");
+  const scorePdfFile = await prisma.storedFile.create({
     data: {
-      fileId: recordingFile.id,
-      eventId: latestPastRehearsal.id,
-      label: "アヴェ・ヴェルム・コルプス（合唱パート合わせ）",
+      orgId: org.id,
+      kind: "score",
+      storageKey: scorePdfKey,
+      fileName: "ave_verum_corpus.pdf",
+      uploadedBy: adminMemberId,
     },
+  });
+  await prisma.scoreFile.create({
+    data: { fileId: scorePdfFile.id, scoreId: sAveVerum.id, fileType: "full_score" },
+  });
+
+  const scoreMidiKey = `scores/${sAveVerum.id}/pitch_practice.wav`;
+  await storage.upload(scoreMidiKey, melodyWav, "audio/wav");
+  const scoreMidiFile = await prisma.storedFile.create({
+    data: {
+      orgId: org.id,
+      kind: "score",
+      storageKey: scoreMidiKey,
+      fileName: "ave_verum_corpus_pitch.wav",
+      uploadedBy: adminMemberId,
+    },
+  });
+  await prisma.scoreFile.create({
+    data: { fileId: scoreMidiFile.id, scoreId: sAveVerum.id, fileType: "midi" },
   });
 
   console.log("✅ デモシード完了");

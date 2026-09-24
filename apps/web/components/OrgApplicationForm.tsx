@@ -73,12 +73,13 @@ export function OrgApplicationForm({
       await submitFn({ ...data, message: data.message?.trim() || undefined });
       setSuccess(true);
     } catch (err) {
-      setError("root", {
-        message:
-          err instanceof ApiClientError && err.status === 409
-            ? "このスラグはすでに使用されています"
-            : "送信に失敗しました。しばらくしてから再試行してください",
-      });
+      let message = "送信に失敗しました。しばらくしてから再試行してください";
+      if (err instanceof ApiClientError && err.status === 409) {
+        message = "このスラグはすでに使用されています";
+      } else if (err instanceof ApiClientError && err.status === 400) {
+        message = err.message;
+      }
+      setError("root", { message });
     }
   };
 

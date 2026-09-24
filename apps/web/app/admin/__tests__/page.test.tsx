@@ -150,9 +150,13 @@ describe("AdminPage（承認・却下）", () => {
     expect(approveButton).not.toBeDisabled();
   });
 
-  it("承認が400（スラグ形式不正）で失敗した場合は専用メッセージを表示する", async () => {
+  it("承認が400（スラグ形式不正・予約語）で失敗した場合はサーバーのメッセージを表示する", async () => {
     vi.mocked(orgApplicationsApi.approve).mockRejectedValue(
-      new ApiClientError("VALIDATION_ERROR", "invalid", 400),
+      new ApiClientError(
+        "VALIDATION_ERROR",
+        "このスラグはシステムで使用しているため使えません",
+        400,
+      ),
     );
     const user = userEvent.setup();
     renderPage();
@@ -161,9 +165,7 @@ describe("AdminPage（承認・却下）", () => {
     await user.click(screen.getByLabelText("承認"));
 
     expect(
-      await screen.findByText(
-        "スラグの形式が正しくありません（英小文字・数字・ハイフン、2〜50文字）",
-      ),
+      await screen.findByText("このスラグはシステムで使用しているため使えません"),
     ).toBeInTheDocument();
   });
 

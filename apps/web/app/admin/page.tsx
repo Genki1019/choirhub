@@ -58,7 +58,7 @@ export default function AdminPage() {
       if (err instanceof ApiClientError && err.status === 409) {
         setActionError("このスラグはすでに使用されています");
       } else if (err instanceof ApiClientError && err.status === 400) {
-        setActionError("スラグの形式が正しくありません（英小文字・数字・ハイフン、2〜50文字）");
+        setActionError(err.message);
       } else {
         setActionError("操作に失敗しました。もう一度お試しください。");
       }

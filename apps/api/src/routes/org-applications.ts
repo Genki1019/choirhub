@@ -36,11 +36,29 @@ function formatApplication(a: OrgApplication) {
   };
 }
 
+// 団体ページは /:orgSlug で配信されるため、フロントエンドの固定ルート・公開ディレクトリと同じ名前は使えない
+const RESERVED_SLUGS = new Set([
+  "admin",
+  "api",
+  "apply",
+  "contact",
+  "demo",
+  "email-change",
+  "icons",
+  "invite",
+  "login",
+  "password-reset",
+  "privacy",
+  "select-org",
+  "terms",
+]);
+
 const slugSchema = z
   .string()
-  .min(2)
-  .max(50)
-  .regex(/^[a-z0-9-]+$/, "英小文字・数字・ハイフンのみ使用できます");
+  .min(2, "スラグは2〜50文字で入力してください")
+  .max(50, "スラグは2〜50文字で入力してください")
+  .regex(/^[a-z0-9-]+$/, "英小文字・数字・ハイフンのみ使用できます")
+  .refine((slug) => !RESERVED_SLUGS.has(slug), "このスラグはシステムで使用しているため使えません");
 
 const orgFieldsSchema = {
   orgName: z.string().min(1).max(100),

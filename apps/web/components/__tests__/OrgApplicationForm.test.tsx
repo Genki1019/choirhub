@@ -154,4 +154,25 @@ describe("OrgApplicationForm", () => {
 
     expect(await screen.findByText("このスラグはすでに使用されています")).toBeInTheDocument();
   });
+
+  it("400エラー時はサーバーのメッセージ（予約語のスラグ等）を表示する", async () => {
+    vi.mocked(orgApplicationsApi.create).mockRejectedValue(
+      new ApiClientError(
+        "VALIDATION_ERROR",
+        "このスラグはシステムで使用しているため使えません",
+        400,
+      ),
+    );
+    const user = userEvent.setup();
+    render(<OrgApplicationForm />);
+
+    await user.type(screen.getByLabelText("団体名"), "admin");
+    await user.type(screen.getByLabelText("管理者氏名"), "鈴木花子");
+    await user.type(screen.getByLabelText("管理者メールアドレス"), "hanako@example.com");
+    await user.click(screen.getByText("申請する"));
+
+    expect(
+      await screen.findByText("このスラグはシステムで使用しているため使えません"),
+    ).toBeInTheDocument();
+  });
 });

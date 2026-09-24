@@ -820,3 +820,33 @@ export async function sendOrgApplicationEmail(params: {
   }
   logger.info("[mail] org application sent to", actualTo.join(", "), "via Resend");
 }
+
+export async function sendOrgDeletedEmail(params: {
+  to: { email: string }[];
+  orgName: string;
+  deletedByName: string;
+  deletedAt: Date;
+  purgeScheduledAt: Date;
+}): Promise<void> {
+  const { to, orgName, deletedByName, deletedAt, purgeScheduledAt } = params;
+  const dateLabel = (d: Date) =>
+    d.toLocaleDateString("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+  await sendBulkMail({
+    to,
+    subject: `【ChoirHub】${orgName} は削除されました`,
+    body: [
+      `${dateLabel(deletedAt)}、${deletedByName}さんの操作により「${orgName}」がChoirHubから削除されました。`,
+      "現在、この団体の画面・データにはアクセスできません。",
+      "",
+      `${dateLabel(purgeScheduledAt)}に、団体のすべてのデータ（団員情報・スケジュール・出欠・楽譜・会計等）が完全に削除されます。`,
+      "それまでの間は復元が可能です。心当たりがない場合や復元を希望する場合は、団体の管理者にお問い合わせください。",
+    ].join("\n"),
+    orgName,
+  });
+}

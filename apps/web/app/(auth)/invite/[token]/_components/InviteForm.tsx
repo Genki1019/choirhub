@@ -12,6 +12,7 @@ import {
   inviteAcceptExistingUserSchema,
   type InviteAcceptExistingUserInput,
 } from "@/lib/schemas";
+import { TermsConsentNote } from "@/components/TermsConsentNote";
 
 const INPUT_CLS =
   "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition";
@@ -105,6 +106,7 @@ function InviteFormShell({
         {isSubmitting && <Loader2 size={16} className="animate-spin" />}
         {submitLabel}
       </button>
+      <TermsConsentNote action="登録" />
     </form>
   );
 }

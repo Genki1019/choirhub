@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import SettingsPage from "../page";
 import { MemberProvider } from "@/contexts/MemberContext";
@@ -7,6 +8,7 @@ import { settingsApi, type OrgSettings } from "@/lib/settings-api";
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ org: "tokyo-men-choir" }),
+  useRouter: () => ({ replace: vi.fn() }),
 }));
 
 vi.mock("@/lib/settings-api", async () => {
@@ -74,7 +76,23 @@ describe("SettingsPage（危険な操作セクション）", () => {
     renderPage(["admin"]);
 
     expect(await screen.findByText("危険な操作")).toBeInTheDocument();
-    expect(screen.getByText("削除")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "削除" })).toBeEnabled();
+  });
+
+  it("団体名を変更して保存した後は、削除確認に変更後の団体名が表示される", async () => {
+    vi.mocked(settingsApi.get).mockResolvedValue(makeSettings());
+    vi.mocked(settingsApi.update).mockResolvedValue(makeSettings({ name: "新団体名" }));
+    const user = userEvent.setup();
+    renderPage(["admin"]);
+
+    const nameInput = await screen.findByDisplayValue("東京男声合唱団");
+    await user.clear(nameInput);
+    await user.type(nameInput, "新団体名");
+    await user.click(screen.getByText("保存する"));
+    await screen.findByText("保存しました");
+
+    await user.click(screen.getByRole("button", { name: "削除" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("新団体名");
   });
 
   it("finance（admin以外）の場合は「危険な操作」セクションを表示しない", async () => {

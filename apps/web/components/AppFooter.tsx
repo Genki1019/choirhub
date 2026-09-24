@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { LEGAL_LINKS } from "@/lib/legal-links";
 
 export function AppFooter() {
   return (
@@ -20,15 +21,15 @@ export function AppFooter() {
           <span className="cursor-pointer text-base font-bold text-gray-700">ChoirHub</span>
         </Link>
         <div className="flex flex-col items-center gap-1.5 text-xs text-gray-400">
-          <Link href="#" className="transition-colors hover:text-gray-600">
-            プライバシーポリシー
-          </Link>
-          <Link href="#" className="transition-colors hover:text-gray-600">
-            利用規約
-          </Link>
-          <Link href="#" className="transition-colors hover:text-gray-600">
-            お問い合わせ
-          </Link>
+          {LEGAL_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="transition-colors hover:text-gray-600"
+            >
+              {link.label}
+            </Link>
+          ))}
         </div>
         <p className="text-xs text-gray-400">&copy; 2026 ChoirHub. All rights reserved.</p>
       </div>

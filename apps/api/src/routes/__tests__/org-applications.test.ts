@@ -205,6 +205,34 @@ describe("POST /auth/org-applications", () => {
     expect(body.error.message).toBe("英小文字・数字・ハイフンのみ使用できます");
   });
 
+  it.each([
+    ["1文字", "a", "スラグは2〜50文字で入力してください"],
+    ["51文字", "a".repeat(51), "スラグは2〜50文字で入力してください"],
+    ["予約語（固定ページ）", "contact", "このスラグはシステムで使用しているため使えません"],
+    ["予約語（管理画面）", "admin", "このスラグはシステムで使用しているため使えません"],
+  ])(
+    "バリデーションエラー: slugが%sの場合はメッセージ付きで400を返し保存しない",
+    async (_, slug, message) => {
+      const app = createTestApp();
+      const res = await app.request("/auth/org-applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgName: testApplication.orgName,
+          slug,
+          templateKey: "mixed4",
+          applicantName: testApplication.applicantName,
+          applicantEmail: testApplication.applicantEmail,
+        }),
+      });
+
+      expect(res.status).toBe(400);
+      const body = await json(res);
+      expect(body.error.message).toBe(message);
+      expect(prisma.orgApplication.create).not.toHaveBeenCalled();
+    },
+  );
+
   it("レート制限超過: 429を返す", async () => {
     vi.mocked(checkOrgApplicationRateLimit).mockResolvedValue(false);
 
@@ -365,6 +393,21 @@ describe("POST /auth/org-applications/:id/approve", () => {
     expect(res.status).toBe(400);
     const body = await json(res);
     expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("承認時に予約語のslugへ変更しようとした場合は400を返す", async () => {
+    mockSessionAsAdmin();
+
+    const res = await approveRequest(
+      testApplication.id,
+      { Cookie: "session=session-abc" },
+      "terms",
+    );
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.message).toBe("このスラグはシステムで使用しているため使えません");
+    expect(prisma.orgApplication.updateMany).not.toHaveBeenCalled();
   });
 
   it("存在しない申請: 404を返す", async () => {
@@ -638,6 +681,24 @@ describe("POST /auth/orgs", () => {
     const res = await directCreateRequest({});
 
     expect(res.status).toBe(401);
+  });
+
+  it("予約語のslugは400を返し団体を作成しない", async () => {
+    mockSessionAsAdmin();
+
+    const res = await directCreateRequest(
+      { Cookie: "session=session-abc" },
+      {
+        orgName: testApplication.orgName,
+        slug: "privacy",
+        templateKey: "mixed4",
+        applicantName: testApplication.applicantName,
+        applicantEmail: testApplication.applicantEmail,
+      },
+    );
+
+    expect(res.status).toBe(400);
+    expect(prisma.organization.create).not.toHaveBeenCalled();
   });
 
   it("バリデーションエラー: orgName空は400を返す", async () => {

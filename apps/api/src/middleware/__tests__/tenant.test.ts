@@ -31,6 +31,8 @@ const testOrg: Organization = {
   visitorIntroBodyTemplate: "以下の方が見学にいらっしゃいます。\n\n{lines}",
   visitorIntroLineTemplate: "・{name}さん（希望パート: {part}[ / 出身団体: {origin}]）",
   createdAt: new Date("2024-01-01"),
+  deletedAt: null,
+  deletedByEmail: null,
 };
 
 const testMember: Member = {
@@ -83,6 +85,21 @@ describe("tenantMiddleware", () => {
 
     const app = createTestApp();
     const res = await app.request("/unknown-org/ping");
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("論理削除済みの団体: メンバーであっても404を返す", async () => {
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue({
+      ...testOrg,
+      deletedAt: new Date("2026-09-01"),
+    });
+    vi.mocked(prisma.member.findUnique).mockResolvedValue(testMember);
+
+    const app = createTestApp();
+    const res = await app.request("/tokyo-men-choir/ping");
 
     expect(res.status).toBe(404);
     const body = await json(res);

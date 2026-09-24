@@ -33,6 +33,12 @@ describe("LoginPage（表示）", () => {
     expect(screen.getByText("ログイン")).toBeInTheDocument();
   });
 
+  it("「団体作成を申請」は/applyにリンクする", () => {
+    render(<LoginPage />);
+
+    expect(screen.getByRole("link", { name: "団体作成を申請" })).toHaveAttribute("href", "/apply");
+  });
+
   it("「パスワードをお忘れですか？」は/password-resetにリンクする", () => {
     render(<LoginPage />);
 

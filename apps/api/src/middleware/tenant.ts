@@ -15,7 +15,7 @@ export const tenantMiddleware = createMiddleware<TenantEnv>(async (c, next) => {
   const user = c.get("user");
 
   const org = await prisma.organization.findUnique({ where: { slug: orgSlug } });
-  if (!org) {
+  if (!org || org.deletedAt) {
     return c.json({ error: { code: "NOT_FOUND", message: "団体が見つかりません" } }, 404);
   }
 

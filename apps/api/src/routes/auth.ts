@@ -1,7 +1,6 @@
 import { Hono, type Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { hash, verify } from "argon2";
 import { getCookie, deleteCookie } from "hono/cookie";
 import { prisma } from "../lib/prisma.js";
 import { sessionManager, setSessionCookie } from "../lib/session.js";
@@ -17,24 +16,10 @@ import { storage } from "../services/storage.js";
 import { logger } from "../lib/logger.js";
 import { isSystemAdmin } from "../lib/systemAdmin.js";
 import { getClientIp } from "../lib/request.js";
+import { hashPassword, verifyPassword } from "../lib/password.js";
 import { isVisitorOnlyAccount } from "../services/access.js";
 import { notifyEmailChanged } from "./notifications.js";
 import { Prisma } from "../generated/prisma/index.js";
-
-const ARGON2_OPTIONS = {
-  type: 2, // Argon2id
-  memoryCost: 19456, // 19 MiB (OWASP minimum — serverless 環境でのタイムアウト対策)
-  timeCost: 2,
-  parallelism: 1,
-} as const;
-
-async function hashPassword(password: string): Promise<string> {
-  return hash(password, ARGON2_OPTIONS);
-}
-
-async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
-  return verify(storedHash, password);
-}
 
 async function issueSession(c: Context, userId: string, isVisitor: boolean): Promise<void> {
   const sessionData = sessionManager.createSession(userId, isVisitor);
@@ -128,7 +113,7 @@ export const authRouter = new Hono()
       await clearLoginRateLimit(ip);
 
       const memberships = await prisma.member.findMany({
-        where: { userId: user.id, deletedAt: null },
+        where: { userId: user.id, deletedAt: null, org: { deletedAt: null } },
         include: { org: true, part: true },
       });
       await issueSession(c, user.id, isVisitorOnlyAccount(memberships));
@@ -169,10 +154,10 @@ export const authRouter = new Hono()
     const { token } = c.req.param();
     const invite = await prisma.inviteToken.findUnique({
       where: { token },
-      include: { org: { select: { name: true, slug: true } } },
+      include: { org: { select: { name: true, slug: true, deletedAt: true } } },
     });
 
-    if (!invite) return c.json({ error: INVALID_TOKEN_ERROR }, 404);
+    if (!invite || invite.org.deletedAt) return c.json({ error: INVALID_TOKEN_ERROR }, 404);
     const err = usedOrExpiredInviteError(invite);
     if (err) return c.json({ error: err }, 404);
 
@@ -212,9 +197,9 @@ export const authRouter = new Hono()
 
       const invite = await prisma.inviteToken.findUnique({
         where: { token },
-        include: { org: { select: { slug: true } } },
+        include: { org: { select: { slug: true, deletedAt: true } } },
       });
-      if (!invite) return c.json({ error: INVALID_TOKEN_ERROR }, 404);
+      if (!invite || invite.org.deletedAt) return c.json({ error: INVALID_TOKEN_ERROR }, 404);
       const tokenErr = usedOrExpiredInviteError(invite);
       if (tokenErr) return c.json({ error: tokenErr }, 404);
 
@@ -306,7 +291,7 @@ export const authRouter = new Hono()
       // 新規団体の画面へ直接遷移できるようにする（新規ユーザーは/loginから通常フローで入る）
       if (existingUser) {
         const memberships = await prisma.member.findMany({
-          where: { userId: user.id, deletedAt: null },
+          where: { userId: user.id, deletedAt: null, org: { deletedAt: null } },
         });
         await issueSession(c, user.id, isVisitorOnlyAccount(memberships));
       }
@@ -338,7 +323,7 @@ export const authRouter = new Hono()
     }
 
     const memberships = await prisma.member.findMany({
-      where: { userId: user.id, deletedAt: null },
+      where: { userId: user.id, deletedAt: null, org: { deletedAt: null } },
       include: { org: true, part: true },
     });
 

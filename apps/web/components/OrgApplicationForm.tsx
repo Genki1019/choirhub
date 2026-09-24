@@ -12,6 +12,7 @@ import {
 import { ApiClientError } from "@/lib/auth-api";
 import { orgApplicationSchema, type OrgApplicationInput } from "@/lib/schemas";
 import { sanitizeSlug } from "@/lib/slug";
+import { TermsConsentNote } from "@/components/TermsConsentNote";
 
 const INPUT_CLS =
   "focus:ring-brand-500 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:outline-none";
@@ -72,12 +73,13 @@ export function OrgApplicationForm({
       await submitFn({ ...data, message: data.message?.trim() || undefined });
       setSuccess(true);
     } catch (err) {
-      setError("root", {
-        message:
-          err instanceof ApiClientError && err.status === 409
-            ? "このスラグはすでに使用されています"
-            : "送信に失敗しました。しばらくしてから再試行してください",
-      });
+      let message = "送信に失敗しました。しばらくしてから再試行してください";
+      if (err instanceof ApiClientError && err.status === 409) {
+        message = "このスラグはすでに使用されています";
+      } else if (err instanceof ApiClientError && err.status === 400) {
+        message = err.message;
+      }
+      setError("root", { message });
     }
   };
 
@@ -184,6 +186,7 @@ export function OrgApplicationForm({
       >
         {isSubmitting ? <Loader2 size={16} className="mx-auto animate-spin" /> : submitLabel}
       </button>
+      <TermsConsentNote action="送信" />
     </form>
   );
 }

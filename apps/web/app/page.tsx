@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import Image from "next/image";
 import { ScrollTopLink } from "@/components/ScrollTopLink";
+import { LEGAL_LINKS } from "@/lib/legal-links";
 import { Calendar, FileMusic, Star, Mail, Ticket, Wallet, ChevronRight, Users } from "lucide-react";
 
 const API = process.env.API_INTERNAL_URL ?? "http://localhost:3001";
@@ -81,12 +82,20 @@ export default async function RootPage() {
             />
             <span className="cursor-pointer text-lg font-bold tracking-tight">ChoirHub</span>
           </ScrollTopLink>
-          <Link
-            href={loginHref}
-            className="text-brand-600 hover:text-brand-700 text-sm font-medium transition-colors"
-          >
-            ログイン
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/apply"
+              className="border-brand-200 text-brand-700 hover:bg-brand-50 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors"
+            >
+              団体作成を申請
+            </Link>
+            <Link
+              href={loginHref}
+              className="text-brand-600 hover:text-brand-700 text-sm font-medium transition-colors"
+            >
+              ログイン
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -113,6 +122,12 @@ export default async function RootPage() {
             >
               ログインしてはじめる
               <ChevronRight size={16} />
+            </Link>
+            <Link
+              href="/apply"
+              className="border-brand-200 text-brand-700 hover:bg-brand-50 inline-flex w-full items-center justify-center gap-2 rounded-xl border px-6 py-3 font-semibold transition-colors sm:w-auto"
+            >
+              団体作成を申請する
             </Link>
           </div>
         </section>
@@ -182,15 +197,15 @@ export default async function RootPage() {
               <span className="cursor-pointer font-bold text-gray-800">ChoirHub</span>
             </ScrollTopLink>
             <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-500">
-              <Link href="#" className="transition-colors hover:text-gray-700">
-                プライバシーポリシー
-              </Link>
-              <Link href="#" className="transition-colors hover:text-gray-700">
-                利用規約
-              </Link>
-              <Link href="#" className="transition-colors hover:text-gray-700">
-                お問い合わせ
-              </Link>
+              {LEGAL_LINKS.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="transition-colors hover:text-gray-700"
+                >
+                  {link.label}
+                </Link>
+              ))}
             </div>
           </div>
           <div className="border-t border-gray-100 pt-6 text-center text-xs text-gray-400">

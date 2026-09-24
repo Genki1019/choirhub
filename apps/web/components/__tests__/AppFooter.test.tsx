@@ -7,9 +7,12 @@ describe("AppFooter", () => {
     render(<AppFooter />);
 
     expect(screen.getByText("ChoirHub").closest("a")).toHaveAttribute("href", "/");
-    expect(screen.getByText("プライバシーポリシー")).toBeInTheDocument();
-    expect(screen.getByText("利用規約")).toBeInTheDocument();
-    expect(screen.getByText("お問い合わせ")).toBeInTheDocument();
+    expect(screen.getByText("プライバシーポリシー").closest("a")).toHaveAttribute(
+      "href",
+      "/privacy",
+    );
+    expect(screen.getByText("利用規約").closest("a")).toHaveAttribute("href", "/terms");
+    expect(screen.getByText("お問い合わせ").closest("a")).toHaveAttribute("href", "/contact");
     expect(screen.getByText(/All rights reserved/)).toBeInTheDocument();
   });
 });

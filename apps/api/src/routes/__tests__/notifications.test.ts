@@ -46,6 +46,8 @@ const testOrg: Organization = {
   visitorIntroBodyTemplate: "以下の方が見学にいらっしゃいます。\n\n{lines}",
   visitorIntroLineTemplate: "・{name}さん（希望パート: {part}[ / 出身団体: {origin}]）",
   createdAt: new Date("2024-01-01"),
+  deletedAt: null,
+  deletedByEmail: null,
 };
 
 const makeMember = (roles: string[], id = "member-1", partId: string | null = null): Member => ({
@@ -315,6 +317,11 @@ describe("handleAttendanceDueCron", () => {
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.data.createdCount).toBe(1);
+    expect(prisma.event.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ org: { deletedAt: null } }),
+      }),
+    );
     expect(prisma.notification.createMany).toHaveBeenCalledWith({
       data: [
         {

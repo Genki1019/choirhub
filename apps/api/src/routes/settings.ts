@@ -3,7 +3,12 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { randomUUID } from "crypto";
 import { prisma } from "../lib/prisma.js";
-import { isAdmin, isFinancePlus, isMemberPlus } from "../services/access.js";
+import { isAdmin, isFinancePlus, isMemberPlus, isVisitor } from "../services/access.js";
+import { sendOrgDeletedEmail } from "../services/mail.js";
+import { getPurgeScheduledAt, isProtectedOrg } from "../services/org-deletion.js";
+import { verifyPassword } from "../lib/password.js";
+import { checkOrgDeleteRateLimit, clearOrgDeleteRateLimit } from "../lib/redis.js";
+import { logger } from "../lib/logger.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 export const settingsRouter = new Hono<TenantEnv>()
@@ -62,6 +67,103 @@ export const settingsRouter = new Hono<TenantEnv>()
           slug: updated.slug,
         },
       });
+    },
+  )
+
+  // ── POST /settings/delete ── 団体の論理削除（猶予期間後にcronで完全削除）
+  .post(
+    "/settings/delete",
+    zValidator(
+      "json",
+      z.object({
+        confirmName: z.string(),
+        password: z.string().min(1),
+      }),
+      (result, c) => {
+        if (!result.success) {
+          return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+        }
+      },
+    ),
+    async (c) => {
+      const actingMember = c.get("member");
+      const org = c.get("org");
+      const user = c.get("user");
+
+      if (!isAdmin(actingMember)) {
+        return c.json({ error: { code: "FORBIDDEN", message: "管理者権限が必要です" } }, 403);
+      }
+
+      if (isProtectedOrg(org.slug)) {
+        return c.json(
+          { error: { code: "PROTECTED_ORG", message: "デモ環境のため、この団体は削除できません" } },
+          403,
+        );
+      }
+
+      const { confirmName, password } = c.req.valid("json");
+
+      if (confirmName !== org.name) {
+        return c.json(
+          { error: { code: "VALIDATION_ERROR", message: "団体名が一致しません" } },
+          400,
+        );
+      }
+
+      if (!(await checkOrgDeleteRateLimit(user.id))) {
+        return c.json(
+          {
+            error: {
+              code: "TOO_MANY_REQUESTS",
+              message: "しばらく時間をおいてから再試行してください",
+            },
+          },
+          429,
+        );
+      }
+
+      // セッション自体は有効なため、再認証の失敗は401（未認証）ではなく403で返す
+      const { passwordHash } = await prisma.user.findUniqueOrThrow({
+        where: { id: user.id },
+        select: { passwordHash: true },
+      });
+      if (!(await verifyPassword(password, passwordHash))) {
+        return c.json(
+          { error: { code: "INVALID_PASSWORD", message: "パスワードが正しくありません" } },
+          403,
+        );
+      }
+      await clearOrgDeleteRateLimit(user.id);
+
+      const deletedAt = new Date();
+      // 同時リクエストで削除通知が二重送信されないよう、未削除のときのみ成功する条件付き更新で確定させる
+      const { count } = await prisma.organization.updateMany({
+        where: { id: org.id, deletedAt: null },
+        data: { deletedAt, deletedByEmail: user.email },
+      });
+      if (count === 0) {
+        return c.json({ error: { code: "NOT_FOUND", message: "団体が見つかりません" } }, 404);
+      }
+
+      const purgeScheduledAt = getPurgeScheduledAt(deletedAt);
+
+      const recipients = await prisma.member.findMany({
+        where: { orgId: org.id, deletedAt: null },
+        include: { userRef: { select: { email: true } } },
+      });
+      try {
+        await sendOrgDeletedEmail({
+          to: recipients.filter((m) => !isVisitor(m)).map((m) => ({ email: m.userRef.email })),
+          orgName: org.name,
+          deletedByName: user.nameJa,
+          deletedAt,
+          purgeScheduledAt,
+        });
+      } catch (err) {
+        logger.error("[settings] 団体削除通知メールの送信に失敗しました:", err);
+      }
+
+      return c.json({ data: { deletedAt, purgeScheduledAt } });
     },
   )
 

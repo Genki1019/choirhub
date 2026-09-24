@@ -22,6 +22,12 @@ beforeEach(() => {
 });
 
 describe("OrgApplicationForm", () => {
+  it("利用規約・プライバシーポリシーへの同意文を表示する", () => {
+    render(<OrgApplicationForm />);
+    expect(screen.getByText(/送信することで/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "利用規約" })).toHaveAttribute("href", "/terms");
+  });
+
   it("パート構成の選択肢は混声四部→女声三部→男声四部→カスタムの順で表示される", () => {
     render(<OrgApplicationForm />);
 
@@ -147,5 +153,26 @@ describe("OrgApplicationForm", () => {
     await user.click(screen.getByText("申請する"));
 
     expect(await screen.findByText("このスラグはすでに使用されています")).toBeInTheDocument();
+  });
+
+  it("400エラー時はサーバーのメッセージ（予約語のスラグ等）を表示する", async () => {
+    vi.mocked(orgApplicationsApi.create).mockRejectedValue(
+      new ApiClientError(
+        "VALIDATION_ERROR",
+        "このスラグはシステムで使用しているため使えません",
+        400,
+      ),
+    );
+    const user = userEvent.setup();
+    render(<OrgApplicationForm />);
+
+    await user.type(screen.getByLabelText("団体名"), "admin");
+    await user.type(screen.getByLabelText("管理者氏名"), "鈴木花子");
+    await user.type(screen.getByLabelText("管理者メールアドレス"), "hanako@example.com");
+    await user.click(screen.getByText("申請する"));
+
+    expect(
+      await screen.findByText("このスラグはシステムで使用しているため使えません"),
+    ).toBeInTheDocument();
   });
 });

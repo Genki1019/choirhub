@@ -1,12 +1,12 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { createMiddleware } from "hono/factory";
 import { prisma } from "../lib/prisma.js";
 import { authMiddleware, type AuthEnv } from "../middleware/auth.js";
+import { requireSystemAdmin } from "../middleware/system-admin.js";
 import { checkOrgApplicationRateLimit } from "../lib/redis.js";
 import { getClientIp } from "../lib/request.js";
-import { isSystemAdmin, getSystemAdminEmails } from "../lib/systemAdmin.js";
+import { getSystemAdminEmails } from "../lib/systemAdmin.js";
 import { PART_TEMPLATES, type PartTemplateKey } from "../lib/partTemplates.js";
 import {
   sendOrgApplicationEmail,
@@ -36,18 +36,29 @@ function formatApplication(a: OrgApplication) {
   };
 }
 
-const requireSystemAdmin = createMiddleware<AuthEnv>(async (c, next) => {
-  if (!isSystemAdmin(c.get("user").email)) {
-    return c.json({ error: { code: "FORBIDDEN", message: "システム管理者権限が必要です" } }, 403);
-  }
-  await next();
-});
+// 団体ページは /:orgSlug で配信されるため、フロントエンドの固定ルート・公開ディレクトリと同じ名前は使えない
+const RESERVED_SLUGS = new Set([
+  "admin",
+  "api",
+  "apply",
+  "contact",
+  "demo",
+  "email-change",
+  "icons",
+  "invite",
+  "login",
+  "password-reset",
+  "privacy",
+  "select-org",
+  "terms",
+]);
 
 const slugSchema = z
   .string()
-  .min(2)
-  .max(50)
-  .regex(/^[a-z0-9-]+$/, "英小文字・数字・ハイフンのみ使用できます");
+  .min(2, "スラグは2〜50文字で入力してください")
+  .max(50, "スラグは2〜50文字で入力してください")
+  .regex(/^[a-z0-9-]+$/, "英小文字・数字・ハイフンのみ使用できます")
+  .refine((slug) => !RESERVED_SLUGS.has(slug), "このスラグはシステムで使用しているため使えません");
 
 const orgFieldsSchema = {
   orgName: z.string().min(1).max(100),

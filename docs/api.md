@@ -33,23 +33,29 @@
 
 ### 認証
 
-| API名                                                      | Method | Path                                 | 権限           |
-| ---------------------------------------------------------- | ------ | ------------------------------------ | -------------- |
-| [ログイン](#auth-login)                                    | POST   | `/auth/login`                        | 公開           |
-| [ログアウト](#auth-logout)                                 | POST   | `/auth/logout`                       | ログイン済み   |
-| [自分の認証情報取得](#auth-me)                             | GET    | `/auth/me`                           | ログイン済み   |
-| [招待トークン確認](#auth-invite-get)                       | GET    | `/auth/invite/:token`                | 公開           |
-| [招待受諾・登録](#auth-invite-post)                        | POST   | `/auth/invite/:token`                | 公開           |
-| [パスワードリセット申請](#auth-password-reset-request)     | POST   | `/auth/password-reset/request`       | 公開           |
-| [パスワードリセットトークン確認](#auth-password-reset-get) | GET    | `/auth/password-reset/:token`        | 公開           |
-| [パスワードリセット実行](#auth-password-reset-confirm)     | POST   | `/auth/password-reset/:token`        | 公開           |
-| [メールアドレス変更トークン確認](#auth-email-change-get)   | GET    | `/auth/email-change/:token`          | 公開           |
-| [メールアドレス変更確定](#auth-email-change-confirm)       | POST   | `/auth/email-change/:token`          | 公開           |
-| [団体作成の申請](#auth-org-applications-create)            | POST   | `/auth/org-applications`             | 公開           |
-| [団体作成申請の一覧](#auth-org-applications-list)          | GET    | `/auth/org-applications`             | システム管理者 |
-| [団体作成申請の承認](#auth-org-applications-approve)       | POST   | `/auth/org-applications/:id/approve` | システム管理者 |
-| [団体作成申請の却下](#auth-org-applications-reject)        | POST   | `/auth/org-applications/:id/reject`  | システム管理者 |
-| [団体の作成](#auth-orgs-create)                            | POST   | `/auth/orgs`                         | システム管理者 |
+| API名                                                      | Method | Path                                 | 権限                        |
+| ---------------------------------------------------------- | ------ | ------------------------------------ | --------------------------- |
+| [ログイン](#auth-login)                                    | POST   | `/auth/login`                        | 公開                        |
+| [ログアウト](#auth-logout)                                 | POST   | `/auth/logout`                       | ログイン済み                |
+| [自分の認証情報取得](#auth-me)                             | GET    | `/auth/me`                           | ログイン済み                |
+| [招待トークン確認](#auth-invite-get)                       | GET    | `/auth/invite/:token`                | 公開                        |
+| [招待受諾・登録](#auth-invite-post)                        | POST   | `/auth/invite/:token`                | 公開                        |
+| [パスワードリセット申請](#auth-password-reset-request)     | POST   | `/auth/password-reset/request`       | 公開                        |
+| [パスワードリセットトークン確認](#auth-password-reset-get) | GET    | `/auth/password-reset/:token`        | 公開                        |
+| [パスワードリセット実行](#auth-password-reset-confirm)     | POST   | `/auth/password-reset/:token`        | 公開                        |
+| [メールアドレス変更トークン確認](#auth-email-change-get)   | GET    | `/auth/email-change/:token`          | 公開                        |
+| [メールアドレス変更確定](#auth-email-change-confirm)       | POST   | `/auth/email-change/:token`          | 公開                        |
+| [団体作成の申請](#auth-org-applications-create)            | POST   | `/auth/org-applications`             | 公開                        |
+| [団体作成申請の一覧](#auth-org-applications-list)          | GET    | `/auth/org-applications`             | システム管理者              |
+| [団体作成申請の承認](#auth-org-applications-approve)       | POST   | `/auth/org-applications/:id/approve` | システム管理者              |
+| [団体作成申請の却下](#auth-org-applications-reject)        | POST   | `/auth/org-applications/:id/reject`  | システム管理者              |
+| [団体の作成](#auth-orgs-create)                            | POST   | `/auth/orgs`                         | システム管理者              |
+| [削除済み団体の一覧](#auth-orgs-deleted-list)              | GET    | `/auth/orgs/deleted`                 | システム管理者              |
+| [削除済み団体の復元](#auth-orgs-restore)                   | POST   | `/auth/orgs/:id/restore`             | システム管理者              |
+| [団体の完全削除バッチ](#internal-cron-org-purge)           | POST   | `/internal/cron/org-purge`           | 内部バッチ（`CRON_SECRET`） |
+| [運営への問い合わせ](#auth-inquiries-create)               | POST   | `/auth/inquiries`                    | 公開                        |
+| [問い合わせ一覧](#auth-inquiries-list)                     | GET    | `/auth/inquiries`                    | システム管理者              |
+| [問い合わせの対応済み化](#auth-inquiries-resolve)          | POST   | `/auth/inquiries/:id/resolve`        | システム管理者              |
 
 ### ホーム
 
@@ -187,6 +193,7 @@
 | ------------------------------------------------ | ------ | ------------------------------------------- | -------- |
 | [設定取得](#settings-get)                        | GET    | `/:orgSlug/settings`                        | finance+ |
 | [団体情報更新](#settings-patch)                  | PATCH  | `/:orgSlug/settings`                        | admin    |
+| [団体の削除](#settings-delete)                   | POST   | `/:orgSlug/settings/delete`                 | admin    |
 | [会費設定取得](#settings-org-get)                | GET    | `/:orgSlug/settings/org`                    | finance+ |
 | [パート追加](#parts-create)                      | POST   | `/:orgSlug/parts`                           | admin    |
 | [パート更新](#parts-patch)                       | PATCH  | `/:orgSlug/parts/:id`                       | admin    |
@@ -283,7 +290,7 @@
 リクエスト
   │
   ├─ [1] セッション検証（Cookie `session` → `lib/session.ts` で照合、期限切れなら401）
-  ├─ [2] orgSlug → orgId 解決・テナント存在確認
+  ├─ [2] orgSlug → orgId 解決・テナント存在確認（論理削除済みの団体は存在しないものとして404）
   ├─ [3] Member レコード取得 → ctx.member にセット
   └─ [4] 以降の全 DB クエリに orgId を自動付与
 ```
@@ -469,6 +476,8 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は3
 }
 ```
 
+> `orgs`には、論理削除済みの団員レコード・論理削除済みの団体（[団体の削除](#settings-delete)）を含めない。
+
 **Errors:**: `401` `UNAUTHORIZED` 未認証（Cookie無し・セッション無効/期限切れ）
 
 ---
@@ -496,7 +505,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は3
 }
 ```
 
-**Errors:**: `404` `INVALID_TOKEN` トークンが存在しない / `404` `TOKEN_USED` 使用済み / `404` `TOKEN_EXPIRED` 期限切れ
+**Errors:**: `404` `INVALID_TOKEN` トークンが存在しない・招待先の団体が論理削除済み / `404` `TOKEN_USED` 使用済み / `404` `TOKEN_EXPIRED` 期限切れ
 
 ---
 
@@ -540,7 +549,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は3
 
 Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は30日。全所属がvisitor判定のアカウントは24時間。30日の場合はアクセスごとに残り期間が半分を切ったら延長される）
 
-**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正（新規ユーザーでnameJa未指定・パスワード8文字未満を含む） / `401` `UNAUTHORIZED` 既存ユーザーのパスワード不一致 / `404` `INVALID_TOKEN` トークンが存在しない / `404` `TOKEN_USED` 使用済み / `404` `TOKEN_EXPIRED` 期限切れ / `409` `CONFLICT` 同一メールが既に登録済み / `429` `TOO_MANY_REQUESTS` レート制限超過
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正（新規ユーザーでnameJa未指定・パスワード8文字未満を含む） / `401` `UNAUTHORIZED` 既存ユーザーのパスワード不一致 / `404` `INVALID_TOKEN` トークンが存在しない・招待先の団体が論理削除済み / `404` `TOKEN_USED` 使用済み / `404` `TOKEN_EXPIRED` 期限切れ / `409` `CONFLICT` 同一メールが既に登録済み / `429` `TOO_MANY_REQUESTS` レート制限超過
 
 ---
 
@@ -656,14 +665,14 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は3
 
 **Request Body:**
 
-| フィールド     | 型     | 必須 | 説明                                                                                                                                                    |
-| -------------- | ------ | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| orgName        | string | ✓    | 申請する団体名（最大100文字）                                                                                                                           |
-| slug           | string | ✓    | 希望するURLスラグ（英小文字・数字・ハイフン、2〜50文字）。承認時にシステム管理者が確認・変更できる                                                      |
-| templateKey    | string | ✓    | パートテンプレート。`mixed4`（混声四部）/ `women3`（女声三部）/ `mens4`（男声四部）/ `custom`（パート0件で作成し承認後に`/settings/parts`から手動追加） |
-| applicantName  | string | ✓    | 新団体の管理者となる氏名（最大100文字）                                                                                                                 |
-| applicantEmail | string | ✓    | 新団体の管理者となるメールアドレス（承認されると、このアドレス宛に招待メールが届く）                                                                    |
-| message        | string |      | 補足メッセージ（最大1000文字）                                                                                                                          |
+| フィールド     | 型     | 必須 | 説明                                                                                                                                                                                                                                                                                                             |
+| -------------- | ------ | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| orgName        | string | ✓    | 申請する団体名（最大100文字）                                                                                                                                                                                                                                                                                    |
+| slug           | string | ✓    | 希望するURLスラグ（英小文字・数字・ハイフン、2〜50文字）。承認時にシステム管理者が確認・変更できる。フロントエンドの固定ルートと同名の予約語（`admin` / `api` / `apply` / `contact` / `demo` / `email-change` / `icons` / `invite` / `login` / `password-reset` / `privacy` / `select-org` / `terms`）は使用不可 |
+| templateKey    | string | ✓    | パートテンプレート。`mixed4`（混声四部）/ `women3`（女声三部）/ `mens4`（男声四部）/ `custom`（パート0件で作成し承認後に`/settings/parts`から手動追加）                                                                                                                                                          |
+| applicantName  | string | ✓    | 新団体の管理者となる氏名（最大100文字）                                                                                                                                                                                                                                                                          |
+| applicantEmail | string | ✓    | 新団体の管理者となるメールアドレス（承認されると、このアドレス宛に招待メールが届く）                                                                                                                                                                                                                             |
+| message        | string |      | 補足メッセージ（最大1000文字）                                                                                                                                                                                                                                                                                   |
 
 ```json
 {
@@ -682,7 +691,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は3
 { "data": { "message": "送信しました" } }
 ```
 
-**Errors:**: `400` `VALIDATION_ERROR` バリデーションエラー / `429` `TOO_MANY_REQUESTS` レート制限超過
+**Errors:**: `400` `VALIDATION_ERROR` バリデーションエラー（スラグの形式不正・予約語を含む。`message`に理由を日本語で返す） / `429` `TOO_MANY_REQUESTS` レート制限超過
 
 ---
 
@@ -732,9 +741,9 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は3
 
 **Request Body:**
 
-| フィールド | 型     | 必須 | 説明                                                                                                                                                                   |
-| ---------- | ------ | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| slug       | string |      | 確定させるURLスラグ（英小文字・数字・ハイフン、2〜50文字）。省略時は申請時に指定された値をそのまま使う。システム管理者が承認画面でスラグを確認・修正した場合に指定する |
+| フィールド | 型     | 必須 | 説明                                                                                                                                                                                                                                            |
+| ---------- | ------ | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| slug       | string |      | 確定させるURLスラグ（英小文字・数字・ハイフン、2〜50文字）。省略時は申請時に指定された値をそのまま使う。システム管理者が承認画面でスラグを確認・修正した場合に指定する。予約語は[団体作成の申請](#auth-org-applications-create)と同じく使用不可 |
 
 ```json
 { "slug": "circle-choir" }
@@ -753,7 +762,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は3
 }
 ```
 
-**Errors:**: `400` `VALIDATION_ERROR` スラグ形式が不正 / `401` `UNAUTHORIZED` 未認証 / `403` `FORBIDDEN` システム管理者以外 / `404` `NOT_FOUND` 申請が存在しない / `409` `CONFLICT` 既に処理済みの申請、または確定したスラグが既存団体と重複
+**Errors:**: `400` `VALIDATION_ERROR` スラグ形式が不正・予約語 / `401` `UNAUTHORIZED` 未認証 / `403` `FORBIDDEN` システム管理者以外 / `404` `NOT_FOUND` 申請が存在しない / `409` `CONFLICT` 既に処理済みの申請、または確定したスラグが既存団体と重複（論理削除済みで完全削除待ちの団体のスラグも含む）
 
 ---
 
@@ -792,13 +801,13 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は3
 
 **Request Body:**
 
-| フィールド     | 型     | 必須 | 説明                                                         |
-| -------------- | ------ | ---- | ------------------------------------------------------------ |
-| orgName        | string | ✓    | 団体名（最大100文字）                                        |
-| slug           | string | ✓    | URLスラグ（英小文字・数字・ハイフン、2〜50文字）             |
-| templateKey    | string | ✓    | パートテンプレート。`mixed4` / `women3` / `mens4` / `custom` |
-| applicantName  | string | ✓    | 新団体の管理者となる氏名（最大100文字）                      |
-| applicantEmail | string | ✓    | 新団体の管理者となるメールアドレス（招待メール送信先）       |
+| フィールド     | 型     | 必須 | 説明                                                                                                                      |
+| -------------- | ------ | ---- | ------------------------------------------------------------------------------------------------------------------------- |
+| orgName        | string | ✓    | 団体名（最大100文字）                                                                                                     |
+| slug           | string | ✓    | URLスラグ（英小文字・数字・ハイフン、2〜50文字。予約語は[団体作成の申請](#auth-org-applications-create)と同じく使用不可） |
+| templateKey    | string | ✓    | パートテンプレート。`mixed4` / `women3` / `mens4` / `custom`                                                              |
+| applicantName  | string | ✓    | 新団体の管理者となる氏名（最大100文字）                                                                                   |
+| applicantEmail | string | ✓    | 新団体の管理者となるメールアドレス（招待メール送信先）                                                                    |
 
 ```json
 {
@@ -816,7 +825,173 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は3
 { "data": { "message": "団体を作成し、招待メールを送信しました" } }
 ```
 
-**Errors:**: `400` `VALIDATION_ERROR` バリデーションエラー / `401` `UNAUTHORIZED` 未認証 / `403` `FORBIDDEN` システム管理者以外 / `409` `CONFLICT` スラグが既存団体と重複
+**Errors:**: `400` `VALIDATION_ERROR` バリデーションエラー / `401` `UNAUTHORIZED` 未認証 / `403` `FORBIDDEN` システム管理者以外 / `409` `CONFLICT` スラグが既存団体と重複（論理削除済みで完全削除待ちの団体のスラグも含む）
+
+---
+
+<a id="auth-orgs-deleted-list"></a>
+
+### GET `/api/v1/auth/orgs/deleted`
+
+論理削除済み（完全削除待ち）の団体一覧を、削除日時の新しい順に取得する（システム管理者のみ）。
+
+**権限**: システム管理者
+
+**Response** `200`
+
+```json
+{
+  "data": [
+    {
+      "id": "cuid",
+      "name": "東京男声合唱団",
+      "slug": "tokyo-men-choir",
+      "deletedAt": "2026-09-24T04:00:00.000Z",
+      "deletedByEmail": "admin@example.com",
+      "purgeScheduledAt": "2026-10-24T04:00:00.000Z"
+    }
+  ]
+}
+```
+
+> `purgeScheduledAt`は`deletedAt`の30日後。この日時を過ぎると[団体の完全削除バッチ](#internal-cron-org-purge)の対象になる。
+
+**Errors:**: `401` `UNAUTHORIZED` 未認証 / `403` `FORBIDDEN` システム管理者以外
+
+---
+
+<a id="auth-orgs-restore"></a>
+
+### POST `/api/v1/auth/orgs/:id/restore`
+
+論理削除済みの団体を復元する（システム管理者のみ）。`deletedAt`・`deletedByEmail`をクリアし、団員は削除前と同じ状態で再び利用できるようになる。復元時のメール通知は行わない。
+
+**権限**: システム管理者
+
+**Response** `200`
+
+```json
+{ "data": { "id": "cuid", "name": "東京男声合唱団", "slug": "tokyo-men-choir" } }
+```
+
+> 完全削除予定日時を過ぎていても、バッチで完全削除されるまでは復元できる。
+
+**Errors:**: `401` `UNAUTHORIZED` 未認証 / `403` `FORBIDDEN` システム管理者以外 / `404` `NOT_FOUND` 団体が存在しない、または削除済みでない
+
+---
+
+<a id="internal-cron-org-purge"></a>
+
+### POST `/api/v1/internal/cron/org-purge`
+
+論理削除から30日以上経過した団体を完全削除する内部バッチ。Vercel Cronから毎日2時（UTC）に呼び出される（他の内部バッチと1時間ずつずらして実行）。認証方式は[出欠期限接近通知バッチ](#internal-cron-attendance-due)と同じ。
+
+**権限**: 内部バッチのみ（`CRON_SECRET`環境変数と一致するヘッダーが必須）
+
+**Response** `200`
+
+```json
+{ "data": { "purgedCount": 1 } }
+```
+
+> - 団体ごとに、R2上のファイル（`StoredFile.storageKey`）を削除してから`Organization`行を削除する。配下の全テーブルは`onDelete: Cascade`で連動削除される。途中で失敗しても`Organization`行が残るため、次回実行で再試行される
+> - Vercel関数の実行時間上限（30秒）に収めるため、1回の実行で処理するのは削除日時の古い順に最大3団体。残りは翌日以降に処理される
+> - アバター画像は`User`に紐づき他団体でも使われるため削除しない。`User`自体も削除しない
+
+**Errors:**: `401` `UNAUTHORIZED` `CRON_SECRET`が未設定または不一致
+
+---
+
+<a id="auth-inquiries-create"></a>
+
+### POST `/api/v1/auth/inquiries`
+
+ChoirHub運営（システム管理者）へ問い合わせを送る。**公開エンドポイント（認証不要）**。IPアドレスごとにレート制限（1時間に5回）がかかる。問い合わせは`Inquiry`として保存され、システム管理者コンソール（`/admin`）に表示される。保存と同時にシステム管理者（環境変数`SYSTEM_ADMIN_EMAILS`）へ通知メールを送る。
+
+**権限**: なし（公開）
+
+**Request Body:**
+
+| フィールド | 型     | 必須 | 説明                                                                                                                                                         |
+| ---------- | ------ | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| category   | string | ✓    | 種類。`org_restore`（削除した団体の復元）/ `account`（アカウント・ログイン）/ `privacy`（個人情報の開示・訂正・削除）/ `bug_report`（不具合の報告）/ `other` |
+| name       | string | ✓    | 送信者の氏名（前後の空白を除いて1〜100文字）                                                                                                                 |
+| email      | string | ✓    | 返信先メールアドレス                                                                                                                                         |
+| orgName    | string |      | 関係する団体名（最大100文字）。空文字は未指定として扱う                                                                                                      |
+| message    | string | ✓    | 問い合わせ内容（前後の空白を除いて1〜2000文字）                                                                                                              |
+
+```json
+{
+  "category": "org_restore",
+  "name": "山田 太郎",
+  "email": "yamada@example.com",
+  "orgName": "東京男声合唱団",
+  "message": "誤って団体を削除してしまいました。復元をお願いします。"
+}
+```
+
+**Response** `201`
+
+```json
+{ "data": { "message": "送信しました" } }
+```
+
+> 通知メールの送信に失敗しても、問い合わせ自体は保存済みのため`201`を返す（`/admin`で確認できる）。`SYSTEM_ADMIN_EMAILS`が未設定の場合は保存のみ行う。
+
+**Errors:**: `400` `VALIDATION_ERROR` バリデーションエラー / `429` `TOO_MANY_REQUESTS` レート制限超過
+
+---
+
+<a id="auth-inquiries-list"></a>
+
+### GET `/api/v1/auth/inquiries`
+
+問い合わせ一覧を作成日時の新しい順に取得する（システム管理者のみ）。
+
+**権限**: システム管理者
+
+**Query Parameters:**
+
+| パラメータ | 型     | 必須 | 説明                                                 |
+| ---------- | ------ | ---- | ---------------------------------------------------- |
+| status     | string |      | `open`（未対応、デフォルト）/ `resolved`（対応済み） |
+
+**Response** `200`
+
+```json
+{
+  "data": [
+    {
+      "id": "cuid",
+      "category": "org_restore",
+      "name": "山田 太郎",
+      "email": "yamada@example.com",
+      "orgName": "東京男声合唱団",
+      "message": "誤って団体を削除してしまいました。復元をお願いします。",
+      "status": "open",
+      "resolvedByEmail": null,
+      "resolvedAt": null,
+      "createdAt": "2026-09-24T05:00:00.000Z"
+    }
+  ]
+}
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` 不正な`status` / `401` `UNAUTHORIZED` 未認証 / `403` `FORBIDDEN` システム管理者以外
+
+---
+
+<a id="auth-inquiries-resolve"></a>
+
+### POST `/api/v1/auth/inquiries/:id/resolve`
+
+問い合わせを対応済みにする（システム管理者のみ）。未対応（`open`）のときのみ成功する条件付き更新で、対応者のメールアドレスと日時を記録する。返信自体はシステム管理者が送信者のメールアドレス宛に個別に行う。
+
+**権限**: システム管理者
+
+**Response** `200` → 更新後の問い合わせ（一覧と同じ形式、`status: "resolved"`）
+
+**Errors:**: `401` `UNAUTHORIZED` 未認証 / `403` `FORBIDDEN` システム管理者以外 / `404` `NOT_FOUND` 問い合わせが存在しない / `409` `CONFLICT` 既に対応済み
 
 ---
 
@@ -1610,7 +1785,7 @@ iCalフィード用トークンを新規発行/再発行する。再発行する
 
 > レスポンスは`Content-Type: text/calendar; charset=utf-8`。各イベントの`UID`は`Event.id`/`Concert.id`と一致させ、外部カレンダー側の更新検知・重複排除に使う。
 
-**Errors:**: `400` `VALIDATION_ERROR` `token`未指定 / `404` `NOT_FOUND` `orgSlug`が存在しない / `404` `NOT_FOUND` `token`に一致するメンバーが存在しない
+**Errors:**: `400` `VALIDATION_ERROR` `token`未指定 / `404` `NOT_FOUND` `orgSlug`が存在しない・団体が論理削除済み / `404` `NOT_FOUND` `token`に一致するメンバーが存在しない
 
 ---
 
@@ -3932,6 +4107,45 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 
 ---
 
+<a id="settings-delete"></a>
+
+### POST `/api/v1/:orgSlug/settings/delete`
+
+団体を論理削除する。削除した時点で団員は団体配下のすべてのAPIにアクセスできなくなり、30日後に[団体の完全削除バッチ](#internal-cron-org-purge)で全データが完全に削除される。30日以内であればシステム管理者が[復元](#auth-orgs-restore)できる。
+
+**権限**: `admin`
+
+**Request Body:**
+
+| フィールド  | 型     | 必須 | 説明                                                 |
+| ----------- | ------ | ---- | ---------------------------------------------------- |
+| confirmName | string | ✓    | 確認用の団体名。現在の団体名と完全一致する必要がある |
+| password    | string | ✓    | 操作者本人のログインパスワード（再認証）             |
+
+```json
+{ "confirmName": "東京男声合唱団", "password": "********" }
+```
+
+**Response** `200`
+
+```json
+{
+  "data": {
+    "deletedAt": "2026-09-24T04:00:00.000Z",
+    "purgeScheduledAt": "2026-10-24T04:00:00.000Z"
+  }
+}
+```
+
+> - 取り消しの効かない影響の大きい操作のため、団体名の入力とパスワードの再認証を求める。パスワード照合はユーザーID単位のレート制限（15分間に5回）の対象
+> - `deletedAt`と操作者のメールアドレス（`deletedByEmail`）を記録する。同時リクエストでは、未削除の状態から更新できた1件のみが成功する
+> - 成功時、削除されていない団員のうち体験（`visitor`）以外の全員に削除通知メールを送る（削除日・操作者・完全削除予定日・復元の問い合わせ先を記載）。メール送信に失敗しても削除自体は成功として扱う
+> - 削除後は以下もすべて`404`になる: `/:orgSlug/*`配下の全API（[テナント解決](#1-概要共通仕様)）、iCalフィード、見学申込Webhook、この団体への招待トークン。`GET /auth/me`・ログインの所属団体一覧からも除外される
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値不正・団体名が一致しない / `403` `FORBIDDEN` 管理者権限が必要 / `403` `PROTECTED_ORG` 削除保護された団体（環境変数`PROTECTED_ORG_SLUGS`で指定。公開デモ団体等） / `403` `INVALID_PASSWORD` パスワードが正しくない / `404` `NOT_FOUND` 既に削除済み / `429` `TOO_MANY_REQUESTS` レート制限超過
+
+---
+
 <a id="settings-org-get"></a>
 
 ### GET `/api/v1/:orgSlug/settings/org`
@@ -4980,7 +5194,7 @@ Googleフォームからの回答をWebhook経由で見学申込として取り�
 
 **Response** `201` 作成した見学申込オブジェクト（`source: "google_form"`）
 
-**Errors:**: `400` `VALIDATION_ERROR` `name` が未入力 / `404` `NOT_FOUND` `token` に一致する団体が存在しない
+**Errors:**: `400` `VALIDATION_ERROR` `name` が未入力 / `404` `NOT_FOUND` `token` に一致する団体が存在しない・団体が論理削除済み
 
 ---
 

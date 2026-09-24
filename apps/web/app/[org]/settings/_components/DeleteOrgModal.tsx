@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { settingsApi } from "@/lib/settings-api";
@@ -72,7 +73,17 @@ export function DeleteOrgModal({ orgSlug, orgName, onClose }: DeleteOrgModalProp
               <li>
                 30日後に、団員・スケジュール・楽譜・会計などすべてのデータが完全に削除されます
               </li>
-              <li>30日以内であれば、ChoirHub運営への連絡で復元できます</li>
+              <li>
+                30日以内であれば、
+                <Link
+                  href="/contact?category=org_restore"
+                  target="_blank"
+                  className="text-brand-600 mx-0.5 hover:underline"
+                >
+                  ChoirHub運営へのお問い合わせ
+                </Link>
+                で復元できます
+              </li>
             </ul>
           </div>
         </div>
@@ -92,6 +103,15 @@ export function DeleteOrgModal({ orgSlug, orgName, onClose }: DeleteOrgModalProp
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-red-400 focus:outline-none"
             />
           </div>
+          {/* パスワードマネージャーは直前の入力欄をユーザー名とみなして自動入力するため、
+              団体名欄に入らないよう専用の欄で受け止める */}
+          <input
+            type="text"
+            autoComplete="username"
+            tabIndex={-1}
+            aria-hidden="true"
+            className="sr-only"
+          />
           <div>
             <label htmlFor="delete-org-password" className="mb-1 block text-xs text-gray-600">
               パスワード

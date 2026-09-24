@@ -13,6 +13,7 @@ import { orgApplicationKeys } from "@/lib/query-keys";
 import { OrgApplicationForm } from "@/components/OrgApplicationForm";
 import { SLUG_REGEX, sanitizeSlug } from "@/lib/slug";
 import { DeletedOrgsSection } from "./_components/DeletedOrgsSection";
+import { InquiriesSection } from "./_components/InquiriesSection";
 
 export default function AdminPage() {
   const queryClient = useQueryClient();
@@ -200,6 +201,7 @@ export default function AdminPage() {
         </div>
       )}
 
+      <InquiriesSection />
       <DeletedOrgsSection />
     </div>
   );

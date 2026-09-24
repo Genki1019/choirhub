@@ -28,6 +28,7 @@ import {
   handleNotificationsCleanupCron,
 } from "./routes/notifications.js";
 import { deletedOrgsRouter, handleOrgPurgeCron } from "./routes/deleted-orgs.js";
+import { inquiriesRouter } from "./routes/inquiries.js";
 import { storage } from "./services/storage.js";
 import { logger } from "./lib/logger.js";
 
@@ -59,6 +60,7 @@ const v1 = new Hono();
 v1.route("/", authRouter);
 v1.route("/", orgApplicationsRouter);
 v1.route("/", deletedOrgsRouter);
+v1.route("/", inquiriesRouter);
 
 v1.use("/:orgSlug/*", authMiddleware, tenantMiddleware);
 v1.route("/:orgSlug", membersRouter);

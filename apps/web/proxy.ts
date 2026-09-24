@@ -1,11 +1,29 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-const PUBLIC_PREFIXES = ["/login", "/invite/", "/password-reset", "/apply", "/api/"];
+// 配下のパス（/password-reset/:token 等）も公開する。前方一致だと /contact-choir のような
+// 団体スラグまで公開扱いになるため、完全一致か「/」区切りの配下のみを対象にする
+const PUBLIC_PATHS = [
+  "/login",
+  "/invite",
+  "/password-reset",
+  "/email-change",
+  "/apply",
+  "/contact",
+  "/privacy",
+  "/terms",
+  "/api",
+];
+
+function isPublicPath(pathname: string): boolean {
+  return (
+    pathname === "/" || PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+  );
+}
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname === "/" || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
+  if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
 

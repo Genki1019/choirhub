@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { SLUG_REGEX } from "./slug";
 import { PART_TEMPLATE_OPTIONS, type PartTemplateKey } from "./org-applications-api";
+import { INQUIRY_CATEGORY_OPTIONS, type InquiryCategory } from "./inquiries-api";
 
 export const loginSchema = z.object({
   email: z.string().email("有効なメールアドレスを入力してください"),
@@ -64,6 +65,20 @@ export const orgApplicationSchema = z.object({
   message: z.string().max(1000).optional(),
 });
 
+export const inquirySchema = z.object({
+  category: z.enum(
+    INQUIRY_CATEGORY_OPTIONS.map((opt) => opt.key) as [InquiryCategory, ...InquiryCategory[]],
+  ),
+  name: z.string().trim().min(1, "お名前を入力してください").max(100),
+  email: z.string().email("有効なメールアドレスを入力してください"),
+  orgName: z.string().max(100, "100文字以内で入力してください").optional(),
+  message: z
+    .string()
+    .trim()
+    .min(1, "お問い合わせ内容を入力してください")
+    .max(2000, "2000文字以内で入力してください"),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type InviteAcceptInput = z.infer<typeof inviteAcceptSchema>;
 export type InviteAcceptExistingUserInput = z.infer<typeof inviteAcceptExistingUserSchema>;
@@ -72,3 +87,4 @@ export type AddVisitorApplicationInput = z.infer<typeof addVisitorApplicationSch
 export type PasswordResetRequestInput = z.infer<typeof passwordResetRequestSchema>;
 export type PasswordResetConfirmInput = z.infer<typeof passwordResetConfirmSchema>;
 export type OrgApplicationInput = z.infer<typeof orgApplicationSchema>;
+export type InquiryInput = z.infer<typeof inquirySchema>;

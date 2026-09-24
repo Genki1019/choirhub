@@ -6,6 +6,7 @@ import AdminPage from "../page";
 import { orgApplicationsApi } from "@/lib/org-applications-api";
 import { ApiClientError } from "@/lib/auth-api";
 import { deletedOrgsApi } from "@/lib/deleted-orgs-api";
+import { inquiriesApi } from "@/lib/inquiries-api";
 
 vi.mock("@/lib/org-applications-api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/org-applications-api")>(
@@ -21,6 +22,11 @@ vi.mock("@/lib/org-applications-api", async () => {
     },
   };
 });
+
+vi.mock("@/lib/inquiries-api", async () => ({
+  ...(await vi.importActual<typeof import("@/lib/inquiries-api")>("@/lib/inquiries-api")),
+  inquiriesApi: { listOpen: vi.fn(), resolve: vi.fn() },
+}));
 
 vi.mock("@/lib/deleted-orgs-api", () => ({
   deletedOrgsApi: { list: vi.fn(), restore: vi.fn() },
@@ -52,6 +58,7 @@ function renderPage() {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(deletedOrgsApi.list).mockResolvedValue([]);
+  vi.mocked(inquiriesApi.listOpen).mockResolvedValue([]);
 });
 
 describe("AdminPage（表示）", () => {

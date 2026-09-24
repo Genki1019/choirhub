@@ -44,6 +44,15 @@ describe("InviteForm（表示）", () => {
     expect(screen.getByLabelText("パスワード（確認）")).toBeInTheDocument();
   });
 
+  it("利用規約・プライバシーポリシーへの同意文を表示する", () => {
+    render(<InviteForm token="test-token" invite={invite} />);
+    expect(screen.getByText(/登録することで/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "プライバシーポリシー" })).toHaveAttribute(
+      "href",
+      "/privacy",
+    );
+  });
+
   it("招待情報に氏名が含まれる場合はお名前欄に初期値として表示する", () => {
     render(<InviteForm token="test-token" invite={{ ...invite, nameJa: "山田太郎" }} />);
 

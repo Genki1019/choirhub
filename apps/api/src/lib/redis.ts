@@ -18,6 +18,8 @@ const INVITE_ACCEPT_MAX = 5;
 const INVITE_ACCEPT_WINDOW_S = 900;
 const EMAIL_CHANGE_MAX = 3;
 const EMAIL_CHANGE_WINDOW_S = 900;
+const INQUIRY_MAX = 5;
+const INQUIRY_WINDOW_S = 3600;
 const ORG_DELETE_MAX = 5;
 const ORG_DELETE_WINDOW_S = 900;
 
@@ -84,4 +86,8 @@ export function checkOrgDeleteRateLimit(userId: string): Promise<boolean> {
 
 export function clearOrgDeleteRateLimit(userId: string): Promise<void> {
   return clearRateLimit("org-delete", userId);
+}
+
+export function checkInquiryRateLimit(ip: string): Promise<boolean> {
+  return checkRateLimit("inquiry", ip, INQUIRY_MAX, INQUIRY_WINDOW_S);
 }

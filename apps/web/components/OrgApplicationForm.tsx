@@ -12,6 +12,7 @@ import {
 import { ApiClientError } from "@/lib/auth-api";
 import { orgApplicationSchema, type OrgApplicationInput } from "@/lib/schemas";
 import { sanitizeSlug } from "@/lib/slug";
+import { TermsConsentNote } from "@/components/TermsConsentNote";
 
 const INPUT_CLS =
   "focus:ring-brand-500 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:outline-none";
@@ -184,6 +185,7 @@ export function OrgApplicationForm({
       >
         {isSubmitting ? <Loader2 size={16} className="mx-auto animate-spin" /> : submitLabel}
       </button>
+      <TermsConsentNote action="送信" />
     </form>
   );
 }

@@ -51,6 +51,24 @@ describe("DeleteOrgModal", () => {
     expect(dialog).toHaveTextContent("削除通知メール");
   });
 
+  it("復元の問い合わせ先として、種類「団体の復元」を選択した問い合わせフォームを別タブで開くリンクを表示する", () => {
+    renderModal();
+
+    const link = screen.getByRole("link", { name: "ChoirHub運営へのお問い合わせ" });
+    expect(link).toHaveAttribute("href", "/contact?category=org_restore");
+    expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("パスワードマネージャーのユーザー名自動入力が団体名欄に入らないよう、パスワード欄の直前にユーザー名欄を置く", () => {
+    renderModal();
+
+    const password = screen.getByLabelText("パスワード");
+    const inputs = Array.from(document.querySelectorAll("input"));
+    const preceding = inputs[inputs.indexOf(password as HTMLInputElement) - 1];
+    expect(preceding).toHaveAttribute("autocomplete", "username");
+    expect(screen.getByLabelText(/団体名/)).toHaveAttribute("autocomplete", "off");
+  });
+
   it("団体名が一致しない間は削除ボタンを押せない", async () => {
     const user = userEvent.setup();
     renderModal();

@@ -14,6 +14,16 @@ function atTime(date: Date, h: number, m = 0): Date {
   return d;
 }
 
+function addMonths(base: Date, months: number): Date {
+  const d = new Date(base);
+  d.setMonth(d.getMonth() + months);
+  return d;
+}
+
+function monthKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 // ─── main seed（既存: 自分の団体） ───────────────────────────────────────────
 async function seedAdmin() {
   const email = process.env.SEED_EMAIL ?? "admin@example.com";
@@ -784,6 +794,107 @@ async function seedDemo() {
       },
     });
   }
+
+  // ── 15. 幹事パートローテーション ──────────────────────────────────────────
+  const organizerRotation = [pAlto, pTenor, pBass];
+  for (let i = 0; i < organizerRotation.length; i++) {
+    const from = addMonths(today, i * 2);
+    const to = addMonths(today, i * 2 + 1);
+    await prisma.organizerPeriod.create({
+      data: {
+        orgId: org.id,
+        partId: organizerRotation[i].id,
+        fromMonth: monthKey(from),
+        toMonth: monthKey(to),
+      },
+    });
+  }
+
+  // ── 16. 見学申込（承認待ち1件） ────────────────────────────────────────────
+  await prisma.visitorApplication.create({
+    data: {
+      orgId: org.id,
+      name: "小川 陽菜",
+      partHope: "ソプラノ",
+      originGroup: "○○大学グリークラブ",
+      contact: "ogawa.example@example.com",
+      message: "学生時代に混声合唱をしていました。見学させていただきたいです。",
+      source: "manual",
+      createdById: adminMemberId,
+    },
+  });
+
+  // ── 17. 資料ライブラリ（団体共有資料） ────────────────────────────────────
+  const orgDocumentDefs = [
+    {
+      title: "団体規約",
+      category: "bylaws" as const,
+      accessLevel: "restricted" as const,
+      fileName: "bylaws.pdf",
+    },
+    {
+      title: "第16回運営会議 議事録",
+      category: "minutes" as const,
+      accessLevel: "restricted" as const,
+      fileName: "minutes_2026-09.pdf",
+    },
+    {
+      title: "2026年度上半期 会計報告",
+      category: "finance_report" as const,
+      accessLevel: "public" as const,
+      fileName: "finance_report_2026h1.pdf",
+    },
+  ];
+  for (const def of orgDocumentDefs) {
+    const file = await prisma.storedFile.create({
+      data: {
+        orgId: org.id,
+        kind: "org_document",
+        storageKey: `org-documents/${org.id}/${def.fileName}`,
+        fileName: def.fileName,
+        uploadedBy: adminMemberId,
+      },
+    });
+    await prisma.orgDocument.create({
+      data: {
+        fileId: file.id,
+        title: def.title,
+        category: def.category,
+        accessLevel: def.accessLevel,
+      },
+    });
+  }
+
+  // ── 18. スケジュール添付ファイル・練習録音 ────────────────────────────────
+  const latestPastRehearsal = rehearsalEvents[4];
+  const flyerFile = await prisma.storedFile.create({
+    data: {
+      orgId: org.id,
+      kind: "event",
+      storageKey: `events/${latestPastRehearsal.id}/flyer.pdf`,
+      fileName: "flyer.pdf",
+      uploadedBy: adminMemberId,
+    },
+  });
+  await prisma.eventFile.create({
+    data: { fileId: flyerFile.id, eventId: latestPastRehearsal.id, label: "フライヤー" },
+  });
+  const recordingFile = await prisma.storedFile.create({
+    data: {
+      orgId: org.id,
+      kind: "event",
+      storageKey: `events/${latestPastRehearsal.id}/ave_verum_chorus.mp3`,
+      fileName: "ave_verum_chorus.mp3",
+      uploadedBy: adminMemberId,
+    },
+  });
+  await prisma.eventFile.create({
+    data: {
+      fileId: recordingFile.id,
+      eventId: latestPastRehearsal.id,
+      label: "アヴェ・ヴェルム・コルプス（合唱パート合わせ）",
+    },
+  });
 
   console.log("✅ デモシード完了");
   console.log(`   URL     : https://choirhub-web.vercel.app/${DEMO_SLUG}`);

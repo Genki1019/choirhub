@@ -68,6 +68,7 @@
 | API名                                              | Method | Path                                | 権限         |
 | -------------------------------------------------- | ------ | ----------------------------------- | ------------ |
 | [メンバー一覧取得](#members-list)                  | GET    | `/:orgSlug/members`                 | 認証済み全員 |
+| [名簿CSVエクスポート](#members-export)             | GET    | `/:orgSlug/members/export`          | admin        |
 | [自分のプロフィール取得](#members-me-get)          | GET    | `/:orgSlug/members/me`              | member+      |
 | [自分のプロフィール更新](#members-me-patch)        | PATCH  | `/:orgSlug/members/me`              | member+      |
 | [メールアドレス変更申請](#members-me-email-change) | POST   | `/:orgSlug/members/me/email-change` | member+      |
@@ -167,6 +168,7 @@
 | [チケット管理一覧](#tickets-list)                           | GET    | `/:orgSlug/tickets`                                           | ticket or admin                       |
 | [チケット一覧（自分）](#tickets-my-get)                     | GET    | `/:orgSlug/tickets/my`                                        | member+                               |
 | [チケット集計取得](#tickets-id-get)                         | GET    | `/:orgSlug/tickets/:concertId`                                | ticket or admin                       |
+| [配券・販売実績CSVエクスポート](#tickets-export)            | GET    | `/:orgSlug/tickets/:concertId/export`                         | ticket or admin                       |
 | [席種作成](#tickets-batches-create)                         | POST   | `/:orgSlug/tickets/:concertId/batches`                        | ticket or admin                       |
 | [席種更新](#tickets-batches-patch)                          | PATCH  | `/:orgSlug/tickets/:concertId/batches/:batchId`               | ticket or admin                       |
 | [席種削除](#tickets-batches-delete)                         | DELETE | `/:orgSlug/tickets/:concertId/batches/:batchId`               | ticket or admin                       |
@@ -218,6 +220,8 @@
 | ----------------------------------------------- | ------ | ------------------------------------------------------ | -------- |
 | [収支サマリー取得](#accounting-summary)         | GET    | `/:orgSlug/finance/summary`                            | finance+ |
 | [徴収一覧取得](#collections-list)               | GET    | `/:orgSlug/finance/collections`                        | finance+ |
+| [徴収一覧CSVエクスポート](#collections-export)  | GET    | `/:orgSlug/finance/collections/export`                 | finance+ |
+| [支払い状況CSVエクスポート](#payments-export)   | GET    | `/:orgSlug/finance/payments/export`                    | finance+ |
 | [徴収作成](#collections-create)                 | POST   | `/:orgSlug/finance/collections`                        | finance+ |
 | [徴収詳細取得](#collections-id-get)             | GET    | `/:orgSlug/finance/collections/:id`                    | finance+ |
 | [徴収更新](#collections-patch)                  | PATCH  | `/:orgSlug/finance/collections/:id`                    | finance+ |
@@ -225,6 +229,7 @@
 | [支払い記録更新](#collection-payment-patch)     | PATCH  | `/:orgSlug/finance/collections/:id/payments/:memberId` | finance+ |
 | [支払い記録一括更新](#collection-payments-bulk) | POST   | `/:orgSlug/finance/collections/:id/payments/bulk`      | finance+ |
 | [支出一覧取得](#expenses-list)                  | GET    | `/:orgSlug/finance/expenses`                           | finance+ |
+| [支出CSVエクスポート](#expenses-export)         | GET    | `/:orgSlug/finance/expenses/export`                    | finance+ |
 | [支出登録](#expenses-create)                    | POST   | `/:orgSlug/finance/expenses`                           | finance+ |
 | [支出更新](#expenses-patch)                     | PATCH  | `/:orgSlug/finance/expenses/:id`                       | finance+ |
 | [支出削除](#expenses-delete)                    | DELETE | `/:orgSlug/finance/expenses/:id`                       | finance+ |
@@ -334,6 +339,19 @@ Cookie: session=<session_token>
   }
 }
 ```
+
+<a id="csv-export"></a>
+
+**CSVエクスポート:**
+
+`.../export` 系エンドポイントは JSON ではなく CSV を返す（エラー時は通常の JSON エラー形式）。
+
+- `Content-Type: text/csv; charset=utf-8`、`Content-Disposition: attachment; filename*=UTF-8''<prefix>_<YYYYMMDD>.csv`（日付はJST）
+- UTF-8 BOM付き・改行CRLF（Excelでそのまま開ける形式）。1行目はヘッダー行
+- 日付は `YYYY-MM-DD`、日時は `YYYY-MM-DD HH:mm`。いずれもJSTで出力する（日付型カラムはそのままの日付）
+- `=` `+` `-` `@` タブ・CR で始まる文字列セルは先頭に `'` を付与する（CSVインジェクション対策）。数値セルは対象外
+- ページングは行わず全件を返す
+- `Content-Disposition` はブラウザから読めるよう CORS の `Access-Control-Expose-Headers` に含める
 
 ### 1.4 共通エラーコード
 
@@ -1108,6 +1126,29 @@ ChoirHub運営（システム管理者）へ問い合わせを送る。**公開�
 ```
 
 > `email` / `phone` / `adminMemo` は `admin` のみレスポンスに含まれる
+
+---
+
+<a id="members-export"></a>
+
+### GET `/api/v1/:orgSlug/members/export`
+
+メンバー名簿をCSVでダウンロードする（[CSV共通仕様](#csv-export)）。
+
+**権限**: `admin`
+
+**Response** `200` `text/csv`（ファイル名 `members_YYYYMMDD.csv`）
+
+```csv
+氏名,ふりがな,パート,会員種別,ステータス,ロール,メールアドレス,電話番号,入団日,出身団体,職業,管理メモ
+山田 太郎,ヤマダ タロウ,Tenor I,一般,在団,最高管理者/技術系,taro@example.com,090-1234-5678,2020-04-01,大学合唱団,エンジニア,
+```
+
+> - 退団済み（`deletedAt`あり）と guest / visitor ロールのメンバーは含めない（[メンバー一覧取得](#members-list)と同じ対象）。パート順→ふりがな順に並べる
+> - ステータスは `在団` / `休団`、ロールは表示名を `/` 区切りで出力する
+> - 連絡先・管理メモを含むため、一覧閲覧（認証済み全員）より狭い `admin` に限定している
+
+**Errors:**: `403` `FORBIDDEN` 権限不足
 
 ---
 
@@ -3626,6 +3667,28 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 
 ---
 
+<a id="tickets-export"></a>
+
+### GET `/api/v1/:orgSlug/tickets/:concertId/export`
+
+演奏会の配券・販売実績をCSVでダウンロードする（[CSV共通仕様](#csv-export)）。1行 = 1席種 × 1団員。
+
+**権限**: `ticket or admin`
+
+**Response** `200` `text/csv`（ファイル名 `tickets_<開催日YYYYMMDD>_YYYYMMDD.csv`、開催日もJST）
+
+```csv
+券種,一般価格,学生価格,氏名,パート,希望数,配券数,販売（一般）,販売（学生）,販売（その他）,販売計,返券数,外回り回数,回収済,報告日時
+一般券,2000,1000,山田 太郎,Tenor I,10,8,5,2,1,8,0,1,済,2026-11-01 12:00
+```
+
+> - guest / visitor ロールのメンバーの配券は除外する（[チケット集計取得](#tickets-id-get)と同じ対象）。席種作成順→パート順→ふりがな順に並べる
+> - パート別集計は出力せず、`パート`列でピボット集計できる明細形式とする
+
+**Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
+
+---
+
 <a id="tickets-batches-create"></a>
 
 ### POST `/api/v1/:orgSlug/tickets/:concertId/batches`
@@ -4599,6 +4662,65 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 
 ---
 
+<a id="collections-export"></a>
+
+### GET `/api/v1/:orgSlug/finance/collections/export`
+
+徴収一覧（徴収ごとの集計）をCSVでダウンロードする（[CSV共通仕様](#csv-export)）。
+
+**権限**: `finance+`
+
+**Query Parameters:**
+
+| パラメータ | 型     | 説明                                        |
+| ---------- | ------ | ------------------------------------------- |
+| year       | string | 対象年（例: `2026`、4桁の数字）省略時: 当年 |
+
+対象年の1/1〜12/31（UTC）に作成された徴収を出力する（[収支サマリー取得](#accounting-summary)と同じ範囲）。
+
+**Response** `200` `text/csv`（ファイル名 `collections_<対象年>_YYYYMMDD.csv`）
+
+```csv
+作成日,徴収名,対象年月,締切日,金額,対象人数,支払済,未払い,免除,支払済額,メモ
+2026-04-01,4月団費,2026-04,2026-04-30,3000,4,2,1,1,4500,
+```
+
+> 作成日（JST）の昇順。`支払済額`は[徴収一覧取得](#collections-list)の`summary.paidAmount`と同じ算出方法。
+
+**Errors:**: `400` `VALIDATION_ERROR` yearが4桁の数字でない / `403` `FORBIDDEN` 権限不足
+
+---
+
+<a id="payments-export"></a>
+
+### GET `/api/v1/:orgSlug/finance/payments/export`
+
+徴収ごとの団員別支払い状況をCSVでダウンロードする（[CSV共通仕様](#csv-export)）。1行 = 1徴収 × 1団員。
+
+**権限**: `finance+`
+
+**Query Parameters:**
+
+| パラメータ | 型     | 説明                                        |
+| ---------- | ------ | ------------------------------------------- |
+| year       | string | 対象年（例: `2026`、4桁の数字）省略時: 当年 |
+
+対象年に作成された徴収の支払い記録を出力する（徴収の `createdAt` で絞り込む）。
+
+**Response** `200` `text/csv`（ファイル名 `collection_payments_<対象年>_YYYYMMDD.csv`）
+
+```csv
+徴収名,対象年月,締切日,氏名,パート,状態,金額,支払日,支払方法,メモ
+4月団費,2026-04,,山田 太郎,Tenor I,支払済,3000,2026-04-15,PayPay,
+```
+
+> - 状態は `未払い` / `支払済` / `免除`（徴収詳細画面の表記と同じ）。`金額`は個別金額が未設定の場合 `Collection.amount` を出力する
+> - 徴収作成日→パート順→ふりがな順に並べる
+
+**Errors:**: `400` `VALIDATION_ERROR` yearが4桁の数字でない / `403` `FORBIDDEN` 権限不足
+
+---
+
 <a id="collections-create"></a>
 
 ### POST `/api/v1/:orgSlug/finance/collections`
@@ -4859,6 +4981,35 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 ```
 
 **Errors:**: `403` `FORBIDDEN` 権限不足
+
+---
+
+<a id="expenses-export"></a>
+
+### GET `/api/v1/:orgSlug/finance/expenses/export`
+
+支出一覧をCSVでダウンロードする（[CSV共通仕様](#csv-export)）。
+
+**権限**: `finance+`
+
+**Query Parameters:**
+
+| パラメータ | 型     | 説明                                        |
+| ---------- | ------ | ------------------------------------------- |
+| year       | string | 対象年（例: `2026`、4桁の数字）省略時: 当年 |
+
+支払日が対象年の支出を出力する。`paidAt: null` の支出も常に含まれる（[収支サマリー取得](#accounting-summary)と同じ範囲）。
+
+**Response** `200` `text/csv`（ファイル名 `expenses_<対象年>_YYYYMMDD.csv`）
+
+```csv
+支払日,カテゴリ,件名,金額,支払方法,関連イベント,メモ,登録日時
+2026-06-14,会場費,市民会館 第2練習室 6/14,8000,振込,6/14 練習,,2026-06-01 09:00
+```
+
+> 支払日の昇順（未設定は末尾）。支払方法は `現金` / `PayPay` / `振込` / `その他`。
+
+**Errors:**: `400` `VALIDATION_ERROR` yearが4桁の数字でない / `403` `FORBIDDEN` 権限不足
 
 ---
 

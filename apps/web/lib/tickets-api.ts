@@ -1,4 +1,4 @@
-import { apiClient } from "./api-client";
+import { apiClient, downloadFile } from "./api-client";
 
 export interface TicketConcertSummary {
   concertId: string;
@@ -259,6 +259,9 @@ export const ticketsApi = {
 
   get: (orgSlug: string, concertId: string) =>
     apiClient.get<TicketDetail>(`/${orgSlug}/tickets/${concertId}`),
+
+  exportCsv: (orgSlug: string, concertId: string) =>
+    downloadFile(`/${orgSlug}/tickets/${concertId}/export`),
 
   myList: (orgSlug: string) => apiClient.get<MyAllocationConcert[]>(`/${orgSlug}/tickets/my`),
 

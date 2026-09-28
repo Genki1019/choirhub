@@ -1,4 +1,4 @@
-import { apiClient } from "./api-client";
+import { apiClient, downloadFile } from "./api-client";
 
 export type PaymentMethod = "cash" | "paypay" | "bank_transfer" | "other";
 export type CollectionPaymentStatus = "pending" | "paid" | "waived";
@@ -134,6 +134,9 @@ export const accountingApi = {
     return apiClient.get<ExpenseItem[]>(`/${orgSlug}/finance/expenses${qs ? `?${qs}` : ""}`);
   },
 
+  exportExpenses: (orgSlug: string, year: number) =>
+    downloadFile(`/${orgSlug}/finance/expenses/export?year=${year}`),
+
   createExpense: (orgSlug: string, data: ExpenseInput) =>
     apiClient.post<ExpenseItem>(`/${orgSlug}/finance/expenses`, data),
 
@@ -153,6 +156,12 @@ export const accountingApi = {
       `/${orgSlug}/finance/collections${qs ? `?${qs}` : ""}`,
     );
   },
+
+  exportCollections: (orgSlug: string, year: number) =>
+    downloadFile(`/${orgSlug}/finance/collections/export?year=${year}`),
+
+  exportPayments: (orgSlug: string, year: number) =>
+    downloadFile(`/${orgSlug}/finance/payments/export?year=${year}`),
 
   createCollection: (orgSlug: string, data: CollectionInput) =>
     apiClient.post<{ id: string; title: string; amount: number }>(

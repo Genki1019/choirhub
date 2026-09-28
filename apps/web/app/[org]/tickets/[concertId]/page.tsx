@@ -32,6 +32,7 @@ import { OutreachExpenseTab } from "./_components/OutreachExpenseTab";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
 import { PageHeader } from "@/components/PageHeader";
+import { CsvExportButton } from "@/components/CsvExportButton";
 
 export default function TicketDetailPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -177,6 +178,9 @@ export default function TicketDetailPage() {
             <span className="hidden sm:inline">入力を締め切る</span>
           </button>
         ))}
+      {detail.isAdmin && (
+        <CsvExportButton onDownload={() => ticketsApi.exportCsv(org, concertId)} />
+      )}
       {detail.isAdmin && (
         <button
           onClick={() => setShowCreateBatch(true)}

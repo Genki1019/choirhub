@@ -1,4 +1,4 @@
-import { apiClient } from "./api-client";
+import { apiClient, downloadFile } from "./api-client";
 import type { MemberProfile, PartSummary, InviteResult } from "./api-types";
 
 export type { MemberProfile, PartSummary };
@@ -20,6 +20,8 @@ export const membersApi = {
     const qs = params.toString();
     return apiClient.get<MemberProfile[]>(`/${orgSlug}/members${qs ? `?${qs}` : ""}`);
   },
+
+  exportCsv: (orgSlug: string) => downloadFile(`/${orgSlug}/members/export`),
 
   me: (orgSlug: string) => apiClient.get<MemberProfile>(`/${orgSlug}/members/me`),
 

@@ -226,6 +226,8 @@ export default function AccountingPage() {
                 <CollectionsTab
                   collections={collections}
                   org={org}
+                  onExportCollections={() => accountingApi.exportCollections(org, year)}
+                  onExportPayments={() => accountingApi.exportPayments(org, year)}
                   onAddClick={() => setCollectionModal(true)}
                 />
               ))}
@@ -240,6 +242,7 @@ export default function AccountingPage() {
                 <ExpensesTab
                   expenses={expenses}
                   deletingId={deletingId}
+                  onExport={() => accountingApi.exportExpenses(org, year)}
                   onAddClick={() => setExpenseModal({ open: true, editing: null })}
                   onEditClick={(exp) => setExpenseModal({ open: true, editing: exp })}
                   onDeleteClick={handleDeleteExpense}

@@ -15,6 +15,22 @@ const ROLE_HIERARCHY: Record<Role, number> = {
   visitor: 10,
 };
 
+const ROLE_LABEL: Record<Role, string> = {
+  admin: "最高管理者",
+  tech: "技術系",
+  conductor: "指揮者",
+  score: "楽譜がかり",
+  ticket: "チケット担当",
+  finance: "会計",
+  member: "一般",
+  guest: "客演",
+  visitor: "体験",
+};
+
+export function roleLabel(role: string): string {
+  return ROLE_LABEL[role as Role] ?? role;
+}
+
 export function hasRole(member: Member, ...required: Role[]): boolean {
   return required.some((role) => {
     if (role === "admin") return member.roles.includes("admin");

@@ -2,13 +2,15 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { isTicketManager } from "../services/access.js";
+import { isTicketManager, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
 import {
   computePartScores,
   resolveScoringConfig,
   scoringConfigInputSchema,
   withLabels,
 } from "../services/scoring.js";
+import { toJstDateString, toJstDateTimeString } from "../lib/date.js";
+import { toCsv, csvResponse, csvFilename } from "../lib/csv.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 export const ticketsRouter = new Hono<TenantEnv>()
@@ -249,6 +251,88 @@ export const ticketsRouter = new Hono<TenantEnv>()
         partSummary,
       },
     });
+  })
+
+  // ── GET /tickets/:concertId/export ── 配券・販売実績CSV
+  .get("/tickets/:concertId/export", async (c) => {
+    const actingMember = c.get("member");
+    const org = c.get("org");
+    const { concertId } = c.req.param();
+
+    if (!isTicketManager(actingMember)) {
+      return c.json(
+        { error: { code: "FORBIDDEN", message: "チケット担当者または管理者のみアクセスできます" } },
+        403,
+      );
+    }
+
+    const concert = await prisma.concert.findUnique({ where: { id: concertId } });
+    if (!concert || concert.orgId !== org.id) {
+      return c.json({ error: { code: "NOT_FOUND", message: "演奏会が見つかりません" } }, 404);
+    }
+
+    const allocations = await prisma.ticketAllocation.findMany({
+      where: {
+        batch: { concertId },
+        member: EXCLUDE_HIDDEN_ROLES,
+      },
+      include: {
+        batch: { select: { name: true, price: true, priceStudent: true } },
+        member: {
+          include: {
+            userRef: { select: { nameJa: true } },
+            part: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: [
+        { batch: { createdAt: "asc" } },
+        { member: { part: { sortOrder: "asc" } } },
+        { member: { userRef: { nameKana: "asc" } } },
+      ],
+    });
+
+    const csv = toCsv(
+      [
+        "券種",
+        "一般価格",
+        "学生価格",
+        "氏名",
+        "パート",
+        "希望数",
+        "配券数",
+        "販売（一般）",
+        "販売（学生）",
+        "販売（その他）",
+        "販売計",
+        "返券数",
+        "外回り回数",
+        "回収済",
+        "報告日時",
+      ],
+      allocations.map((a) => [
+        a.batch.name,
+        a.batch.price,
+        a.batch.priceStudent,
+        a.member.userRef.nameJa,
+        a.member.part?.name,
+        a.requestedCount,
+        a.allocatedCount,
+        a.soldAdult,
+        a.soldStudent,
+        a.soldOther,
+        a.soldAdult + a.soldStudent + a.soldOther,
+        a.returnedCount,
+        a.outreachCount,
+        a.isCollected ? "済" : "未",
+        a.reportedAt ? toJstDateTimeString(a.reportedAt) : null,
+      ]),
+    );
+    return csvResponse(
+      c,
+      csvFilename(`tickets_${toJstDateString(concert.heldOn).replace(/-/g, "")}`),
+      csv,
+    );
   })
 
   // ── PATCH /tickets/allocations/:id ── 販売・回収報告を更新

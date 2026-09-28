@@ -3,9 +3,63 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { isFinancePlus, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
+import { toDateString, toJstDateString, toJstDateTimeString } from "../lib/date.js";
+import { toCsv, csvResponse, csvFilename } from "../lib/csv.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 const paymentMethodSchema = z.enum(["cash", "paypay", "bank_transfer", "other"]);
+
+const PAYMENT_METHOD_LABEL = {
+  cash: "現金",
+  paypay: "PayPay",
+  bank_transfer: "振込",
+  other: "その他",
+} as const;
+
+const PAYMENT_STATUS_LABEL = { pending: "未払い", paid: "支払済", waived: "免除" } as const;
+
+const INVALID_YEAR_ERROR = {
+  error: { code: "VALIDATION_ERROR", message: "year は4桁の数字で指定してください" },
+} as const;
+
+type DateRange = { gte?: Date; lt?: Date; lte?: Date };
+
+function parseYear(raw: string | undefined): number | null {
+  if (raw === undefined) return new Date().getFullYear();
+  return /^\d{4}$/.test(raw) ? parseInt(raw, 10) : null;
+}
+
+function yearRange(year: number): DateRange {
+  return { gte: new Date(`${year}-01-01T00:00:00Z`), lt: new Date(`${year + 1}-01-01T00:00:00Z`) };
+}
+
+function dateRange(from: string | undefined, to: string | undefined): DateRange {
+  return {
+    ...(from ? { gte: new Date(from) } : {}),
+    ...(to ? { lte: new Date(to) } : {}),
+  };
+}
+
+function paidAtFilter(range: DateRange) {
+  return { OR: [{ paidAt: range }, { paidAt: null }] };
+}
+
+function summarizePayments(
+  payments: { status: keyof typeof PAYMENT_STATUS_LABEL; amount: number | null }[],
+  defaultAmount: number,
+) {
+  const count = (status: keyof typeof PAYMENT_STATUS_LABEL) =>
+    payments.filter((p) => p.status === status).length;
+  return {
+    total: payments.length,
+    paid: count("paid"),
+    pending: count("pending"),
+    waived: count("waived"),
+    paidAmount: payments
+      .filter((p) => p.status === "paid")
+      .reduce((s, p) => s + (p.amount ?? defaultAmount), 0),
+  };
+}
 
 // ────────────────────────────
 // 支出
@@ -60,26 +114,18 @@ export const accountingRouter = new Hono<TenantEnv>()
       return c.json({ error: { code: "FORBIDDEN", message: "会計以上の権限が必要です" } }, 403);
     }
 
-    const yearRaw = c.req.query("year");
-    if (yearRaw !== undefined && !/^\d{4}$/.test(yearRaw)) {
-      return c.json(
-        { error: { code: "VALIDATION_ERROR", message: "year は4桁の数字で指定してください" } },
-        400,
-      );
-    }
-    const targetYear = yearRaw ? parseInt(yearRaw, 10) : new Date().getFullYear();
-
-    const since = new Date(`${targetYear}-01-01T00:00:00Z`);
-    const until = new Date(`${targetYear + 1}-01-01T00:00:00Z`);
+    const targetYear = parseYear(c.req.query("year"));
+    if (targetYear === null) return c.json(INVALID_YEAR_ERROR, 400);
+    const range = yearRange(targetYear);
 
     const [expenses, collections] = await Promise.all([
       prisma.expense.findMany({
-        where: { orgId: org.id, OR: [{ paidAt: { gte: since, lt: until } }, { paidAt: null }] },
+        where: { orgId: org.id, ...paidAtFilter(range) },
         include: { category: { select: { id: true, name: true } } },
         orderBy: { paidAt: "desc" },
       }),
       prisma.collection.findMany({
-        where: { orgId: org.id, createdAt: { gte: since, lt: until } },
+        where: { orgId: org.id, createdAt: range },
         include: {
           payments: { select: { status: true, amount: true } },
         },
@@ -139,25 +185,10 @@ export const accountingRouter = new Hono<TenantEnv>()
 
     const { from, to, categoryId } = c.req.query();
 
-    const paidAtFilter =
-      from || to
-        ? {
-            OR: [
-              {
-                paidAt: {
-                  ...(from ? { gte: new Date(from) } : {}),
-                  ...(to ? { lte: new Date(to) } : {}),
-                },
-              },
-              { paidAt: null },
-            ],
-          }
-        : {};
-
     const expenses = await prisma.expense.findMany({
       where: {
         orgId: org.id,
-        ...paidAtFilter,
+        ...(from || to ? paidAtFilter(dateRange(from, to)) : {}),
         ...(categoryId ? { categoryId } : {}),
       },
       include: { category: { select: { id: true, name: true } } },
@@ -177,6 +208,43 @@ export const accountingRouter = new Hono<TenantEnv>()
         createdAt: e.createdAt.toISOString(),
       })),
     });
+  })
+
+  // GET /finance/expenses/export
+  .get("/finance/expenses/export", async (c) => {
+    const org = c.get("org");
+    const member = c.get("member");
+
+    if (!isFinancePlus(member)) {
+      return c.json({ error: { code: "FORBIDDEN", message: "会計以上の権限が必要です" } }, 403);
+    }
+
+    const year = parseYear(c.req.query("year"));
+    if (year === null) return c.json(INVALID_YEAR_ERROR, 400);
+
+    const expenses = await prisma.expense.findMany({
+      where: { orgId: org.id, ...paidAtFilter(yearRange(year)) },
+      include: {
+        category: { select: { name: true } },
+        event: { select: { title: true } },
+      },
+      orderBy: [{ paidAt: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
+    });
+
+    const csv = toCsv(
+      ["支払日", "カテゴリ", "件名", "金額", "支払方法", "関連イベント", "メモ", "登録日時"],
+      expenses.map((e) => [
+        e.paidAt ? toDateString(e.paidAt) : null,
+        e.category.name,
+        e.title,
+        e.amount,
+        e.paymentMethod ? PAYMENT_METHOD_LABEL[e.paymentMethod] : null,
+        e.event?.title,
+        e.note,
+        toJstDateTimeString(e.createdAt),
+      ]),
+    );
+    return csvResponse(c, csvFilename(`expenses_${year}`), csv);
   })
 
   // POST /finance/expenses
@@ -344,17 +412,7 @@ export const accountingRouter = new Hono<TenantEnv>()
     const { from, to } = c.req.query();
 
     const collections = await prisma.collection.findMany({
-      where: {
-        orgId: org.id,
-        ...(from || to
-          ? {
-              createdAt: {
-                ...(from ? { gte: new Date(from) } : {}),
-                ...(to ? { lte: new Date(to) } : {}),
-              },
-            }
-          : {}),
-      },
+      where: { orgId: org.id, ...(from || to ? { createdAt: dateRange(from, to) } : {}) },
       include: {
         payments: { select: { status: true, amount: true } },
       },
@@ -362,25 +420,17 @@ export const accountingRouter = new Hono<TenantEnv>()
     });
 
     return c.json({
-      data: collections.map((col) => {
-        const paid = col.payments.filter((p) => p.status === "paid").length;
-        const pending = col.payments.filter((p) => p.status === "pending").length;
-        const waived = col.payments.filter((p) => p.status === "waived").length;
-        const paidAmount = col.payments
-          .filter((p) => p.status === "paid")
-          .reduce((s, p) => s + (p.amount ?? col.amount), 0);
-        return {
-          id: col.id,
-          title: col.title,
-          amount: col.amount,
-          dueDate: col.dueDate?.toISOString() ?? null,
-          eventId: col.eventId,
-          yearMonth: col.yearMonth,
-          note: col.note,
-          createdAt: col.createdAt.toISOString(),
-          summary: { total: col.payments.length, paid, pending, waived, paidAmount },
-        };
-      }),
+      data: collections.map((col) => ({
+        id: col.id,
+        title: col.title,
+        amount: col.amount,
+        dueDate: col.dueDate?.toISOString() ?? null,
+        eventId: col.eventId,
+        yearMonth: col.yearMonth,
+        note: col.note,
+        createdAt: col.createdAt.toISOString(),
+        summary: summarizePayments(col.payments, col.amount),
+      })),
     });
   })
 
@@ -461,6 +511,117 @@ export const accountingRouter = new Hono<TenantEnv>()
       return c.json({ data: { id: col.id, title: col.title, amount: col.amount } }, 201);
     },
   )
+
+  // GET /finance/collections/export
+  .get("/finance/collections/export", async (c) => {
+    const org = c.get("org");
+    const member = c.get("member");
+
+    if (!isFinancePlus(member)) {
+      return c.json({ error: { code: "FORBIDDEN", message: "会計以上の権限が必要です" } }, 403);
+    }
+
+    const year = parseYear(c.req.query("year"));
+    if (year === null) return c.json(INVALID_YEAR_ERROR, 400);
+
+    const collections = await prisma.collection.findMany({
+      where: { orgId: org.id, createdAt: yearRange(year) },
+      include: { payments: { select: { status: true, amount: true } } },
+      orderBy: { createdAt: "asc" },
+    });
+
+    const csv = toCsv(
+      [
+        "作成日",
+        "徴収名",
+        "対象年月",
+        "締切日",
+        "金額",
+        "対象人数",
+        "支払済",
+        "未払い",
+        "免除",
+        "支払済額",
+        "メモ",
+      ],
+      collections.map((col) => {
+        const summary = summarizePayments(col.payments, col.amount);
+        return [
+          toJstDateString(col.createdAt),
+          col.title,
+          col.yearMonth,
+          col.dueDate ? toDateString(col.dueDate) : null,
+          col.amount,
+          summary.total,
+          summary.paid,
+          summary.pending,
+          summary.waived,
+          summary.paidAmount,
+          col.note,
+        ];
+      }),
+    );
+    return csvResponse(c, csvFilename(`collections_${year}`), csv);
+  })
+
+  // GET /finance/payments/export
+  .get("/finance/payments/export", async (c) => {
+    const org = c.get("org");
+    const member = c.get("member");
+
+    if (!isFinancePlus(member)) {
+      return c.json({ error: { code: "FORBIDDEN", message: "会計以上の権限が必要です" } }, 403);
+    }
+
+    const year = parseYear(c.req.query("year"));
+    if (year === null) return c.json(INVALID_YEAR_ERROR, 400);
+
+    const payments = await prisma.collectionPayment.findMany({
+      where: { collection: { orgId: org.id, createdAt: yearRange(year) } },
+      include: {
+        collection: { select: { title: true, yearMonth: true, dueDate: true, amount: true } },
+        member: {
+          include: {
+            userRef: { select: { nameJa: true } },
+            part: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: [
+        { collection: { createdAt: "asc" } },
+        { member: { part: { sortOrder: "asc" } } },
+        { member: { userRef: { nameKana: "asc" } } },
+      ],
+    });
+
+    const csv = toCsv(
+      [
+        "徴収名",
+        "対象年月",
+        "締切日",
+        "氏名",
+        "パート",
+        "状態",
+        "金額",
+        "支払日",
+        "支払方法",
+        "メモ",
+      ],
+      payments.map((p) => [
+        p.collection.title,
+        p.collection.yearMonth,
+        p.collection.dueDate ? toDateString(p.collection.dueDate) : null,
+        p.member.userRef.nameJa,
+        p.member.part?.name,
+        PAYMENT_STATUS_LABEL[p.status],
+        p.amount ?? p.collection.amount,
+        p.paidAt ? toDateString(p.paidAt) : null,
+        p.method ? PAYMENT_METHOD_LABEL[p.method] : null,
+        p.note,
+      ]),
+    );
+    return csvResponse(c, csvFilename(`collection_payments_${year}`), csv);
+  })
 
   // GET /finance/collections/:collectionId
   .get("/finance/collections/:collectionId", async (c) => {

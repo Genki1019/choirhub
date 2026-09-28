@@ -19,6 +19,7 @@ vi.mock("@/lib/members-api", () => ({
     list: vi.fn(),
     parts: vi.fn(),
     invite: vi.fn(),
+    exportCsv: vi.fn(),
   },
 }));
 
@@ -239,6 +240,24 @@ describe("MembersPage（招待、権限）", () => {
 
     await screen.findByText("Tenor I");
     expect(screen.queryByText("メンバーを招待")).not.toBeInTheDocument();
+  });
+
+  it("admin: 「CSV出力」クリックで名簿CSVをダウンロードする", async () => {
+    vi.mocked(membersApi.list).mockResolvedValue([]);
+    vi.mocked(membersApi.exportCsv).mockResolvedValue();
+    const user = userEvent.setup();
+    renderPage(["admin"]);
+
+    await user.click(await screen.findByRole("button", { name: "CSV出力" }));
+    expect(membersApi.exportCsv).toHaveBeenCalledWith("tokyo-men-choir");
+  });
+
+  it("admin以外: 「CSV出力」ボタンを表示しない", async () => {
+    vi.mocked(membersApi.list).mockResolvedValue([]);
+    renderPage(["member"]);
+
+    await screen.findByText("Tenor I");
+    expect(screen.queryByRole("button", { name: "CSV出力" })).not.toBeInTheDocument();
   });
 
   it("招待ボタンクリックでInviteModalが開く", async () => {

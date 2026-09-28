@@ -4,7 +4,13 @@ import { z } from "zod";
 import { randomUUID } from "crypto";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "../lib/prisma.js";
-import { isAdmin, isMemberPlus, isHiddenRole, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
+import {
+  isAdmin,
+  isMemberPlus,
+  isHiddenRole,
+  roleLabel,
+  EXCLUDE_HIDDEN_ROLES,
+} from "../services/access.js";
 import {
   sendInviteEmail,
   resolveInviteRecipient,
@@ -16,6 +22,7 @@ import { logger } from "../lib/logger.js";
 import { toDateString } from "../lib/date.js";
 import { checkEmailChangeRateLimit } from "../lib/redis.js";
 import { getClientIp } from "../lib/request.js";
+import { toCsv, csvResponse, csvFilename } from "../lib/csv.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -26,6 +33,8 @@ const memberInclude = {
   part: true,
   memberType: true,
 } as const;
+
+const MEMBER_STATUS_LABEL = { active: "在団", offstage: "休団" } as const;
 
 type MemberWithRelations = Prisma.MemberGetPayload<{ include: typeof memberInclude }>;
 
@@ -126,6 +135,54 @@ export const membersRouter = new Hono<TenantEnv>()
     }
 
     return c.json({ data: formatMember(member, true, true) });
+  })
+
+  // ── GET /members/export ── 名簿CSV（admin のみ）
+  .get("/members/export", async (c) => {
+    const actingMember = c.get("member");
+    const org = c.get("org");
+
+    if (!isAdmin(actingMember)) {
+      return c.json({ error: { code: "FORBIDDEN", message: "管理者のみ実行できます" } }, 403);
+    }
+
+    const members = await prisma.member.findMany({
+      where: { orgId: org.id, deletedAt: null, ...EXCLUDE_HIDDEN_ROLES },
+      include: memberInclude,
+      orderBy: [{ part: { sortOrder: "asc" } }, { userRef: { nameKana: "asc" } }],
+    });
+
+    const csv = toCsv(
+      [
+        "氏名",
+        "ふりがな",
+        "パート",
+        "会員種別",
+        "ステータス",
+        "ロール",
+        "メールアドレス",
+        "電話番号",
+        "入団日",
+        "出身団体",
+        "職業",
+        "管理メモ",
+      ],
+      members.map((m) => [
+        m.userRef.nameJa,
+        m.userRef.nameKana,
+        m.part?.name,
+        m.memberType?.name,
+        MEMBER_STATUS_LABEL[m.status],
+        m.roles.map(roleLabel).join("/"),
+        m.userRef.email,
+        m.phone,
+        m.joinedAt ? toDateString(m.joinedAt) : null,
+        m.originGroup,
+        m.job,
+        m.adminMemo,
+      ]),
+    );
+    return csvResponse(c, csvFilename("members"), csv);
   })
 
   // ── POST /members/me/avatar ──

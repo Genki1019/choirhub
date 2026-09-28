@@ -461,6 +461,84 @@ describe("GET /tickets/:concertId", () => {
   });
 });
 
+describe("GET /tickets/:concertId/export", () => {
+  it("ticket担当者/admin以外: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request(`/tickets/${testConcert.id}/export`);
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("別テナントの演奏会: 404を返す", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue({
+      ...testConcert,
+      orgId: "org-2",
+    } as never);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/export`);
+
+    expect(res.status).toBe(404);
+    expect(prisma.ticketAllocation.findMany).not.toHaveBeenCalled();
+  });
+
+  it("ファイル名の開催日はJSTで付与する", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue({
+      ...testConcert,
+      heldOn: new Date("2026-11-22T15:00:00Z"),
+    } as never);
+    vi.mocked(prisma.ticketAllocation.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/export`);
+
+    expect(res.headers.get("Content-Disposition")).toContain("tickets_20261123_");
+  });
+
+  it("正常: 配券・販売実績をCSVで返し、guest/visitorを除外する", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.ticketAllocation.findMany).mockResolvedValue([
+      {
+        requestedCount: 10,
+        allocatedCount: 8,
+        soldAdult: 5,
+        soldStudent: 2,
+        soldOther: 1,
+        returnedCount: 0,
+        outreachCount: 1,
+        isCollected: true,
+        reportedAt: new Date("2026-11-01T03:00:00Z"),
+        batch: { name: "一般券", price: 2000, priceStudent: 1000 },
+        member: { userRef: { nameJa: "山田 太郎" }, part: { name: "Tenor I" } },
+      },
+    ] as never);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}/export`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Disposition")).toContain("tickets_20261123_");
+    expect(prisma.ticketAllocation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          batch: { concertId: testConcert.id },
+          member: { NOT: { roles: { hasSome: ["guest", "visitor"] } } },
+        },
+      }),
+    );
+    const lines = (await res.text()).replace(/^\uFEFF/, "").split("\r\n");
+    expect(lines[0]).toBe(
+      "券種,一般価格,学生価格,氏名,パート,希望数,配券数,販売（一般）,販売（学生）,販売（その他）,販売計,返券数,外回り回数,回収済,報告日時",
+    );
+    expect(lines[1]).toBe(
+      "一般券,2000,1000,山田 太郎,Tenor I,10,8,5,2,1,8,0,1,済,2026-11-01 12:00",
+    );
+  });
+});
+
 describe("POST /tickets/:concertId/batches", () => {
   it("バリデーションエラー: totalCountが0以下は400を返す", async () => {
     const app = createTestApp(makeMember(["ticket"]));
@@ -2099,5 +2177,23 @@ describe("DELETE /tickets/:concertId/close", () => {
       where: { id: testConcert.id },
       data: { ticketInputClosedAt: null },
     });
+  });
+});
+
+describe("GET /tickets/:concertId/export（並び順）", () => {
+  it("席種作成順→パート順→ふりがな順で取得する", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as never);
+    vi.mocked(prisma.ticketAllocation.findMany).mockResolvedValue([]);
+    const app = createTestApp(makeMember(["ticket"]));
+    await app.request(`/tickets/${testConcert.id}/export`);
+    expect(prisma.ticketAllocation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [
+          { batch: { createdAt: "asc" } },
+          { member: { part: { sortOrder: "asc" } } },
+          { member: { userRef: { nameKana: "asc" } } },
+        ],
+      }),
+    );
   });
 });

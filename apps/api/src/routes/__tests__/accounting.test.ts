@@ -27,7 +27,7 @@ vi.mock("../../lib/prisma.js", () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
-    collectionPayment: { create: vi.fn(), upsert: vi.fn() },
+    collectionPayment: { create: vi.fn(), upsert: vi.fn(), findMany: vi.fn() },
     member: { findMany: vi.fn(), findUnique: vi.fn() },
     event: { findUnique: vi.fn() },
     score: { findUnique: vi.fn() },
@@ -1216,5 +1216,276 @@ describe("POST /finance/collections/:collectionId/payments/bulk", () => {
         recordedById: actingMember.id,
       },
     });
+  });
+});
+
+const YEAR_2026 = { gte: new Date("2026-01-01T00:00:00Z"), lt: new Date("2027-01-01T00:00:00Z") };
+
+function csvLines(text: string): string[] {
+  return text.replace(/^\uFEFF/, "").split("\r\n");
+}
+
+describe("GET /finance/expenses/export", () => {
+  it("会計担当者未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/finance/expenses/export");
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+  });
+
+  it("正常: 支出をCSVで返す", async () => {
+    vi.mocked(prisma.expense.findMany).mockResolvedValue([
+      {
+        id: "exp-1",
+        title: "会場費",
+        amount: 12000,
+        paymentMethod: "bank_transfer",
+        paidAt: new Date("2026-04-10"),
+        note: "4月分",
+        createdAt: new Date("2026-04-11T01:00:00Z"),
+        category: { name: "会場費" },
+        event: { title: "4月練習" },
+      },
+      {
+        id: "exp-2",
+        title: '=HYPERLINK("x")',
+        amount: 500,
+        paymentMethod: null,
+        paidAt: null,
+        note: null,
+        createdAt: new Date("2026-04-12T01:00:00Z"),
+        category: { name: "その他" },
+        event: null,
+      },
+    ] as never);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/expenses/export");
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Disposition")).toContain("expenses_");
+    const lines = csvLines(await res.text());
+    expect(lines[0]).toBe("支払日,カテゴリ,件名,金額,支払方法,関連イベント,メモ,登録日時");
+    expect(lines[1]).toBe("2026-04-10,会場費,会場費,12000,振込,4月練習,4月分,2026-04-11 10:00");
+    expect(lines[2]).toBe(`,その他,"'=HYPERLINK(""x"")",500,,,,2026-04-12 10:00`);
+  });
+
+  it("正常: 指定年度で絞り込み、支払日未設定の支出も含め、ファイル名に年度を付ける", async () => {
+    vi.mocked(prisma.expense.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/expenses/export?year=2026");
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Disposition")).toContain("expenses_2026_");
+    expect(prisma.expense.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { orgId: testOrg.id, OR: [{ paidAt: YEAR_2026 }, { paidAt: null }] },
+      }),
+    );
+    expect(csvLines(await res.text())).toEqual([
+      "支払日,カテゴリ,件名,金額,支払方法,関連イベント,メモ,登録日時",
+      "",
+    ]);
+  });
+
+  it("year未指定: 今年を対象にする", async () => {
+    vi.mocked(prisma.expense.findMany).mockResolvedValue([]);
+    const year = new Date().getFullYear();
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/expenses/export");
+
+    expect(res.headers.get("Content-Disposition")).toContain(`expenses_${year}_`);
+    expect(prisma.expense.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          orgId: testOrg.id,
+          OR: [
+            {
+              paidAt: {
+                gte: new Date(`${year}-01-01T00:00:00Z`),
+                lt: new Date(`${year + 1}-01-01T00:00:00Z`),
+              },
+            },
+            { paidAt: null },
+          ],
+        },
+      }),
+    );
+  });
+
+  it("バリデーションエラー: yearが4桁でない場合は400を返す", async () => {
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/expenses/export?year=26");
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    expect(prisma.expense.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /finance/collections/export", () => {
+  it("会計担当者未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/finance/collections/export");
+
+    expect(res.status).toBe(403);
+  });
+
+  it("正常: 徴収ごとの集計をCSVで返す（作成日はJST・個別金額を優先して支払済額を合計）", async () => {
+    vi.mocked(prisma.collection.findMany).mockResolvedValue([
+      {
+        id: "col-1",
+        title: "4月団費",
+        amount: 3000,
+        yearMonth: "2026-04",
+        dueDate: new Date("2026-04-30"),
+        note: null,
+        createdAt: new Date("2026-03-31T15:30:00Z"),
+        payments: [
+          { status: "paid", amount: null },
+          { status: "paid", amount: 1500 },
+          { status: "pending", amount: null },
+          { status: "waived", amount: null },
+        ],
+      },
+    ] as never);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/finance/collections/export");
+
+    expect(res.status).toBe(200);
+    expect(prisma.collection.findFirst).not.toHaveBeenCalled();
+    const lines = csvLines(await res.text());
+    expect(lines[0]).toBe(
+      "作成日,徴収名,対象年月,締切日,金額,対象人数,支払済,未払い,免除,支払済額,メモ",
+    );
+    expect(lines[1]).toBe("2026-04-01,4月団費,2026-04,2026-04-30,3000,4,2,1,1,4500,");
+  });
+});
+
+describe("GET /finance/collections/export（年度）", () => {
+  it("指定年度の作成日で絞り込み、ファイル名に年度を付ける", async () => {
+    vi.mocked(prisma.collection.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/export?year=2026");
+
+    expect(res.headers.get("Content-Disposition")).toContain("collections_2026_");
+    expect(prisma.collection.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { orgId: testOrg.id, createdAt: YEAR_2026 } }),
+    );
+  });
+
+  it("バリデーションエラー: yearが4桁でない場合は400を返す", async () => {
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/export?year=abcd");
+
+    expect(res.status).toBe(400);
+    expect(prisma.collection.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /finance/payments/export", () => {
+  it("会計担当者未満: 403を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/finance/payments/export");
+
+    expect(res.status).toBe(403);
+  });
+
+  it("正常: 団員別の納入状況をCSVで返す", async () => {
+    const collection = {
+      title: "4月団費",
+      amount: 3000,
+      yearMonth: "2026-04",
+      dueDate: null,
+    };
+    vi.mocked(prisma.collectionPayment.findMany).mockResolvedValue([
+      {
+        status: "paid",
+        amount: null,
+        paidAt: new Date("2026-04-15"),
+        method: "paypay",
+        note: null,
+        collection,
+        member: { userRef: { nameJa: "山田 太郎" }, part: { name: "Tenor I" } },
+      },
+      {
+        status: "pending",
+        amount: 1500,
+        paidAt: null,
+        method: null,
+        note: "学生割",
+        collection,
+        member: { userRef: { nameJa: "佐藤 次郎" }, part: null },
+      },
+    ] as never);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/payments/export?year=2026");
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Disposition")).toContain("collection_payments_2026_");
+    expect(prisma.collectionPayment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { collection: { orgId: testOrg.id, createdAt: YEAR_2026 } },
+      }),
+    );
+    const lines = csvLines(await res.text());
+    expect(lines[0]).toBe("徴収名,対象年月,締切日,氏名,パート,状態,金額,支払日,支払方法,メモ");
+    expect(lines[1]).toBe("4月団費,2026-04,,山田 太郎,Tenor I,支払済,3000,2026-04-15,PayPay,");
+    expect(lines[2]).toBe("4月団費,2026-04,,佐藤 次郎,,未払い,1500,,,学生割");
+  });
+});
+
+describe("GET /finance/payments/export（バリデーション）", () => {
+  it("yearが4桁でない場合は400を返す", async () => {
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/payments/export?year=2026-04");
+
+    expect(res.status).toBe(400);
+    expect(prisma.collectionPayment.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("CSVエクスポート（並び順）", () => {
+  it("支出: 支払日の昇順（未設定は末尾）→登録日時順", async () => {
+    vi.mocked(prisma.expense.findMany).mockResolvedValue([]);
+    const app = createTestApp(makeMember(["finance"]));
+    await app.request("/finance/expenses/export");
+    expect(prisma.expense.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ paidAt: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
+      }),
+    );
+  });
+
+  it("徴収一覧: 作成日の昇順", async () => {
+    vi.mocked(prisma.collection.findMany).mockResolvedValue([]);
+    const app = createTestApp(makeMember(["finance"]));
+    await app.request("/finance/collections/export");
+    expect(prisma.collection.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { createdAt: "asc" } }),
+    );
+  });
+
+  it("支払い状況: 徴収作成日→パート順→ふりがな順", async () => {
+    vi.mocked(prisma.collectionPayment.findMany).mockResolvedValue([]);
+    const app = createTestApp(makeMember(["finance"]));
+    await app.request("/finance/payments/export");
+    expect(prisma.collectionPayment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [
+          { collection: { createdAt: "asc" } },
+          { member: { part: { sortOrder: "asc" } } },
+          { member: { userRef: { nameKana: "asc" } } },
+        ],
+      }),
+    );
   });
 });

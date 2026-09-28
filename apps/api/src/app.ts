@@ -52,6 +52,7 @@ app.use(
   cors({
     origin: (origin) => (allowedOrigins.has(origin) ? origin : undefined),
     credentials: true,
+    exposeHeaders: ["Content-Disposition"],
   }),
 );
 

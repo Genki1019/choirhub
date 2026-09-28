@@ -262,6 +262,62 @@ describe("GET /members", () => {
 });
 
 // ────────────────────────────
+// GET /members/export — 名簿CSV
+// ────────────────────────────
+
+describe("GET /members/export", () => {
+  it("admin 以外: 403を返す", async () => {
+    const app = createTestApp(makeNormalMember());
+    const res = await app.request("/members/export");
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+    expect(prisma.member.findMany).not.toHaveBeenCalled();
+  });
+
+  it("admin: 連絡先・管理メモを含むCSVを返す", async () => {
+    vi.mocked(prisma.member.findMany).mockResolvedValue([
+      {
+        ...makeAdminMember(),
+        roles: ["admin", "tech"],
+        userRef: testUser,
+        part: testPart,
+        memberType: null,
+      },
+    ] as unknown as Member[]);
+
+    const app = createTestApp(makeAdminMember());
+    const res = await app.request("/members/export");
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("text/csv; charset=utf-8");
+    expect(res.headers.get("Content-Disposition")).toContain("members_");
+    const lines = (await res.text()).replace(/^\uFEFF/, "").split("\r\n");
+    expect(lines[0]).toBe(
+      "氏名,ふりがな,パート,会員種別,ステータス,ロール,メールアドレス,電話番号,入団日,出身団体,職業,管理メモ",
+    );
+    expect(lines[1]).toBe(
+      "山田 太郎,ヤマダ タロウ,Tenor I,,在団,最高管理者/技術系,test@example.com,090-1234-5678,2020-04-01,大学合唱団,エンジニア,メモ",
+    );
+  });
+
+  it("orgId・論理削除・guest/visitor除外で検索する", async () => {
+    vi.mocked(prisma.member.findMany).mockResolvedValue([]);
+    const app = createTestApp(makeAdminMember());
+    await app.request("/members/export");
+    expect(prisma.member.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          orgId: "org-1",
+          deletedAt: null,
+          NOT: { roles: { hasSome: ["guest", "visitor"] } },
+        }),
+      }),
+    );
+  });
+});
+
+// ────────────────────────────
 // GET /members/me — 自分のプロフィール
 // ────────────────────────────
 
@@ -1000,5 +1056,18 @@ describe("DELETE /members/:id", () => {
       where: { id: "member-2" },
       data: { deletedAt: expect.any(Date) },
     });
+  });
+});
+
+describe("GET /members/export（並び順）", () => {
+  it("パート順→ふりがな順で取得する", async () => {
+    vi.mocked(prisma.member.findMany).mockResolvedValue([]);
+    const app = createTestApp(makeAdminMember());
+    await app.request("/members/export");
+    expect(prisma.member.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ part: { sortOrder: "asc" } }, { userRef: { nameKana: "asc" } }],
+      }),
+    );
   });
 });

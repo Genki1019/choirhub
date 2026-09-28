@@ -3,6 +3,7 @@
 import { Wallet, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { PAYMENT_METHOD_LABEL } from "@/lib/accounting-api";
 import type { ExpenseItem } from "@/lib/accounting-api";
+import { CsvExportButton } from "@/components/CsvExportButton";
 
 function yen(n: number) {
   return `¥${n.toLocaleString()}`;
@@ -17,6 +18,7 @@ function fmtDate(iso: string | null) {
 interface ExpensesTabProps {
   expenses: ExpenseItem[];
   deletingId: string | null;
+  onExport: () => Promise<void>;
   onAddClick: () => void;
   onEditClick: (expense: ExpenseItem) => void;
   onDeleteClick: (id: string) => void;
@@ -25,13 +27,15 @@ interface ExpensesTabProps {
 export function ExpensesTab({
   expenses,
   deletingId,
+  onExport,
   onAddClick,
   onEditClick,
   onDeleteClick,
 }: ExpensesTabProps) {
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        <CsvExportButton onDownload={onExport} label="支出CSV" />
         <button
           onClick={onAddClick}
           className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"

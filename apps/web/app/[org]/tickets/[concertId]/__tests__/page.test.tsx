@@ -24,6 +24,7 @@ vi.mock("@/lib/tickets-api", async () => {
       updateBatch: vi.fn(),
       deleteBatch: vi.fn(),
       listOutreachActivities: vi.fn().mockResolvedValue([]),
+      exportCsv: vi.fn(),
     },
   };
 });
@@ -175,6 +176,26 @@ describe("TicketDetailPage（締切バナー・締切/再開ボタン）", () =>
 
     await screen.findByText("第20回定期演奏会");
     expect(screen.queryByText("入力を締め切る")).not.toBeInTheDocument();
+  });
+});
+
+describe("TicketDetailPage（CSV出力）", () => {
+  it("adminの場合は「CSV出力」クリックで配券・販売実績CSVをダウンロードする", async () => {
+    vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
+    vi.mocked(ticketsApi.exportCsv).mockResolvedValue();
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "CSV出力" }));
+    expect(ticketsApi.exportCsv).toHaveBeenCalledWith("tokyo-men-choir", "concert-1");
+  });
+
+  it("非adminの場合は「CSV出力」ボタンを表示しない", async () => {
+    vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail({ isAdmin: false }));
+    renderPage(["member"]);
+
+    await screen.findByText("第20回定期演奏会");
+    expect(screen.queryByRole("button", { name: "CSV出力" })).not.toBeInTheDocument();
   });
 });
 

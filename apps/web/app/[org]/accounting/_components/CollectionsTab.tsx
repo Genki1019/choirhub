@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Wallet, Plus, ChevronRight } from "lucide-react";
 import type { CollectionSummaryItem } from "@/lib/accounting-api";
+import { CsvExportButton } from "@/components/CsvExportButton";
 
 function yen(n: number) {
   return `¥${n.toLocaleString()}`;
@@ -16,12 +17,22 @@ interface CollectionsTabProps {
   collections: CollectionSummaryItem[];
   org: string;
   onAddClick: () => void;
+  onExportCollections: () => Promise<void>;
+  onExportPayments: () => Promise<void>;
 }
 
-export function CollectionsTab({ collections, org, onAddClick }: CollectionsTabProps) {
+export function CollectionsTab({
+  collections,
+  org,
+  onAddClick,
+  onExportCollections,
+  onExportPayments,
+}: CollectionsTabProps) {
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        <CsvExportButton onDownload={onExportCollections} label="徴収一覧CSV" />
+        <CsvExportButton onDownload={onExportPayments} label="支払い状況CSV" />
         <button
           onClick={onAddClick}
           className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"

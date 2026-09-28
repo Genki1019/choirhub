@@ -29,6 +29,9 @@ vi.mock("@/lib/accounting-api", async () => {
       listExpenses: vi.fn(),
       listCollections: vi.fn(),
       deleteExpense: vi.fn(),
+      exportExpenses: vi.fn(),
+      exportCollections: vi.fn(),
+      exportPayments: vi.fn(),
     },
   };
 });
@@ -197,6 +200,31 @@ describe("AccountingPage（年度ナビゲーション）", () => {
     await user.click(screen.getByLabelText("前の年度"));
 
     expect(screen.getByText(`${currentYear - 1}年度`)).toBeInTheDocument();
+  });
+});
+
+describe("AccountingPage（CSV出力）", () => {
+  it("選択中の年度で徴収一覧・支払い状況・支出のCSVをダウンロードする", async () => {
+    vi.mocked(accountingApi.summary).mockResolvedValue(makeSummary());
+    vi.mocked(accountingApi.listExpenses).mockResolvedValue([]);
+    vi.mocked(accountingApi.listCollections).mockResolvedValue([]);
+    vi.mocked(accountingApi.exportCollections).mockResolvedValue();
+    vi.mocked(accountingApi.exportPayments).mockResolvedValue();
+    vi.mocked(accountingApi.exportExpenses).mockResolvedValue();
+    const user = userEvent.setup();
+    const year = new Date().getFullYear() - 1;
+    renderPage();
+
+    await screen.findByText("¥18,000");
+    await user.click(screen.getByLabelText("前の年度"));
+    await user.click(await screen.findByRole("button", { name: "徴収一覧CSV" }));
+    await user.click(screen.getByRole("button", { name: "支払い状況CSV" }));
+    await user.click(screen.getByRole("button", { name: "支出" }));
+    await user.click(screen.getByRole("button", { name: "支出CSV" }));
+
+    expect(accountingApi.exportCollections).toHaveBeenCalledWith("tokyo-men-choir", year);
+    expect(accountingApi.exportPayments).toHaveBeenCalledWith("tokyo-men-choir", year);
+    expect(accountingApi.exportExpenses).toHaveBeenCalledWith("tokyo-men-choir", year);
   });
 });
 

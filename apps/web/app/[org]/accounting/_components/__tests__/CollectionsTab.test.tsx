@@ -21,12 +21,28 @@ function makeCollection(overrides: Partial<CollectionSummaryItem> = {}): Collect
 
 describe("CollectionsTab（表示）", () => {
   it("0件の場合は案内メッセージを表示する", () => {
-    render(<CollectionsTab collections={[]} org="o" onAddClick={vi.fn()} />);
+    render(
+      <CollectionsTab
+        collections={[]}
+        org="o"
+        onAddClick={vi.fn()}
+        onExportCollections={vi.fn()}
+        onExportPayments={vi.fn()}
+      />,
+    );
     expect(screen.getByText("徴収が登録されていません")).toBeInTheDocument();
   });
 
   it("タイトル・単価・年月・支払済額・支払状況を表示する", () => {
-    render(<CollectionsTab collections={[makeCollection()]} org="o" onAddClick={vi.fn()} />);
+    render(
+      <CollectionsTab
+        collections={[makeCollection()]}
+        org="o"
+        onAddClick={vi.fn()}
+        onExportCollections={vi.fn()}
+        onExportPayments={vi.fn()}
+      />,
+    );
 
     expect(screen.getByText("6/14練習 場所代")).toBeInTheDocument();
     expect(screen.getByText("¥300/人")).toBeInTheDocument();
@@ -46,6 +62,8 @@ describe("CollectionsTab（表示）", () => {
         ]}
         org="o"
         onAddClick={vi.fn()}
+        onExportCollections={vi.fn()}
+        onExportPayments={vi.fn()}
       />,
     );
 
@@ -58,6 +76,8 @@ describe("CollectionsTab（表示）", () => {
         collections={[makeCollection()]}
         org="tokyo-men-choir"
         onAddClick={vi.fn()}
+        onExportCollections={vi.fn()}
+        onExportPayments={vi.fn()}
       />,
     );
 
@@ -68,9 +88,41 @@ describe("CollectionsTab（表示）", () => {
   it("「徴収を作成」クリックでonAddClickが呼ばれる", async () => {
     const onAddClick = vi.fn();
     const user = userEvent.setup();
-    render(<CollectionsTab collections={[]} org="o" onAddClick={onAddClick} />);
+    render(
+      <CollectionsTab
+        collections={[]}
+        org="o"
+        onAddClick={onAddClick}
+        onExportCollections={vi.fn()}
+        onExportPayments={vi.fn()}
+      />,
+    );
 
     await user.click(screen.getByText("徴収を作成"));
     expect(onAddClick).toHaveBeenCalled();
+  });
+});
+
+describe("CollectionsTab（CSV出力）", () => {
+  it("「徴収一覧CSV」「支払い状況CSV」クリックで対応するハンドラが呼ばれる", async () => {
+    const onExportCollections = vi.fn().mockResolvedValue(undefined);
+    const onExportPayments = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      <CollectionsTab
+        collections={[]}
+        org="o"
+        onAddClick={vi.fn()}
+        onExportCollections={onExportCollections}
+        onExportPayments={onExportPayments}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "徴収一覧CSV" }));
+    expect(onExportCollections).toHaveBeenCalledTimes(1);
+    expect(onExportPayments).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "支払い状況CSV" }));
+    expect(onExportPayments).toHaveBeenCalledTimes(1);
   });
 });

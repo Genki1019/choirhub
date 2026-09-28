@@ -25,6 +25,7 @@ describe("ExpensesTab（表示）", () => {
       <ExpensesTab
         expenses={[]}
         deletingId={null}
+        onExport={vi.fn()}
         onAddClick={vi.fn()}
         onEditClick={vi.fn()}
         onDeleteClick={vi.fn()}
@@ -38,6 +39,7 @@ describe("ExpensesTab（表示）", () => {
       <ExpensesTab
         expenses={[makeExpense()]}
         deletingId={null}
+        onExport={vi.fn()}
         onAddClick={vi.fn()}
         onEditClick={vi.fn()}
         onDeleteClick={vi.fn()}
@@ -56,6 +58,7 @@ describe("ExpensesTab（表示）", () => {
       <ExpensesTab
         expenses={[makeExpense({ paymentMethod: null })]}
         deletingId={null}
+        onExport={vi.fn()}
         onAddClick={vi.fn()}
         onEditClick={vi.fn()}
         onDeleteClick={vi.fn()}
@@ -75,6 +78,7 @@ describe("ExpensesTab（操作）", () => {
       <ExpensesTab
         expenses={[expense]}
         deletingId={null}
+        onExport={vi.fn()}
         onAddClick={vi.fn()}
         onEditClick={onEditClick}
         onDeleteClick={vi.fn()}
@@ -92,6 +96,7 @@ describe("ExpensesTab（操作）", () => {
       <ExpensesTab
         expenses={[makeExpense()]}
         deletingId={null}
+        onExport={vi.fn()}
         onAddClick={vi.fn()}
         onEditClick={vi.fn()}
         onDeleteClick={onDeleteClick}
@@ -107,6 +112,7 @@ describe("ExpensesTab（操作）", () => {
       <ExpensesTab
         expenses={[makeExpense()]}
         deletingId="exp-1"
+        onExport={vi.fn()}
         onAddClick={vi.fn()}
         onEditClick={vi.fn()}
         onDeleteClick={vi.fn()}
@@ -123,6 +129,7 @@ describe("ExpensesTab（操作）", () => {
       <ExpensesTab
         expenses={[]}
         deletingId={null}
+        onExport={vi.fn()}
         onAddClick={onAddClick}
         onEditClick={vi.fn()}
         onDeleteClick={vi.fn()}
@@ -131,5 +138,25 @@ describe("ExpensesTab（操作）", () => {
 
     await user.click(screen.getByText("支出を追加"));
     expect(onAddClick).toHaveBeenCalled();
+  });
+});
+
+describe("ExpensesTab（CSV出力）", () => {
+  it("「支出CSV」クリックでonExportが呼ばれる", async () => {
+    const onExport = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      <ExpensesTab
+        expenses={[]}
+        deletingId={null}
+        onExport={onExport}
+        onAddClick={vi.fn()}
+        onEditClick={vi.fn()}
+        onDeleteClick={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "支出CSV" }));
+    expect(onExport).toHaveBeenCalledTimes(1);
   });
 });

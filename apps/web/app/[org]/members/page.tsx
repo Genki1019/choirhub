@@ -31,6 +31,7 @@ import { MemberPartSection } from "./_components/MemberPartSection";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
 import { PageHeader } from "@/components/PageHeader";
+import { CsvExportButton } from "@/components/CsvExportButton";
 
 type SortKey = "nameJa" | "joinedAt_asc" | "joinedAt_desc";
 type ViewMode = "card" | "list";
@@ -199,6 +200,7 @@ function MembersContent() {
           actions={
             isAdmin || canAddVisitor ? (
               <div className="flex items-center gap-2">
+                {isAdmin && <CsvExportButton onDownload={() => membersApi.exportCsv(org)} />}
                 {isAdmin && (
                   <Link
                     href={`/${org}/members/applications`}

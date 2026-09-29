@@ -192,14 +192,13 @@ describe("POST /auth/orgs/:id/restore", () => {
 describe("handleOrgPurgeCron", () => {
   function createCronApp() {
     const app = new Hono();
-    app.post("/cron/org-purge", handleOrgPurgeCron);
+    app.get("/cron/org-purge", handleOrgPurgeCron);
     return app;
   }
 
   it("Authorizationヘッダーが不一致: 401を返し完全削除しない", async () => {
     process.env.CRON_SECRET = "secret-abc";
     const res = await createCronApp().request("/cron/org-purge", {
-      method: "POST",
       headers: { Authorization: "Bearer wrong" },
     });
     expect(res.status).toBe(401);
@@ -210,7 +209,6 @@ describe("handleOrgPurgeCron", () => {
     process.env.CRON_SECRET = "secret-abc";
     vi.mocked(purgeExpiredOrgs).mockResolvedValue({ purgedCount: 2 });
     const res = await createCronApp().request("/cron/org-purge", {
-      method: "POST",
       headers: { Authorization: "Bearer secret-abc" },
     });
     const body = await json(res);

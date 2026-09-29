@@ -257,14 +257,13 @@ describe("GET /settings/audit-logs/export", () => {
 describe("handleAuditLogsCleanupCron", () => {
   function createCronApp() {
     const app = new Hono();
-    app.post("/cron/audit-logs-cleanup", handleAuditLogsCleanupCron);
+    app.get("/cron/audit-logs-cleanup", handleAuditLogsCleanupCron);
     return app;
   }
 
   it("Authorizationヘッダーが不一致: 401を返す", async () => {
     process.env.CRON_SECRET = "secret-abc";
     const res = await createCronApp().request("/cron/audit-logs-cleanup", {
-      method: "POST",
       headers: { Authorization: "Bearer wrong" },
     });
     expect(res.status).toBe(401);
@@ -278,7 +277,6 @@ describe("handleAuditLogsCleanupCron", () => {
     vi.mocked(prisma.auditLog.deleteMany).mockResolvedValue({ count: 3 });
 
     const res = await createCronApp().request("/cron/audit-logs-cleanup", {
-      method: "POST",
       headers: { Authorization: "Bearer secret-abc" },
     });
     vi.useRealTimers();

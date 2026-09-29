@@ -59,6 +59,8 @@ export const settingsKeys = {
   expenseCategories: (org: string) => ["settings", org, "expenseCategories"] as const,
   visitorWebhook: (org: string) => ["settings", org, "visitorWebhook"] as const,
   visitorIntroTemplate: (org: string) => ["settings", org, "visitorIntroTemplate"] as const,
+  auditLogs: (org: string) => ["settings", org, "auditLogs"] as const,
+  auditLogActors: (org: string) => ["settings", org, "auditLogs", "actors"] as const,
 };
 
 export const accountingKeys = {

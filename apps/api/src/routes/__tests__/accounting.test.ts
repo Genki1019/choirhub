@@ -11,6 +11,8 @@ async function json(res: Response): Promise<Record<string, any>> {
 
 vi.mock("../../lib/prisma.js", () => ({
   prisma: {
+    auditLog: { create: vi.fn() },
+    $transaction: vi.fn(),
     expense: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
@@ -27,7 +29,13 @@ vi.mock("../../lib/prisma.js", () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
-    collectionPayment: { create: vi.fn(), upsert: vi.fn(), findMany: vi.fn() },
+    collectionPayment: {
+      create: vi.fn(),
+      createMany: vi.fn(),
+      findUnique: vi.fn(),
+      upsert: vi.fn(),
+      findMany: vi.fn(),
+    },
     member: { findMany: vi.fn(), findUnique: vi.fn() },
     event: { findUnique: vi.fn() },
     score: { findUnique: vi.fn() },
@@ -82,6 +90,12 @@ function createTestApp(actingMember: Member) {
   app.use("*", (c, next) => {
     c.set("org", testOrg);
     c.set("member", actingMember);
+    c.set("user", {
+      id: actingMember.userId,
+      nameJa: "テストユーザー",
+      email: "test@example.com",
+      avatarUrl: null,
+    });
     return next();
   });
   app.route("/", accountingRouter);
@@ -90,6 +104,10 @@ function createTestApp(actingMember: Member) {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vi.mocked(prisma.$transaction).mockImplementation((arg: any) =>
+    typeof arg === "function" ? arg(prisma) : Promise.all(arg),
+  );
 });
 
 describe("GET /finance/summary", () => {
@@ -354,6 +372,17 @@ describe("POST /finance/expenses", () => {
     expect(res.status).toBe(201);
     const body = await json(res);
     expect(body.data.id).toBe("expense-1");
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "expense.created",
+        targetId: "expense-1",
+        changes: {
+          category: { before: null, after: "会場費" },
+          title: { before: null, after: "会場費" },
+          amount: { before: null, after: 8000 },
+        },
+      }),
+    });
     expect(prisma.expense.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -444,9 +473,17 @@ describe("PATCH /finance/expenses/:expenseId", () => {
     expect(prisma.expense.update).not.toHaveBeenCalled();
   });
 
-  it("正常: 部分更新される", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.expense.findFirst).mockResolvedValue({ id: "expense-1" } as any);
+  it("正常: 部分更新され、変更差分が操作履歴に記録される", async () => {
+    vi.mocked(prisma.expense.findFirst).mockResolvedValue({
+      id: "expense-1",
+      title: "会場費",
+      amount: 8000,
+      paymentMethod: null,
+      paidAt: null,
+      note: null,
+      category: { name: "会場費" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
     vi.mocked(prisma.expense.update).mockResolvedValue({
       id: "expense-1",
       title: "会場費（改）",
@@ -477,6 +514,17 @@ describe("PATCH /finance/expenses/:expenseId", () => {
         data: { title: "会場費（改）", amount: 9000 },
       }),
     );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "expense.updated",
+        targetId: "expense-1",
+        targetLabel: "会場費（改）",
+        changes: {
+          title: { before: "会場費", after: "会場費（改）" },
+          amount: { before: 8000, after: 9000 },
+        },
+      }),
+    });
   });
 });
 
@@ -501,9 +549,17 @@ describe("DELETE /finance/expenses/:expenseId", () => {
     expect(body.error.code).toBe("NOT_FOUND");
   });
 
-  it("正常: 204を返す", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.expense.findFirst).mockResolvedValue({ id: "expense-1" } as any);
+  it("正常: 204を返し、削除前の内容が操作履歴に記録される", async () => {
+    vi.mocked(prisma.expense.findFirst).mockResolvedValue({
+      id: "expense-1",
+      title: "会場費",
+      amount: 8000,
+      paymentMethod: "cash",
+      paidAt: new Date("2026-06-01T00:00:00Z"),
+      note: null,
+      category: { name: "会場費" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.expense.delete).mockResolvedValue({} as any);
 
@@ -513,6 +569,19 @@ describe("DELETE /finance/expenses/:expenseId", () => {
     expect(res.status).toBe(204);
     expect(prisma.expense.delete).toHaveBeenCalledWith({
       where: { id: "expense-1", orgId: testOrg.id },
+    });
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "expense.deleted",
+        targetLabel: "会場費",
+        changes: {
+          category: { before: "会場費", after: null },
+          title: { before: "会場費", after: null },
+          amount: { before: 8000, after: null },
+          paymentMethod: { before: "cash", after: null },
+          paidAt: { before: "2026-06-01", after: null },
+        },
+      }),
     });
   });
 });
@@ -663,8 +732,7 @@ describe("POST /finance/collections", () => {
       { id: "member-2", memberTypeId: null },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ] as any);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.collectionPayment.create).mockResolvedValue({} as any);
+    vi.mocked(prisma.collectionPayment.createMany).mockResolvedValue({ count: 0 });
 
     const app = createTestApp(makeMember(["finance"]));
     const res = await app.request("/finance/collections", {
@@ -683,9 +751,23 @@ describe("POST /finance/collections", () => {
         }),
       }),
     );
-    expect(prisma.collectionPayment.create).toHaveBeenCalledTimes(2);
-    expect(prisma.collectionPayment.create).toHaveBeenCalledWith({
-      data: { collectionId: "collection-1", memberId: "member-1", status: "pending", amount: null },
+    expect(prisma.collectionPayment.createMany).toHaveBeenCalledWith({
+      data: [
+        { collectionId: "collection-1", memberId: "member-1", status: "pending", amount: null },
+        { collectionId: "collection-1", memberId: "member-2", status: "pending", amount: null },
+      ],
+    });
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "collection.created",
+        targetId: "collection-1",
+        targetLabel: "6月合宿費",
+        changes: expect.objectContaining({
+          title: { before: null, after: "6月合宿費" },
+          amount: { before: null, after: 15000 },
+          members: { before: null, after: 2 },
+        }),
+      }),
     });
   });
 
@@ -700,8 +782,7 @@ describe("POST /finance/collections", () => {
       { id: "member-1", memberTypeId: null },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ] as any);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.collectionPayment.create).mockResolvedValue({} as any);
+    vi.mocked(prisma.collectionPayment.createMany).mockResolvedValue({ count: 0 });
 
     const app = createTestApp(makeMember(["finance"]));
     const res = await app.request("/finance/collections", {
@@ -716,7 +797,11 @@ describe("POST /finance/collections", () => {
         where: { id: { in: ["member-1"] }, orgId: testOrg.id },
       }),
     );
-    expect(prisma.collectionPayment.create).toHaveBeenCalledTimes(1);
+    expect(prisma.collectionPayment.createMany).toHaveBeenCalledWith({
+      data: [
+        { collectionId: "collection-1", memberId: "member-1", status: "pending", amount: null },
+      ],
+    });
   });
 
   it("正常（memberTypeAmounts指定）: 該当パート種別のみ個別金額が設定される", async () => {
@@ -731,8 +816,7 @@ describe("POST /finance/collections", () => {
       { id: "member-2", memberTypeId: null },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ] as any);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.collectionPayment.create).mockResolvedValue({} as any);
+    vi.mocked(prisma.collectionPayment.createMany).mockResolvedValue({ count: 0 });
 
     const app = createTestApp(makeMember(["finance"]));
     const res = await app.request("/finance/collections", {
@@ -746,11 +830,11 @@ describe("POST /finance/collections", () => {
     });
 
     expect(res.status).toBe(201);
-    expect(prisma.collectionPayment.create).toHaveBeenCalledWith({
-      data: { collectionId: "collection-1", memberId: "member-1", status: "pending", amount: 8000 },
-    });
-    expect(prisma.collectionPayment.create).toHaveBeenCalledWith({
-      data: { collectionId: "collection-1", memberId: "member-2", status: "pending", amount: null },
+    expect(prisma.collectionPayment.createMany).toHaveBeenCalledWith({
+      data: [
+        { collectionId: "collection-1", memberId: "member-1", status: "pending", amount: 8000 },
+        { collectionId: "collection-1", memberId: "member-2", status: "pending", amount: null },
+      ],
     });
   });
 
@@ -907,9 +991,13 @@ describe("PATCH /finance/collections/:collectionId", () => {
     expect(prisma.collection.update).not.toHaveBeenCalled();
   });
 
-  it("正常: 部分更新される", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.collection.findFirst).mockResolvedValue({ id: "collection-1" } as any);
+  it("正常: 部分更新され、変更差分が操作履歴に記録される", async () => {
+    vi.mocked(prisma.collection.findFirst).mockResolvedValue({
+      id: "collection-1",
+      title: "6月合宿費",
+      amount: 15000,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
     vi.mocked(prisma.collection.update).mockResolvedValue({
       id: "collection-1",
       title: "6月合宿費（改）",
@@ -930,6 +1018,15 @@ describe("PATCH /finance/collections/:collectionId", () => {
     expect(prisma.collection.update).toHaveBeenCalledWith({
       where: { id: "collection-1", orgId: testOrg.id },
       data: { title: "6月合宿費（改）", amount: 16000 },
+    });
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "collection.updated",
+        changes: {
+          title: { before: "6月合宿費", after: "6月合宿費（改）" },
+          amount: { before: 15000, after: 16000 },
+        },
+      }),
     });
   });
 });
@@ -955,9 +1052,17 @@ describe("DELETE /finance/collections/:collectionId", () => {
     expect(body.error.code).toBe("NOT_FOUND");
   });
 
-  it("正常（financeロールでも削除できる）: 204を返す", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.collection.findFirst).mockResolvedValue({ id: "collection-1" } as any);
+  it("正常（financeロールでも削除できる）: 204を返し、削除前の内容と対象人数が操作履歴に記録される", async () => {
+    vi.mocked(prisma.collection.findFirst).mockResolvedValue({
+      id: "collection-1",
+      title: "6月合宿費",
+      amount: 15000,
+      dueDate: null,
+      yearMonth: null,
+      note: null,
+      _count: { payments: 12 },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.collection.delete).mockResolvedValue({} as any);
 
@@ -968,11 +1073,22 @@ describe("DELETE /finance/collections/:collectionId", () => {
     expect(prisma.collection.delete).toHaveBeenCalledWith({
       where: { id: "collection-1", orgId: testOrg.id },
     });
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "collection.deleted",
+        targetLabel: "6月合宿費",
+        changes: {
+          title: { before: "6月合宿費", after: null },
+          amount: { before: 15000, after: null },
+          members: { before: 12, after: null },
+        },
+      }),
+    });
   });
 });
 
 describe("PATCH /finance/collections/:collectionId/payments/:memberId", () => {
-  const testCollection = { id: "collection-1", orgId: "org-1", amount: 300 };
+  const testCollection = { id: "collection-1", orgId: "org-1", title: "6月練習費", amount: 300 };
 
   it("バリデーションエラー: statusが不正な値は400を返す", async () => {
     const app = createTestApp(makeMember(["finance"]));
@@ -1035,8 +1151,12 @@ describe("PATCH /finance/collections/:collectionId/payments/:memberId", () => {
   it("正常（新規作成）: upsertのcreateが呼ばれる", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.collection.findUnique).mockResolvedValue(testCollection as any);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.member.findUnique).mockResolvedValue({ orgId: "org-1" } as any);
+
+    vi.mocked(prisma.member.findUnique).mockResolvedValue({
+      orgId: "org-1",
+      userRef: { nameJa: "佐藤 花子" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
     vi.mocked(prisma.collectionPayment.upsert).mockResolvedValue({
       id: "payment-1",
       status: "paid",
@@ -1079,13 +1199,31 @@ describe("PATCH /finance/collections/:collectionId/payments/:memberId", () => {
         recordedById: actingMember.id,
       },
     });
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "payment.changed",
+        targetType: "collection",
+        targetId: "collection-1",
+        targetLabel: `${testCollection.title} / 佐藤 花子`,
+        changes: {
+          status: { before: null, after: "paid" },
+          amount: { before: null, after: 300 },
+          paidAt: { before: null, after: "2026-06-14" },
+          method: { before: null, after: "cash" },
+        },
+      }),
+    });
   });
 
   it("正常（既存更新）: statusのみ変更してもupsertが呼ばれる", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.collection.findUnique).mockResolvedValue(testCollection as any);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.member.findUnique).mockResolvedValue({ orgId: "org-1" } as any);
+
+    vi.mocked(prisma.member.findUnique).mockResolvedValue({
+      orgId: "org-1",
+      userRef: { nameJa: "佐藤 花子" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
     vi.mocked(prisma.collectionPayment.upsert).mockResolvedValue({
       id: "payment-1",
       status: "waived",
@@ -1108,10 +1246,42 @@ describe("PATCH /finance/collections/:collectionId/payments/:memberId", () => {
     expect(body.data.status).toBe("waived");
     expect(body.data.amount).toBeNull();
   });
+
+  it("変更がない場合は操作履歴に記録しない", async () => {
+    const payment = {
+      id: "payment-1",
+      status: "pending",
+      amount: null,
+      paidAt: null,
+      method: null,
+      note: null,
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.collection.findUnique).mockResolvedValue(testCollection as any);
+    vi.mocked(prisma.member.findUnique).mockResolvedValue({
+      orgId: "org-1",
+      userRef: { nameJa: "佐藤 花子" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.collectionPayment.findUnique).mockResolvedValue(payment as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.collectionPayment.upsert).mockResolvedValue(payment as any);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/collection-1/payments/member-2", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "pending" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /finance/collections/:collectionId/payments/bulk", () => {
-  const testCollection = { id: "collection-1", orgId: "org-1", amount: 300 };
+  const testCollection = { id: "collection-1", orgId: "org-1", title: "6月練習費", amount: 300 };
 
   it("バリデーションエラー: memberIdsが空配列は400を返す", async () => {
     const app = createTestApp(makeMember(["finance"]));
@@ -1176,10 +1346,11 @@ describe("POST /finance/collections/:collectionId/payments/bulk", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.collection.findUnique).mockResolvedValue(testCollection as any);
     vi.mocked(prisma.member.findMany).mockResolvedValue([
-      { id: "member-2" },
-      { id: "member-3" },
+      { id: "member-2", userRef: { nameJa: "佐藤 花子" } },
+      { id: "member-3", userRef: { nameJa: "鈴木 一郎" } },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ] as any);
+    vi.mocked(prisma.collectionPayment.findMany).mockResolvedValue([]);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.collectionPayment.upsert).mockResolvedValue({} as any);
 
@@ -1198,6 +1369,17 @@ describe("POST /finance/collections/:collectionId/payments/bulk", () => {
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.data).toEqual({ updated: 2 });
+    expect(prisma.auditLog.create).toHaveBeenCalledTimes(1);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "payment.changed",
+        targetLabel: `${testCollection.title}（2名一括）`,
+        changes: expect.objectContaining({
+          status: { before: null, after: "paid" },
+          members: { before: null, after: ["佐藤 花子", "鈴木 一郎"] },
+        }),
+      }),
+    });
     expect(prisma.collectionPayment.upsert).toHaveBeenCalledTimes(2);
     expect(prisma.collectionPayment.upsert).toHaveBeenCalledWith({
       where: { collectionId_memberId: { collectionId: "collection-1", memberId: "member-2" } },
@@ -1216,6 +1398,77 @@ describe("POST /finance/collections/:collectionId/payments/bulk", () => {
         recordedById: actingMember.id,
       },
     });
+  });
+
+  it("変更前の値は既存の支払い記録から取り、実際に変わった団員だけを記録する", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.collection.findUnique).mockResolvedValue(testCollection as any);
+    vi.mocked(prisma.member.findMany).mockResolvedValue([
+      { id: "member-2", userRef: { nameJa: "佐藤 花子" } },
+      { id: "member-3", userRef: { nameJa: "鈴木 一郎" } },
+      { id: "member-4", userRef: { nameJa: "田中 次郎" } },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+    vi.mocked(prisma.collectionPayment.findMany).mockResolvedValue([
+      { memberId: "member-2", status: "pending", paidAt: null, method: null },
+      { memberId: "member-3", status: "waived", paidAt: null, method: null },
+      {
+        memberId: "member-4",
+        status: "paid",
+        paidAt: new Date("2026-06-14T00:00:00Z"),
+        method: "cash",
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/collection-1/payments/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        memberIds: ["member-2", "member-3", "member-4"],
+        status: "paid",
+        paidAt: "2026-06-14T00:00:00Z",
+        method: "cash",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        targetLabel: `${testCollection.title}（2名一括）`,
+        changes: {
+          status: { before: ["pending", "waived"], after: "paid" },
+          paidAt: { before: null, after: "2026-06-14" },
+          method: { before: null, after: "cash" },
+          members: { before: null, after: ["佐藤 花子", "鈴木 一郎"] },
+        },
+      }),
+    });
+  });
+
+  it("全員が既に同じ状態なら操作履歴に記録しない", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.collection.findUnique).mockResolvedValue(testCollection as any);
+    vi.mocked(prisma.member.findMany).mockResolvedValue([
+      { id: "member-2", userRef: { nameJa: "佐藤 花子" } },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+    vi.mocked(prisma.collectionPayment.findMany).mockResolvedValue([
+      { memberId: "member-2", status: "waived", paidAt: null, method: null },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/collection-1/payments/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberIds: ["member-2"], status: "waived" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(prisma.collectionPayment.upsert).toHaveBeenCalledTimes(1);
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
   });
 });
 
@@ -1270,6 +1523,12 @@ describe("GET /finance/expenses/export", () => {
     expect(lines[0]).toBe("支払日,カテゴリ,件名,金額,支払方法,関連イベント,メモ,登録日時");
     expect(lines[1]).toBe("2026-04-10,会場費,会場費,12000,振込,4月練習,4月分,2026-04-11 10:00");
     expect(lines[2]).toBe(`,その他,"'=HYPERLINK(""x"")",500,,,,2026-04-12 10:00`);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "expenses.exported",
+        targetLabel: `支出（${new Date().getFullYear()}年・2件）`,
+      }),
+    });
   });
 
   it("正常: 指定年度で絞り込み、支払日未設定の支出も含め、ファイル名に年度を付ける", async () => {
@@ -1365,6 +1624,12 @@ describe("GET /finance/collections/export", () => {
       "作成日,徴収名,対象年月,締切日,金額,対象人数,支払済,未払い,免除,支払済額,メモ",
     );
     expect(lines[1]).toBe("2026-04-01,4月団費,2026-04,2026-04-30,3000,4,2,1,1,4500,");
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "collections.exported",
+        targetLabel: `徴収（${new Date().getFullYear()}年・1件）`,
+      }),
+    });
   });
 });
 
@@ -1440,6 +1705,12 @@ describe("GET /finance/payments/export", () => {
     expect(lines[0]).toBe("徴収名,対象年月,締切日,氏名,パート,状態,金額,支払日,支払方法,メモ");
     expect(lines[1]).toBe("4月団費,2026-04,,山田 太郎,Tenor I,支払済,3000,2026-04-15,PayPay,");
     expect(lines[2]).toBe("4月団費,2026-04,,佐藤 次郎,,未払い,1500,,,学生割");
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "payments.exported",
+        targetLabel: `支払い記録（${new Date().getFullYear()}年・2件）`,
+      }),
+    });
   });
 });
 

@@ -1054,6 +1054,77 @@ async function seedDemo() {
     data: { fileId: scoreMidiFile.id, scoreId: sAveVerum.id, fileType: "midi" },
   });
 
+  // ── 20. 操作履歴（監査ログ） ──────────────────────────────────────────────
+  // 公開デモ団体ではIPアドレス等を記録しない仕様に合わせ、サンプルも ipAddress/userAgent を持たない
+  const auditActor = (index: number, name: string) => ({
+    orgId: org.id,
+    actorType: "member",
+    actorMemberId: members[index].id,
+    actorName: name,
+  });
+  await prisma.auditLog.createMany({
+    data: [
+      {
+        ...auditActor(0, "山田 恵子"),
+        action: "member.roles_changed",
+        targetType: "member",
+        targetId: members[8].id,
+        targetLabel: "加藤 大輔",
+        changes: { roles: { before: ["member"], after: ["finance", "member"] } },
+        createdAt: atTime(addDays(today, -60), 21, 5),
+      },
+      {
+        ...auditActor(8, "加藤 大輔"),
+        action: "expense.updated",
+        targetType: "expense",
+        targetLabel: "打ち上げ補助",
+        changes: { amount: { before: 4000, after: 5000 } },
+        createdAt: atTime(addDays(today, -20), 22, 40),
+      },
+      {
+        ...auditActor(8, "加藤 大輔"),
+        action: "expense.deleted",
+        targetType: "expense",
+        targetLabel: "楽譜コピー代（重複登録）",
+        changes: {
+          category: { before: "印刷費", after: null },
+          title: { before: "楽譜コピー代（重複登録）", after: null },
+          amount: { before: 1200, after: null },
+          paymentMethod: { before: "cash", after: null },
+        },
+        createdAt: atTime(addDays(today, -10), 20, 15),
+      },
+      {
+        ...auditActor(8, "加藤 大輔"),
+        action: "payment.changed",
+        targetType: "collection",
+        targetLabel: "6月会費（3名一括）",
+        changes: {
+          status: { before: "pending", after: "paid" },
+          method: { before: null, after: "cash" },
+          members: { before: null, after: ["伊藤 ひな", "森 麻衣", "小林 健二"] },
+        },
+        createdAt: atTime(addDays(lastSunday, 0), 17, 30),
+      },
+      {
+        ...auditActor(0, "山田 恵子"),
+        action: "members.exported",
+        targetType: "members",
+        targetLabel: "名簿（10名）",
+        createdAt: atTime(addDays(today, -3), 19, 0),
+      },
+      {
+        ...auditActor(0, "山田 恵子"),
+        action: "member.status_changed",
+        targetType: "member",
+        targetId: members[9].id,
+        targetLabel: "松本 誠",
+        changes: { status: { before: "active", after: "offstage" } },
+        createdAt: atTime(addDays(today, -2), 20, 45),
+      },
+    ],
+  });
+
   console.log("✅ デモシード完了");
   console.log(`   URL     : https://choirhub-web.vercel.app/${DEMO_SLUG}`);
   console.log(`   ログイン: ${DEMO_EMAIL}`);

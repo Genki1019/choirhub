@@ -27,10 +27,12 @@ function uniqueConstraintError(): Prisma.PrismaClientKnownRequestError {
 
 vi.mock("../../lib/prisma.js", () => ({
   prisma: {
+    auditLog: { create: vi.fn() },
     member: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     user: {
       findUnique: vi.fn(),
@@ -180,6 +182,10 @@ const testUser: User = {
 // 各テスト前にモックをリセットして前のテストの影響を受けないようにする
 beforeEach(() => {
   vi.resetAllMocks();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vi.mocked(prisma.$transaction).mockImplementation((arg: any) =>
+    typeof arg === "function" ? arg(prisma) : Promise.all(arg),
+  );
 });
 
 function createTestApp(actingMember: Member) {
@@ -292,6 +298,9 @@ describe("GET /members/export", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toBe("text/csv; charset=utf-8");
     expect(res.headers.get("Content-Disposition")).toContain("members_");
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ action: "members.exported", targetLabel: "名簿（1名）" }),
+    });
     const lines = (await res.text()).replace(/^\uFEFF/, "").split("\r\n");
     expect(lines[0]).toBe(
       "氏名,ふりがな,パート,会員種別,ステータス,ロール,メールアドレス,電話番号,入団日,出身団体,職業,管理メモ",
@@ -653,7 +662,7 @@ describe("PATCH /members/:id", () => {
   });
 
   it("admin はロールを変更できる", async () => {
-    const target = makeNormalMember("member-2");
+    const target = { ...makeNormalMember("member-2"), userRef: testUser };
     const updated = { ...target, roles: ["member", "tech"], userRef: testUser, part: testPart };
     vi.mocked(prisma.member.findUnique)
       .mockResolvedValueOnce(target as unknown as Member)
@@ -669,6 +678,58 @@ describe("PATCH /members/:id", () => {
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.data.roles).toEqual(["member", "tech"]);
+    expect(prisma.auditLog.create).toHaveBeenCalledTimes(1);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        orgId: "org-1",
+        actorType: "member",
+        actorMemberId: "member-admin",
+        actorName: "テストユーザー",
+        action: "member.roles_changed",
+        targetType: "member",
+        targetId: "member-2",
+        targetLabel: "山田 太郎",
+        changes: { roles: { before: ["member"], after: ["member", "tech"] } },
+      }),
+    });
+  });
+
+  it("ロールの並び順だけが違う場合は変更として記録しない", async () => {
+    const target = {
+      ...makeNormalMember("member-2"),
+      roles: ["tech", "member"],
+      userRef: testUser,
+    };
+    vi.mocked(prisma.member.findUnique)
+      .mockResolvedValueOnce(target as unknown as Member)
+      .mockResolvedValueOnce({ ...target, part: testPart } as unknown as Member);
+    vi.mocked(prisma.member.update).mockResolvedValue(target as unknown as Member);
+
+    const app = createTestApp(makeAdminMember());
+    const res = await app.request("/members/member-2", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roles: ["member", "tech"], partId: null }),
+    });
+    expect(res.status).toBe(200);
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it("ロール・状態以外（パート等）だけの変更は操作履歴に記録しない", async () => {
+    const target = { ...makeNormalMember("member-2"), userRef: testUser };
+    vi.mocked(prisma.member.findUnique)
+      .mockResolvedValueOnce(target as unknown as Member)
+      .mockResolvedValueOnce({ ...target, part: testPart } as unknown as Member);
+    vi.mocked(prisma.member.update).mockResolvedValue(target as unknown as Member);
+
+    const app = createTestApp(makeAdminMember());
+    const res = await app.request("/members/member-2", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roles: ["member"], phone: "090-0000-0000" }),
+    });
+    expect(res.status).toBe(200);
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
   });
 
   it("admin 以外は 403", async () => {
@@ -697,7 +758,7 @@ describe("PATCH /members/:id", () => {
   });
 
   it("admin はメンバーのメールアドレスを即時変更できる（セッション失効・通知メール送信を伴う）", async () => {
-    const target = makeNormalMember("member-2");
+    const target = { ...makeNormalMember("member-2"), userRef: testUser };
     const updated = {
       ...target,
       userRef: { ...testUser, email: "new@example.com" },
@@ -719,6 +780,12 @@ describe("PATCH /members/:id", () => {
     });
 
     expect(res.status).toBe(200);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "member.email_changed",
+        changes: { email: { before: "test@example.com", after: "new@example.com" } },
+      }),
+    });
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: target.userId },
       data: { email: "new@example.com" },
@@ -746,7 +813,7 @@ describe("PATCH /members/:id", () => {
   });
 
   it("admin が既に使用中のメールアドレスに変更しようとすると409 CONFLICTを返す", async () => {
-    const target = makeNormalMember("member-2");
+    const target = { ...makeNormalMember("member-2"), userRef: testUser };
     vi.mocked(prisma.member.findUnique).mockResolvedValueOnce(target as unknown as Member);
     vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
     vi.mocked(prisma.user.update).mockRejectedValue(uniqueConstraintError());
@@ -765,7 +832,7 @@ describe("PATCH /members/:id", () => {
   });
 
   it("email が現在の値と同一なら User の更新・通知は行われない", async () => {
-    const target = makeNormalMember("member-2");
+    const target = { ...makeNormalMember("member-2"), userRef: testUser };
     const updated = { ...target, userRef: testUser, part: testPart };
     vi.mocked(prisma.member.findUnique)
       .mockResolvedValueOnce(target as unknown as Member)
@@ -787,7 +854,7 @@ describe("PATCH /members/:id", () => {
   });
 
   it("email変更と同時のmember.update失敗時は、email変更もロールバックされ副作用が起きない", async () => {
-    const target = makeNormalMember("member-2");
+    const target = { ...makeNormalMember("member-2"), userRef: testUser };
     vi.mocked(prisma.member.findUnique).mockResolvedValueOnce(target as unknown as Member);
     vi.mocked(prisma.user.findUnique).mockResolvedValue(testUser);
     vi.mocked(prisma.user.update).mockResolvedValue({ ...testUser, email: "new@example.com" });
@@ -843,6 +910,13 @@ describe("POST /members/invite", () => {
     expect(sendInviteEmail).toHaveBeenCalledWith(
       expect.objectContaining({ isExistingUser: false }),
     );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "member.invited",
+        targetLabel: "new@example.com",
+        changes: { roles: { before: null, after: ["member"] } },
+      }),
+    });
   });
 
   it("招待先が既存ユーザーの場合はisExistingUser: trueでメール送信する", async () => {
@@ -1039,23 +1113,43 @@ describe("DELETE /members/:id", () => {
     expect(res.status).toBe(404);
   });
 
-  it("admin: 200でdeletedAtをセットして{success: true}を返す", async () => {
-    const target = makeNormalMember("member-2");
+  it("admin: 200でdeletedAtをセットして{success: true}を返し、操作履歴に記録する", async () => {
+    const target = { ...makeNormalMember("member-2"), userRef: testUser };
     vi.mocked(prisma.member.findUnique).mockResolvedValue(target);
-    vi.mocked(prisma.member.update).mockResolvedValue({
-      ...target,
-      deletedAt: new Date("2026-07-15"),
-    });
+    vi.mocked(prisma.member.updateMany).mockResolvedValue({ count: 1 });
 
     const app = createTestApp(makeAdminMember());
     const res = await app.request("/members/member-2", { method: "DELETE" });
     expect(res.status).toBe(200);
     const body = await json(res);
     expect(body.data).toEqual({ success: true });
-    expect(prisma.member.update).toHaveBeenCalledWith({
-      where: { id: "member-2" },
+    expect(prisma.member.updateMany).toHaveBeenCalledWith({
+      where: { id: "member-2", orgId: "org-1", deletedAt: null },
       data: { deletedAt: expect.any(Date) },
     });
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "member.removed",
+        targetId: "member-2",
+        targetLabel: "山田 太郎",
+        changes: { roles: { before: ["member"], after: null } },
+      }),
+    });
+  });
+
+  it("退団済み（二重送信）: 404を返し、退団日時の上書き・操作履歴の重複記録をしない", async () => {
+    const target = {
+      ...makeNormalMember("member-2"),
+      deletedAt: new Date("2026-07-15"),
+      userRef: testUser,
+    };
+    vi.mocked(prisma.member.findUnique).mockResolvedValue(target);
+    vi.mocked(prisma.member.updateMany).mockResolvedValue({ count: 0 });
+
+    const app = createTestApp(makeAdminMember());
+    const res = await app.request("/members/member-2", { method: "DELETE" });
+    expect(res.status).toBe(404);
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
   });
 });
 

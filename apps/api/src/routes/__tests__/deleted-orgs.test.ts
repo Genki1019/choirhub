@@ -10,6 +10,8 @@ async function json(res: Response): Promise<Record<string, any>> {
 
 vi.mock("../../lib/prisma.js", () => ({
   prisma: {
+    auditLog: { create: vi.fn() },
+    $transaction: vi.fn(),
     session: { findUnique: vi.fn(), update: vi.fn() },
     organization: { findMany: vi.fn(), updateMany: vi.fn(), findUniqueOrThrow: vi.fn() },
   },
@@ -73,6 +75,10 @@ function mockSession(user: User) {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vi.mocked(prisma.$transaction).mockImplementation((arg: any) =>
+    typeof arg === "function" ? arg(prisma) : Promise.all(arg),
+  );
 });
 
 // ────────────────────────────
@@ -145,6 +151,7 @@ describe("POST /auth/orgs/:id/restore", () => {
     vi.mocked(prisma.organization.updateMany).mockResolvedValue({ count: 0 });
     const res = await postRestore("org-unknown");
     expect(res.status).toBe(404);
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
   });
 
   it("成功: 削除済みのときのみdeletedAt・削除者をクリアして団体を返す", async () => {
@@ -165,6 +172,16 @@ describe("POST /auth/orgs/:id/restore", () => {
       data: { deletedAt: null, deletedByEmail: null },
     });
     expect(body.data).toEqual({ id: "org-1", name: "東京男声合唱団", slug: "tokyo-men-choir" });
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        orgId: "org-1",
+        actorType: "system_admin",
+        actorMemberId: null,
+        actorName: "システム管理者（システム管理者）",
+        action: "org.restored",
+        targetLabel: "東京男声合唱団",
+      }),
+    });
   });
 });
 

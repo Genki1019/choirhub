@@ -11,6 +11,8 @@ async function json(res: Response): Promise<Record<string, any>> {
 
 vi.mock("../../lib/prisma.js", () => ({
   prisma: {
+    auditLog: { create: vi.fn() },
+    $transaction: vi.fn(),
     organization: { update: vi.fn(), updateMany: vi.fn() },
     user: { findUniqueOrThrow: vi.fn() },
     part: {
@@ -126,6 +128,10 @@ function createTestApp(actingMember: Member) {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vi.mocked(prisma.$transaction).mockImplementation((arg: any) =>
+    typeof arg === "function" ? arg(prisma) : Promise.all(arg),
+  );
 });
 
 // ────────────────────────────
@@ -187,6 +193,24 @@ describe("PATCH /settings", () => {
       where: { id: "org-1" },
       data: { name: "新団体名" },
     });
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "org.renamed",
+        changes: { name: { before: testOrg.name, after: "新団体名" } },
+      }),
+    });
+  });
+
+  it("団体名が変わらない場合は操作履歴に記録しない", async () => {
+    vi.mocked(prisma.organization.update).mockResolvedValue(testOrg);
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: testOrg.name }),
+    });
+    expect(res.status).toBe(200);
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
   });
 
   it("nameが空文字: 400を返す", async () => {
@@ -295,6 +319,7 @@ describe("POST /settings/delete", () => {
     const res = await postDelete(app, validBody);
     expect(res.status).toBe(404);
     expect(sendOrgDeletedEmail).not.toHaveBeenCalled();
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
   });
 
   it("成功: 未削除のときのみdeletedAt・削除者を記録し、30日後の完全削除予定日を返す", async () => {
@@ -317,6 +342,9 @@ describe("POST /settings/delete", () => {
     const deletedAt = new Date(body.data.deletedAt);
     const purgeScheduledAt = new Date(body.data.purgeScheduledAt);
     expect(purgeScheduledAt.getTime() - deletedAt.getTime()).toBe(30 * 24 * 60 * 60 * 1000);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ action: "org.deleted", targetId: "org-1" }),
+    });
   });
 
   it("成功: visitorを除く未削除団員全員に削除通知メールを送る", async () => {
@@ -1659,6 +1687,12 @@ describe("POST /settings/visitor-webhook/regenerate", () => {
       where: { id: "org-1" },
       data: { visitorFormToken: expect.any(String) },
     });
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ action: "org.visitor_webhook_regenerated" }),
+    });
+    expect(JSON.stringify(vi.mocked(prisma.auditLog.create).mock.calls)).not.toContain(
+      "new-token-123",
+    );
   });
 });
 

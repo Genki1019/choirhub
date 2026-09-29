@@ -9,6 +9,7 @@ import { getPurgeScheduledAt, isProtectedOrg } from "../services/org-deletion.js
 import { verifyPassword } from "../lib/password.js";
 import { checkOrgDeleteRateLimit, clearOrgDeleteRateLimit } from "../lib/redis.js";
 import { logger } from "../lib/logger.js";
+import { diffChanges, memberActor, recordAudit } from "../services/audit.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 export const settingsRouter = new Hono<TenantEnv>()
@@ -55,10 +56,24 @@ export const settingsRouter = new Hono<TenantEnv>()
 
       const { name } = c.req.valid("json");
 
-      const updated = await prisma.organization.update({
-        where: { id: org.id },
-        data: { name },
-      });
+      const changes = diffChanges(org, { ...org, name: name ?? org.name }, ["name"]);
+      const [updated] = await prisma.$transaction([
+        prisma.organization.update({
+          where: { id: org.id },
+          data: { name },
+        }),
+        ...(changes
+          ? [
+              recordAudit(prisma, org.id, memberActor(c), {
+                action: "org.renamed",
+                targetType: "organization",
+                targetId: org.id,
+                targetLabel: org.name,
+                changes,
+              }),
+            ]
+          : []),
+      ]);
 
       return c.json({
         data: {
@@ -137,9 +152,21 @@ export const settingsRouter = new Hono<TenantEnv>()
 
       const deletedAt = new Date();
       // 同時リクエストで削除通知が二重送信されないよう、未削除のときのみ成功する条件付き更新で確定させる
-      const { count } = await prisma.organization.updateMany({
-        where: { id: org.id, deletedAt: null },
-        data: { deletedAt, deletedByEmail: user.email },
+      const actor = memberActor(c);
+      const count = await prisma.$transaction(async (tx) => {
+        const { count } = await tx.organization.updateMany({
+          where: { id: org.id, deletedAt: null },
+          data: { deletedAt, deletedByEmail: user.email },
+        });
+        if (count > 0) {
+          await recordAudit(tx, org.id, actor, {
+            action: "org.deleted",
+            targetType: "organization",
+            targetId: org.id,
+            targetLabel: org.name,
+          });
+        }
+        return count;
       });
       if (count === 0) {
         return c.json({ error: { code: "NOT_FOUND", message: "団体が見つかりません" } }, 404);
@@ -818,10 +845,18 @@ export const settingsRouter = new Hono<TenantEnv>()
       return c.json({ error: { code: "FORBIDDEN", message: "管理者権限が必要です" } }, 403);
     }
 
-    const updated = await prisma.organization.update({
-      where: { id: org.id },
-      data: { visitorFormToken: randomUUID() },
-    });
+    const [updated] = await prisma.$transaction([
+      prisma.organization.update({
+        where: { id: org.id },
+        data: { visitorFormToken: randomUUID() },
+      }),
+      recordAudit(prisma, org.id, memberActor(c), {
+        action: "org.visitor_webhook_regenerated",
+        targetType: "organization",
+        targetId: org.id,
+        targetLabel: org.name,
+      }),
+    ]);
 
     return c.json({ data: { token: updated.visitorFormToken } });
   })

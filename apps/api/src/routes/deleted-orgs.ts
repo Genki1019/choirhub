@@ -4,6 +4,7 @@ import { authMiddleware, type AuthEnv } from "../middleware/auth.js";
 import { requireSystemAdmin } from "../middleware/system-admin.js";
 import { isValidCronSecret } from "../lib/cron.js";
 import { getPurgeScheduledAt, purgeExpiredOrgs } from "../services/org-deletion.js";
+import { recordAudit, systemAdminActor } from "../services/audit.js";
 // authMiddleware/requireSystemAdmin を各ルートに個別指定する理由は org-applications.ts の adminRouter を参照
 export const deletedOrgsRouter = new Hono<AuthEnv>()
 
@@ -28,9 +29,22 @@ export const deletedOrgsRouter = new Hono<AuthEnv>()
   // ── POST /auth/orgs/:id/restore ── 論理削除済み団体の復元
   .post("/auth/orgs/:id/restore", authMiddleware, requireSystemAdmin, async (c) => {
     const { id } = c.req.param();
-    const { count } = await prisma.organization.updateMany({
-      where: { id, deletedAt: { not: null } },
-      data: { deletedAt: null, deletedByEmail: null },
+    const actor = systemAdminActor(c);
+    const count = await prisma.$transaction(async (tx) => {
+      const { count } = await tx.organization.updateMany({
+        where: { id, deletedAt: { not: null } },
+        data: { deletedAt: null, deletedByEmail: null },
+      });
+      if (count > 0) {
+        const { name } = await tx.organization.findUniqueOrThrow({ where: { id } });
+        await recordAudit(tx, id, actor, {
+          action: "org.restored",
+          targetType: "organization",
+          targetId: id,
+          targetLabel: name,
+        });
+      }
+      return count;
     });
     if (count === 0) {
       return c.json(

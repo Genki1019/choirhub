@@ -11,6 +11,8 @@ async function json(res: Response): Promise<Record<string, any>> {
 
 vi.mock("../../lib/prisma.js", () => ({
   prisma: {
+    auditLog: { create: vi.fn() },
+    $transaction: vi.fn(),
     concert: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
     ticketAllocation: {
       findMany: vi.fn(),
@@ -91,6 +93,12 @@ function createTestApp(actingMember: Member) {
   app.use("*", (c, next) => {
     c.set("org", testOrg);
     c.set("member", actingMember);
+    c.set("user", {
+      id: actingMember.userId,
+      nameJa: "テストユーザー",
+      email: "test@example.com",
+      avatarUrl: null,
+    });
     return next();
   });
   app.route("/", ticketsRouter);
@@ -99,6 +107,10 @@ function createTestApp(actingMember: Member) {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vi.mocked(prisma.$transaction).mockImplementation((arg: any) =>
+    typeof arg === "function" ? arg(prisma) : Promise.all(arg),
+  );
   vi.mocked(prisma.organizerPeriod.findMany).mockResolvedValue([]);
 });
 
@@ -536,6 +548,13 @@ describe("GET /tickets/:concertId/export", () => {
     expect(lines[1]).toBe(
       "一般券,2000,1000,山田 太郎,Tenor I,10,8,5,2,1,8,0,1,済,2026-11-01 12:00",
     );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "ticket_sales.exported",
+        targetId: testConcert.id,
+        targetLabel: `${testConcert.title}（1件）`,
+      }),
+    });
   });
 });
 

@@ -5,6 +5,7 @@ import { prisma } from "../lib/prisma.js";
 import { isFinancePlus, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
 import { toDateString, toJstDateString, toJstDateTimeString } from "../lib/date.js";
 import { toCsv, csvResponse, csvFilename } from "../lib/csv.js";
+import { diffChanges, mergeChanges, memberActor, recordAudit } from "../services/audit.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 const paymentMethodSchema = z.enum(["cash", "paypay", "bank_transfer", "other"]);
@@ -64,6 +65,36 @@ function summarizePayments(
 // ────────────────────────────
 // 支出
 // ────────────────────────────
+
+const EXPENSE_AUDIT_FIELDS = [
+  "category",
+  "title",
+  "amount",
+  "paymentMethod",
+  "paidAt",
+  "note",
+] as const;
+const COLLECTION_AUDIT_FIELDS = ["title", "amount", "dueDate", "yearMonth", "note"] as const;
+const PAYMENT_AUDIT_FIELDS = ["status", "amount", "paidAt", "method", "note"] as const;
+const BULK_PAYMENT_AUDIT_FIELDS = ["status", "paidAt", "method"] as const;
+
+function expenseAuditSnapshot(e: {
+  category: { name: string };
+  title: string;
+  amount: number;
+  paymentMethod: string | null;
+  paidAt: Date | null;
+  note: string | null;
+}) {
+  return {
+    category: e.category.name,
+    title: e.title,
+    amount: e.amount,
+    paymentMethod: e.paymentMethod,
+    paidAt: e.paidAt,
+    note: e.note,
+  };
+}
 
 const expenseBodySchema = z.object({
   categoryId: z.string().min(1),
@@ -244,6 +275,11 @@ export const accountingRouter = new Hono<TenantEnv>()
         toJstDateTimeString(e.createdAt),
       ]),
     );
+    await recordAudit(prisma, org.id, memberActor(c), {
+      action: "expenses.exported",
+      targetType: "expenses",
+      targetLabel: `支出（${year}年・${expenses.length}件）`,
+    });
     return csvResponse(c, csvFilename(`expenses_${year}`), csv);
   })
 
@@ -276,19 +312,30 @@ export const accountingRouter = new Hono<TenantEnv>()
         }
       }
 
-      const expense = await prisma.expense.create({
-        data: {
-          orgId: org.id,
-          categoryId: body.categoryId,
-          title: body.title,
-          amount: body.amount,
-          paymentMethod: body.paymentMethod ?? null,
-          paidAt: body.paidAt ? new Date(body.paidAt) : null,
-          eventId: body.eventId ?? null,
-          note: body.note ?? null,
-          recordedById: member.id,
-        },
-        include: { category: { select: { id: true, name: true } } },
+      const actor = memberActor(c);
+      const expense = await prisma.$transaction(async (tx) => {
+        const created = await tx.expense.create({
+          data: {
+            orgId: org.id,
+            categoryId: body.categoryId,
+            title: body.title,
+            amount: body.amount,
+            paymentMethod: body.paymentMethod ?? null,
+            paidAt: body.paidAt ? new Date(body.paidAt) : null,
+            eventId: body.eventId ?? null,
+            note: body.note ?? null,
+            recordedById: member.id,
+          },
+          include: { category: { select: { id: true, name: true } } },
+        });
+        await recordAudit(tx, org.id, actor, {
+          action: "expense.created",
+          targetType: "expense",
+          targetId: created.id,
+          targetLabel: created.title,
+          changes: diffChanges(null, expenseAuditSnapshot(created), EXPENSE_AUDIT_FIELDS),
+        });
+        return created;
       });
 
       return c.json(
@@ -327,7 +374,10 @@ export const accountingRouter = new Hono<TenantEnv>()
         return c.json({ error: { code: "FORBIDDEN", message: "会計以上の権限が必要です" } }, 403);
       }
 
-      const target = await prisma.expense.findFirst({ where: { id: expenseId, orgId: org.id } });
+      const target = await prisma.expense.findFirst({
+        where: { id: expenseId, orgId: org.id },
+        include: { category: { select: { name: true } } },
+      });
       if (!target) {
         return c.json({ error: { code: "NOT_FOUND", message: "支出が見つかりません" } }, 404);
       }
@@ -347,18 +397,38 @@ export const accountingRouter = new Hono<TenantEnv>()
         }
       }
 
-      const updated = await prisma.expense.update({
-        where: { id: expenseId, orgId: org.id },
-        data: {
-          ...(body.categoryId !== undefined && { categoryId: body.categoryId }),
-          ...(body.title !== undefined && { title: body.title }),
-          ...(body.amount !== undefined && { amount: body.amount }),
-          ...(body.paymentMethod !== undefined && { paymentMethod: body.paymentMethod }),
-          ...(body.paidAt !== undefined && { paidAt: body.paidAt ? new Date(body.paidAt) : null }),
-          ...(body.eventId !== undefined && { eventId: body.eventId }),
-          ...(body.note !== undefined && { note: body.note }),
-        },
-        include: { category: { select: { id: true, name: true } } },
+      const actor = memberActor(c);
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.expense.update({
+          where: { id: expenseId, orgId: org.id },
+          data: {
+            ...(body.categoryId !== undefined && { categoryId: body.categoryId }),
+            ...(body.title !== undefined && { title: body.title }),
+            ...(body.amount !== undefined && { amount: body.amount }),
+            ...(body.paymentMethod !== undefined && { paymentMethod: body.paymentMethod }),
+            ...(body.paidAt !== undefined && {
+              paidAt: body.paidAt ? new Date(body.paidAt) : null,
+            }),
+            ...(body.eventId !== undefined && { eventId: body.eventId }),
+            ...(body.note !== undefined && { note: body.note }),
+          },
+          include: { category: { select: { id: true, name: true } } },
+        });
+        const changes = diffChanges(
+          expenseAuditSnapshot(target),
+          expenseAuditSnapshot(result),
+          EXPENSE_AUDIT_FIELDS,
+        );
+        if (changes) {
+          await recordAudit(tx, org.id, actor, {
+            action: "expense.updated",
+            targetType: "expense",
+            targetId: result.id,
+            targetLabel: result.title,
+            changes,
+          });
+        }
+        return result;
       });
 
       return c.json({
@@ -387,12 +457,24 @@ export const accountingRouter = new Hono<TenantEnv>()
       return c.json({ error: { code: "FORBIDDEN", message: "会計以上の権限が必要です" } }, 403);
     }
 
-    const target = await prisma.expense.findFirst({ where: { id: expenseId, orgId: org.id } });
+    const target = await prisma.expense.findFirst({
+      where: { id: expenseId, orgId: org.id },
+      include: { category: { select: { name: true } } },
+    });
     if (!target) {
       return c.json({ error: { code: "NOT_FOUND", message: "支出が見つかりません" } }, 404);
     }
 
-    await prisma.expense.delete({ where: { id: expenseId, orgId: org.id } });
+    await prisma.$transaction([
+      prisma.expense.delete({ where: { id: expenseId, orgId: org.id } }),
+      recordAudit(prisma, org.id, memberActor(c), {
+        action: "expense.deleted",
+        targetType: "expense",
+        targetId: target.id,
+        targetLabel: target.title,
+        changes: diffChanges(expenseAuditSnapshot(target), null, EXPENSE_AUDIT_FIELDS),
+      }),
+    ]);
     return new Response(null, { status: 204 });
   })
 
@@ -465,20 +547,6 @@ export const accountingRouter = new Hono<TenantEnv>()
         }
       }
 
-      const col = await prisma.collection.create({
-        data: {
-          orgId: org.id,
-          title: body.title,
-          amount: body.amount,
-          dueDate: body.dueDate ? new Date(body.dueDate) : null,
-          eventId: body.eventId ?? null,
-          scoreId: body.scoreId ?? null,
-          yearMonth: body.yearMonth ?? null,
-          note: body.note ?? null,
-          createdById: member.id,
-        },
-      });
-
       const targets = body.memberIds
         ? await prisma.member.findMany({
             where: { id: { in: body.memberIds }, orgId: org.id },
@@ -489,24 +557,47 @@ export const accountingRouter = new Hono<TenantEnv>()
             include: { memberType: true },
           });
 
-      for (const m of targets) {
-        let individualAmount: number | null = null;
-        if (body.memberTypeAmounts && m.memberTypeId) {
-          const typeAmount = body.memberTypeAmounts[m.memberTypeId];
-          if (typeAmount !== undefined && typeAmount !== body.amount) {
-            individualAmount = typeAmount;
-          }
-        }
+      const individualAmount = (m: (typeof targets)[number]): number | null => {
+        if (!body.memberTypeAmounts || !m.memberTypeId) return null;
+        const typeAmount = body.memberTypeAmounts[m.memberTypeId];
+        return typeAmount !== undefined && typeAmount !== body.amount ? typeAmount : null;
+      };
 
-        await prisma.collectionPayment.create({
+      const actor = memberActor(c);
+      const col = await prisma.$transaction(async (tx) => {
+        const created = await tx.collection.create({
           data: {
-            collectionId: col.id,
-            memberId: m.id,
-            status: "pending",
-            amount: individualAmount,
+            orgId: org.id,
+            title: body.title,
+            amount: body.amount,
+            dueDate: body.dueDate ? new Date(body.dueDate) : null,
+            eventId: body.eventId ?? null,
+            scoreId: body.scoreId ?? null,
+            yearMonth: body.yearMonth ?? null,
+            note: body.note ?? null,
+            createdById: member.id,
           },
         });
-      }
+        await tx.collectionPayment.createMany({
+          data: targets.map((m) => ({
+            collectionId: created.id,
+            memberId: m.id,
+            status: "pending" as const,
+            amount: individualAmount(m),
+          })),
+        });
+        await recordAudit(tx, org.id, actor, {
+          action: "collection.created",
+          targetType: "collection",
+          targetId: created.id,
+          targetLabel: created.title,
+          changes: {
+            ...diffChanges(null, created, COLLECTION_AUDIT_FIELDS),
+            members: { before: null, after: targets.length },
+          },
+        });
+        return created;
+      });
 
       return c.json({ data: { id: col.id, title: col.title, amount: col.amount } }, 201);
     },
@@ -561,6 +652,11 @@ export const accountingRouter = new Hono<TenantEnv>()
         ];
       }),
     );
+    await recordAudit(prisma, org.id, memberActor(c), {
+      action: "collections.exported",
+      targetType: "collections",
+      targetLabel: `徴収（${year}年・${collections.length}件）`,
+    });
     return csvResponse(c, csvFilename(`collections_${year}`), csv);
   })
 
@@ -620,6 +716,11 @@ export const accountingRouter = new Hono<TenantEnv>()
         p.note,
       ]),
     );
+    await recordAudit(prisma, org.id, memberActor(c), {
+      action: "payments.exported",
+      targetType: "payments",
+      targetLabel: `支払い記録（${year}年・${payments.length}件）`,
+    });
     return csvResponse(c, csvFilename(`collection_payments_${year}`), csv);
   })
 
@@ -727,18 +828,32 @@ export const accountingRouter = new Hono<TenantEnv>()
         }
       }
 
-      const updated = await prisma.collection.update({
-        where: { id: collectionId, orgId: org.id },
-        data: {
-          ...(body.title !== undefined && { title: body.title }),
-          ...(body.amount !== undefined && { amount: body.amount }),
-          ...(body.dueDate !== undefined && {
-            dueDate: body.dueDate ? new Date(body.dueDate) : null,
-          }),
-          ...(body.eventId !== undefined && { eventId: body.eventId }),
-          ...(body.yearMonth !== undefined && { yearMonth: body.yearMonth }),
-          ...(body.note !== undefined && { note: body.note }),
-        },
+      const actor = memberActor(c);
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.collection.update({
+          where: { id: collectionId, orgId: org.id },
+          data: {
+            ...(body.title !== undefined && { title: body.title }),
+            ...(body.amount !== undefined && { amount: body.amount }),
+            ...(body.dueDate !== undefined && {
+              dueDate: body.dueDate ? new Date(body.dueDate) : null,
+            }),
+            ...(body.eventId !== undefined && { eventId: body.eventId }),
+            ...(body.yearMonth !== undefined && { yearMonth: body.yearMonth }),
+            ...(body.note !== undefined && { note: body.note }),
+          },
+        });
+        const changes = diffChanges(target, result, COLLECTION_AUDIT_FIELDS);
+        if (changes) {
+          await recordAudit(tx, org.id, actor, {
+            action: "collection.updated",
+            targetType: "collection",
+            targetId: result.id,
+            targetLabel: result.title,
+            changes,
+          });
+        }
+        return result;
       });
 
       return c.json({ data: { id: updated.id, title: updated.title, amount: updated.amount } });
@@ -757,12 +872,25 @@ export const accountingRouter = new Hono<TenantEnv>()
 
     const target = await prisma.collection.findFirst({
       where: { id: collectionId, orgId: org.id },
+      include: { _count: { select: { payments: true } } },
     });
     if (!target) {
       return c.json({ error: { code: "NOT_FOUND", message: "徴収が見つかりません" } }, 404);
     }
 
-    await prisma.collection.delete({ where: { id: collectionId, orgId: org.id } });
+    await prisma.$transaction([
+      prisma.collection.delete({ where: { id: collectionId, orgId: org.id } }),
+      recordAudit(prisma, org.id, memberActor(c), {
+        action: "collection.deleted",
+        targetType: "collection",
+        targetId: target.id,
+        targetLabel: target.title,
+        changes: {
+          ...diffChanges(target, null, COLLECTION_AUDIT_FIELDS),
+          members: { before: target._count.payments, after: null },
+        },
+      }),
+    ]);
     return new Response(null, { status: 204 });
   })
 
@@ -805,7 +933,7 @@ export const accountingRouter = new Hono<TenantEnv>()
       // memberId がこの org に所属するか確認（クロステナント防止）
       const targetMember = await prisma.member.findUnique({
         where: { id: memberId },
-        select: { orgId: true },
+        select: { orgId: true, userRef: { select: { nameJa: true } } },
       });
       if (!targetMember || targetMember.orgId !== org.id) {
         return c.json({ error: { code: "NOT_FOUND", message: "メンバーが見つかりません" } }, 404);
@@ -813,26 +941,43 @@ export const accountingRouter = new Hono<TenantEnv>()
 
       const body = c.req.valid("json");
 
-      const payment = await prisma.collectionPayment.upsert({
-        where: { collectionId_memberId: { collectionId, memberId } },
-        create: {
-          collectionId,
-          memberId,
-          status: body.status,
-          amount: body.amount ?? null,
-          paidAt: body.paidAt ? new Date(body.paidAt) : null,
-          method: body.method ?? null,
-          note: body.note ?? null,
-          recordedById: member.id,
-        },
-        update: {
-          status: body.status,
-          amount: body.amount ?? null,
-          paidAt: body.paidAt ? new Date(body.paidAt) : null,
-          method: body.method ?? null,
-          note: body.note ?? null,
-          recordedById: member.id,
-        },
+      const actor = memberActor(c);
+      const payment = await prisma.$transaction(async (tx) => {
+        const before = await tx.collectionPayment.findUnique({
+          where: { collectionId_memberId: { collectionId, memberId } },
+        });
+        const result = await tx.collectionPayment.upsert({
+          where: { collectionId_memberId: { collectionId, memberId } },
+          create: {
+            collectionId,
+            memberId,
+            status: body.status,
+            amount: body.amount ?? null,
+            paidAt: body.paidAt ? new Date(body.paidAt) : null,
+            method: body.method ?? null,
+            note: body.note ?? null,
+            recordedById: member.id,
+          },
+          update: {
+            status: body.status,
+            amount: body.amount ?? null,
+            paidAt: body.paidAt ? new Date(body.paidAt) : null,
+            method: body.method ?? null,
+            note: body.note ?? null,
+            recordedById: member.id,
+          },
+        });
+        const changes = diffChanges(before, result, PAYMENT_AUDIT_FIELDS);
+        if (changes) {
+          await recordAudit(tx, org.id, actor, {
+            action: "payment.changed",
+            targetType: "collection",
+            targetId: collectionId,
+            targetLabel: `${col.title} / ${targetMember.userRef.nameJa}`,
+            changes,
+          });
+        }
+        return result;
       });
 
       return c.json({
@@ -885,7 +1030,7 @@ export const accountingRouter = new Hono<TenantEnv>()
       // 全 memberId がこの org に属するか確認（クロステナント更新防止）
       const validMembers = await prisma.member.findMany({
         where: { id: { in: body.memberIds }, orgId: org.id },
-        select: { id: true },
+        select: { id: true, userRef: { select: { nameJa: true } } },
       });
       if (validMembers.length !== body.memberIds.length) {
         return c.json(
@@ -899,29 +1044,45 @@ export const accountingRouter = new Hono<TenantEnv>()
         );
       }
 
-      const paidAt = body.paidAt ? new Date(body.paidAt) : null;
+      const next = {
+        status: body.status,
+        paidAt: body.paidAt ? new Date(body.paidAt) : null,
+        method: body.method ?? null,
+      };
+      const actor = memberActor(c);
 
-      await Promise.all(
-        body.memberIds.map((mid) =>
-          prisma.collectionPayment.upsert({
+      await prisma.$transaction(async (tx) => {
+        const existing = await tx.collectionPayment.findMany({
+          where: { collectionId, memberId: { in: body.memberIds } },
+          select: { memberId: true, status: true, paidAt: true, method: true },
+        });
+        const beforeById = new Map(existing.map((p) => [p.memberId, p]));
+        const changed = validMembers.flatMap((m) => {
+          const diff = diffChanges(beforeById.get(m.id) ?? null, next, BULK_PAYMENT_AUDIT_FIELDS);
+          return diff ? [{ name: m.userRef.nameJa, diff }] : [];
+        });
+
+        for (const mid of body.memberIds) {
+          await tx.collectionPayment.upsert({
             where: { collectionId_memberId: { collectionId, memberId: mid } },
-            create: {
-              collectionId,
-              memberId: mid,
-              status: body.status,
-              paidAt,
-              method: body.method ?? null,
-              recordedById: member.id,
+            create: { collectionId, memberId: mid, ...next, recordedById: member.id },
+            update: { ...next, recordedById: member.id },
+          });
+        }
+
+        if (changed.length > 0) {
+          await recordAudit(tx, org.id, actor, {
+            action: "payment.changed",
+            targetType: "collection",
+            targetId: collectionId,
+            targetLabel: `${col.title}（${changed.length}名一括）`,
+            changes: {
+              ...mergeChanges(changed.map((x) => x.diff)),
+              members: { before: null, after: changed.map((x) => x.name) },
             },
-            update: {
-              status: body.status,
-              paidAt,
-              method: body.method ?? null,
-              recordedById: member.id,
-            },
-          }),
-        ),
-      );
+          });
+        }
+      });
 
       return c.json({ data: { updated: body.memberIds.length } });
     },

@@ -13,7 +13,7 @@ export class ApiClientError extends Error {
   }
 }
 
-async function toApiClientError(res: Response): Promise<ApiClientError> {
+export async function toApiClientError(res: Response): Promise<ApiClientError> {
   const body = (await res.json().catch(() => null)) as ApiError | null;
   return new ApiClientError(
     body?.error.code ?? "UNKNOWN",

@@ -11,6 +11,7 @@ import {
 } from "../services/scoring.js";
 import { toJstDateString, toJstDateTimeString } from "../lib/date.js";
 import { toCsv, csvResponse, csvFilename } from "../lib/csv.js";
+import { memberActor, recordAudit } from "../services/audit.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 export const ticketsRouter = new Hono<TenantEnv>()
@@ -328,6 +329,12 @@ export const ticketsRouter = new Hono<TenantEnv>()
         a.reportedAt ? toJstDateTimeString(a.reportedAt) : null,
       ]),
     );
+    await recordAudit(prisma, org.id, memberActor(c), {
+      action: "ticket_sales.exported",
+      targetType: "concert",
+      targetId: concert.id,
+      targetLabel: `${concert.title}（${allocations.length}件）`,
+    });
     return csvResponse(
       c,
       csvFilename(`tickets_${toJstDateString(concert.heldOn).replace(/-/g, "")}`),

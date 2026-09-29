@@ -41,6 +41,7 @@ erDiagram
     Organization ||--o{ VisitorApplication     : "has"
     Organization ||--o{ StoredFile              : "has"
     Organization ||--o{ Notification            : "has"
+    Organization ||--o{ AuditLog                : "has"
 
     Part             ||--o{ Member : "belongs to"
     MemberType ||--o{ Member : "categorizes"
@@ -56,6 +57,7 @@ erDiagram
     Member ||--o{ CollectionPayment   : "pays"
     Member ||--o{ Expense             : "records"
     Member ||--o{ Notification        : "receives"
+    Member |o--o{ AuditLog            : "performs"
 
     Event  ||--o{ Attendance    : "has"
     Event  ||--o{ Expense       : "linked to"
@@ -1286,57 +1288,80 @@ draft → survey_open → confirmed → past
 | readAt    | TIMESTAMP |                             | NULLなら未読                                                                             |
 | createdAt | TIMESTAMP | NOT NULL, DEFAULT now()     |                                                                                          |
 
+### AuditLog（監査ログ・操作履歴）
+
+> 追記専用（更新・削除APIなし）。本体の操作と同じトランザクションで書き込む。操作者名・対象名は退団や対象の物理削除後も読めるよう記録時点の値をスナップショットとして保持し、操作者の`Member`が消えても`actorMemberId`のみ`NULL`にして行は残す。`action`は`Notification.type`と同様にenumにせず自由文字列とし、アプリ側の定数（`services/audit.ts`の`AUDIT_CATEGORIES`）で型を縛る。記録から2年経過した行は日次バッチで削除する。
+
+| カラム        | 型        | 制約                                  | 説明                                                                                       |
+| ------------- | --------- | ------------------------------------- | ------------------------------------------------------------------------------------------ |
+| id            | CUID      | PK                                    |                                                                                            |
+| orgId         | CUID      | NOT NULL, FK → Organization (CASCADE) | 団体の完全削除時に一緒に削除                                                               |
+| actorType     | VARCHAR   | NOT NULL                              | `member` / `system_admin` / `system`                                                       |
+| actorMemberId | CUID      | FK → Member (SET NULL)                | 操作者。システム管理者による操作は`NULL`                                                   |
+| actorName     | VARCHAR   | NOT NULL                              | 記録時点の操作者名                                                                         |
+| action        | VARCHAR   | NOT NULL                              | `member.roles_changed` / `expense.deleted` 等（一覧は[API仕様](./api.md#17-監査ログ-api)） |
+| targetType    | VARCHAR   | NOT NULL                              | `member` / `organization` / `expense` / `collection` / `concert` 等                        |
+| targetId      | VARCHAR   |                                       | 対象ID（CSV出力など対象が集合の場合は`NULL`）                                              |
+| targetLabel   | VARCHAR   | NOT NULL                              | 記録時点の対象名（氏名・件名等）                                                           |
+| changes       | JSONB     |                                       | `{ field: { before, after } }`。変わったフィールドのみ。削除時は削除前の内容全体           |
+| ipAddress     | VARCHAR   |                                       | 操作元IPアドレス。公開デモ団体（`PROTECTED_ORG_SLUGS`）では記録しない                      |
+| userAgent     | VARCHAR   |                                       | 操作元ブラウザ。公開デモ団体では記録しない                                                 |
+| createdAt     | TIMESTAMP | NOT NULL, DEFAULT now()               |                                                                                            |
+
 ---
 
 ## 3. インデックス定義
 
-| テーブル           | カラム                         | 種別   | 目的                                       |
-| ------------------ | ------------------------------ | ------ | ------------------------------------------ |
-| Organization       | slug                           | UNIQUE | テナント識別子の検索                       |
-| User               | email                          | UNIQUE | ログイン認証                               |
-| Member             | (userId, orgId)                | UNIQUE | 1ユーザーが同一団体に重複所属しない        |
-| Member             | userId                         | INDEX  | ユーザーの所属団体一覧取得                 |
-| Member             | orgId                          | INDEX  | テナント絞り込み                           |
-| Member             | (orgId, partId)                | INDEX  | パート別メンバー一覧                       |
-| InviteToken        | token                          | UNIQUE | トークン検索                               |
-| PasswordResetToken | token                          | UNIQUE | トークン検索                               |
-| PasswordResetToken | userId                         | INDEX  | ユーザー別トークン取得                     |
-| EmailChangeToken   | token                          | UNIQUE | トークン検索                               |
-| EmailChangeToken   | userId                         | INDEX  | ユーザー別トークン取得                     |
-| OrgApplication     | status                         | INDEX  | 保留中申請の絞り込み（`/admin`一覧）       |
-| Inquiry            | status                         | INDEX  | 未対応問い合わせの絞り込み（`/admin`一覧） |
-| Event              | (orgId, startsAt)              | INDEX  | 月カレンダー表示                           |
-| Attendance         | (eventId, memberId)            | UNIQUE | 重複回答防止                               |
-| EventFile          | eventId                        | INDEX  | イベントに紐づく添付ファイル取得           |
-| EventFile          | fileId                         | UNIQUE | 1つのStoredFileに1つの添付ファイル         |
-| Score              | (orgId, accessLevel)           | INDEX  | 権限別楽譜一覧                             |
-| ScoreFile          | scoreId                        | INDEX  | 楽譜に紐づくファイル取得                   |
-| ScoreFile          | fileId                         | UNIQUE | 1つのStoredFileに1つの楽譜ファイル         |
-| ScoreAccessLog     | (scoreId, createdAt)           | INDEX  | アクセス履歴の時系列取得                   |
-| ScorePurchase      | (scoreId, memberId)            | UNIQUE | 同一楽譜の重複購入登録防止                 |
-| ScorePurchase      | scoreId                        | INDEX  | 楽譜別購入者一覧                           |
-| Concert            | (orgId, heldOn)                | INDEX  | 本番一覧の日付ソート                       |
-| ConcertFile        | concertId                      | INDEX  | 演奏会に紐づく添付ファイル取得             |
-| ConcertFile        | fileId                         | UNIQUE | 1つのStoredFileに1つの添付ファイル         |
-| Program            | (stageId, sortOrder)           | INDEX  | 演目の表示順取得                           |
-| SurveyResponse     | (surveyId, memberId, stageId)  | UNIQUE | 重複回答防止                               |
-| OnStageAssignment  | (concertId, memberId, stageId) | UNIQUE | 重複登録防止                               |
-| FormationPattern   | (stageId, sortOrder)           | INDEX  | パターンの表示順取得                       |
-| FormationBox       | (patternId, sortOrder)         | INDEX  | 枠の表示順取得                             |
-| FormationSlot      | patternId                      | INDEX  | パターンに紐づくスロット取得               |
-| FormationSlot      | boxId                          | INDEX  | 枠に紐づくスロット取得                     |
-| MailLog            | (orgId, sentAt)                | INDEX  | メール履歴の時系列取得                     |
-| TicketAllocation   | (batchId, memberId)            | UNIQUE | 団員別チケット集計・重複配布防止           |
-| Collection         | orgId                          | INDEX  | 団ごとの徴収一覧取得                       |
-| Collection         | (orgId, yearMonth)             | INDEX  | 月会費の月次検索                           |
-| Collection         | scoreId                        | INDEX  | 楽譜別の徴収取得                           |
-| CollectionPayment  | (collectionId, memberId)       | UNIQUE | 重複記録防止                               |
-| CollectionPayment  | collectionId                   | INDEX  | 徴収別の支払い状況取得                     |
-| Expense            | (orgId, paidAt)                | INDEX  | 支出一覧の時系列取得                       |
-| StoredFile         | (orgId, kind)                  | INDEX  | 種別別・横断ファイル一覧取得               |
-| OrgDocument        | fileId                         | UNIQUE | 1つのStoredFileに1つの資料                 |
-| Notification       | (orgId, memberId, readAt)      | INDEX  | 団員別の通知一覧・未読件数取得             |
-| Notification       | (memberId, type, link)         | INDEX  | `attendance_due`等の重複生成防止判定       |
+| テーブル           | カラム                            | 種別   | 目的                                       |
+| ------------------ | --------------------------------- | ------ | ------------------------------------------ |
+| Organization       | slug                              | UNIQUE | テナント識別子の検索                       |
+| User               | email                             | UNIQUE | ログイン認証                               |
+| Member             | (userId, orgId)                   | UNIQUE | 1ユーザーが同一団体に重複所属しない        |
+| Member             | userId                            | INDEX  | ユーザーの所属団体一覧取得                 |
+| Member             | orgId                             | INDEX  | テナント絞り込み                           |
+| Member             | (orgId, partId)                   | INDEX  | パート別メンバー一覧                       |
+| InviteToken        | token                             | UNIQUE | トークン検索                               |
+| PasswordResetToken | token                             | UNIQUE | トークン検索                               |
+| PasswordResetToken | userId                            | INDEX  | ユーザー別トークン取得                     |
+| EmailChangeToken   | token                             | UNIQUE | トークン検索                               |
+| EmailChangeToken   | userId                            | INDEX  | ユーザー別トークン取得                     |
+| OrgApplication     | status                            | INDEX  | 保留中申請の絞り込み（`/admin`一覧）       |
+| Inquiry            | status                            | INDEX  | 未対応問い合わせの絞り込み（`/admin`一覧） |
+| Event              | (orgId, startsAt)                 | INDEX  | 月カレンダー表示                           |
+| Attendance         | (eventId, memberId)               | UNIQUE | 重複回答防止                               |
+| EventFile          | eventId                           | INDEX  | イベントに紐づく添付ファイル取得           |
+| EventFile          | fileId                            | UNIQUE | 1つのStoredFileに1つの添付ファイル         |
+| Score              | (orgId, accessLevel)              | INDEX  | 権限別楽譜一覧                             |
+| ScoreFile          | scoreId                           | INDEX  | 楽譜に紐づくファイル取得                   |
+| ScoreFile          | fileId                            | UNIQUE | 1つのStoredFileに1つの楽譜ファイル         |
+| ScoreAccessLog     | (scoreId, createdAt)              | INDEX  | アクセス履歴の時系列取得                   |
+| ScorePurchase      | (scoreId, memberId)               | UNIQUE | 同一楽譜の重複購入登録防止                 |
+| ScorePurchase      | scoreId                           | INDEX  | 楽譜別購入者一覧                           |
+| Concert            | (orgId, heldOn)                   | INDEX  | 本番一覧の日付ソート                       |
+| ConcertFile        | concertId                         | INDEX  | 演奏会に紐づく添付ファイル取得             |
+| ConcertFile        | fileId                            | UNIQUE | 1つのStoredFileに1つの添付ファイル         |
+| Program            | (stageId, sortOrder)              | INDEX  | 演目の表示順取得                           |
+| SurveyResponse     | (surveyId, memberId, stageId)     | UNIQUE | 重複回答防止                               |
+| OnStageAssignment  | (concertId, memberId, stageId)    | UNIQUE | 重複登録防止                               |
+| FormationPattern   | (stageId, sortOrder)              | INDEX  | パターンの表示順取得                       |
+| FormationBox       | (patternId, sortOrder)            | INDEX  | 枠の表示順取得                             |
+| FormationSlot      | patternId                         | INDEX  | パターンに紐づくスロット取得               |
+| FormationSlot      | boxId                             | INDEX  | 枠に紐づくスロット取得                     |
+| MailLog            | (orgId, sentAt)                   | INDEX  | メール履歴の時系列取得                     |
+| TicketAllocation   | (batchId, memberId)               | UNIQUE | 団員別チケット集計・重複配布防止           |
+| Collection         | orgId                             | INDEX  | 団ごとの徴収一覧取得                       |
+| Collection         | (orgId, yearMonth)                | INDEX  | 月会費の月次検索                           |
+| Collection         | scoreId                           | INDEX  | 楽譜別の徴収取得                           |
+| CollectionPayment  | (collectionId, memberId)          | UNIQUE | 重複記録防止                               |
+| CollectionPayment  | collectionId                      | INDEX  | 徴収別の支払い状況取得                     |
+| Expense            | (orgId, paidAt)                   | INDEX  | 支出一覧の時系列取得                       |
+| StoredFile         | (orgId, kind)                     | INDEX  | 種別別・横断ファイル一覧取得               |
+| OrgDocument        | fileId                            | UNIQUE | 1つのStoredFileに1つの資料                 |
+| Notification       | (orgId, memberId, readAt)         | INDEX  | 団員別の通知一覧・未読件数取得             |
+| Notification       | (memberId, type, link)            | INDEX  | `attendance_due`等の重複生成防止判定       |
+| AuditLog           | (orgId, createdAt)                | INDEX  | 操作履歴の時系列一覧・期間絞り込み         |
+| AuditLog           | (orgId, actorMemberId, createdAt) | INDEX  | 操作者での絞り込み                         |
+| AuditLog           | createdAt                         | INDEX  | 保存期間切れの削除バッチ                   |
 
 ---
 
@@ -1365,6 +1390,7 @@ draft → survey_open → confirmed → past
 
 - メンバーの「退団」は `Member.deletedAt` による論理削除で表現する（物理削除しない。`status` は在籍中の active/offstage のみを表す）
 - イベントや楽譜の削除は物理削除とするが、関連する Attendance・ScoreAccessLog は保持する
+- 支出・徴収は物理削除とし、削除前の内容は AuditLog の `changes` に残す
 
 ### 4.4 ファイルストレージ
 

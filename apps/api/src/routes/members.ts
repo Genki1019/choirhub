@@ -23,6 +23,7 @@ import { toDateString } from "../lib/date.js";
 import { checkEmailChangeRateLimit } from "../lib/redis.js";
 import { getClientIp } from "../lib/request.js";
 import { toCsv, csvResponse, csvFilename } from "../lib/csv.js";
+import { diffChanges, memberActor, recordAudit, type AuditEntry } from "../services/audit.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -182,6 +183,11 @@ export const membersRouter = new Hono<TenantEnv>()
         m.adminMemo,
       ]),
     );
+    await recordAudit(prisma, org.id, memberActor(c), {
+      action: "members.exported",
+      targetType: "members",
+      targetLabel: `名簿（${members.length}名）`,
+    });
     return csvResponse(c, csvFilename("members"), csv);
   })
 
@@ -496,9 +502,17 @@ export const membersRouter = new Hono<TenantEnv>()
 
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-      const invite = await prisma.inviteToken.create({
-        data: { email, nameJa, orgId: org.id, roles, partId, expiresAt },
-      });
+      const [invite] = await prisma.$transaction([
+        prisma.inviteToken.create({
+          data: { email, nameJa, orgId: org.id, roles, partId, expiresAt },
+        }),
+        recordAudit(prisma, org.id, memberActor(c), {
+          action: "member.invited",
+          targetType: "invite",
+          targetLabel: nameJa ? `${nameJa}（${email}）` : email,
+          changes: { roles: { before: null, after: roles } },
+        }),
+      ]);
 
       try {
         await sendInviteEmail({
@@ -607,7 +621,10 @@ export const membersRouter = new Hono<TenantEnv>()
         );
       }
 
-      const target = await prisma.member.findUnique({ where: { id } });
+      const target = await prisma.member.findUnique({
+        where: { id },
+        include: { userRef: { select: { nameJa: true } } },
+      });
       if (!target || target.orgId !== org.id) {
         return c.json({ error: { code: "NOT_FOUND", message: "メンバーが見つかりません" } }, 404);
       }
@@ -635,12 +652,49 @@ export const membersRouter = new Hono<TenantEnv>()
       // email変更とその他フィールドの更新を1トランザクションにまとめる。
       // 分けて実行すると、email更新後にmember.updateが失敗した場合（不正なpartId等）に
       // セッション失効・通知メール送信済みの状態のままエラーになる（Issue #105 レビュー指摘）。
+      const auditTarget = {
+        targetType: "member",
+        targetId: id,
+        targetLabel: target.userRef.nameJa,
+      };
+      const auditEntries: AuditEntry[] = [];
+      // ロールは集合として比較する（並び順だけの違いは変更として記録しない）
+      const rolesChanges = diffChanges(
+        { roles: [...target.roles].sort() },
+        { roles: [...(memberFields.roles ?? target.roles)].sort() },
+        ["roles"],
+      );
+      if (rolesChanges) {
+        auditEntries.push({
+          action: "member.roles_changed",
+          ...auditTarget,
+          changes: rolesChanges,
+        });
+      }
+      const statusChanges = diffChanges(target, { ...target, ...memberFields }, ["status"]);
+      if (statusChanges) {
+        auditEntries.push({
+          action: "member.status_changed",
+          ...auditTarget,
+          changes: statusChanges,
+        });
+      }
+      if (emailChanged) {
+        auditEntries.push({
+          action: "member.email_changed",
+          ...auditTarget,
+          changes: { email: { before: previousEmail!, after: email! } },
+        });
+      }
+      const actor = memberActor(c);
+
       try {
         await prisma.$transaction([
           ...(emailChanged
             ? [prisma.user.update({ where: { id: target.userId }, data: { email } })]
             : []),
           prisma.member.update({ where: { id }, data: memberFields }),
+          ...auditEntries.map((entry) => recordAudit(prisma, org.id, actor, entry)),
         ]);
       } catch (e: unknown) {
         if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
@@ -720,7 +774,10 @@ export const membersRouter = new Hono<TenantEnv>()
       return c.json({ error: { code: "FORBIDDEN", message: "管理者権限が必要です" } }, 403);
     }
 
-    const target = await prisma.member.findUnique({ where: { id } });
+    const target = await prisma.member.findUnique({
+      where: { id },
+      include: { userRef: { select: { nameJa: true } } },
+    });
     if (!target || target.orgId !== org.id) {
       return c.json({ error: { code: "NOT_FOUND", message: "メンバーが見つかりません" } }, 404);
     }
@@ -728,6 +785,26 @@ export const membersRouter = new Hono<TenantEnv>()
       return c.json({ error: { code: "FORBIDDEN", message: "自分自身を退団処理できません" } }, 403);
     }
 
-    await prisma.member.update({ where: { id }, data: { deletedAt: new Date() } });
+    // 二重送信で退団日時の上書き・操作履歴の重複が起きないよう、未退団のときのみ成功する条件付き更新にする
+    const actor = memberActor(c);
+    const count = await prisma.$transaction(async (tx) => {
+      const { count } = await tx.member.updateMany({
+        where: { id, orgId: org.id, deletedAt: null },
+        data: { deletedAt: new Date() },
+      });
+      if (count > 0) {
+        await recordAudit(tx, org.id, actor, {
+          action: "member.removed",
+          targetType: "member",
+          targetId: id,
+          targetLabel: target.userRef.nameJa,
+          changes: { roles: { before: target.roles, after: null } },
+        });
+      }
+      return count;
+    });
+    if (count === 0) {
+      return c.json({ error: { code: "NOT_FOUND", message: "メンバーが見つかりません" } }, 404);
+    }
     return c.json({ data: { success: true } });
   });

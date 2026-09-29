@@ -269,7 +269,7 @@ describe("notifyEmailChanged", () => {
 describe("handleAttendanceDueCron", () => {
   function createCronApp() {
     const app = new Hono();
-    app.post("/cron/attendance-due", handleAttendanceDueCron);
+    app.get("/cron/attendance-due", handleAttendanceDueCron);
     return app;
   }
 
@@ -277,7 +277,6 @@ describe("handleAttendanceDueCron", () => {
     process.env.CRON_SECRET = "secret-abc";
     const app = createCronApp();
     const res = await app.request("/cron/attendance-due", {
-      method: "POST",
       headers: { Authorization: "Bearer wrong" },
     });
     expect(res.status).toBe(401);
@@ -310,7 +309,6 @@ describe("handleAttendanceDueCron", () => {
 
     const app = createCronApp();
     const res = await app.request("/cron/attendance-due", {
-      method: "POST",
       headers: { Authorization: "Bearer secret-abc" },
     });
 
@@ -339,7 +337,7 @@ describe("handleAttendanceDueCron", () => {
 describe("handleNotificationsCleanupCron", () => {
   function createCronApp() {
     const app = new Hono();
-    app.post("/cron/notifications-cleanup", handleNotificationsCleanupCron);
+    app.get("/cron/notifications-cleanup", handleNotificationsCleanupCron);
     return app;
   }
 
@@ -347,7 +345,6 @@ describe("handleNotificationsCleanupCron", () => {
     process.env.CRON_SECRET = "secret-abc";
     const app = createCronApp();
     const res = await app.request("/cron/notifications-cleanup", {
-      method: "POST",
       headers: { Authorization: "Bearer wrong" },
     });
     expect(res.status).toBe(401);
@@ -360,7 +357,6 @@ describe("handleNotificationsCleanupCron", () => {
 
     const app = createCronApp();
     const res = await app.request("/cron/notifications-cleanup", {
-      method: "POST",
       headers: { Authorization: "Bearer secret-abc" },
     });
 

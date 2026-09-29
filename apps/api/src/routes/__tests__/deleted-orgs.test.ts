@@ -10,6 +10,8 @@ async function json(res: Response): Promise<Record<string, any>> {
 
 vi.mock("../../lib/prisma.js", () => ({
   prisma: {
+    auditLog: { create: vi.fn() },
+    $transaction: vi.fn(),
     session: { findUnique: vi.fn(), update: vi.fn() },
     organization: { findMany: vi.fn(), updateMany: vi.fn(), findUniqueOrThrow: vi.fn() },
   },
@@ -73,6 +75,10 @@ function mockSession(user: User) {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vi.mocked(prisma.$transaction).mockImplementation((arg: any) =>
+    typeof arg === "function" ? arg(prisma) : Promise.all(arg),
+  );
 });
 
 // ────────────────────────────
@@ -145,6 +151,7 @@ describe("POST /auth/orgs/:id/restore", () => {
     vi.mocked(prisma.organization.updateMany).mockResolvedValue({ count: 0 });
     const res = await postRestore("org-unknown");
     expect(res.status).toBe(404);
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
   });
 
   it("成功: 削除済みのときのみdeletedAt・削除者をクリアして団体を返す", async () => {
@@ -165,6 +172,16 @@ describe("POST /auth/orgs/:id/restore", () => {
       data: { deletedAt: null, deletedByEmail: null },
     });
     expect(body.data).toEqual({ id: "org-1", name: "東京男声合唱団", slug: "tokyo-men-choir" });
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        orgId: "org-1",
+        actorType: "system_admin",
+        actorMemberId: null,
+        actorName: "システム管理者（システム管理者）",
+        action: "org.restored",
+        targetLabel: "東京男声合唱団",
+      }),
+    });
   });
 });
 
@@ -175,14 +192,13 @@ describe("POST /auth/orgs/:id/restore", () => {
 describe("handleOrgPurgeCron", () => {
   function createCronApp() {
     const app = new Hono();
-    app.post("/cron/org-purge", handleOrgPurgeCron);
+    app.get("/cron/org-purge", handleOrgPurgeCron);
     return app;
   }
 
   it("Authorizationヘッダーが不一致: 401を返し完全削除しない", async () => {
     process.env.CRON_SECRET = "secret-abc";
     const res = await createCronApp().request("/cron/org-purge", {
-      method: "POST",
       headers: { Authorization: "Bearer wrong" },
     });
     expect(res.status).toBe(401);
@@ -193,7 +209,6 @@ describe("handleOrgPurgeCron", () => {
     process.env.CRON_SECRET = "secret-abc";
     vi.mocked(purgeExpiredOrgs).mockResolvedValue({ purgedCount: 2 });
     const res = await createCronApp().request("/cron/org-purge", {
-      method: "POST",
       headers: { Authorization: "Bearer secret-abc" },
     });
     const body = await json(res);

@@ -19,6 +19,19 @@ describe("PrivacyPage", () => {
     }
   });
 
+  it("操作履歴の取得・管理者のみの閲覧・2年の保存期間を明記する", () => {
+    render(<PrivacyPage />);
+    expect(
+      screen.getByText(/操作者、日時、操作内容、変更前後の値、IP アドレス/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/管理者メモと操作履歴は団体の管理者のみが閲覧できます/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("操作履歴は、記録から2年経過後に自動で削除されます"),
+    ).toBeInTheDocument();
+  });
+
   it("開示等の請求は種類「個人情報」を選択した問い合わせフォームへ誘導する", () => {
     render(<PrivacyPage />);
     const links = screen.getAllByRole("link", { name: "お問い合わせフォーム" });

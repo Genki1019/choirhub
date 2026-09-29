@@ -1,15 +1,19 @@
 interface LegalDocumentProps {
   title: string;
   establishedOn: string;
+  revisedOn?: string;
   children: React.ReactNode;
 }
 
-export function LegalDocument({ title, establishedOn, children }: LegalDocumentProps) {
+export function LegalDocument({ title, establishedOn, revisedOn, children }: LegalDocumentProps) {
   return (
     <article className="rounded-2xl border border-gray-200 bg-white px-6 py-8 text-sm leading-relaxed text-gray-700 sm:px-10">
       <h1 className="mb-8 text-xl font-bold text-gray-900">{title}</h1>
       <div className="space-y-8">{children}</div>
-      <p className="mt-10 text-right text-xs text-gray-400">制定日: {establishedOn}</p>
+      <div className="mt-10 text-right text-xs text-gray-400">
+        <p>制定日: {establishedOn}</p>
+        {revisedOn && <p>最終改定日: {revisedOn}</p>}
+      </div>
     </article>
   );
 }

@@ -26,6 +26,7 @@
 14. [資料ライブラリ API](#14-資料ライブラリ-api)
 15. [ファイル横断検索 API](#15-ファイル横断検索-api)
 16. [通知 API](#16-通知-api)
+17. [監査ログ API](#17-監査ログ-api)
 
 ---
 
@@ -52,7 +53,7 @@
 | [団体の作成](#auth-orgs-create)                            | POST   | `/auth/orgs`                         | システム管理者              |
 | [削除済み団体の一覧](#auth-orgs-deleted-list)              | GET    | `/auth/orgs/deleted`                 | システム管理者              |
 | [削除済み団体の復元](#auth-orgs-restore)                   | POST   | `/auth/orgs/:id/restore`             | システム管理者              |
-| [団体の完全削除バッチ](#internal-cron-org-purge)           | POST   | `/internal/cron/org-purge`           | 内部バッチ（`CRON_SECRET`） |
+| [団体の完全削除バッチ](#internal-cron-org-purge)           | GET    | `/internal/cron/org-purge`           | 内部バッチ（`CRON_SECRET`） |
 | [運営への問い合わせ](#auth-inquiries-create)               | POST   | `/auth/inquiries`                    | 公開                        |
 | [問い合わせ一覧](#auth-inquiries-list)                     | GET    | `/auth/inquiries`                    | システム管理者              |
 | [問い合わせの対応済み化](#auth-inquiries-resolve)          | POST   | `/auth/inquiries/:id/resolve`        | システム管理者              |
@@ -273,8 +274,17 @@
 | [通知一覧取得](#notifications-list)                              | GET    | `/:orgSlug/notifications`              | 自分宛のみ                  |
 | [通知既読化](#notifications-read)                                | PATCH  | `/:orgSlug/notifications/:id/read`     | 自分宛のみ                  |
 | [通知一括既読化](#notifications-read-all)                        | PATCH  | `/:orgSlug/notifications/read-all`     | -                           |
-| [出欠期限接近通知バッチ](#internal-cron-attendance-due)          | POST   | `/internal/cron/attendance-due`        | 内部バッチ（`CRON_SECRET`） |
-| [既読通知の自動削除バッチ](#internal-cron-notifications-cleanup) | POST   | `/internal/cron/notifications-cleanup` | 内部バッチ（`CRON_SECRET`） |
+| [出欠期限接近通知バッチ](#internal-cron-attendance-due)          | GET    | `/internal/cron/attendance-due`        | 内部バッチ（`CRON_SECRET`） |
+| [既読通知の自動削除バッチ](#internal-cron-notifications-cleanup) | GET    | `/internal/cron/notifications-cleanup` | 内部バッチ（`CRON_SECRET`） |
+
+### 監査ログ
+
+| API名                                                                 | Method | Path                                   | 権限                        |
+| --------------------------------------------------------------------- | ------ | -------------------------------------- | --------------------------- |
+| [操作履歴一覧取得](#audit-logs-list)                                  | GET    | `/:orgSlug/settings/audit-logs`        | admin                       |
+| [操作者一覧取得](#audit-logs-actors)                                  | GET    | `/:orgSlug/settings/audit-logs/actors` | admin                       |
+| [操作履歴CSV出力](#audit-logs-export)                                 | GET    | `/:orgSlug/settings/audit-logs/export` | admin                       |
+| [保存期間切れ操作履歴の削除バッチ](#internal-cron-audit-logs-cleanup) | GET    | `/internal/cron/audit-logs-cleanup`    | 内部バッチ（`CRON_SECRET`） |
 
 ---
 
@@ -900,7 +910,7 @@ Set-Cookie: `session=<token>; HttpOnly; Secure; SameSite=Lax`（有効期限は3
 
 <a id="internal-cron-org-purge"></a>
 
-### POST `/api/v1/internal/cron/org-purge`
+### GET `/api/v1/internal/cron/org-purge`
 
 論理削除から30日以上経過した団体を完全削除する内部バッチ。Vercel Cronから毎日2時（UTC）に呼び出される（他の内部バッチと1時間ずつずらして実行）。認証方式は[出欠期限接近通知バッチ](#internal-cron-attendance-due)と同じ。
 
@@ -1318,7 +1328,9 @@ ChoirHub運営（システム管理者）へ問い合わせを送る。**公開�
 { "data": { "success": true } }
 ```
 
-**Errors:**: `403` `FORBIDDEN` 管理者権限が必要 / 自分自身は退団処理できない / `404` `NOT_FOUND` メンバーが見つからない（他テナントのIDを指定した場合を含む）
+> 未退団のときのみ成功する条件付き更新で退団日時を確定し、同じトランザクションで操作履歴（`member.removed`）を記録する。二重送信では退団日時を上書きせず、操作履歴も重複させない。
+
+**Errors:**: `403` `FORBIDDEN` 管理者権限が必要 / `403` `FORBIDDEN` 自分自身は退団処理できない / `404` `NOT_FOUND` メンバーが見つからない（他テナントのIDを指定した場合を含む） / `404` `NOT_FOUND` 既に退団処理済み
 
 ---
 
@@ -5715,9 +5727,9 @@ Googleフォームからの回答をWebhook経由で見学申込として取り�
 
 <a id="internal-cron-attendance-due"></a>
 
-### POST `/api/v1/internal/cron/attendance-due`
+### GET `/api/v1/internal/cron/attendance-due`
 
-出欠回答期限が3日以内に迫ったイベントについて、未回答の対象団員へ`attendance_due`通知を作成する内部バッチ。Vercel Cronから毎日0時（UTC）に呼び出される。`/:orgSlug/*`の認証ミドルウェアは通さず、`Authorization: Bearer <CRON_SECRET>`ヘッダーで検証する。
+出欠回答期限が3日以内に迫ったイベントについて、未回答の対象団員へ`attendance_due`通知を作成する内部バッチ。Vercel Cronから毎日0時（UTC）に呼び出される（Vercel CronはGETリクエストで呼び出すため、内部バッチはすべてGETで受け付ける）。`/:orgSlug/*`の認証ミドルウェアは通さず、`Authorization: Bearer <CRON_SECRET>`ヘッダーで検証する。
 
 **権限**: 内部バッチのみ（`CRON_SECRET`環境変数と一致するヘッダーが必須）
 
@@ -5735,9 +5747,135 @@ Googleフォームからの回答をWebhook経由で見学申込として取り�
 
 <a id="internal-cron-notifications-cleanup"></a>
 
-### POST `/api/v1/internal/cron/notifications-cleanup`
+### GET `/api/v1/internal/cron/notifications-cleanup`
 
 既読化されてから90日以上経過した通知を削除する内部バッチ。Vercel Cronから毎日1時（UTC）に呼び出される（`attendance-due`バッチと1時間ずらして実行）。未読の通知は削除対象外（本人が確認するまで保持する）。認証方式は`attendance-due`バッチと同じ。
+
+**権限**: 内部バッチのみ（`CRON_SECRET`環境変数と一致するヘッダーが必須）
+
+**Response** `200`
+
+```json
+{ "data": { "deletedCount": 12 } }
+```
+
+**Errors:**: `401` `UNAUTHORIZED` `CRON_SECRET`が未設定または不一致
+
+---
+
+## 17. 監査ログ API
+
+> **設計方針**: 権限・所属の変更、団体設定の変更、データの持ち出し（CSV出力）、会計記録の登録・変更・削除を「いつ・どこで・誰が・何に・何をしたか」の形で`AuditLog`に追記する（OWASP Logging Cheat Sheet の when/where/who/what に準拠）。記録は各エンドポイントの処理と**同じトランザクション**で書き込み、記録に失敗した場合は操作自体も失敗させる（記録漏れを防ぐため、アプリ内通知の「失敗しても本処理は継続」とは逆の方針）。更新・削除APIは設けず追記専用とし、保存期間（2年）を過ぎたものだけを内部バッチで削除する。
+
+**記録対象:**
+
+| 分類（`category`） | `action`                                                                                                                                           | 記録元エンドポイント                                                                                                                                                                                                                               |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `access`           | `member.invited` / `member.roles_changed` / `member.status_changed` / `member.email_changed` / `member.removed`                                    | [招待](#members-invite) / [メンバー更新](#members-id-patch)（ロール・在団状態・メールアドレスが変わった場合のみ。ロールは集合として比較し、並び順だけの違いは記録しない） / [退団処理](#members-id-delete)                                         |
+| `org`              | `org.renamed` / `org.deleted` / `org.restored` / `org.visitor_webhook_regenerated`                                                                 | [団体情報更新](#settings-patch)（団体名が変わった場合のみ） / [団体の削除](#settings-delete) / 団体の復元（システム管理者） / 見学申込トークン再発行                                                                                               |
+| `export`           | `members.exported` / `expenses.exported` / `collections.exported` / `payments.exported` / `ticket_sales.exported` / `audit_logs.exported`          | 名簿・支出・徴収・支払い記録・チケット販売実績・操作履歴の各CSV出力（出力条件と件数のみ記録し、CSVの中身は記録しない）                                                                                                                             |
+| `finance`          | `expense.created` / `expense.updated` / `expense.deleted` / `collection.created` / `collection.updated` / `collection.deleted` / `payment.changed` | 支出・徴収の登録・更新・削除、支払い記録の個別更新・一括更新（更新は値が変わった場合のみ。一括更新は実際に値が変わった団員だけを1件にまとめ、その氏名を`changes.members`に記録。変更前の値が団員ごとに異なる場合は`before`を重複なしの配列にする） |
+
+> `changes`は変わったフィールドだけを`{ "<field>": { "before": 値, "after": 値 } }`の形で持つ。作成は`before: null`、削除は`after: null`（削除前の内容全体を残す）。日付は`YYYY-MM-DD`。パスワード・トークン等の値は記録しない。`PROTECTED_ORG_SLUGS`で指定した公開デモ団体では、誰でも管理者として閲覧できるため`ipAddress`・`userAgent`を記録しない（`null`）。
+
+<a id="audit-logs-list"></a>
+
+### GET `/api/v1/:orgSlug/settings/audit-logs`
+
+団体の操作履歴を新しい順に取得する。
+
+**権限**: admin
+
+**Query Parameters:**
+
+| パラメータ | 型     | 説明                                                      |
+| ---------- | ------ | --------------------------------------------------------- |
+| page       | number | ページ番号（default: 1。1ページ50件固定）                 |
+| from       | string | `YYYY-MM-DD`。JSTのこの日0時以降                          |
+| to         | string | `YYYY-MM-DD`。JSTのこの日の終わりまで                     |
+| actorId    | string | 操作者の`memberId`（cuid）で絞り込み                      |
+| actorType  | string | `system_admin` を指定するとシステム管理者の操作に絞り込み |
+| category   | string | `access` / `org` / `export` / `finance` で絞り込み        |
+
+**Response** `200`
+
+```json
+{
+  "data": [
+    {
+      "id": "cuid",
+      "createdAt": "2026-09-01T01:00:00.000Z",
+      "actorType": "member",
+      "actorMemberId": "cuid",
+      "actorName": "山田 太郎",
+      "action": "member.roles_changed",
+      "category": "access",
+      "targetType": "member",
+      "targetId": "cuid",
+      "targetLabel": "佐藤 花子",
+      "changes": { "roles": { "before": ["member"], "after": ["member", "finance"] } },
+      "ipAddress": "203.0.113.1",
+      "userAgent": "Mozilla/5.0 ..."
+    }
+  ],
+  "meta": { "total": 1, "page": 1, "perPage": 50 }
+}
+```
+
+> `actorType`は`member`（団員）/ `system_admin`（システム管理者による団体復元。`actorMemberId`は`null`）/ `system`（予約）。`actorName`・`targetLabel`は記録時点の値で、退団や対象の物理削除後もそのまま表示できる。
+
+**Errors:**: `400` `VALIDATION_ERROR` page・from・to・category・actorId・actorTypeの形式が不正 / `403` `FORBIDDEN` admin以外
+
+---
+
+<a id="audit-logs-actors"></a>
+
+### GET `/api/v1/:orgSlug/settings/audit-logs/actors`
+
+操作者フィルタの選択肢として、操作履歴に登場する団員を名前順で取得する。システム管理者による操作があれば、末尾に1件「システム管理者」として含める。
+
+**権限**: admin
+
+**Response** `200`
+
+```json
+{
+  "data": [
+    { "type": "member", "memberId": "cuid", "name": "山田 太郎" },
+    { "type": "system_admin", "name": "システム管理者" }
+  ]
+}
+```
+
+> 退団済みの団員も、記録が残っている限り選択肢に含める。記録の間に氏名が変わっていても団員ごとに1件にまとめ、`name`は最新の記録時点の氏名とする。
+
+**Errors:**: `403` `FORBIDDEN` admin以外
+
+---
+
+<a id="audit-logs-export"></a>
+
+### GET `/api/v1/:orgSlug/settings/audit-logs/export`
+
+操作履歴をCSV（UTF-8 BOM付き）で出力する。絞り込み条件は[一覧取得](#audit-logs-list)と同じ（`page`を除く）。
+
+**権限**: admin
+
+**Response** `200` `text/csv`
+
+列: 日時（JST） / 操作者 / 操作 / 対象 / 変更内容（`changes`のJSON） / IPアドレス / User-Agent
+
+> 出力自体も`audit_logs.exported`として記録する。
+
+**Errors:**: `400` `VALIDATION_ERROR` from・to・category・actorId・actorTypeの形式が不正 / `403` `FORBIDDEN` admin以外
+
+---
+
+<a id="internal-cron-audit-logs-cleanup"></a>
+
+### GET `/api/v1/internal/cron/audit-logs-cleanup`
+
+記録から2年を過ぎた操作履歴を削除する内部バッチ（うるう年をまたいでも短くならないよう、日数ではなく暦の年で遡って判定する）。Vercel Cronから毎日3時（UTC）に呼び出される。認証方式は[`attendance-due`バッチ](#internal-cron-attendance-due)と同じ。
 
 **権限**: 内部バッチのみ（`CRON_SECRET`環境変数と一致するヘッダーが必須）
 

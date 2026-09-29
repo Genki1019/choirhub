@@ -219,6 +219,7 @@ model Organization {
   organizerPeriods    OrganizerPeriod[]
   storedFiles         StoredFile[]
   notifications       Notification[]
+  auditLogs           AuditLog[]
 
   @@map("organizations")
 }
@@ -332,6 +333,7 @@ model Member {
   createdVisitorApplications  VisitorApplication[]  @relation("VisitorApplicationCreator")
   reviewedVisitorApplications VisitorApplication[]  @relation("VisitorApplicationReviewer")
   notifications               Notification[]
+  auditLogs                   AuditLog[]            @relation("AuditLogActor")
 
   @@unique([userId, orgId])
   @@index([userId])
@@ -747,6 +749,31 @@ model Notification {
   @@index([orgId, memberId, readAt])
   @@index([memberId, type, link])
   @@map("notifications")
+}
+
+// 監査ログ（追記専用）。操作者・対象名は退団・物理削除後も読めるよう記録時点の値を保持する
+model AuditLog {
+  id            String   @id @default(cuid())
+  orgId         String   @map("org_id")
+  actorType     String   @map("actor_type")
+  actorMemberId String?  @map("actor_member_id")
+  actorName     String   @map("actor_name")
+  action        String
+  targetType    String   @map("target_type")
+  targetId      String?  @map("target_id")
+  targetLabel   String   @map("target_label")
+  changes       Json?
+  ipAddress     String?  @map("ip_address")
+  userAgent     String?  @map("user_agent")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actor Member?      @relation("AuditLogActor", fields: [actorMemberId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, createdAt])
+  @@index([orgId, actorMemberId, createdAt])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 
 // ────────────────────────────

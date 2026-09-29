@@ -28,6 +28,7 @@ import {
   handleNotificationsCleanupCron,
 } from "./routes/notifications.js";
 import { deletedOrgsRouter, handleOrgPurgeCron } from "./routes/deleted-orgs.js";
+import { auditLogsRouter, handleAuditLogsCleanupCron } from "./routes/audit-logs.js";
 import { inquiriesRouter } from "./routes/inquiries.js";
 import { storage } from "./services/storage.js";
 import { logger } from "./lib/logger.js";
@@ -80,6 +81,7 @@ v1.route("/:orgSlug", calendarRouter);
 v1.route("/:orgSlug", documentsRouter);
 v1.route("/:orgSlug", filesRouter);
 v1.route("/:orgSlug", notificationsRouter);
+v1.route("/:orgSlug", auditLogsRouter);
 
 // 見学申込Webhook (認証不要: Googleフォーム連携。トークンでorgを識別)
 // /:orgSlug/* ミドルウェアを通さないよう v1.route より先に登録
@@ -89,17 +91,22 @@ app.post("/api/v1/public/visitor-applications", handlePublicVisitorApplication);
 // /:orgSlug/* ミドルウェアを通さないよう v1.route より先に登録
 app.get("/api/v1/calendar/:orgSlug/feed.ics", handleCalendarFeed);
 
+// Vercel Cron は定期バッチを GET リクエストで呼び出すため、internal/cron/* はすべて GET で登録する
 // 出欠期限接近通知バッチ (認証不要: Vercel Cronからの呼び出し。CRON_SECRETで検証)
 // /:orgSlug/* ミドルウェアを通さないよう v1.route より先に登録
-app.post("/api/v1/internal/cron/attendance-due", handleAttendanceDueCron);
+app.get("/api/v1/internal/cron/attendance-due", handleAttendanceDueCron);
 
 // 既読通知の自動削除バッチ (認証不要: Vercel Cronからの呼び出し。CRON_SECRETで検証)
 // /:orgSlug/* ミドルウェアを通さないよう v1.route より先に登録
-app.post("/api/v1/internal/cron/notifications-cleanup", handleNotificationsCleanupCron);
+app.get("/api/v1/internal/cron/notifications-cleanup", handleNotificationsCleanupCron);
 
 // 論理削除から猶予期間を過ぎた団体の完全削除バッチ (認証不要: Vercel Cronからの呼び出し。CRON_SECRETで検証)
 // /:orgSlug/* ミドルウェアを通さないよう v1.route より先に登録
-app.post("/api/v1/internal/cron/org-purge", handleOrgPurgeCron);
+app.get("/api/v1/internal/cron/org-purge", handleOrgPurgeCron);
+
+// 保存期間を過ぎた監査ログの削除バッチ (認証不要: Vercel Cronからの呼び出し。CRON_SECRETで検証)
+// /:orgSlug/* ミドルウェアを通さないよう v1.route より先に登録
+app.get("/api/v1/internal/cron/audit-logs-cleanup", handleAuditLogsCleanupCron);
 
 // アバター画像配信 (認証不要: プロフィール画像は公開情報)
 // R2からプロキシして返すことで Next.js <Image> の外部ドメイン制限を回避

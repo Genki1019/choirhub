@@ -16,6 +16,20 @@ describe("LegalDocument", () => {
     expect(screen.getByRole("heading", { level: 2, name: "第1条（定義）" })).toBeInTheDocument();
     expect(screen.getByText("本文")).toBeInTheDocument();
     expect(screen.getByText("制定日: 2026年9月24日")).toBeInTheDocument();
+    expect(screen.queryByText(/最終改定日/)).not.toBeInTheDocument();
+  });
+
+  it("改定日を指定すると最終改定日を併記する", () => {
+    render(
+      <LegalDocument
+        title="プライバシーポリシー"
+        establishedOn="2026年9月24日"
+        revisedOn="2026年9月29日"
+      >
+        <p>本文</p>
+      </LegalDocument>,
+    );
+    expect(screen.getByText("最終改定日: 2026年9月29日")).toBeInTheDocument();
   });
 
   it("LegalWarningは強調された注意書きとして表示する", () => {

@@ -1946,6 +1946,21 @@ describe("GET /scores/:scoreId/files/:fileId/download", () => {
 
     expect(res.status).toBe(403);
     expect(res.headers.get("content-type")).toContain("text/html");
+    expect(await res.text()).toContain("体験アカウントは全体譜のみ閲覧できます");
+  });
+
+  it("visitor: PDFでもパート譜は403を返す（閲覧できるのは全体譜のみ）", async () => {
+    vi.mocked(prisma.score.findUnique).mockResolvedValue(testScore);
+    vi.mocked(prisma.scoreFile.findUnique).mockResolvedValue(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      makeScoreFile({ fileType: "part_score" }) as any,
+    );
+
+    const app = createTestApp(makeMember(["visitor"]));
+    const res = await app.request(`/scores/${testScore.id}/files/file-1/download`);
+
+    expect(res.status).toBe(403);
+    expect(await res.text()).toContain("体験アカウントは全体譜のみ閲覧できます");
   });
 
   it("非特権メンバー: secretは購入記録を確認せず403を返す", async () => {

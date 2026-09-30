@@ -15,8 +15,7 @@ ChoirHub は合唱団向け運営支援 SaaS です。
 
 1. Next.js / TypeScript の学習
 2. AI支援開発の実践
-3. 転職用ポートフォリオの作成
-4. 実際に利用可能なサービスの構築
+3. 実際に利用可能なサービスの構築
 
 ---
 
@@ -42,25 +41,6 @@ AIエージェントは以下を支援すること。
 - 過度な抽象化を避ける
 - MVPを意識する
 - 小さく作って改善する
-
----
-
-## Tech Stack
-
-- Next.js (App Router)
-- TypeScript
-- Tailwind CSS
-- PostgreSQL
-- Prisma
-
----
-
-## Coding Guidelines
-
-### TypeScript
-
-- `any` の使用は禁止
-- 型安全性を重視
 
 ---
 

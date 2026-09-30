@@ -1899,7 +1899,7 @@
 
 **新規申請モーダル**（`CreateModal`）
 
-- 行き先・活動日（必須）、メモ（任意）
+- 行き先・活動日（必須、デフォルト: 今日（JST））、メモ（任意）
 - 参加者行を「参加者を追加」で複数追加可能。各行で団員選択・販売枚数・交通費（任意）を入力、🗑️で行削除
 - 送信 → バリデーション（行き先必須、参加者1名以上、同一団員の重複禁止）→ POST `/tickets/:concertId/outreach`
 
@@ -2042,12 +2042,12 @@
 - 各行のチェックボックスで複数選択（IDは団員ID単位）
 - 「未払いを全選択」→ ステータスが未払いの全員を一括チェック
 - 1件以上選択中 → 画面下部に一括アクションバーが出現
-  - 「一括現金支払済み」→ `POST /finance/collections/:id/payments/bulk`（status: paid / method: cash / paidAt: 今日）
+  - 「一括現金支払済み」→ `POST /finance/collections/:id/payments/bulk`（status: paid / method: cash / paidAt: 今日（JST））
   - 「× 解除」→ 選択をすべて解除
-- 未払い行の「支払済」ボタン → その場で現金・今日日付として即時記録（`PATCH /finance/collections/:id/payments/:memberId`）
+- 未払い行の「支払済」ボタン → その場で現金・今日（JST）の日付として即時記録（`PATCH /finance/collections/:id/payments/:memberId`）
 - 「編集」ボタン → 支払い記録モーダル
   - 状態（支払済 / 未払い / 免除、ボタン選択式）
-  - 支払済の場合のみ表示: 支払額（デフォルト: 団員のメンバー区分デフォルト会費 → 無ければCollection.amount）・支払日（デフォルト: 今日）・支払方法（現金 / PayPay / 振込 / その他）
+  - 支払済の場合のみ表示: 支払額（デフォルト: 団員のメンバー区分デフォルト会費 → 無ければCollection.amount）・支払日（デフォルト: 今日（JST））・支払方法（現金 / PayPay / 振込 / その他）
   - メモ（常に表示）
 
 ---

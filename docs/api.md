@@ -4935,11 +4935,11 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 | ---------- | -------------- | ---- | --------------------------------------------- |
 | memberIds  | string[]       | ✓    | 対象団員ID（1件以上）                         |
 | status     | string         | ✓    | `pending` / `paid` / `waived`                 |
-| paidAt     | string \| null |      | 支払日時（ISO8601 datetime）                  |
+| paidAt     | string \| null |      | 支払日（ISO8601 date）                        |
 | method     | string \| null |      | `cash` / `paypay` / `bank_transfer` / `other` |
 
 ```json
-{ "memberIds": ["cuid1", "cuid2"], "status": "paid", "paidAt": "2026-06-14T00:00:00+09:00" }
+{ "memberIds": ["cuid1", "cuid2"], "status": "paid", "paidAt": "2026-06-14" }
 ```
 
 > 個別金額（`amount`）は一括更新の対象外（既存値を保持）。

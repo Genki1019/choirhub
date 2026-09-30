@@ -30,7 +30,7 @@ function makeExpense(overrides: Partial<ExpenseItem> = {}): ExpenseItem {
     title: "楽譜「風と光」",
     amount: 2000,
     paymentMethod: "cash",
-    paidAt: "2026-05-28T00:00:00+09:00",
+    paidAt: "2026-05-28T00:00:00.000Z",
     eventId: null,
     note: "備考",
     createdAt: "2026-05-28T00:00:00+09:00",
@@ -93,11 +93,17 @@ describe("ExpenseModal（新規追加）", () => {
 
     await user.type(screen.getByPlaceholderText("例: 市民会館 第2練習室 6/14"), "楽譜「風と光」");
     await user.type(screen.getByPlaceholderText("8000"), "2000");
+    fireEvent.change(screen.getByLabelText("支払日"), { target: { value: "2026-06-14" } });
     await user.click(screen.getByText("追加する"));
 
     expect(accountingApi.createExpense).toHaveBeenCalledWith(
       "o",
-      expect.objectContaining({ categoryId: "cat-1", title: "楽譜「風と光」", amount: 2000 }),
+      expect.objectContaining({
+        categoryId: "cat-1",
+        title: "楽譜「風と光」",
+        amount: 2000,
+        paidAt: "2026-06-14",
+      }),
     );
     expect(onSaved).toHaveBeenCalledWith(created, true);
   });
@@ -181,7 +187,7 @@ describe("ExpenseModal（編集）", () => {
     expect(accountingApi.updateExpense).toHaveBeenCalledWith(
       "o",
       "exp-1",
-      expect.objectContaining({ title: "楽譜「風と光」" }),
+      expect.objectContaining({ title: "楽譜「風と光」", paidAt: "2026-05-28" }),
     );
     expect(onSaved).toHaveBeenCalledWith(updated, false);
   });

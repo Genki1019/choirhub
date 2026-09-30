@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -160,7 +160,16 @@ describe("CollectionDetailPage（表示）", () => {
 });
 
 describe("CollectionDetailPage（支払い操作）", () => {
-  it("「支払済」クリックでrecordPaymentが現金・今日で呼ばれる", async () => {
+  beforeEach(() => {
+    // JST 2026-09-29 08:00（UTCでは前日）
+    vi.useFakeTimers({ now: new Date("2026-09-28T23:00:00Z"), toFake: ["Date"] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("「支払済」クリックでrecordPaymentが現金・JSTの今日の日付で呼ばれる", async () => {
     vi.mocked(accountingApi.getCollection).mockResolvedValue(makeCollection());
     vi.mocked(accountingApi.recordPayment).mockResolvedValue(
       makePayment({ status: "paid", amount: 300, method: "cash" }),
@@ -174,7 +183,7 @@ describe("CollectionDetailPage（支払い操作）", () => {
       "tokyo-men-choir",
       "col-1",
       "member-1",
-      expect.objectContaining({ status: "paid", method: "cash" }),
+      expect.objectContaining({ status: "paid", method: "cash", paidAt: "2026-09-29" }),
     );
     expect(await screen.findByText("山田太郎 の支払いを記録しました")).toBeInTheDocument();
 
@@ -193,7 +202,7 @@ describe("CollectionDetailPage（支払い操作）", () => {
     await waitFor(() => expect(accountingApi.getCollection).toHaveBeenCalledTimes(2));
   });
 
-  it("未払いを全選択→一括現金支払済みでbulkRecordPaymentが呼ばれる", async () => {
+  it("未払いを全選択→一括現金支払済みでbulkRecordPaymentがJSTの今日の日付で呼ばれる", async () => {
     vi.mocked(accountingApi.getCollection).mockResolvedValue(
       makeCollection({
         payments: [
@@ -221,7 +230,11 @@ describe("CollectionDetailPage（支払い操作）", () => {
     expect(accountingApi.bulkRecordPayment).toHaveBeenCalledWith(
       "tokyo-men-choir",
       "col-1",
-      expect.objectContaining({ memberIds: expect.arrayContaining(["m1", "m2"]), status: "paid" }),
+      expect.objectContaining({
+        memberIds: expect.arrayContaining(["m1", "m2"]),
+        status: "paid",
+        paidAt: "2026-09-29",
+      }),
     );
   });
 

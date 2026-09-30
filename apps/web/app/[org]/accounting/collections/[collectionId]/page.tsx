@@ -13,6 +13,7 @@ import type {
 } from "@/lib/accounting-api";
 import { ApiClientError } from "@/lib/api-client";
 import { accountingKeys } from "@/lib/query-keys";
+import { todayStr } from "@/lib/date";
 import { RecordModal } from "./_components/RecordModal";
 import { PaymentsList } from "./_components/PaymentsList";
 import { PageMain } from "@/components/PageMain";
@@ -50,7 +51,7 @@ export default function CollectionDetailPage() {
       const updated = await accountingApi.recordPayment(org, collectionId, payment.member.id, {
         status: "paid",
         amount: payment.amount ?? col.amount,
-        paidAt: new Date().toISOString(),
+        paidAt: todayStr(),
         method: "cash",
       });
       queryClient.setQueryData<CollectionDetail>(
@@ -112,14 +113,14 @@ export default function CollectionDetailPage() {
     if (!col || checkedIds.size === 0) return;
     setBulking(true);
     const memberIds = Array.from(checkedIds);
+    const paidAt = todayStr();
     try {
       await accountingApi.bulkRecordPayment(org, collectionId, {
         memberIds,
         status: "paid",
-        paidAt: new Date().toISOString(),
+        paidAt,
         method: "cash",
       });
-      const paidAt = new Date().toISOString();
       queryClient.setQueryData<CollectionDetail>(
         accountingKeys.collection(org, collectionId),
         (prev) => {

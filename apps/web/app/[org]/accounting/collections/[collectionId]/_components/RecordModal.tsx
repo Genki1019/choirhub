@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { accountingApi, PAYMENT_METHOD_LABEL } from "@/lib/accounting-api";
+import { todayStr } from "@/lib/date";
 import type {
   CollectionPaymentItem,
   CollectionPaymentStatus,
@@ -52,9 +53,7 @@ export function RecordModal({
   const [amount, setAmount] = useState(
     String(payment.amount ?? payment.member.memberTypeFee ?? defaultAmount),
   );
-  const [paidAt, setPaidAt] = useState(
-    payment.paidAt ? payment.paidAt.slice(0, 10) : new Date().toISOString().slice(0, 10),
-  );
+  const [paidAt, setPaidAt] = useState(payment.paidAt ? payment.paidAt.slice(0, 10) : todayStr());
   const [method, setMethod] = useState<PaymentMethod | "">(payment.method ?? "cash");
   const [note, setNote] = useState(payment.note ?? "");
   const [saving, setSaving] = useState(false);
@@ -67,7 +66,7 @@ export function RecordModal({
       const updated = await accountingApi.recordPayment(org, collectionId, payment.member.id, {
         status,
         amount: status === "paid" ? parseInt(amount, 10) || defaultAmount : null,
-        paidAt: status === "paid" && paidAt ? new Date(paidAt).toISOString() : null,
+        paidAt: status === "paid" ? paidAt || null : null,
         method: status === "paid" ? ((method || null) as PaymentMethod | null) : null,
         note: note.trim() || null,
       });

@@ -8,6 +8,8 @@ export function monthStart(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, "0")}-01`;
 }
 
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
 /** "YYYY-MM-DD" + "HH:MM" → JST ISO文字列 */
 export function toJstIso(date: string, time: string): string {
   return `${date}T${time}:00+09:00`;
@@ -15,14 +17,13 @@ export function toJstIso(date: string, time: string): string {
 
 /** JST ISO文字列 → { date: "YYYY-MM-DD", time: "HH:MM" } */
 export function isoToJstParts(iso: string): { date: string; time: string } {
-  const jst = new Date(new Date(iso).getTime() + 9 * 60 * 60 * 1000).toISOString();
+  const jst = new Date(new Date(iso).getTime() + JST_OFFSET_MS).toISOString();
   return { date: jst.slice(0, 10), time: jst.slice(11, 16) };
 }
 
-/** ローカル時刻での今日の日付を "YYYY-MM-DD" で返す */
+/** JSTでの今日の日付を "YYYY-MM-DD" で返す */
 export function todayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return new Date(Date.now() + JST_OFFSET_MS).toISOString().slice(0, 10);
 }
 
 /** ISO文字列 → "YYYY年M月D日" */

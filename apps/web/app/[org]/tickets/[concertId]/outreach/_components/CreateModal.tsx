@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus, Loader2, AlertCircle, Trash2 } from "lucide-react";
 import { ticketsApi, type OutreachActivityRow } from "@/lib/tickets-api";
 import type { MemberProfile } from "@/lib/api-types";
+import { todayStr } from "@/lib/date";
 
 interface ParticipantEntry {
   memberId: string;
@@ -79,7 +80,7 @@ interface CreateModalProps {
 
 export function CreateModal({ orgSlug, concertId, members, onClose, onCreated }: CreateModalProps) {
   const [destination, setDestination] = useState("");
-  const [activityDate, setActivityDate] = useState(new Date().toISOString().slice(0, 10));
+  const [activityDate, setActivityDate] = useState(todayStr);
   const [note, setNote] = useState("");
   const [participants, setParticipants] = useState<ParticipantEntry[]>([
     { memberId: "", ticketsSold: 0, expense: "" },

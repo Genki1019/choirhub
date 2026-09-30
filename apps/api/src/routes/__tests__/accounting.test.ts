@@ -291,6 +291,19 @@ describe("POST /finance/expenses", () => {
     expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 
+  it("バリデーションエラー: paidAtが日時形式は400を返す", async () => {
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/expenses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...validBody, paidAt: "2026-06-14T00:00:00.000Z" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
   it("会計担当者未満: 403を返す", async () => {
     const app = createTestApp(makeMember(["member"]));
     const res = await app.request("/finance/expenses", {
@@ -402,6 +415,19 @@ describe("PATCH /finance/expenses/:expenseId", () => {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ amount: 0 }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("バリデーションエラー: paidAtが日時形式は400を返す", async () => {
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/expenses/expense-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paidAt: "2026-06-14T00:00:00.000Z" }),
     });
 
     expect(res.status).toBe(400);
@@ -1103,6 +1129,19 @@ describe("PATCH /finance/collections/:collectionId/payments/:memberId", () => {
     expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 
+  it("バリデーションエラー: paidAtが日時形式は400を返す", async () => {
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/collection-1/payments/member-2", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "paid", paidAt: "2026-06-14T00:00:00.000Z" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
   it("会計担当者未満: 403を返す", async () => {
     const app = createTestApp(makeMember(["member"]));
     const res = await app.request("/finance/collections/collection-1/payments/member-2", {
@@ -1296,6 +1335,23 @@ describe("POST /finance/collections/:collectionId/payments/bulk", () => {
     expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 
+  it("バリデーションエラー: paidAtが日時形式は400を返す", async () => {
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/finance/collections/collection-1/payments/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        memberIds: ["member-2"],
+        status: "paid",
+        paidAt: "2026-06-14T00:00:00+09:00",
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
   it("会計担当者未満: 403を返す", async () => {
     const app = createTestApp(makeMember(["member"]));
     const res = await app.request("/finance/collections/collection-1/payments/bulk", {
@@ -1362,7 +1418,7 @@ describe("POST /finance/collections/:collectionId/payments/bulk", () => {
       body: JSON.stringify({
         memberIds: ["member-2", "member-3"],
         status: "paid",
-        paidAt: "2026-06-14T00:00:00+09:00",
+        paidAt: "2026-06-14",
       }),
     });
 
@@ -1387,13 +1443,13 @@ describe("POST /finance/collections/:collectionId/payments/bulk", () => {
         collectionId: "collection-1",
         memberId: "member-2",
         status: "paid",
-        paidAt: new Date("2026-06-14T00:00:00+09:00"),
+        paidAt: new Date("2026-06-14"),
         method: null,
         recordedById: actingMember.id,
       },
       update: {
         status: "paid",
-        paidAt: new Date("2026-06-14T00:00:00+09:00"),
+        paidAt: new Date("2026-06-14"),
         method: null,
         recordedById: actingMember.id,
       },
@@ -1428,7 +1484,7 @@ describe("POST /finance/collections/:collectionId/payments/bulk", () => {
       body: JSON.stringify({
         memberIds: ["member-2", "member-3", "member-4"],
         status: "paid",
-        paidAt: "2026-06-14T00:00:00Z",
+        paidAt: "2026-06-14",
         method: "cash",
       }),
     });

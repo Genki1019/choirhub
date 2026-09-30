@@ -47,7 +47,7 @@ export function ExpenseModal({ org, categories, editing, onClose, onSaved }: Exp
         title: title.trim(),
         amount: parsedAmount,
         paymentMethod: (method || null) as PaymentMethod | null,
-        paidAt: paidAt ? new Date(paidAt).toISOString() : null,
+        paidAt: paidAt || null,
         note: note.trim() || null,
       };
       if (editing) {

@@ -1002,7 +1002,7 @@ export const accountingRouter = new Hono<TenantEnv>()
       z.object({
         memberIds: z.array(z.string()).min(1),
         status: z.enum(["pending", "paid", "waived"]),
-        paidAt: z.string().datetime({ offset: true }).optional().nullable(),
+        paidAt: z.string().date().optional().nullable(),
         method: paymentMethodSchema.optional().nullable(),
       }),
       (result, c) => {

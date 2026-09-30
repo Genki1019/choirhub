@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RecordModal } from "../RecordModal";
@@ -103,14 +103,14 @@ describe("RecordModal（表示）", () => {
 });
 
 describe("RecordModal（保存）", () => {
-  it("支払済で保存するとrecordPaymentが呼ばれる", async () => {
+  it("支払済で保存するとrecordPaymentが支払日をYYYY-MM-DDで呼ばれる", async () => {
     const updated = makePayment({ status: "paid", amount: 300, method: "cash" });
     vi.mocked(accountingApi.recordPayment).mockResolvedValue(updated);
     const onSaved = vi.fn();
     const user = userEvent.setup();
     render(
       <RecordModal
-        payment={makePayment({ status: "paid", amount: 300 })}
+        payment={makePayment({ status: "paid", amount: 300, paidAt: "2026-06-14T00:00:00.000Z" })}
         defaultAmount={300}
         org="o"
         collectionId="col-1"
@@ -125,9 +125,47 @@ describe("RecordModal（保存）", () => {
       "o",
       "col-1",
       "member-1",
-      expect.objectContaining({ status: "paid", amount: 300 }),
+      expect.objectContaining({ status: "paid", amount: 300, paidAt: "2026-06-14" }),
     );
     expect(onSaved).toHaveBeenCalledWith(updated);
+  });
+
+  describe("支払日が未設定の場合", () => {
+    beforeEach(() => {
+      // JST 2026-09-29 08:00（UTCでは前日）
+      vi.useFakeTimers({ now: new Date("2026-09-28T23:00:00Z"), toFake: ["Date"] });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("JSTの今日の日付を初期値にして保存する", async () => {
+      vi.mocked(accountingApi.recordPayment).mockResolvedValue(makePayment({ status: "paid" }));
+      const user = userEvent.setup();
+      render(
+        <RecordModal
+          payment={makePayment({ status: "pending" })}
+          defaultAmount={300}
+          org="o"
+          collectionId="col-1"
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+      );
+
+      await user.click(screen.getByText("支払済"));
+      expect(screen.getByLabelText("支払日")).toHaveValue("2026-09-29");
+
+      await user.click(screen.getByText("保存する"));
+
+      expect(accountingApi.recordPayment).toHaveBeenCalledWith(
+        "o",
+        "col-1",
+        "member-1",
+        expect.objectContaining({ status: "paid", paidAt: "2026-09-29" }),
+      );
+    });
   });
 
   it("未払いに変更して保存すると金額・支払日・方法はnullで送信される", async () => {

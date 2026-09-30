@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CreateModal } from "../CreateModal";
@@ -199,6 +199,41 @@ describe("CreateModal（送信）", () => {
       }),
     );
     expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ id: "activity-new" }));
+  });
+
+  describe("活動日の初期値", () => {
+    beforeEach(() => {
+      // JST 2026-09-29 08:00（UTCでは前日）
+      vi.useFakeTimers({ now: new Date("2026-09-28T23:00:00Z"), toFake: ["Date"] });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("JSTの今日の日付で申請される", async () => {
+      vi.mocked(ticketsApi.createOutreachActivity).mockResolvedValue(makeActivity());
+      const user = userEvent.setup();
+      render(
+        <CreateModal
+          orgSlug="o"
+          concertId="concert-1"
+          members={members}
+          onClose={vi.fn()}
+          onCreated={vi.fn()}
+        />,
+      );
+
+      await user.type(screen.getByPlaceholderText("例: 渋谷駅前、新宿西口"), "渋谷駅前");
+      await user.selectOptions(screen.getByRole("combobox"), "member-1");
+      await user.click(screen.getByText("申請する"));
+
+      expect(ticketsApi.createOutreachActivity).toHaveBeenCalledWith(
+        "o",
+        "concert-1",
+        expect.objectContaining({ activityDate: "2026-09-29" }),
+      );
+    });
   });
 
   it("送信失敗時はエラーメッセージを表示する", async () => {

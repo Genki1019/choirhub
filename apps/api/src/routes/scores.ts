@@ -1114,7 +1114,7 @@ export const scoresRouter = new Hono<TenantEnv>()
     if (isVisitor(actingMember)) {
       // 体験（共有）アカウント: full_score のみ閲覧可
       if (scoreFile.fileType !== "full_score") {
-        return fileErrorPage(403, "体験アカウントはPDFファイルのみ閲覧できます");
+        return fileErrorPage(403, "体験アカウントは全体譜のみ閲覧できます");
       }
     } else {
       const privileged = isScorePrivileged(actingMember.roles);

@@ -50,7 +50,7 @@ export const ROLES = [
   {
     key: "visitor",
     defaultName: "体験",
-    description: "共有アカウント / 全楽譜PDF閲覧可（MIDI不可）",
+    description: "共有アカウント / 全楽譜の全体譜PDFのみ閲覧可",
     badgeClass: "bg-red-50 text-red-500",
   },
 ] as const;

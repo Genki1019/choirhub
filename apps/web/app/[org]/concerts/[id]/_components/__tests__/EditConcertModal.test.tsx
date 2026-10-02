@@ -41,6 +41,19 @@ describe("EditConcertModal（表示）", () => {
     expect(screen.getByDisplayValue("準備中")).toBeInTheDocument();
   });
 
+  it("JST0〜9時開始の演奏会でも、開催日の初期値はJSTの日付になる", () => {
+    render(
+      <EditConcertModal
+        concert={{ ...concert, heldOn: "2026-11-22T23:00:00.000Z" }}
+        orgSlug="o"
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByDisplayValue("2026-11-23")).toBeInTheDocument();
+  });
+
   it("ステータスの選択肢はdraft/confirmed/pastのみでsurvey_openは含まれない", () => {
     render(<EditConcertModal concert={concert} orgSlug="o" onClose={vi.fn()} onSaved={vi.fn()} />);
 

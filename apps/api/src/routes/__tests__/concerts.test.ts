@@ -1496,16 +1496,21 @@ describe("PATCH /concerts/:id", () => {
     expect(body.error.code).toBe("NOT_FOUND");
   });
 
-  it("正常（linkedEventあり）: title/heldOn/venue変更がEventにも連動する", async () => {
+  it("正常（linkedEventあり）: title/venue変更と、時刻・所要時間を保った日付変更がEventにも連動する", async () => {
     vi.mocked(prisma.concert.findUnique).mockResolvedValue({
       ...testConcert,
-      linkedEvent: { id: "event-1" },
+      heldOn: new Date("2026-11-03T05:00:00Z"),
+      linkedEvent: {
+        id: "event-1",
+        startsAt: new Date("2026-11-03T05:00:00Z"),
+        endsAt: new Date("2026-11-03T08:00:00Z"),
+      },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
     vi.mocked(prisma.concert.update).mockResolvedValue({
       id: testConcert.id,
       title: "改訂版タイトル",
-      heldOn: new Date("2026-12-01T00:00:00Z"),
+      heldOn: new Date("2026-11-05T05:00:00Z"),
       venue: "△△ホール",
       status: "draft",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1519,7 +1524,7 @@ describe("PATCH /concerts/:id", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: "改訂版タイトル",
-        heldOn: "2026-12-01",
+        heldOn: "2026-11-05",
         venue: "△△ホール",
       }),
     });
@@ -1529,17 +1534,102 @@ describe("PATCH /concerts/:id", () => {
     expect(body.data).toEqual({
       id: testConcert.id,
       title: "改訂版タイトル",
-      heldOn: "2026-12-01T00:00:00.000Z",
+      heldOn: "2026-11-05T05:00:00.000Z",
       venue: "△△ホール",
       status: "draft",
+    });
+    expect(prisma.$transaction).toHaveBeenCalled();
+    expect(prisma.concert.update).toHaveBeenCalledWith({
+      where: { id: testConcert.id },
+      data: {
+        title: "改訂版タイトル",
+        heldOn: new Date("2026-11-05T05:00:00Z"),
+        venue: "△△ホール",
+      },
     });
     expect(prisma.event.update).toHaveBeenCalledWith({
       where: { id: "event-1", orgId: testOrg.id },
       data: {
         title: "改訂版タイトル",
-        startsAt: new Date("2026-12-01"),
-        endsAt: new Date("2026-12-01"),
+        startsAt: new Date("2026-11-05T05:00:00Z"),
+        endsAt: new Date("2026-11-05T08:00:00Z"),
         location: "△△ホール",
+      },
+    });
+  });
+
+  it("正常: 開催日を変えずに送ると開催日時・Eventの日時は変わらない", async () => {
+    const heldOn = new Date("2026-11-03T05:00:00Z");
+    const endsAt = new Date("2026-11-03T08:00:00Z");
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue({
+      ...testConcert,
+      heldOn,
+      linkedEvent: { id: "event-1", startsAt: heldOn, endsAt },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.concert.update).mockResolvedValue({
+      ...testConcert,
+      heldOn,
+      status: "confirmed",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.event.update).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ heldOn: "2026-11-03", status: "confirmed" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(prisma.concert.update).toHaveBeenCalledWith({
+      where: { id: testConcert.id },
+      data: { heldOn, status: "confirmed" },
+    });
+    expect(prisma.event.update).toHaveBeenCalledWith({
+      where: { id: "event-1", orgId: testOrg.id },
+      data: { startsAt: heldOn, endsAt },
+    });
+  });
+
+  it("正常: JST0〜9時開始の演奏会でも、JSTの時刻を保って日付を変える", async () => {
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue({
+      ...testConcert,
+      heldOn: new Date("2026-11-02T23:00:00Z"),
+      linkedEvent: {
+        id: "event-1",
+        startsAt: new Date("2026-11-02T23:00:00Z"),
+        endsAt: new Date("2026-11-03T01:00:00Z"),
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(prisma.concert.update).mockResolvedValue({
+      ...testConcert,
+      heldOn: new Date("2026-11-04T23:00:00Z"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.event.update).mockResolvedValue({} as any);
+
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request(`/concerts/${testConcert.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ heldOn: "2026-11-05" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(prisma.concert.update).toHaveBeenCalledWith({
+      where: { id: testConcert.id },
+      data: { heldOn: new Date("2026-11-04T23:00:00Z") },
+    });
+    expect(prisma.event.update).toHaveBeenCalledWith({
+      where: { id: "event-1", orgId: testOrg.id },
+      data: {
+        startsAt: new Date("2026-11-04T23:00:00Z"),
+        endsAt: new Date("2026-11-05T01:00:00Z"),
       },
     });
   });

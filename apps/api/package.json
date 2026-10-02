@@ -7,7 +7,7 @@
     "dev": "tsx watch --env-file=.env src/index.ts",
     "build": "prisma generate && tsc",
     "lint": "eslint .",
-    "vercel-build": "prisma generate && case \"$VERCEL_ENV\" in production) prisma migrate deploy ;; preview|development) ;; *) echo 'VERCEL_ENV is not set. Enable System Environment Variables in the Vercel project settings.' >&2; exit 1 ;; esac",
+    "build:vercel": "prisma generate && case \"$VERCEL_ENV\" in production) prisma migrate deploy ;; preview|development) ;; *) echo 'VERCEL_ENV is not set. Enable System Environment Variables in the Vercel project settings.' >&2; exit 1 ;; esac",
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",

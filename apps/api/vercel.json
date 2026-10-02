@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pnpm run vercel-build",
+  "buildCommand": "pnpm run build:vercel",
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
   "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }],
   "outputDirectory": ".",

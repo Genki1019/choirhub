@@ -9,7 +9,7 @@ import {
   type UpdateConcertInput,
 } from "@/lib/concerts-api";
 import { LocationSearch } from "@/components/LocationSearch";
-import { toDateString } from "@/lib/date";
+import { isoToJstParts } from "@/lib/date";
 
 interface EditConcertModalProps {
   concert: ConcertDetail;
@@ -27,7 +27,7 @@ export function EditConcertModal({ concert, orgSlug, onClose, onSaved }: EditCon
 
   const [form, setForm] = useState<UpdateConcertInput>({
     title: concert.title,
-    heldOn: toDateString(concert.heldOn),
+    heldOn: isoToJstParts(concert.heldOn).date,
     venue: concert.venue ?? "",
     status: concert.status,
   });

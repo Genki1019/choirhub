@@ -12,6 +12,7 @@ import {
 import { syncOnStageFromResponses, applySurveyToOnStage } from "../services/onstage.js";
 import { createAttachmentRoutes } from "../lib/attachment-routes.js";
 import { deleteStoredFiles } from "../services/files.js";
+import { withJstDate } from "../lib/date.js";
 import { Prisma } from "../generated/prisma/index.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
@@ -834,39 +835,46 @@ export const concertsRouter = new Hono<TenantEnv>()
 
       const concert = await prisma.concert.findUnique({
         where: { id },
-        include: { linkedEvent: { select: { id: true } } },
+        include: { linkedEvent: { select: { id: true, startsAt: true, endsAt: true } } },
       });
       if (!concert || concert.orgId !== org.id) {
         return c.json({ error: { code: "NOT_FOUND", message: "演奏会が見つかりません" } }, 404);
       }
 
       const body = c.req.valid("json");
+      const heldOn =
+        body.heldOn !== undefined ? withJstDate(concert.heldOn, body.heldOn) : undefined;
+      const shiftMs = heldOn ? heldOn.getTime() - concert.heldOn.getTime() : 0;
+      const { linkedEvent } = concert;
 
-      const updated = await prisma.concert.update({
-        where: { id },
-        data: {
-          ...(body.title !== undefined && { title: body.title }),
-          ...(body.heldOn !== undefined && { heldOn: new Date(body.heldOn) }),
-          ...(body.venue !== undefined && { venue: body.venue }),
-          ...(body.status !== undefined && { status: body.status }),
-          ...(body.outreachExpensePerTrip !== undefined && {
-            outreachExpensePerTrip: body.outreachExpensePerTrip,
-          }),
-        },
-      });
-      if (concert.linkedEvent) {
-        await prisma.event.update({
-          where: { id: concert.linkedEvent.id, orgId: org.id },
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.concert.update({
+          where: { id },
           data: {
             ...(body.title !== undefined && { title: body.title }),
-            ...(body.heldOn !== undefined && {
-              startsAt: new Date(body.heldOn),
-              endsAt: new Date(body.heldOn),
+            ...(heldOn && { heldOn }),
+            ...(body.venue !== undefined && { venue: body.venue }),
+            ...(body.status !== undefined && { status: body.status }),
+            ...(body.outreachExpensePerTrip !== undefined && {
+              outreachExpensePerTrip: body.outreachExpensePerTrip,
             }),
-            ...(body.venue !== undefined && { location: body.venue }),
           },
         });
-      }
+        if (linkedEvent) {
+          await tx.event.update({
+            where: { id: linkedEvent.id, orgId: org.id },
+            data: {
+              ...(body.title !== undefined && { title: body.title }),
+              ...(heldOn && {
+                startsAt: new Date(linkedEvent.startsAt.getTime() + shiftMs),
+                endsAt: new Date(linkedEvent.endsAt.getTime() + shiftMs),
+              }),
+              ...(body.venue !== undefined && { location: body.venue }),
+            },
+          });
+        }
+        return result;
+      });
       return c.json({
         data: {
           id: updated.id,

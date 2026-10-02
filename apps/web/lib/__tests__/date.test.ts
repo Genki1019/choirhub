@@ -1,11 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { toDateString, monthStart, toJstIso, isoToJstParts, todayStr } from "../date";
-
-describe("toDateString", () => {
-  it("ISO文字列から日付部分を取り出す", () => {
-    expect(toDateString("2026-07-14T10:00:00+09:00")).toBe("2026-07-14");
-  });
-});
+import { monthStart, toJstIso, isoToJstParts, todayStr } from "../date";
 
 describe("monthStart", () => {
   it("year/monthから月初日を組み立てる", () => {

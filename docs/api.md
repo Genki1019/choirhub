@@ -2584,19 +2584,22 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 ### PATCH `/api/v1/:orgSlug/concerts/:id`
 
-演奏会の基本情報を更新する。連携する`Event`（title・heldOn・venue）があれば同時に更新される。
+演奏会の基本情報を更新する。連携する`Event`（`title`・`startsAt`/`endsAt`・`location`）があれば同一トランザクションで同時に更新される。
+
+> - `heldOn`はJSTの時刻を保ったまま日付だけを差し替える（例: 11/3 14:00 の演奏会に`2026-11-05`を送ると 11/5 14:00）。連携する`Event`の`startsAt`・`endsAt`も同じ日数だけずらし、所要時間を保つ。同じ日付を送った場合は変わらない。
+> - 連携する`Event`の`deadline`（出欠の回答締切）はずらさない。必要に応じて予定の編集（`PATCH /events/:id`）で変更する。
 
 **権限**: `admin`
 
 **Request Body:**（すべて省略可）
 
-| フィールド             | 型             | 説明                                                             |
-| ---------------------- | -------------- | ---------------------------------------------------------------- |
-| title                  | string         | 演奏会名                                                         |
-| heldOn                 | string         | 開催日（ISO8601 date、`YYYY-MM-DD`。時刻・オフセットは付けない） |
-| venue                  | string \| null | 会場名                                                           |
-| status                 | string         | `draft` / `survey_open` / `confirmed` / `past`                   |
-| outreachExpensePerTrip | number \| null | 情宣活動1回あたりの実費                                          |
+| フィールド             | 型             | 説明                                                                  |
+| ---------------------- | -------------- | --------------------------------------------------------------------- |
+| title                  | string         | 演奏会名                                                              |
+| heldOn                 | string         | 開催日（ISO8601 date、`YYYY-MM-DD`、JST。時刻・オフセットは付けない） |
+| venue                  | string \| null | 会場名                                                                |
+| status                 | string         | `draft` / `survey_open` / `confirmed` / `past`                        |
+| outreachExpensePerTrip | number \| null | 情宣活動1回あたりの実費                                               |
 
 ```json
 {

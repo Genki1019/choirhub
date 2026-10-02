@@ -464,7 +464,7 @@ Vercel に **2 プロジェクト**を作成してデプロイします。
 
 ### データベースとマイグレーション
 
-- データベースマイグレーション（`prisma migrate deploy`）は API のビルド（`vercel-build`）で、**Production 環境のときだけ**実行される。PR のプレビューデプロイでは実行されない
+- データベースマイグレーション（`prisma migrate deploy`）は API のビルド（`build:vercel`）で、**Production 環境のときだけ**実行される。PR のプレビューデプロイでは実行されない
 - プレビューデプロイが本番データを読み書きしないよう、Neon で本番から分岐したブランチ（例: `preview`）を作り、その接続文字列を Preview 環境の `DATABASE_URL`・`DATABASE_DIRECT_URL` に設定する
 - プレビュー用ブランチのスキーマは自動では更新されない。本番にマイグレーションが適用されたあとは、Neon の「Reset from parent」で本番に揃える
 - そのため、マイグレーションを含む PR はプレビューデプロイでは新しいスキーマを使う API が動かない。動作確認はローカルで行う

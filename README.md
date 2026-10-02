@@ -451,11 +451,9 @@ Vercel に **2 プロジェクト**を作成してデプロイします。
 ### API（`apps/api`）
 
 1. Vercel ダッシュボードでリポジトリを連携
-2. **Root Directory** を `apps/api` に設定
-3. **Build Command**: `prisma generate && tsc`
-4. **Output Directory**: `dist`
-5. 環境変数を設定してデプロイ
-6. `CRON_SECRET` を設定すると、`vercel.json` の `crons` 設定に従って通知バッチ（出欠期限リマインド・既読通知の自動削除）が毎日自動実行される
+2. **Root Directory** を `apps/api` に設定（ビルド設定・Cron は `apps/api/vercel.json` に定義済み）
+3. 環境変数を設定してデプロイ。`DATABASE_URL`・`DATABASE_DIRECT_URL` は Production と Preview で別の DB を指定する（下記）
+4. `CRON_SECRET` を設定すると、`vercel.json` の `crons` 設定に従って定期バッチ（出欠期限リマインド・既読通知の削除・削除済み団体の完全削除・監査ログの削除）が毎日自動実行される
 
 ### Web（`apps/web`）
 
@@ -464,7 +462,13 @@ Vercel に **2 プロジェクト**を作成してデプロイします。
 3. `API_INTERNAL_URL`（必須）・`NEXT_PUBLIC_API_URL`（任意）に API の Vercel URL を設定
 4. デプロイ実行
 
-> データベースマイグレーション（`prisma migrate deploy`）は API の build コマンドに含まれています。
+### データベースとマイグレーション
+
+- データベースマイグレーション（`prisma migrate deploy`）は API のビルド（`vercel-build`）で、**Production 環境のときだけ**実行される。PR のプレビューデプロイでは実行されない
+- プレビューデプロイが本番データを読み書きしないよう、Neon で本番から分岐したブランチ（例: `preview`）を作り、その接続文字列を Preview 環境の `DATABASE_URL`・`DATABASE_DIRECT_URL` に設定する
+- プレビュー用ブランチのスキーマは自動では更新されない。本番にマイグレーションが適用されたあとは、Neon の「Reset from parent」で本番に揃える
+- そのため、マイグレーションを含む PR はプレビューデプロイでは新しいスキーマを使う API が動かない。動作確認はローカルで行う
+- ビルドは Vercel のシステム環境変数 `VERCEL_ENV` で環境を判定する。未設定の場合はビルドを失敗させるので、プロジェクト設定で「Enable access to System Environment Variables」を有効にしておく
 
 ---
 

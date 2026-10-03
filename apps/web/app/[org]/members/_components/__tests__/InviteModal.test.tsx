@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { InviteModal, InviteSuccessModal } from "../InviteModal";
+import { InviteModal } from "../InviteModal";
 import { membersApi } from "@/lib/members-api";
 import { ApiClientError } from "@/lib/api-client";
 import type { PartSummary } from "@/lib/api-types";
@@ -24,9 +24,8 @@ describe("InviteModal", () => {
       inviteToken: "token",
       expiresAt: "2026-08-01T00:00:00Z",
     });
-    const onSuccess = vi.fn();
     const user = userEvent.setup();
-    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} onSuccess={onSuccess} />);
+    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} />);
 
     await user.type(screen.getByLabelText("メールアドレス *"), "new@example.com");
     await user.click(screen.getByText("招待メールを送信"));
@@ -39,12 +38,15 @@ describe("InviteModal", () => {
         partId: undefined,
       });
     });
-    expect(onSuccess).toHaveBeenCalled();
+    expect(
+      await screen.findByRole("dialog", { name: "招待メールを送信しました" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("リンクの有効期限は7日間です");
   });
 
   it("メールアドレスが空: バリデーションエラーを表示する", async () => {
     const user = userEvent.setup();
-    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} />);
 
     await user.click(screen.getByText("招待メールを送信"));
 
@@ -54,7 +56,7 @@ describe("InviteModal", () => {
 
   it("ロールをすべて解除して送信: バリデーションエラーを表示する", async () => {
     const user = userEvent.setup();
-    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} />);
 
     await user.type(screen.getByLabelText("メールアドレス *"), "new@example.com");
     // デフォルトで選択済みの「一般」チップを解除する
@@ -67,7 +69,7 @@ describe("InviteModal", () => {
 
   it("ロールチップをクリックすると選択状態(aria-pressed)が切り替わる", async () => {
     const user = userEvent.setup();
-    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} />);
 
     const memberChip = screen.getByRole("button", { name: "一般" });
     expect(memberChip).toHaveAttribute("aria-pressed", "true");
@@ -88,7 +90,7 @@ describe("InviteModal", () => {
       expiresAt: "2026-08-01T00:00:00Z",
     });
     const user = userEvent.setup();
-    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} />);
 
     await user.type(screen.getByLabelText("お名前"), "山田太郎");
     await user.type(screen.getByLabelText("メールアドレス *"), "new@example.com");
@@ -106,23 +108,23 @@ describe("InviteModal", () => {
     });
   });
 
-  it("送信失敗(409): 登録済みメールアドレスのエラーメッセージを表示する", async () => {
+  it("送信失敗(409): 登録済みメールアドレスのエラーをrole=alertで表示する", async () => {
     vi.mocked(membersApi.invite).mockRejectedValue(new ApiClientError("CONFLICT", "conflict", 409));
     const user = userEvent.setup();
-    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} />);
 
     await user.type(screen.getByLabelText("メールアドレス *"), "existing@example.com");
     await user.click(screen.getByText("招待メールを送信"));
 
-    expect(
-      await screen.findByText("このメールアドレスはすでに団体に登録済みです"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "このメールアドレスはすでに団体に登録済みです",
+    );
   });
 
   it("送信失敗(その他): 汎用エラーメッセージを表示する", async () => {
     vi.mocked(membersApi.invite).mockRejectedValue(new Error("network error"));
     const user = userEvent.setup();
-    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} />);
 
     await user.type(screen.getByLabelText("メールアドレス *"), "new@example.com");
     await user.click(screen.getByText("招待メールを送信"));
@@ -132,32 +134,37 @@ describe("InviteModal", () => {
     ).toBeInTheDocument();
   });
 
-  it("送信中はボタンがdisabledになる", async () => {
+  it("送信中はボタンがdisabledになり、Escでも閉じない", async () => {
     let resolveInvite: (value: { inviteToken: string; expiresAt: string }) => void;
-    const onSuccess = vi.fn();
+    const onClose = vi.fn();
     vi.mocked(membersApi.invite).mockReturnValue(
       new Promise((resolve) => {
         resolveInvite = resolve;
       }),
     );
     const user = userEvent.setup();
-    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} onSuccess={onSuccess} />);
+    render(<InviteModal org="tokyo" parts={parts} onClose={onClose} />);
 
     await user.type(screen.getByLabelText("メールアドレス *"), "new@example.com");
     await user.click(screen.getByText("招待メールを送信"));
 
     expect(screen.getByText("招待メールを送信").closest("button")).toBeDisabled();
 
+    await user.keyboard("{Escape}");
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("閉じる")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "キャンセル" })).toBeDisabled();
+
     resolveInvite!({ inviteToken: "token", expiresAt: "2026-08-01T00:00:00Z" });
-    await waitFor(() => {
-      expect(onSuccess).toHaveBeenCalled();
-    });
+    expect(
+      await screen.findByRole("dialog", { name: "招待メールを送信しました" }),
+    ).toBeInTheDocument();
   });
 
   it("×ボタンクリックでonCloseが呼ばれる", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<InviteModal org="tokyo" parts={parts} onClose={onClose} onSuccess={vi.fn()} />);
+    render(<InviteModal org="tokyo" parts={parts} onClose={onClose} />);
 
     await user.click(screen.getByLabelText("閉じる"));
     expect(onClose).toHaveBeenCalled();
@@ -166,7 +173,7 @@ describe("InviteModal", () => {
   it("キャンセルボタンクリックでonCloseが呼ばれる", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<InviteModal org="tokyo" parts={parts} onClose={onClose} onSuccess={vi.fn()} />);
+    render(<InviteModal org="tokyo" parts={parts} onClose={onClose} />);
 
     await user.click(screen.getByText("キャンセル"));
     expect(onClose).toHaveBeenCalled();
@@ -175,25 +182,48 @@ describe("InviteModal", () => {
   it("モーダル本体クリックでは閉じない", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<InviteModal org="tokyo" parts={parts} onClose={onClose} onSuccess={vi.fn()} />);
+    render(<InviteModal org="tokyo" parts={parts} onClose={onClose} />);
 
     await user.click(screen.getByText("メンバーを招待"));
     expect(onClose).not.toHaveBeenCalled();
   });
-});
 
-describe("InviteSuccessModal", () => {
-  it("「招待メールを送信しました」を表示する", () => {
-    render(<InviteSuccessModal onClose={vi.fn()} />);
-    expect(screen.getByText("招待メールを送信しました")).toBeInTheDocument();
+  it("「メンバーを招待」という名前のモーダルダイアログとして開き、お名前欄にフォーカスが当たる", () => {
+    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} />);
+
+    const dialog = screen.getByRole("dialog", { name: "メンバーを招待" });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(screen.getByLabelText("お名前")).toHaveFocus();
   });
 
-  it("「閉じる」クリックでonCloseが呼ばれる", async () => {
+  it("入力欄でEnterを押すと送信する", async () => {
+    vi.mocked(membersApi.invite).mockResolvedValue({
+      inviteToken: "token",
+      expiresAt: "2026-08-01T00:00:00Z",
+    });
+    const user = userEvent.setup();
+    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} />);
+
+    await user.type(screen.getByLabelText("メールアドレス *"), "new@example.com{Enter}");
+
+    await waitFor(() => expect(membersApi.invite).toHaveBeenCalledTimes(1));
+  });
+
+  it("完了表示では「閉じる」ボタンにフォーカスが当たり、押すとonCloseが呼ばれる", async () => {
+    vi.mocked(membersApi.invite).mockResolvedValue({
+      inviteToken: "token",
+      expiresAt: "2026-08-01T00:00:00Z",
+    });
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<InviteSuccessModal onClose={onClose} />);
+    render(<InviteModal org="tokyo" parts={parts} onClose={onClose} />);
 
-    await user.click(screen.getByText("閉じる"));
-    expect(onClose).toHaveBeenCalled();
+    await user.type(screen.getByLabelText("メールアドレス *"), "new@example.com");
+    await user.click(screen.getByText("招待メールを送信"));
+    const closeButton = await screen.findByText("閉じる");
+
+    expect(closeButton).toHaveFocus();
+    await user.click(closeButton);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,10 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import {
-  AddVisitorApplicationModal,
-  AddVisitorApplicationSuccessModal,
-} from "../AddVisitorApplicationModal";
+import { AddVisitorApplicationModal } from "../AddVisitorApplicationModal";
 import { visitorApplicationsApi } from "@/lib/visitor-applications-api";
 import type { PartSummary } from "@/lib/api-types";
 
@@ -39,16 +36,8 @@ describe("AddVisitorApplicationModal", () => {
       reviewedAt: null,
       createdAt: "2026-07-20T00:00:00Z",
     });
-    const onSuccess = vi.fn();
     const user = userEvent.setup();
-    render(
-      <AddVisitorApplicationModal
-        org="tokyo"
-        parts={parts}
-        onClose={vi.fn()}
-        onSuccess={onSuccess}
-      />,
-    );
+    render(<AddVisitorApplicationModal org="tokyo" parts={parts} onClose={vi.fn()} />);
 
     await user.type(screen.getByLabelText("お名前 *"), "見学 太郎");
     await user.click(screen.getByText("登録する"));
@@ -62,19 +51,15 @@ describe("AddVisitorApplicationModal", () => {
         message: undefined,
       });
     });
-    expect(onSuccess).toHaveBeenCalled();
+    expect(
+      await screen.findByRole("dialog", { name: "見学申込を登録しました" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("管理者が承認すると");
   });
 
   it("お名前が空: バリデーションエラーを表示する", async () => {
     const user = userEvent.setup();
-    render(
-      <AddVisitorApplicationModal
-        org="tokyo"
-        parts={parts}
-        onClose={vi.fn()}
-        onSuccess={vi.fn()}
-      />,
-    );
+    render(<AddVisitorApplicationModal org="tokyo" parts={parts} onClose={vi.fn()} />);
 
     await user.click(screen.getByText("登録する"));
 
@@ -98,14 +83,7 @@ describe("AddVisitorApplicationModal", () => {
       createdAt: "2026-07-20T00:00:00Z",
     });
     const user = userEvent.setup();
-    render(
-      <AddVisitorApplicationModal
-        org="tokyo"
-        parts={parts}
-        onClose={vi.fn()}
-        onSuccess={vi.fn()}
-      />,
-    );
+    render(<AddVisitorApplicationModal org="tokyo" parts={parts} onClose={vi.fn()} />);
 
     await user.type(screen.getByLabelText("お名前 *"), "見学 太郎");
     await user.selectOptions(screen.getByLabelText("希望パート"), "テノール");
@@ -126,14 +104,7 @@ describe("AddVisitorApplicationModal", () => {
   });
 
   it("希望パートは団体のパート一覧のみをプルダウンで選択できる", () => {
-    render(
-      <AddVisitorApplicationModal
-        org="tokyo"
-        parts={parts}
-        onClose={vi.fn()}
-        onSuccess={vi.fn()}
-      />,
-    );
+    render(<AddVisitorApplicationModal org="tokyo" parts={parts} onClose={vi.fn()} />);
 
     const select = screen.getByLabelText("希望パート") as HTMLSelectElement;
     const options = Array.from(select.options).map((o) => o.textContent);
@@ -143,34 +114,20 @@ describe("AddVisitorApplicationModal", () => {
   it("送信失敗: エラーメッセージを表示する", async () => {
     vi.mocked(visitorApplicationsApi.create).mockRejectedValue(new Error("network error"));
     const user = userEvent.setup();
-    render(
-      <AddVisitorApplicationModal
-        org="tokyo"
-        parts={parts}
-        onClose={vi.fn()}
-        onSuccess={vi.fn()}
-      />,
-    );
+    render(<AddVisitorApplicationModal org="tokyo" parts={parts} onClose={vi.fn()} />);
 
     await user.type(screen.getByLabelText("お名前 *"), "見学 太郎");
     await user.click(screen.getByText("登録する"));
 
-    expect(
-      await screen.findByText("見学申込の登録に失敗しました。もう一度お試しください。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "見学申込の登録に失敗しました。もう一度お試しください。",
+    );
   });
 
   it("×ボタンクリックでonCloseが呼ばれる", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(
-      <AddVisitorApplicationModal
-        org="tokyo"
-        parts={parts}
-        onClose={onClose}
-        onSuccess={vi.fn()}
-      />,
-    );
+    render(<AddVisitorApplicationModal org="tokyo" parts={parts} onClose={onClose} />);
 
     await user.click(screen.getByLabelText("閉じる"));
     expect(onClose).toHaveBeenCalled();
@@ -179,32 +136,62 @@ describe("AddVisitorApplicationModal", () => {
   it("キャンセルボタンクリックでonCloseが呼ばれる", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(
-      <AddVisitorApplicationModal
-        org="tokyo"
-        parts={parts}
-        onClose={onClose}
-        onSuccess={vi.fn()}
-      />,
-    );
+    render(<AddVisitorApplicationModal org="tokyo" parts={parts} onClose={onClose} />);
 
     await user.click(screen.getByText("キャンセル"));
     expect(onClose).toHaveBeenCalled();
   });
-});
 
-describe("AddVisitorApplicationSuccessModal", () => {
-  it("「見学申込を登録しました」を表示する", () => {
-    render(<AddVisitorApplicationSuccessModal onClose={vi.fn()} />);
-    expect(screen.getByText("見学申込を登録しました")).toBeInTheDocument();
+  it("「見学者を追加」という名前のモーダルダイアログとして開き、お名前欄にフォーカスが当たる", () => {
+    render(<AddVisitorApplicationModal org="tokyo" parts={parts} onClose={vi.fn()} />);
+
+    expect(screen.getByRole("dialog", { name: "見学者を追加" })).toHaveAttribute(
+      "aria-modal",
+      "true",
+    );
+    expect(screen.getByLabelText("お名前 *")).toHaveFocus();
   });
 
-  it("「閉じる」クリックでonCloseが呼ばれる", async () => {
+  it("送信中はEscで閉じず、×・キャンセルも押せない", async () => {
+    vi.mocked(visitorApplicationsApi.create).mockReturnValue(new Promise(() => {}));
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<AddVisitorApplicationSuccessModal onClose={onClose} />);
+    render(<AddVisitorApplicationModal org="tokyo" parts={parts} onClose={onClose} />);
 
-    await user.click(screen.getByText("閉じる"));
-    expect(onClose).toHaveBeenCalled();
+    await user.type(screen.getByLabelText("お名前 *"), "見学 太郎{Enter}");
+    await waitFor(() => expect(visitorApplicationsApi.create).toHaveBeenCalledTimes(1));
+    await user.keyboard("{Escape}");
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("閉じる")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "キャンセル" })).toBeDisabled();
+  });
+
+  it("完了表示では「閉じる」ボタンにフォーカスが当たり、押すとonCloseが呼ばれる", async () => {
+    vi.mocked(visitorApplicationsApi.create).mockResolvedValue({
+      id: "app-1",
+      name: "見学 太郎",
+      partHope: null,
+      originGroup: null,
+      contact: null,
+      message: null,
+      source: "manual",
+      status: "pending",
+      createdByName: "山田太郎",
+      reviewedByName: null,
+      reviewedAt: null,
+      createdAt: "2026-07-20T00:00:00Z",
+    });
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<AddVisitorApplicationModal org="tokyo" parts={parts} onClose={onClose} />);
+
+    await user.type(screen.getByLabelText("お名前 *"), "見学 太郎");
+    await user.click(screen.getByText("登録する"));
+    const closeButton = await screen.findByText("閉じる");
+
+    expect(closeButton).toHaveFocus();
+    await user.click(closeButton);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

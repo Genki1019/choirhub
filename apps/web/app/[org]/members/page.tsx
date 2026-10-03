@@ -22,11 +22,8 @@ import { MEMBER_STATUS_OPTIONS } from "@/lib/api-types";
 import type { MemberStatus } from "@/lib/api-types";
 import { MEMBER_LEVEL_ROLES } from "@/lib/roles";
 import { comparePartOrder } from "@/lib/voice-order";
-import { InviteModal, InviteSuccessModal } from "./_components/InviteModal";
-import {
-  AddVisitorApplicationModal,
-  AddVisitorApplicationSuccessModal,
-} from "./_components/AddVisitorApplicationModal";
+import { InviteModal } from "./_components/InviteModal";
+import { AddVisitorApplicationModal } from "./_components/AddVisitorApplicationModal";
 import { MemberPartSection } from "./_components/MemberPartSection";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
@@ -76,9 +73,7 @@ function MembersContent() {
   const [memberTypeFilter, setMemberTypeFilter] = useState<string>("all");
   const { roles: myRoles } = useMember();
   const [showInvite, setShowInvite] = useState(false);
-  const [showInviteSuccess, setShowInviteSuccess] = useState(false);
   const [showAddVisitor, setShowAddVisitor] = useState(false);
-  const [showAddVisitorSuccess, setShowAddVisitorSuccess] = useState(false);
 
   const isAdmin = myRoles.includes("admin");
   const canAddVisitor = myRoles.some((r) => MEMBER_LEVEL_ROLES.has(r));
@@ -168,31 +163,13 @@ function MembersContent() {
 
   return (
     <>
-      {showInvite && (
-        <InviteModal
-          org={org}
-          parts={parts}
-          onClose={() => setShowInvite(false)}
-          onSuccess={() => {
-            setShowInvite(false);
-            setShowInviteSuccess(true);
-          }}
-        />
-      )}
-      {showInviteSuccess && <InviteSuccessModal onClose={() => setShowInviteSuccess(false)} />}
+      {showInvite && <InviteModal org={org} parts={parts} onClose={() => setShowInvite(false)} />}
       {showAddVisitor && (
         <AddVisitorApplicationModal
           org={org}
           parts={parts}
           onClose={() => setShowAddVisitor(false)}
-          onSuccess={() => {
-            setShowAddVisitor(false);
-            setShowAddVisitorSuccess(true);
-          }}
         />
-      )}
-      {showAddVisitorSuccess && (
-        <AddVisitorApplicationSuccessModal onClose={() => setShowAddVisitorSuccess(false)} />
       )}
       <div className="flex flex-col">
         <PageHeader

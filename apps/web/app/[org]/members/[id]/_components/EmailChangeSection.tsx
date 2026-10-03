@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { Mail, CheckCircle, Loader2 } from "lucide-react";
 import { membersApi } from "@/lib/members-api";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 interface EmailChangeSectionProps {
   org: string;
@@ -63,11 +64,7 @@ export function EmailChangeSection({ org, currentEmail }: EmailChangeSectionProp
             />
           </div>
 
-          {error && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-              {error}
-            </p>
-          )}
+          <ErrorMessage>{error}</ErrorMessage>
 
           <button
             type="submit"

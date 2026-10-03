@@ -49,8 +49,8 @@ describe("EmailChangeSection", () => {
     await user.type(screen.getByLabelText("新しいメールアドレス"), "new@example.com");
     await user.click(screen.getByText("確認メールを送信"));
 
-    expect(
-      await screen.findByText("送信に失敗しました。しばらく後でお試しください。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "送信に失敗しました。しばらく後でお試しください。",
+    );
   });
 });

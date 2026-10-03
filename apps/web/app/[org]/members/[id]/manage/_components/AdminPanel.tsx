@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { ShieldCheck, Check, Loader2, UserMinus, AlertCircle } from "lucide-react";
+import { ShieldCheck, Check, Loader2, UserMinus } from "lucide-react";
 import type { MemberProfile, PartSummary } from "@/lib/members-api";
 import type { MemberType } from "@/lib/settings-api";
 import { MEMBER_STATUS_OPTIONS } from "@/lib/api-types";
 import type { MemberStatus } from "@/lib/api-types";
 import { MANAGEABLE_ROLES } from "@/lib/roles";
 import { RolePermissionPopover } from "./RolePermissionPopover";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 interface AdminPanelProps {
   member: MemberProfile;
@@ -184,12 +185,7 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
         />
       </div>
 
-      {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-          <AlertCircle size={14} className="shrink-0" />
-          {error}
-        </div>
-      )}
+      <ErrorMessage>{error}</ErrorMessage>
 
       <div className="flex items-center justify-between pt-1">
         <button

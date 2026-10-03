@@ -69,7 +69,7 @@ describe("MemberDetailPage（表示状態）", () => {
     vi.mocked(membersApi.get).mockRejectedValue(new Error("取得に失敗しました"));
     renderPage();
 
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("取得に失敗しました");
   });
 
   it("メンバーがnullの場合は「メンバーが見つかりません」を表示する", async () => {
@@ -77,7 +77,7 @@ describe("MemberDetailPage（表示状態）", () => {
     vi.mocked(membersApi.get).mockResolvedValue(null as any);
     renderPage();
 
-    expect(await screen.findByText("メンバーが見つかりません")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("メンバーが見つかりません");
   });
 });
 

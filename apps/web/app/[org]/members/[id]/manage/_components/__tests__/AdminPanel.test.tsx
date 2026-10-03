@@ -333,7 +333,7 @@ describe("AdminPanel（操作）", () => {
 
     await user.click(screen.getByText("変更を保存"));
 
-    expect(await screen.findByText("権限がありません")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("権限がありません");
     expect(screen.getByText("変更を保存").closest("button")).toBeEnabled();
   });
 
@@ -352,7 +352,7 @@ describe("AdminPanel（操作）", () => {
 
     await user.click(screen.getByText("退団処理"));
 
-    expect(await screen.findByText("退団処理に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("退団処理に失敗しました");
     expect(screen.getByText("退団処理").closest("button")).toBeEnabled();
   });
 });

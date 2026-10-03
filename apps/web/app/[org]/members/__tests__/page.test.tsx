@@ -88,7 +88,7 @@ describe("MembersPage（表示状態）", () => {
     vi.mocked(membersApi.list).mockRejectedValue(new Error("取得に失敗しました"));
     renderPage();
 
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("取得に失敗しました");
   });
 
   it("組織にパートが1つも無く該当メンバーも0件の場合は「該当するメンバーがいません」を表示する", async () => {

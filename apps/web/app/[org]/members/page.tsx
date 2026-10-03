@@ -3,15 +3,7 @@
 import { useState, useMemo, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import {
-  LayoutGrid,
-  List,
-  UserPlus,
-  UserRoundPlus,
-  Loader2,
-  AlertCircle,
-  Users,
-} from "lucide-react";
+import { LayoutGrid, List, UserPlus, UserRoundPlus, Loader2, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { membersApi, type MemberProfile } from "@/lib/members-api";
 import { visitorApplicationsApi } from "@/lib/visitor-applications-api";
@@ -29,6 +21,7 @@ import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
 import { PageHeader } from "@/components/PageHeader";
 import { CsvExportButton } from "@/components/CsvExportButton";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 type SortKey = "nameJa" | "joinedAt_asc" | "joinedAt_desc";
 type ViewMode = "card" | "list";
@@ -288,10 +281,7 @@ function MembersContent() {
           )}
 
           {!loading && membersError && (
-            <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-              <AlertCircle size={16} />
-              <span className="text-sm">{membersError.message}</span>
-            </div>
+            <ErrorMessage variant="section">{membersError.message}</ErrorMessage>
           )}
 
           {!loading && !membersError && grouped.length === 0 && (

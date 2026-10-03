@@ -159,4 +159,17 @@ describe("DeleteOrgModal", () => {
 
     expect(onClose).toHaveBeenCalledTimes(2);
   });
+
+  it("削除中はEscキーで閉じない", async () => {
+    const user = userEvent.setup();
+    vi.mocked(settingsApi.deleteOrg).mockReturnValue(new Promise(() => {}));
+    const { onClose } = renderModal();
+
+    await fillForm(user);
+    await user.click(screen.getByRole("button", { name: "団体を削除する" }));
+    await user.keyboard("{Escape}");
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
 });

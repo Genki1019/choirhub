@@ -33,16 +33,22 @@ afterEach(() => {
 });
 
 describe("MemberCard", () => {
-  it("avatarUrlがある場合: 画像を表示する", () => {
-    render(
+  it("avatarUrlがある場合: 画像を装飾として表示し、リンク名に名前を重複させない", () => {
+    const { container } = render(
       <MemberCard member={makeMember({ avatarUrl: "https://example.com/a.png" })} org="tokyo" />,
     );
-    expect(screen.getByAltText("avatar")).toBeInTheDocument();
+    expect(container.querySelector("img")).toHaveAttribute("alt", "");
+    expect(screen.getByRole("link")).toHaveAccessibleName(expect.stringContaining("山田太郎"));
+    expect(screen.getByRole("link")).toHaveAccessibleName(
+      expect.not.stringMatching(/山田太郎.*山田太郎/),
+    );
   });
 
   it("avatarUrlが無い場合: 頭文字アバターを表示する", () => {
-    render(<MemberCard member={makeMember({ nameJa: "山田太郎" })} org="tokyo" />);
-    expect(screen.queryByAltText("avatar")).not.toBeInTheDocument();
+    const { container } = render(
+      <MemberCard member={makeMember({ nameJa: "山田太郎" })} org="tokyo" />,
+    );
+    expect(container.querySelector("img")).not.toBeInTheDocument();
     expect(screen.getByText("山")).toBeInTheDocument();
   });
 

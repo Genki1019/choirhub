@@ -79,6 +79,11 @@ describe("EditForm（表示・入力）", () => {
 });
 
 describe("EditForm（アバターアップロード）", () => {
+  it("アバター変更ボタンは「プロフィール画像を変更」という名前を持つ", () => {
+    render(<EditForm member={makeMember()} org="tokyo" onSave={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "プロフィール画像を変更" })).toBeInTheDocument();
+  });
+
   it("ファイル選択でプレビューが即座に切り替わる", async () => {
     vi.mocked(fetch).mockResolvedValue({ ok: true } as Response);
     const user = userEvent.setup();
@@ -88,7 +93,9 @@ describe("EditForm（アバターアップロード）", () => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     await user.upload(input, file);
 
-    expect(screen.getByAltText("preview")).toHaveAttribute("src", "blob:mock-preview");
+    expect(
+      screen.getByRole("button", { name: "プロフィール画像を変更" }).querySelector("img"),
+    ).toHaveAttribute("src", "blob:mock-preview");
   });
 
   it("アップロード成功: fetchが正しいURL・FormDataで呼ばれる", async () => {
@@ -131,10 +138,9 @@ describe("EditForm（アバターアップロード）", () => {
 
     expect(await screen.findByText("アップロードに失敗しました")).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByAltText("preview")).toHaveAttribute(
-        "src",
-        "https://example.com/original.png",
-      );
+      expect(
+        screen.getByRole("button", { name: "プロフィール画像を変更" }).querySelector("img"),
+      ).toHaveAttribute("src", "https://example.com/original.png");
     });
   });
 

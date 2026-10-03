@@ -57,7 +57,7 @@ export function MemberCard({ member, org }: { member: MemberProfile; org: string
         {member.avatarUrl ? (
           <Image
             src={member.avatarUrl}
-            alt="avatar"
+            alt=""
             width={80}
             height={80}
             unoptimized

@@ -158,9 +158,9 @@ describe("VisitorApplicationsPage", () => {
     await screen.findByText("見学 太郎");
     await user.click(screen.getAllByText("承認")[0]);
 
-    expect(
-      await screen.findByText("操作に失敗しました。もう一度お試しください。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "操作に失敗しました。もう一度お試しください。",
+    );
     expect(screen.getByText("見学 太郎")).toBeInTheDocument();
   });
 
@@ -173,9 +173,9 @@ describe("VisitorApplicationsPage", () => {
     await screen.findByText("見学 太郎");
     await user.click(screen.getAllByText("却下")[0]);
 
-    expect(
-      await screen.findByText("操作に失敗しました。もう一度お試しください。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "操作に失敗しました。もう一度お試しください。",
+    );
   });
 
   it("チェックボックスで複数選択し、一括承認できる", async () => {
@@ -220,9 +220,9 @@ describe("VisitorApplicationsPage", () => {
     await user.click(checkboxes[0]);
     await user.click(screen.getByText("選択した1件を一括承認"));
 
-    expect(
-      await screen.findByText("操作に失敗しました。もう一度お試しください。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "操作に失敗しました。もう一度お試しください。",
+    );
     expect(screen.getByText("見学 太郎")).toBeInTheDocument();
   });
 

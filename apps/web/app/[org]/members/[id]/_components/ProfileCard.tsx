@@ -29,7 +29,7 @@ export function ProfileCard({ member }: ProfileCardProps) {
           {member.avatarUrl ? (
             <Image
               src={member.avatarUrl}
-              alt="avatar"
+              alt=""
               width={80}
               height={80}
               unoptimized

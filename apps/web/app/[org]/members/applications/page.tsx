@@ -14,6 +14,7 @@ import { PageWithHeader } from "@/components/PageWithHeader";
 import { ComposeModal } from "../../mailing/_components/ComposeModal";
 import { ApprovalDraftBanner } from "./_components/ApprovalDraftBanner";
 import { ApplicationRow } from "./_components/ApplicationRow";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 const ERROR_MESSAGE = "操作に失敗しました。もう一度お試しください。";
 
@@ -171,11 +172,7 @@ export default function VisitorApplicationsPage() {
         />
       )}
 
-      {error && (
-        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-          {error}
-        </p>
-      )}
+      <ErrorMessage className="mb-4">{error}</ErrorMessage>
 
       {applications.length === 0 ? (
         <p className="py-16 text-center text-sm text-gray-400">保留中の見学申込はありません</p>

@@ -3,15 +3,7 @@
 import { useState, useMemo, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import {
-  LayoutGrid,
-  List,
-  UserPlus,
-  UserRoundPlus,
-  Loader2,
-  AlertCircle,
-  Users,
-} from "lucide-react";
+import { LayoutGrid, List, UserPlus, UserRoundPlus, Loader2, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { membersApi, type MemberProfile } from "@/lib/members-api";
 import { visitorApplicationsApi } from "@/lib/visitor-applications-api";
@@ -22,16 +14,14 @@ import { MEMBER_STATUS_OPTIONS } from "@/lib/api-types";
 import type { MemberStatus } from "@/lib/api-types";
 import { MEMBER_LEVEL_ROLES } from "@/lib/roles";
 import { comparePartOrder } from "@/lib/voice-order";
-import { InviteModal, InviteSuccessModal } from "./_components/InviteModal";
-import {
-  AddVisitorApplicationModal,
-  AddVisitorApplicationSuccessModal,
-} from "./_components/AddVisitorApplicationModal";
+import { InviteModal } from "./_components/InviteModal";
+import { AddVisitorApplicationModal } from "./_components/AddVisitorApplicationModal";
 import { MemberPartSection } from "./_components/MemberPartSection";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
 import { PageHeader } from "@/components/PageHeader";
 import { CsvExportButton } from "@/components/CsvExportButton";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 type SortKey = "nameJa" | "joinedAt_asc" | "joinedAt_desc";
 type ViewMode = "card" | "list";
@@ -76,9 +66,7 @@ function MembersContent() {
   const [memberTypeFilter, setMemberTypeFilter] = useState<string>("all");
   const { roles: myRoles } = useMember();
   const [showInvite, setShowInvite] = useState(false);
-  const [showInviteSuccess, setShowInviteSuccess] = useState(false);
   const [showAddVisitor, setShowAddVisitor] = useState(false);
-  const [showAddVisitorSuccess, setShowAddVisitorSuccess] = useState(false);
 
   const isAdmin = myRoles.includes("admin");
   const canAddVisitor = myRoles.some((r) => MEMBER_LEVEL_ROLES.has(r));
@@ -168,31 +156,13 @@ function MembersContent() {
 
   return (
     <>
-      {showInvite && (
-        <InviteModal
-          org={org}
-          parts={parts}
-          onClose={() => setShowInvite(false)}
-          onSuccess={() => {
-            setShowInvite(false);
-            setShowInviteSuccess(true);
-          }}
-        />
-      )}
-      {showInviteSuccess && <InviteSuccessModal onClose={() => setShowInviteSuccess(false)} />}
+      {showInvite && <InviteModal org={org} parts={parts} onClose={() => setShowInvite(false)} />}
       {showAddVisitor && (
         <AddVisitorApplicationModal
           org={org}
           parts={parts}
           onClose={() => setShowAddVisitor(false)}
-          onSuccess={() => {
-            setShowAddVisitor(false);
-            setShowAddVisitorSuccess(true);
-          }}
         />
-      )}
-      {showAddVisitorSuccess && (
-        <AddVisitorApplicationSuccessModal onClose={() => setShowAddVisitorSuccess(false)} />
       )}
       <div className="flex flex-col">
         <PageHeader
@@ -311,10 +281,7 @@ function MembersContent() {
           )}
 
           {!loading && membersError && (
-            <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-              <AlertCircle size={16} />
-              <span className="text-sm">{membersError.message}</span>
-            </div>
+            <ErrorMessage variant="section">{membersError.message}</ErrorMessage>
           )}
 
           {!loading && !membersError && grouped.length === 0 && (

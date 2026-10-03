@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Pencil, ShieldCheck, Loader2, AlertCircle } from "lucide-react";
+import { Pencil, ShieldCheck, Loader2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { membersApi, type MemberProfile } from "@/lib/members-api";
 import { useMember } from "@/contexts/MemberContext";
@@ -14,6 +14,7 @@ import { ProfileInfoSection } from "./_components/ProfileInfoSection";
 import { EditForm } from "./_components/EditForm";
 import { EmailChangeSection } from "./_components/EmailChangeSection";
 import { PageHeader } from "@/components/PageHeader";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 export default function MemberDetailPage() {
   const { org, id } = useParams<{ org: string; id: string }>();
@@ -54,10 +55,9 @@ export default function MemberDetailPage() {
   if (memberError || !member) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-          <AlertCircle size={16} />
-          <span className="text-sm">{memberError?.message ?? "メンバーが見つかりません"}</span>
-        </div>
+        <ErrorMessage variant="section">
+          {memberError?.message ?? "メンバーが見つかりません"}
+        </ErrorMessage>
       </div>
     );
   }

@@ -118,6 +118,7 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
       <div className="flex flex-col items-center gap-2">
         <button
           type="button"
+          aria-label="プロフィール画像を変更"
           onClick={() => !uploading && fileRef.current?.click()}
           className="group relative"
           disabled={uploading}
@@ -125,7 +126,7 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
           {avatarPreview ? (
             <Image
               src={avatarPreview}
-              alt="preview"
+              alt=""
               width={80}
               height={80}
               unoptimized

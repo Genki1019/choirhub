@@ -24,14 +24,17 @@ function makeMember(overrides: Partial<MemberProfile> = {}): MemberProfile {
 }
 
 describe("ProfileCard", () => {
-  it("avatarUrlがある場合: 画像を表示する", () => {
-    render(<ProfileCard member={makeMember({ avatarUrl: "https://example.com/a.png" })} />);
-    expect(screen.getByAltText("avatar")).toBeInTheDocument();
+  it("avatarUrlがある場合: 隣に名前があるため画像を装飾として表示する", () => {
+    const { container } = render(
+      <ProfileCard member={makeMember({ avatarUrl: "https://example.com/a.png" })} />,
+    );
+    expect(container.querySelector("img")).toHaveAttribute("alt", "");
+    expect(screen.getByRole("heading", { name: "山田太郎" })).toBeInTheDocument();
   });
 
   it("avatarUrlが無い場合: 頭文字アバターを表示する", () => {
-    render(<ProfileCard member={makeMember({ nameJa: "山田太郎" })} />);
-    expect(screen.queryByAltText("avatar")).not.toBeInTheDocument();
+    const { container } = render(<ProfileCard member={makeMember({ nameJa: "山田太郎" })} />);
+    expect(container.querySelector("img")).not.toBeInTheDocument();
     expect(screen.getByText("山")).toBeInTheDocument();
   });
 

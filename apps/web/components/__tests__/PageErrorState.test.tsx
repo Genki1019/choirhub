@@ -13,6 +13,6 @@ describe("PageErrorState", () => {
     );
     expect(screen.getByRole("heading", { name: "イベントを追加" })).toBeInTheDocument();
     expect(screen.getByRole("link")).toHaveAttribute("href", "/tokyo-men-choir/schedule");
-    expect(screen.getByText("読み込みに失敗しました")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("読み込みに失敗しました");
   });
 });

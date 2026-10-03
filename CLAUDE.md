@@ -13,7 +13,7 @@
 ### フロントエンド（`apps/web`）
 
 - **Next.js 16 (App Router)** + TypeScript 5
-- **Tailwind CSS v4**（shadcn/ui未導入。共通コンポーネント基盤として導入予定）
+- **Tailwind CSS v4** + shadcn/ui（Radixベース、`cssVariables: false`。生成物は`components/ui/`）
 - lucide-react（アイコン）
 - TanStack Query v5（サーバーステート）/ React Context・`useState`（クライアントステート）
 - React Hook Form + Zod（フォーム・バリデーション）
@@ -88,7 +88,7 @@ choirhub/
 │   │   │   ├── admin/        # システム管理者コンソール（[org]配下とは独立）
 │   │   │   ├── api/          # Route Handlers
 │   │   │   └── [org]/        # テナント別ルート（機能ごとのディレクトリ + 画面専用の _components/）
-│   │   ├── components/       # 画面横断の共通コンポーネント
+│   │   ├── components/       # 画面横断の共通コンポーネント（ui/ は shadcn/ui の生成物）
 │   │   ├── hooks/ / contexts/ / lib/
 │   │   └── proxy.ts
 │   └── api/src/              # Hono
@@ -107,7 +107,7 @@ choirhub/
 - **ファイルDL**: S3/R2直リンク禁止。必ずPresigned URLを発行する（例外: アバター画像は非機密情報のため`R2_PUBLIC_URL`設定時にCDN直リンクを許容）
 - **権限チェック**: ロール判定は `services/access.ts` のヘルパー（`isAdmin`・`hasRole` 等）で行い、ロール文字列の直接比較や判定ロジックの重複をしない
 - **楽譜アクセス**: visitor（共有）→ access_level 問わず全楽譜の全体譜PDF（`full_score`）のみ閲覧可（パート譜・MIDI・音源・その他は不可）; 一般団員 → 購入記録があるもののみDL可（public含む）; secret → 特権ユーザー（admin/score/tech/conductor）のみ（visitor は例外として secret PDF も閲覧可）
-- **コンポーネント再利用**: 既存の共通コンポーネント（`apps/web/components/`）を優先し、画面ごとの重複実装（モーダル・エラー表示等）を避ける
+- **コンポーネント再利用**: 既存の共通コンポーネント（`apps/web/components/`）を優先し、画面ごとの重複実装を避ける。モーダルは`Modal`、エラー表示は`ErrorMessage`を使い、`fixed inset-0`の手書きモーダルや`bg-red-50`の手書きエラーを新たに作らない
 - **テスト**: 新規・変更したモジュール（routes・services・lib・middleware・コンポーネント・ページ・hooks）には、同階層の`__tests__/`にテストを追加する
 
 ## コミット・PR運用

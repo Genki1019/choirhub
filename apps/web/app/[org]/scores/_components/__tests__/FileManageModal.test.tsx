@@ -403,3 +403,21 @@ describe("FileManageModal（モーダルの操作）", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 });
+
+describe("FileManageModal（削除ボタン）", () => {
+  it("削除ボタンはファイル名を含む名前を持ち、ホバーしなくても表示する", () => {
+    render(
+      <FileManageModal
+        orgSlug="o"
+        score={makeScore([makeFile()])}
+        parts={parts}
+        canManagePdf={true}
+        canManageMidi={false}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "score.pdfを削除" });
+    expect(button.className).not.toMatch(/opacity-0/);
+  });
+});

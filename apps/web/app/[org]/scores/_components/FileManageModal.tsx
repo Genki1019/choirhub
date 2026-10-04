@@ -25,15 +25,17 @@ function FileRow({ file, canDelete, deleting, onDeleteClick }: FileRowProps) {
       <FileText size={13} className="text-brand-500 shrink-0" />
     );
   return (
-    <div className="group flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2">
+    <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2">
       {icon}
       <span className="min-w-0 flex-1 truncate text-xs text-gray-700">{file.fileName}</span>
       {canDelete && (
         <button
+          type="button"
           onClick={() => onDeleteClick(file)}
           disabled={isDeleting}
+          aria-label={`${file.fileName}を削除`}
           title="削除"
-          className="shrink-0 text-gray-400 opacity-0 transition-all group-hover:opacity-100 hover:text-red-500 disabled:opacity-40"
+          className="shrink-0 text-gray-400 transition-colors hover:text-red-500 disabled:opacity-40"
         >
           {isDeleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
         </button>

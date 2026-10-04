@@ -421,3 +421,23 @@ describe("FileManageModal（削除ボタン）", () => {
     expect(button.className).not.toMatch(/opacity-0/);
   });
 });
+
+describe("FileManageModal（ファイルを追加欄の名前）", () => {
+  it("種類・パート・ファイル選択の各欄が名前を持つ", async () => {
+    const user = userEvent.setup();
+    render(
+      <FileManageModal
+        orgSlug="o"
+        score={makeScore([])}
+        parts={parts}
+        canManagePdf={true}
+        canManageMidi={true}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("追加するファイル")).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole("combobox", { name: "ファイルの種類" }), "midi");
+    expect(screen.getByRole("combobox", { name: "パート" })).toBeInTheDocument();
+  });
+});

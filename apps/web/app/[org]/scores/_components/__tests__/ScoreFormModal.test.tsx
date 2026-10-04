@@ -426,3 +426,31 @@ describe("ScoreFormModal（モーダルの操作）", () => {
     expect(buttons.map((b) => b.textContent?.trim())).toEqual(["キャンセル", "追加する"]);
   });
 });
+
+describe("ScoreFormModal（入力欄の名前）", () => {
+  it("すべての入力欄がラベルの名前で見つかる", () => {
+    render(
+      <ScoreFormModal
+        mode="add"
+        orgSlug="o"
+        existingScores={existingScores}
+        concerts={concertsMultiStage}
+        onClose={vi.fn()}
+        onCreated={vi.fn()}
+      />,
+    );
+
+    for (const name of [
+      /曲名/,
+      "作曲者",
+      "編曲者",
+      "購入日",
+      "配布開始日",
+      "仕入価格（円）",
+      "備考",
+    ]) {
+      expect(screen.getByLabelText(name)).toBeInTheDocument();
+    }
+    expect(screen.getByRole("combobox", { name: "演奏会" })).toBeInTheDocument();
+  });
+});

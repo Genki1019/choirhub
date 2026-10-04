@@ -258,6 +258,7 @@ export function FileManageModal({
             )}
             <div className="flex flex-wrap items-center gap-2">
               <select
+                aria-label="ファイルの種類"
                 value={uploadType}
                 onChange={(e) => {
                   setUploadType(e.target.value as "full_score" | "midi" | "other");
@@ -275,6 +276,7 @@ export function FileManageModal({
 
               {needsPart && (
                 <select
+                  aria-label="パート"
                   value={uploadPartId}
                   onChange={(e) => setUploadPartId(e.target.value)}
                   className="focus:ring-brand-400 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:ring-1 focus:outline-none"
@@ -292,6 +294,7 @@ export function FileManageModal({
             <div className="flex items-center gap-2">
               <input
                 ref={fileInputRef}
+                aria-label="追加するファイル"
                 type="file"
                 accept={accept}
                 className="file:text-brand-600 file:border-brand-200 hover:file:bg-brand-50 flex-1 cursor-pointer text-xs text-gray-600 file:mr-3 file:rounded-md file:border file:border-0 file:bg-white file:px-2.5 file:py-1 file:text-xs file:font-medium"

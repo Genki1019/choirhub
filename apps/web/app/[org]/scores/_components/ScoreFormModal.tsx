@@ -186,10 +186,14 @@ export function ScoreFormModal(props: ScoreFormModalProps) {
       {canEditTitle && (
         <>
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">
+            <label
+              htmlFor="score-form-title"
+              className="mb-1 block text-xs font-medium text-gray-600"
+            >
               曲名 <span className="text-red-500">*</span>
             </label>
             <input
+              id="score-form-title"
               value={title}
               onChange={(e) => {
                 setTitle(e.target.value);
@@ -204,8 +208,14 @@ export function ScoreFormModal(props: ScoreFormModalProps) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">作曲者</label>
+              <label
+                htmlFor="score-form-composer"
+                className="mb-1 block text-xs font-medium text-gray-600"
+              >
+                作曲者
+              </label>
               <input
+                id="score-form-composer"
                 value={composer}
                 onChange={(e) => {
                   setComposer(e.target.value);
@@ -217,8 +227,14 @@ export function ScoreFormModal(props: ScoreFormModalProps) {
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">編曲者</label>
+              <label
+                htmlFor="score-form-arranger"
+                className="mb-1 block text-xs font-medium text-gray-600"
+              >
+                編曲者
+              </label>
               <input
+                id="score-form-arranger"
                 value={arranger}
                 onChange={(e) => setArranger(e.target.value)}
                 placeholder="例: 田中 二郎"
@@ -244,8 +260,14 @@ export function ScoreFormModal(props: ScoreFormModalProps) {
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">購入日</label>
+          <label
+            htmlFor="score-form-purchase-date"
+            className="mb-1 block text-xs font-medium text-gray-600"
+          >
+            購入日
+          </label>
           <input
+            id="score-form-purchase-date"
             type="date"
             value={purchaseDate}
             onChange={(e) => setPurchaseDate(e.target.value)}
@@ -253,8 +275,14 @@ export function ScoreFormModal(props: ScoreFormModalProps) {
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">配布開始日</label>
+          <label
+            htmlFor="score-form-distribution-start"
+            className="mb-1 block text-xs font-medium text-gray-600"
+          >
+            配布開始日
+          </label>
           <input
+            id="score-form-distribution-start"
             type="date"
             value={distributionStart}
             onChange={(e) => setDistributionStart(e.target.value)}
@@ -264,8 +292,14 @@ export function ScoreFormModal(props: ScoreFormModalProps) {
       </div>
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-600">仕入価格（円）</label>
+        <label
+          htmlFor="score-form-purchase-price"
+          className="mb-1 block text-xs font-medium text-gray-600"
+        >
+          仕入価格（円）
+        </label>
         <input
+          id="score-form-purchase-price"
           type="number"
           min="0"
           value={purchasePrice}
@@ -276,8 +310,11 @@ export function ScoreFormModal(props: ScoreFormModalProps) {
       </div>
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-600">備考</label>
+        <label htmlFor="score-form-notes" className="mb-1 block text-xs font-medium text-gray-600">
+          備考
+        </label>
         <textarea
+          id="score-form-notes"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
@@ -289,6 +326,7 @@ export function ScoreFormModal(props: ScoreFormModalProps) {
         <div className="space-y-2 border-t border-gray-100 pt-1">
           <p className="pt-1 text-xs font-medium text-gray-500">ステージに追加（任意）</p>
           <select
+            aria-label="演奏会"
             value={selectedConcertId}
             onChange={(e) => setSelectedConcertId(e.target.value)}
             className={SELECT_CLS}
@@ -302,6 +340,7 @@ export function ScoreFormModal(props: ScoreFormModalProps) {
           </select>
           {selectedConcertId && stages.length > 1 && (
             <select
+              aria-label="ステージ"
               value={selectedStageId}
               onChange={(e) => setSelectedStageId(e.target.value)}
               className={SELECT_CLS}

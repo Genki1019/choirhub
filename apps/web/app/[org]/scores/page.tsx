@@ -2,7 +2,9 @@
 
 import { useState, useMemo } from "react";
 import { useParams } from "next/navigation";
-import { Plus, AlertCircle, BookOpen } from "lucide-react";
+import { Plus, BookOpen } from "lucide-react";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { scoresApi, type GroupedScores, type ScoreSummary } from "@/lib/scores-api";
 import { scoresKeys } from "@/lib/query-keys";
@@ -73,12 +75,13 @@ export default function ScoresPage() {
           ) : undefined
         }
       >
-        {scoresError && (
-          <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-            <AlertCircle size={16} />
-            <span className="text-sm">{scoresError.message}</span>
-          </div>
-        )}
+        <ErrorMessage variant="section">
+          {scoresError &&
+            userErrorMessage(
+              scoresError,
+              "楽譜の読み込みに失敗しました。ページを再読み込みしてください。",
+            )}
+        </ErrorMessage>
 
         {data && (
           <>

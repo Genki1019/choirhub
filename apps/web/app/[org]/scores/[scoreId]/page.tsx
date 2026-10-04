@@ -9,7 +9,6 @@ import {
   Tag,
   Pencil,
   Loader2,
-  AlertCircle,
   Users,
   FolderOpen,
   BookOpen,
@@ -29,6 +28,8 @@ import { CollectionModal } from "../../accounting/_components/CollectionModal";
 import { ScoreFormModal } from "../_components/ScoreFormModal";
 import { PageMain } from "@/components/PageMain";
 import { PageHeader } from "@/components/PageHeader";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 
 export default function ScoreDetailPage() {
   const { org, scoreId } = useParams<{ org: string; scoreId: string }>();
@@ -121,10 +122,14 @@ export default function ScoreDetailPage() {
   if (scoreError || !score) {
     return (
       <div className="p-6">
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-          <AlertCircle size={16} />
-          <span className="text-sm">{scoreError?.message ?? "楽譜が見つかりません"}</span>
-        </div>
+        <ErrorMessage variant="section">
+          {scoreError
+            ? userErrorMessage(
+                scoreError,
+                "楽譜の読み込みに失敗しました。ページを再読み込みしてください。",
+              )
+            : "楽譜が見つかりません"}
+        </ErrorMessage>
       </div>
     );
   }

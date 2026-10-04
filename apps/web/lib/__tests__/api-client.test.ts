@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { ApiClientError, downloadFile } from "../api-client";
+import { ApiClientError, downloadFile, userErrorMessage } from "../api-client";
 
 const fetchMock = vi.fn();
 
@@ -58,5 +58,24 @@ describe("downloadFile", () => {
     await expect(downloadFile("/o/members/export")).rejects.toEqual(
       new ApiClientError("FORBIDDEN", "権限がありません", 403),
     );
+  });
+});
+
+describe("userErrorMessage", () => {
+  it("4xxのAPIエラーはサーバーのメッセージを返す", () => {
+    expect(userErrorMessage(new ApiClientError("FORBIDDEN", "権限がありません", 403), "失敗")).toBe(
+      "権限がありません",
+    );
+  });
+
+  it("メッセージが空の4xxのAPIエラーは代わりの文言を返す", () => {
+    expect(userErrorMessage(new ApiClientError("UNKNOWN", "", 404), "失敗")).toBe("失敗");
+  });
+
+  it("5xxのAPIエラー・通信エラーは代わりの文言を返す", () => {
+    expect(
+      userErrorMessage(new ApiClientError("INTERNAL", "Internal Server Error", 500), "失敗"),
+    ).toBe("失敗");
+    expect(userErrorMessage(new TypeError("Failed to fetch"), "失敗")).toBe("失敗");
   });
 });

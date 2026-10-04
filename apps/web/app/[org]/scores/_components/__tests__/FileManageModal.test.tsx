@@ -219,7 +219,7 @@ describe("FileManageModal（アップロード）", () => {
     );
 
     await user.click(screen.getByText("追加"));
-    expect(await screen.findByText("ファイルを選択してください")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("ファイルを選択してください");
   });
 
   it("ファイル選択後「追加」を押すとアップロードしファイル一覧に反映する", async () => {
@@ -227,7 +227,7 @@ describe("FileManageModal（アップロード）", () => {
       makeFile({ id: "new-file", fileName: "new-score.pdf" }),
     );
     const user = userEvent.setup();
-    const { container } = render(
+    render(
       <FileManageModal
         orgSlug="o"
         score={makeScore([])}
@@ -238,7 +238,9 @@ describe("FileManageModal（アップロード）", () => {
       />,
     );
 
-    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const fileInput = screen
+      .getByRole("dialog")
+      .querySelector('input[type="file"]') as HTMLInputElement;
     const file = new File(["dummy"], "new-score.pdf", { type: "application/pdf" });
     await user.upload(fileInput, file);
     await user.click(screen.getByText("追加"));
@@ -306,7 +308,7 @@ describe("FileManageModal（削除）", () => {
     await user.click(screen.getByTitle("削除"));
     await user.click(screen.getByText("削除する"));
 
-    expect(await screen.findByText("削除に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("削除に失敗しました");
   });
 });
 
@@ -330,5 +332,112 @@ describe("FileManageModal（閉じる）", () => {
 
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("FileManageModal（モーダルの操作）", () => {
+  function renderModal(onClose = vi.fn()) {
+    render(
+      <FileManageModal
+        orgSlug="o"
+        score={makeScore([makeFile()])}
+        parts={parts}
+        canManagePdf={true}
+        canManageMidi={false}
+        onClose={onClose}
+      />,
+    );
+    return { onClose };
+  }
+
+  it("「ファイル管理」という名前のモーダルダイアログとして開く", () => {
+    renderModal();
+
+    expect(screen.getByRole("dialog", { name: "ファイル管理" })).toHaveAttribute(
+      "aria-modal",
+      "true",
+    );
+  });
+
+  it("削除の確認はモーダルダイアログとして重ねて開き、Escでは確認だけが閉じる", async () => {
+    const user = userEvent.setup();
+    const { onClose } = renderModal();
+
+    await user.click(screen.getByTitle("削除"));
+    expect(screen.getByRole("dialog", { name: "ファイルを削除しますか？" })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+
+    expect(
+      screen.queryByRole("dialog", { name: "ファイルを削除しますか？" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "ファイル管理" })).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("削除中はEscで閉じない", async () => {
+    vi.mocked(scoresApi.deleteFile).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    const { onClose } = renderModal();
+
+    await user.click(screen.getByTitle("削除"));
+    await user.click(screen.getByText("削除する"));
+    await user.keyboard("{Escape}");
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("閉じる")).toBeDisabled();
+  });
+
+  it("アップロード中はEscで閉じない", async () => {
+    vi.mocked(scoresApi.uploadFile).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    const { onClose } = renderModal();
+
+    const fileInput = screen
+      .getByRole("dialog")
+      .querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(fileInput, new File(["dummy"], "a.pdf", { type: "application/pdf" }));
+    await user.click(screen.getByText("追加"));
+    await user.keyboard("{Escape}");
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe("FileManageModal（削除ボタン）", () => {
+  it("削除ボタンはファイル名を含む名前を持ち、ホバーしなくても表示する", () => {
+    render(
+      <FileManageModal
+        orgSlug="o"
+        score={makeScore([makeFile()])}
+        parts={parts}
+        canManagePdf={true}
+        canManageMidi={false}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "score.pdfを削除" });
+    expect(button.className).not.toMatch(/opacity-0/);
+  });
+});
+
+describe("FileManageModal（ファイルを追加欄の名前）", () => {
+  it("種類・パート・ファイル選択の各欄が名前を持つ", async () => {
+    const user = userEvent.setup();
+    render(
+      <FileManageModal
+        orgSlug="o"
+        score={makeScore([])}
+        parts={parts}
+        canManagePdf={true}
+        canManageMidi={true}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("追加するファイル")).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole("combobox", { name: "ファイルの種類" }), "midi");
+    expect(screen.getByRole("combobox", { name: "パート" })).toBeInTheDocument();
   });
 });

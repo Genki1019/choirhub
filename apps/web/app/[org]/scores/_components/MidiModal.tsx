@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Music2, X, ChevronUp, Play, Download } from "lucide-react";
+import { useState } from "react";
+import { Music2, ChevronUp, Play, Download } from "lucide-react";
+import { Modal } from "@/components/Modal";
 import { type ScoreDetail, type ScoreFile } from "@/lib/scores-api";
-import { CreatorLine } from "./CreatorLine";
+import { formatCreators } from "./CreatorLine";
 
 const DEMO_AUDIO_URL = "/demo/test_midi.mp3";
 
@@ -74,76 +75,49 @@ export function MidiModal({ score, onClose }: MidiModalProps) {
   });
 
   const globalMidis = grouped.get(null) ?? [];
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div
-        ref={containerRef}
-        className="relative flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl bg-white shadow-xl"
-      >
-        <div className="flex items-start justify-between border-b border-gray-100 px-6 py-4">
-          <div className="min-w-0 flex-1 pr-4">
-            <div className="flex items-center gap-2">
-              <Music2 size={16} className="shrink-0 text-purple-500" />
-              <h2 className="truncate text-sm leading-snug font-semibold text-gray-800">
-                {score.title}
-              </h2>
-            </div>
-            <CreatorLine composer={score.composer} arranger={score.arranger} />
+    <Modal
+      title={
+        <span className="flex items-center gap-2">
+          <Music2 size={16} className="shrink-0 text-purple-500" />
+          <span className="truncate">{score.title}</span>
+        </span>
+      }
+      description={formatCreators(score.composer, score.arranger) ?? undefined}
+      onClose={onClose}
+    >
+      {midiFiles.length === 0 && (
+        <p className="py-6 text-center text-sm text-gray-400">MIDIファイルが登録されていません</p>
+      )}
+      {globalMidis.length > 0 && (
+        <div>
+          <p className="mb-2 text-xs font-semibold text-gray-500">全体</p>
+          <div className="space-y-1.5">
+            {globalMidis.map((f) => (
+              <MidiFileRow key={f.id} file={f} />
+            ))}
           </div>
-          <button
-            onClick={onClose}
-            className="mt-0.5 shrink-0 text-gray-400 transition-colors hover:text-gray-600"
-          >
-            <X size={18} />
-          </button>
         </div>
-        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
-          {midiFiles.length === 0 && (
-            <p className="py-6 text-center text-sm text-gray-400">
-              MIDIファイルが登録されていません
-            </p>
-          )}
-          {globalMidis.length > 0 && (
-            <div>
-              <p className="mb-2 text-xs font-semibold text-gray-500">全体</p>
-              <div className="space-y-1.5">
-                {globalMidis.map((f) => (
-                  <MidiFileRow key={f.id} file={f} />
-                ))}
-              </div>
+      )}
+      {sortedPartKeys.map((partId) => {
+        const files = grouped.get(partId) ?? [];
+        const partName = files[0]?.partName ?? "不明";
+        return (
+          <div key={partId}>
+            <p className="mb-2 text-xs font-semibold text-gray-500">{partName}</p>
+            <div className="space-y-1.5">
+              {files.map((f, idx) => (
+                <MidiFileRow
+                  key={f.id}
+                  file={f}
+                  splitLabel={files.length > 1 ? `${idx + 1}/${files.length}` : undefined}
+                />
+              ))}
             </div>
-          )}
-          {sortedPartKeys.map((partId) => {
-            const files = grouped.get(partId) ?? [];
-            const partName = files[0]?.partName ?? "不明";
-            return (
-              <div key={partId}>
-                <p className="mb-2 text-xs font-semibold text-gray-500">{partName}</p>
-                <div className="space-y-1.5">
-                  {files.map((f, idx) => (
-                    <MidiFileRow
-                      key={f.id}
-                      file={f}
-                      splitLabel={files.length > 1 ? `${idx + 1}/${files.length}` : undefined}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
+          </div>
+        );
+      })}
+    </Modal>
   );
 }

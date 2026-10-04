@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PurchaseModal } from "../PurchaseModal";
+import { ApiClientError } from "@/lib/api-client";
 import { scoresApi, type ScoreDetail, type ScorePurchaseRecord } from "@/lib/scores-api";
 import { membersApi, type MemberProfile } from "@/lib/members-api";
 
@@ -77,12 +78,15 @@ describe("PurchaseModal（表示）", () => {
     expect(screen.getByText("読み込み中...")).toBeInTheDocument();
   });
 
-  it("読み込み失敗時はエラーメッセージを表示する", async () => {
+  it("読み込み失敗時はエラーを表示し、空の購入記録で上書きしないよう保存できなくする", async () => {
     vi.mocked(membersApi.list).mockRejectedValue(new Error("読み込みに失敗しました"));
     vi.mocked(scoresApi.getPurchases).mockResolvedValue([]);
     render(<PurchaseModal orgSlug="o" score={score} onClose={vi.fn()} />);
 
-    expect(await screen.findByText("読み込みに失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "読み込みに失敗しました。閉じてからもう一度開いてください。",
+    );
+    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
   });
 
   it("パート別（未設定は最後）にソートしてメンバーを表示し、購入済みメンバーは初期チェック済みにする", async () => {
@@ -150,17 +154,32 @@ describe("PurchaseModal（操作）", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("保存失敗時はエラーメッセージを表示する", async () => {
-    vi.mocked(membersApi.list).mockResolvedValue([]);
+  it("メッセージが空のAPIエラーで読み込みに失敗しても、エラーを表示して保存できなくする", async () => {
+    vi.mocked(membersApi.list).mockResolvedValue([makeMember({ id: "m-1", nameJa: "山田太郎" })]);
+    vi.mocked(scoresApi.getPurchases).mockRejectedValue(new ApiClientError("UNKNOWN", "", 404));
+    render(<PurchaseModal orgSlug="o" score={score} onClose={vi.fn()} />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "読み込みに失敗しました。閉じてからもう一度開いてください。",
+    );
+    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
+  });
+
+  it("保存失敗時はエラーを表示し、メンバー一覧とチェック状態はそのまま残す", async () => {
+    vi.mocked(membersApi.list).mockResolvedValue([makeMember({ id: "m-1", nameJa: "山田太郎" })]);
     vi.mocked(scoresApi.getPurchases).mockResolvedValue([]);
     vi.mocked(scoresApi.putPurchases).mockRejectedValue(new Error("保存に失敗しました"));
     const user = userEvent.setup();
     render(<PurchaseModal orgSlug="o" score={score} onClose={vi.fn()} />);
 
-    await screen.findByText("0名が購入済み");
+    await user.click(await screen.findByRole("checkbox", { name: "山田太郎" }));
     await user.click(screen.getByText("保存"));
 
-    expect(await screen.findByText("保存に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "保存に失敗しました。もう一度お試しください。",
+    );
+    expect(screen.getByRole("checkbox", { name: "山田太郎" })).toBeChecked();
+    expect(screen.getByText("1名が購入済み")).toBeInTheDocument();
   });
 
   it("キャンセルボタン・Escapeキーでoncloseを呼ぶ", async () => {
@@ -176,5 +195,35 @@ describe("PurchaseModal（操作）", () => {
 
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("PurchaseModal（モーダルの操作）", () => {
+  it("「購入者を記録」という名前で、曲名を説明に持つモーダルダイアログとして開く", async () => {
+    vi.mocked(membersApi.list).mockResolvedValue([]);
+    vi.mocked(scoresApi.getPurchases).mockResolvedValue([]);
+    render(<PurchaseModal orgSlug="o" score={score} onClose={vi.fn()} />);
+
+    const dialog = screen.getByRole("dialog", { name: "購入者を記録" });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog).toHaveAccessibleDescription("男声合唱のための〇〇");
+    await screen.findByText("0名が購入済み");
+  });
+
+  it("保存中はEscで閉じず、×・キャンセルも押せない", async () => {
+    vi.mocked(membersApi.list).mockResolvedValue([]);
+    vi.mocked(scoresApi.getPurchases).mockResolvedValue([]);
+    vi.mocked(scoresApi.putPurchases).mockReturnValue(new Promise(() => {}));
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<PurchaseModal orgSlug="o" score={score} onClose={onClose} />);
+
+    await screen.findByText("0名が購入済み");
+    await user.click(screen.getByText("保存"));
+    await user.keyboard("{Escape}");
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("閉じる")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "キャンセル" })).toBeDisabled();
   });
 });

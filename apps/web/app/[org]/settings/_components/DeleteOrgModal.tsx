@@ -7,17 +7,12 @@ import { Loader2 } from "lucide-react";
 import { Modal } from "@/components/Modal";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { settingsApi } from "@/lib/settings-api";
-import { ApiClientError } from "@/lib/api-client";
+import { userErrorMessage } from "@/lib/api-client";
 
 interface DeleteOrgModalProps {
   orgSlug: string;
   orgName: string;
   onClose: () => void;
-}
-
-function errorMessageFor(err: unknown): string {
-  if (err instanceof ApiClientError && err.status < 500) return err.message;
-  return "削除に失敗しました。もう一度お試しください。";
 }
 
 export function DeleteOrgModal({ orgSlug, orgName, onClose }: DeleteOrgModalProps) {
@@ -38,7 +33,7 @@ export function DeleteOrgModal({ orgSlug, orgName, onClose }: DeleteOrgModalProp
       await settingsApi.deleteOrg(orgSlug, { confirmName, password });
       router.replace("/select-org");
     } catch (err) {
-      setError(errorMessageFor(err));
+      setError(userErrorMessage(err, "削除に失敗しました。もう一度お試しください。"));
       setDeleting(false);
     }
   }

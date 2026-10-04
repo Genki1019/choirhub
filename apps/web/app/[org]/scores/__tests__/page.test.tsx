@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ScoresPage from "../page";
 import { MemberProvider } from "@/contexts/MemberContext";
+import { ApiClientError } from "@/lib/api-client";
 import { scoresApi, type GroupedScores } from "@/lib/scores-api";
 
 vi.mock("next/navigation", () => ({
@@ -77,11 +78,25 @@ describe("ScoresPage（表示状態）", () => {
     expect(screen.getByText("読み込み中...")).toBeInTheDocument();
   });
 
-  it("取得エラー時はエラーメッセージを表示する", async () => {
-    vi.mocked(scoresApi.grouped).mockRejectedValue(new Error("取得に失敗しました"));
+  it("取得エラー（4xx）時はサーバーのメッセージを表示する", async () => {
+    vi.mocked(scoresApi.grouped).mockRejectedValue(
+      new ApiClientError("FORBIDDEN", "権限がありません", 403),
+    );
     renderPage();
 
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("権限がありません");
+  });
+
+  it.each([
+    ["通信エラー", new Error("Failed to fetch")],
+    ["メッセージが空のAPIエラー", new ApiClientError("UNKNOWN", "", 404)],
+  ])("取得エラー（%s）時は再読み込みを案内する", async (_label, err) => {
+    vi.mocked(scoresApi.grouped).mockRejectedValue(err);
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "楽譜の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
   });
 
   it("演奏会・演奏会未定がいずれも0件の場合は空表示を出す", async () => {

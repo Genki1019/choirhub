@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { FileText, Music2, FolderOpen, Upload, Trash2, Loader2, X } from "lucide-react";
+import { useState, useRef } from "react";
+import { FileText, Music2, FolderOpen, Upload, Trash2, Loader2 } from "lucide-react";
+import { Modal } from "@/components/Modal";
+import { ErrorMessage } from "@/components/ErrorMessage";
 import { scoresApi, type ScoreDetail, type ScoreFile } from "@/lib/scores-api";
 import { type PartSummary } from "@/lib/members-api";
 
@@ -179,14 +181,6 @@ export function FileManageModal({
   const midiFiles = files.filter((f) => f.fileType === "midi");
   const otherFiles = files.filter((f) => f.fileType !== "full_score" && f.fileType !== "midi");
 
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose(files);
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [onClose, files]);
-
   const handleDeleteConfirmed = async () => {
     if (!confirmTarget) return;
     const { id: fileId, fileType } = confirmTarget;
@@ -241,61 +235,19 @@ export function FileManageModal({
         : ".pdf,.mp3,.wav";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={() => onClose(files)} />
-      <div className="relative flex max-h-[85vh] w-full max-w-md flex-col rounded-2xl bg-white shadow-xl">
-        <div className="flex items-start justify-between border-b border-gray-100 px-6 py-4">
-          <div className="min-w-0 flex-1 pr-4">
-            <div className="flex items-center gap-2">
-              <FolderOpen size={15} className="text-brand-500 shrink-0" />
-              <h2 className="text-sm font-semibold text-gray-800">ファイル管理</h2>
-            </div>
-            <p className="mt-0.5 truncate text-xs text-gray-500">{score.title}</p>
-          </div>
-          <button
-            aria-label="閉じる"
-            onClick={() => onClose(files)}
-            className="shrink-0 text-gray-400 transition-colors hover:text-gray-600"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="flex-1 space-y-5 overflow-y-auto px-6 py-4">
-          {deleteError && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
-              {deleteError}
-            </p>
-          )}
-          <FileSection
-            label="楽譜 (PDF)"
-            fileList={fullScores}
-            canDelete={canManagePdf}
-            partMap={partMap}
-            deleting={deleting}
-            onDeleteClick={setConfirmTarget}
-          />
-          <FileSection
-            label="MIDI"
-            fileList={midiFiles}
-            canDelete={canManageMidi}
-            grouped
-            partMap={partMap}
-            deleting={deleting}
-            onDeleteClick={setConfirmTarget}
-          />
-          <FileSection
-            label="その他"
-            fileList={otherFiles}
-            canDelete={canManagePdf}
-            partMap={partMap}
-            deleting={deleting}
-            onDeleteClick={setConfirmTarget}
-          />
-        </div>
-
-        {(canManagePdf || canManageMidi) && (
-          <div className="space-y-3 rounded-b-2xl border-t border-gray-100 bg-gray-50 px-6 py-4">
+    <Modal
+      title={
+        <span className="flex items-center gap-2">
+          <FolderOpen size={15} className="text-brand-500 shrink-0" />
+          ファイル管理
+        </span>
+      }
+      description={score.title}
+      onClose={() => onClose(files)}
+      busy={uploading || deleting !== null}
+      footer={
+        (canManagePdf || canManageMidi) && (
+          <div className="w-full space-y-3">
             <p className="text-xs font-semibold text-gray-600">ファイルを追加</p>
             {canManagePdf && fullScores.length > 0 && (
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-600">
@@ -343,6 +295,7 @@ export function FileManageModal({
                 className="file:text-brand-600 file:border-brand-200 hover:file:bg-brand-50 flex-1 cursor-pointer text-xs text-gray-600 file:mr-3 file:rounded-md file:border file:border-0 file:bg-white file:px-2.5 file:py-1 file:text-xs file:font-medium"
               />
               <button
+                type="button"
                 onClick={handleUpload}
                 disabled={uploading}
                 className="bg-brand-600 hover:bg-brand-700 flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-60"
@@ -352,33 +305,65 @@ export function FileManageModal({
               </button>
             </div>
 
-            {uploadError && <p className="text-xs text-red-600">{uploadError}</p>}
+            <ErrorMessage>{uploadError}</ErrorMessage>
           </div>
-        )}
-      </div>
+        )
+      }
+    >
+      <ErrorMessage>{deleteError}</ErrorMessage>
+      <FileSection
+        label="楽譜 (PDF)"
+        fileList={fullScores}
+        canDelete={canManagePdf}
+        partMap={partMap}
+        deleting={deleting}
+        onDeleteClick={setConfirmTarget}
+      />
+      <FileSection
+        label="MIDI"
+        fileList={midiFiles}
+        canDelete={canManageMidi}
+        grouped
+        partMap={partMap}
+        deleting={deleting}
+        onDeleteClick={setConfirmTarget}
+      />
+      <FileSection
+        label="その他"
+        fileList={otherFiles}
+        canDelete={canManagePdf}
+        partMap={partMap}
+        deleting={deleting}
+        onDeleteClick={setConfirmTarget}
+      />
 
       {confirmTarget && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 p-6">
-          <div className="w-full max-w-xs rounded-xl bg-white p-5 shadow-lg">
-            <p className="mb-1 text-sm font-semibold text-gray-800">ファイルを削除しますか？</p>
-            <p className="mb-4 text-xs break-all text-gray-500">{confirmTarget.fileName}</p>
-            <div className="flex items-center justify-end gap-2">
+        <Modal
+          title="ファイルを削除しますか？"
+          size="sm"
+          onClose={() => setConfirmTarget(null)}
+          footer={
+            <>
               <button
+                type="button"
                 onClick={() => setConfirmTarget(null)}
-                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50"
               >
                 キャンセル
               </button>
               <button
+                type="button"
                 onClick={handleDeleteConfirmed}
-                className="rounded-lg bg-red-500 px-3 py-1.5 text-xs text-white transition-colors hover:bg-red-600"
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
               >
                 削除する
               </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <p className="text-sm break-all text-gray-500">{confirmTarget.fileName}</p>
+        </Modal>
       )}
-    </div>
+    </Modal>
   );
 }

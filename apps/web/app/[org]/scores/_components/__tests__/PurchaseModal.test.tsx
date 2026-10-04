@@ -178,3 +178,33 @@ describe("PurchaseModal（操作）", () => {
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("PurchaseModal（モーダルの操作）", () => {
+  it("「購入者を記録」という名前で、曲名を説明に持つモーダルダイアログとして開く", async () => {
+    vi.mocked(membersApi.list).mockResolvedValue([]);
+    vi.mocked(scoresApi.getPurchases).mockResolvedValue([]);
+    render(<PurchaseModal orgSlug="o" score={score} onClose={vi.fn()} />);
+
+    const dialog = screen.getByRole("dialog", { name: "購入者を記録" });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog).toHaveAccessibleDescription("男声合唱のための〇〇");
+    await screen.findByText("0名が購入済み");
+  });
+
+  it("保存中はEscで閉じず、×・キャンセルも押せない", async () => {
+    vi.mocked(membersApi.list).mockResolvedValue([]);
+    vi.mocked(scoresApi.getPurchases).mockResolvedValue([]);
+    vi.mocked(scoresApi.putPurchases).mockReturnValue(new Promise(() => {}));
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<PurchaseModal orgSlug="o" score={score} onClose={onClose} />);
+
+    await screen.findByText("0名が購入済み");
+    await user.click(screen.getByText("保存"));
+    await user.keyboard("{Escape}");
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("閉じる")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "キャンセル" })).toBeDisabled();
+  });
+});

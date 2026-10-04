@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { X, Loader2, Check, AlertTriangle } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { Loader2, Check, AlertTriangle } from "lucide-react";
+import { Modal } from "@/components/Modal";
+import { ErrorMessage } from "@/components/ErrorMessage";
 import {
   scoresApi,
   type ScoreSummary,
@@ -15,7 +17,6 @@ import { concertsApi } from "@/lib/concerts-api";
 const INPUT_CLS =
   "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400";
 const SELECT_CLS = `${INPUT_CLS} bg-white`;
-const FORM_ID = "score-form";
 
 type ExistingScore = { title: string; composer: string | null };
 
@@ -79,20 +80,12 @@ export function ScoreFormModal(props: ScoreFormModalProps) {
     setSelectedStageId(stages.length === 1 ? stages[0].id : "");
   }
 
-  useEffect(() => {
-    const handle = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handle);
-    return () => document.removeEventListener("keydown", handle);
-  }, [onClose]);
-
   const checkDuplicate = () => {
     if (props.mode !== "add") return;
     if (hasDuplicate(props.existingScores, title, composer)) setDuplicateWarning(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (isAdd && !title.trim()) {
       setError("曲名を入力してください");
@@ -160,189 +153,23 @@ export function ScoreFormModal(props: ScoreFormModalProps) {
     (isAdd && !!selectedConcertId && !selectedStageId && stages.length > 1);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative flex max-h-[90vh] w-full max-w-md flex-col rounded-2xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <h2 className="text-sm font-semibold text-gray-800">
-            {isAdd ? "曲目を追加" : "楽譜情報を編集"}
-          </h2>
+    <Modal
+      title={isAdd ? "曲目を追加" : "楽譜情報を編集"}
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      busy={saving}
+      footer={
+        <>
           <button
             type="button"
-            aria-label="閉じる"
             onClick={onClose}
-            className="rounded p-1 text-gray-400 transition-colors hover:text-gray-600"
+            disabled={saving}
+            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50"
           >
-            <X size={18} />
+            キャンセル
           </button>
-        </div>
-
-        <form
-          id={FORM_ID}
-          onSubmit={handleSubmit}
-          className="flex-1 space-y-4 overflow-y-auto px-5 py-4"
-        >
-          {canEditTitle && (
-            <>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">
-                  曲名 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  value={title}
-                  onChange={(e) => {
-                    setTitle(e.target.value);
-                    setDuplicateWarning(false);
-                  }}
-                  onBlur={checkDuplicate}
-                  placeholder="例: 男声合唱のための「風と光」"
-                  className={INPUT_CLS}
-                  autoFocus={isAdd}
-                  required={isAdd}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-600">作曲者</label>
-                  <input
-                    value={composer}
-                    onChange={(e) => {
-                      setComposer(e.target.value);
-                      setDuplicateWarning(false);
-                    }}
-                    onBlur={checkDuplicate}
-                    placeholder="例: 山田 花子"
-                    className={INPUT_CLS}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-600">編曲者</label>
-                  <input
-                    value={arranger}
-                    onChange={(e) => setArranger(e.target.value)}
-                    placeholder="例: 田中 二郎"
-                    className={INPUT_CLS}
-                  />
-                </div>
-              </div>
-            </>
-          )}
-
-          <div className="flex items-center gap-2">
-            <input
-              id="score-form-commissioned"
-              type="checkbox"
-              checked={isCommissioned}
-              onChange={(e) => setIsCommissioned(e.target.checked)}
-              className="text-brand-600 focus:ring-brand-400 rounded border-gray-300"
-            />
-            <label htmlFor="score-form-commissioned" className="text-sm text-gray-700">
-              委嘱作品
-            </label>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">購入日</label>
-              <input
-                type="date"
-                value={purchaseDate}
-                onChange={(e) => setPurchaseDate(e.target.value)}
-                className={INPUT_CLS}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">配布開始日</label>
-              <input
-                type="date"
-                value={distributionStart}
-                onChange={(e) => setDistributionStart(e.target.value)}
-                className={INPUT_CLS}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">仕入価格（円）</label>
-            <input
-              type="number"
-              min="0"
-              value={purchasePrice}
-              onChange={(e) => setPurchasePrice(e.target.value)}
-              placeholder="例: 500"
-              className={INPUT_CLS}
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">備考</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              className={`${INPUT_CLS} resize-none`}
-            />
-          </div>
-
-          {isAdd && concerts.length > 0 && (
-            <div className="space-y-2 border-t border-gray-100 pt-1">
-              <p className="pt-1 text-xs font-medium text-gray-500">ステージに追加（任意）</p>
-              <select
-                value={selectedConcertId}
-                onChange={(e) => setSelectedConcertId(e.target.value)}
-                className={SELECT_CLS}
-              >
-                <option value="">演奏会未定</option>
-                {concerts.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.title}
-                  </option>
-                ))}
-              </select>
-              {selectedConcertId && stages.length > 1 && (
-                <select
-                  value={selectedStageId}
-                  onChange={(e) => setSelectedStageId(e.target.value)}
-                  className={SELECT_CLS}
-                >
-                  <option value="">ステージを選択</option>
-                  {stages.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
-
-          {duplicateWarning && (
-            <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
-              <div className="flex items-center gap-1.5 font-medium">
-                <AlertTriangle size={13} />
-                同じ曲名・作曲者の楽譜が既に登録されています
-              </div>
-              <button
-                type="button"
-                onClick={() => setDuplicateWarning(false)}
-                className="self-start text-amber-700 underline hover:text-amber-900"
-              >
-                それでも追加する
-              </button>
-            </div>
-          )}
-
-          {error && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-500">
-              {error}
-            </p>
-          )}
-        </form>
-
-        <div className="flex gap-2 border-t border-gray-100 px-5 py-4">
           <button
             type="submit"
-            form={FORM_ID}
             disabled={submitDisabled}
             className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
           >
@@ -353,15 +180,160 @@ export function ScoreFormModal(props: ScoreFormModalProps) {
             ) : null}
             {isAdd ? "追加する" : "保存"}
           </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50"
-          >
-            キャンセル
-          </button>
+        </>
+      }
+    >
+      {canEditTitle && (
+        <>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              曲名 <span className="text-red-500">*</span>
+            </label>
+            <input
+              value={title}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                setDuplicateWarning(false);
+              }}
+              onBlur={checkDuplicate}
+              placeholder="例: 男声合唱のための「風と光」"
+              className={INPUT_CLS}
+              autoFocus={isAdd}
+              required={isAdd}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">作曲者</label>
+              <input
+                value={composer}
+                onChange={(e) => {
+                  setComposer(e.target.value);
+                  setDuplicateWarning(false);
+                }}
+                onBlur={checkDuplicate}
+                placeholder="例: 山田 花子"
+                className={INPUT_CLS}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">編曲者</label>
+              <input
+                value={arranger}
+                onChange={(e) => setArranger(e.target.value)}
+                placeholder="例: 田中 二郎"
+                className={INPUT_CLS}
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="flex items-center gap-2">
+        <input
+          id="score-form-commissioned"
+          type="checkbox"
+          checked={isCommissioned}
+          onChange={(e) => setIsCommissioned(e.target.checked)}
+          className="text-brand-600 focus:ring-brand-400 rounded border-gray-300"
+        />
+        <label htmlFor="score-form-commissioned" className="text-sm text-gray-700">
+          委嘱作品
+        </label>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">購入日</label>
+          <input
+            type="date"
+            value={purchaseDate}
+            onChange={(e) => setPurchaseDate(e.target.value)}
+            className={INPUT_CLS}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">配布開始日</label>
+          <input
+            type="date"
+            value={distributionStart}
+            onChange={(e) => setDistributionStart(e.target.value)}
+            className={INPUT_CLS}
+          />
         </div>
       </div>
-    </div>
+
+      <div>
+        <label className="mb-1 block text-xs font-medium text-gray-600">仕入価格（円）</label>
+        <input
+          type="number"
+          min="0"
+          value={purchasePrice}
+          onChange={(e) => setPurchasePrice(e.target.value)}
+          placeholder="例: 500"
+          className={INPUT_CLS}
+        />
+      </div>
+
+      <div>
+        <label className="mb-1 block text-xs font-medium text-gray-600">備考</label>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          className={`${INPUT_CLS} resize-none`}
+        />
+      </div>
+
+      {isAdd && concerts.length > 0 && (
+        <div className="space-y-2 border-t border-gray-100 pt-1">
+          <p className="pt-1 text-xs font-medium text-gray-500">ステージに追加（任意）</p>
+          <select
+            value={selectedConcertId}
+            onChange={(e) => setSelectedConcertId(e.target.value)}
+            className={SELECT_CLS}
+          >
+            <option value="">演奏会未定</option>
+            {concerts.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title}
+              </option>
+            ))}
+          </select>
+          {selectedConcertId && stages.length > 1 && (
+            <select
+              value={selectedStageId}
+              onChange={(e) => setSelectedStageId(e.target.value)}
+              className={SELECT_CLS}
+            >
+              <option value="">ステージを選択</option>
+              {stages.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+
+      {duplicateWarning && (
+        <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+          <div className="flex items-center gap-1.5 font-medium">
+            <AlertTriangle size={13} />
+            同じ曲名・作曲者の楽譜が既に登録されています
+          </div>
+          <button
+            type="button"
+            onClick={() => setDuplicateWarning(false)}
+            className="self-start text-amber-700 underline hover:text-amber-900"
+          >
+            それでも追加する
+          </button>
+        </div>
+      )}
+
+      <ErrorMessage>{error}</ErrorMessage>
+    </Modal>
   );
 }

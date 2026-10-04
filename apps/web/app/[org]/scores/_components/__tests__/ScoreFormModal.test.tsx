@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ScoreFormModal } from "../ScoreFormModal";
 import { scoresApi, type ConcertWithScores, type ScoreDetail } from "@/lib/scores-api";
@@ -87,7 +87,7 @@ describe("ScoreFormModal（追加モード・バリデーション）", () => {
 
     await user.type(screen.getByPlaceholderText("例: 男声合唱のための「風と光」"), "   ");
     await user.click(screen.getByText("追加する"));
-    expect(await screen.findByText("曲名を入力してください")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("曲名を入力してください");
   });
 
   it("同じ曲名・作曲者の楽譜が既に存在する場合、blur時に警告バナーを表示する", async () => {
@@ -364,5 +364,65 @@ describe("ScoreFormModal（共通操作）", () => {
 
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("ScoreFormModal（モーダルの操作）", () => {
+  function renderAdd(onClose = vi.fn()) {
+    render(
+      <ScoreFormModal
+        mode="add"
+        orgSlug="o"
+        existingScores={existingScores}
+        concerts={[]}
+        onClose={onClose}
+        onCreated={vi.fn()}
+      />,
+    );
+    return { onClose };
+  }
+
+  it("「曲目を追加」という名前のモーダルダイアログとして開き、曲名欄にフォーカスが当たる", () => {
+    renderAdd();
+
+    expect(screen.getByRole("dialog", { name: "曲目を追加" })).toHaveAttribute(
+      "aria-modal",
+      "true",
+    );
+    expect(screen.getByPlaceholderText("例: 男声合唱のための「風と光」")).toHaveFocus();
+  });
+
+  it("曲名欄でEnterを押すと送信する", async () => {
+    vi.mocked(scoresApi.create).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderAdd();
+
+    await user.type(
+      screen.getByPlaceholderText("例: 男声合唱のための「風と光」"),
+      "新しい曲{Enter}",
+    );
+
+    await waitFor(() => expect(scoresApi.create).toHaveBeenCalledTimes(1));
+  });
+
+  it("保存中はEscで閉じず、×・キャンセルも押せない", async () => {
+    vi.mocked(scoresApi.create).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    const { onClose } = renderAdd();
+
+    await user.type(screen.getByPlaceholderText("例: 男声合唱のための「風と光」"), "新しい曲");
+    await user.click(screen.getByText("追加する"));
+    await user.keyboard("{Escape}");
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("閉じる")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "キャンセル" })).toBeDisabled();
+  });
+
+  it("フッターはキャンセル → 追加するの順に並ぶ", () => {
+    renderAdd();
+
+    const buttons = screen.getAllByRole("button", { name: /キャンセル|追加する/ });
+    expect(buttons.map((b) => b.textContent?.trim())).toEqual(["キャンセル", "追加する"]);
   });
 });

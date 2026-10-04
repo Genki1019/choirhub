@@ -42,11 +42,12 @@ describe("MidiModal（表示）", () => {
     expect(screen.getByText("MIDIファイルが登録されていません")).toBeInTheDocument();
   });
 
-  it("曲名・作曲者/編曲者を表示する", () => {
+  it("曲名を名前に、作曲者/編曲者を説明に持つモーダルダイアログとして開く", () => {
     render(<MidiModal score={makeScore([])} onClose={vi.fn()} />);
 
-    expect(screen.getByText("男声合唱のための〇〇")).toBeInTheDocument();
-    expect(screen.getByText("△△ 作曲 / □□ 編曲")).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: "男声合唱のための〇〇" });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog).toHaveAccessibleDescription("△△ 作曲 / □□ 編曲");
   });
 
   it("パート未指定のMIDIは「全体」として表示する", () => {
@@ -87,14 +88,15 @@ describe("MidiModal（表示）", () => {
 describe("MidiModal（再生・ダウンロード）", () => {
   it("再生ボタンクリックでaudio要素を表示し、再度クリックで閉じる", async () => {
     const user = userEvent.setup();
-    const { container } = render(<MidiModal score={makeScore([makeFile()])} onClose={vi.fn()} />);
+    render(<MidiModal score={makeScore([makeFile()])} onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
 
-    expect(container.querySelector("audio")).not.toBeInTheDocument();
+    expect(dialog.querySelector("audio")).not.toBeInTheDocument();
     await user.click(screen.getByTitle("再生"));
-    expect(container.querySelector("audio")).toBeInTheDocument();
+    expect(dialog.querySelector("audio")).toBeInTheDocument();
 
     await user.click(screen.getByTitle("閉じる"));
-    expect(container.querySelector("audio")).not.toBeInTheDocument();
+    expect(dialog.querySelector("audio")).not.toBeInTheDocument();
   });
 
   it("downloadUrlがある場合はそのURLを、無い場合はデモ音源URLをダウンロードリンクに使う", () => {
@@ -128,8 +130,7 @@ describe("MidiModal（閉じる）", () => {
     const user = userEvent.setup();
     render(<MidiModal score={makeScore([])} onClose={onClose} />);
 
-    const closeButtons = screen.getAllByRole("button");
-    await user.click(closeButtons[0]);
+    await user.click(screen.getByRole("button", { name: "閉じる" }));
     expect(onClose).toHaveBeenCalledTimes(1);
 
     await user.keyboard("{Escape}");

@@ -7,6 +7,7 @@ import { ErrorMessage } from "@/components/ErrorMessage";
 import { scoresApi, type ScoreDetail } from "@/lib/scores-api";
 import { membersApi, type MemberProfile } from "@/lib/members-api";
 import { comparePartOrder } from "@/lib/voice-order";
+import { userErrorMessage } from "@/lib/api-client";
 
 interface PurchaseModalProps {
   orgSlug: string;
@@ -19,7 +20,8 @@ export function PurchaseModal({ orgSlug, score, onClose }: PurchaseModalProps) {
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -31,7 +33,9 @@ export function PurchaseModal({ orgSlug, score, onClose }: PurchaseModalProps) {
         setCheckedIds(new Set(purchases.map((p) => p.memberId)));
       })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "読み込みに失敗しました");
+        setLoadError(
+          userErrorMessage(err, "読み込みに失敗しました。閉じてからもう一度開いてください。"),
+        );
       })
       .finally(() => setLoading(false));
   }, [orgSlug, score.id]);
@@ -48,11 +52,12 @@ export function PurchaseModal({ orgSlug, score, onClose }: PurchaseModalProps) {
   const handleSave = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSaving(true);
+    setSaveError(null);
     try {
       await scoresApi.putPurchases(orgSlug, score.id, { memberIds: Array.from(checkedIds) });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存に失敗しました");
+      setSaveError(userErrorMessage(err, "保存に失敗しました。もう一度お試しください。"));
     } finally {
       setSaving(false);
     }
@@ -101,7 +106,7 @@ export function PurchaseModal({ orgSlug, score, onClose }: PurchaseModalProps) {
           </button>
           <button
             type="submit"
-            disabled={saving || loading}
+            disabled={saving || loading || !!loadError}
             className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
           >
             {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
@@ -116,9 +121,9 @@ export function PurchaseModal({ orgSlug, score, onClose }: PurchaseModalProps) {
           <span className="text-sm">読み込み中...</span>
         </div>
       )}
-      {!loading && <ErrorMessage>{error}</ErrorMessage>}
+      {!loading && <ErrorMessage variant="section">{loadError}</ErrorMessage>}
       {!loading &&
-        !error &&
+        !loadError &&
         sortedGroups.map(({ partName, members }) => (
           <div key={partName}>
             <p className="mb-1.5 px-1 text-xs font-semibold text-gray-400">{partName}</p>
@@ -138,6 +143,7 @@ export function PurchaseModal({ orgSlug, score, onClose }: PurchaseModalProps) {
             ))}
           </div>
         ))}
+      <ErrorMessage>{saveError}</ErrorMessage>
     </Modal>
   );
 }

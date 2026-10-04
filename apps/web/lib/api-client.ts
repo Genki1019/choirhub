@@ -13,6 +13,11 @@ export class ApiClientError extends Error {
   }
 }
 
+export function userErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof ApiClientError && err.status < 500 && err.message) return err.message;
+  return fallback;
+}
+
 export async function toApiClientError(res: Response): Promise<ApiClientError> {
   const body = (await res.json().catch(() => null)) as ApiError | null;
   return new ApiClientError(

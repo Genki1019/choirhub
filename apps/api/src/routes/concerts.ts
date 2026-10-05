@@ -1178,19 +1178,21 @@ export const concertsRouter = new Hono<TenantEnv>()
     "/concerts/:concertId/surveys/:surveyId/respond",
     zValidator(
       "json",
-      z.object({
-        responses: z
-          .array(
-            z.object({
-              stageId: z.string(),
-              status: z.enum(["attending", "absent", "undecided"]),
-            }),
-          )
-          .min(1)
-          .max(100),
-        memo: z.string().optional().nullable(),
-        targetMemberId: z.string().optional(),
-      }),
+      z
+        .object({
+          responses: z
+            .array(
+              z.object({
+                stageId: z.string(),
+                status: z.enum(["attending", "absent", "undecided"]),
+              }),
+            )
+            .max(100)
+            .default([]),
+          memo: z.string().optional().nullable(),
+          targetMemberId: z.string().optional(),
+        })
+        .refine((b) => b.responses.length > 0 || b.memo !== undefined),
       (r, c) => {
         if (!r.success)
           return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
@@ -1238,6 +1240,14 @@ export const concertsRouter = new Hono<TenantEnv>()
       }
 
       const memberId = targetMemberId ?? actingMember.id;
+
+      if (responses.length === 0) {
+        await prisma.surveyResponse.updateMany({
+          where: { surveyId: survey.id, memberId },
+          data: { memo: memo ?? null },
+        });
+        return c.json({ data: { ok: true } });
+      }
 
       const validStages = await prisma.stage.findMany({
         where: { concertId, concert: { orgId: org.id } },

@@ -204,16 +204,12 @@ export function SurveyTab({
     if (!activeSurveyDetail || !selectedSurveyId || !canEdit(rowMemberId)) return;
     setSavingMemo(rowMemberId);
     setActionError(null);
-    const allStages = concert.stages.map((s) => ({
-      stageId: s.id,
-      status: stateMap.get(rowMemberId)?.get(s.id) ?? "undecided",
-    }));
     try {
       await concertsApi.respondSurvey(
         org,
         concert.id,
         selectedSurveyId,
-        allStages,
+        [],
         memo || null,
         rowMemberId !== myMemberId ? rowMemberId : undefined,
       );

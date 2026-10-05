@@ -221,7 +221,7 @@ describe("SurveyTab（回答セルの操作）", () => {
     );
   });
 
-  it("メモをフォーカスアウトすると全ステージの現在値と共にrespondSurveyが呼ばれる", async () => {
+  it("メモをフォーカスアウトすると、回答は送らずメモだけを保存する", async () => {
     vi.mocked(concertsApi.respondSurvey).mockResolvedValue({ ok: true });
     const user = userEvent.setup();
     render(<SurveyTab concert={makeConcert()} {...defaultProps()} />);
@@ -234,12 +234,28 @@ describe("SurveyTab（回答セルの操作）", () => {
       "tokyo-men-choir",
       "concert-1",
       "survey-1",
-      [
-        { stageId: "stage-1", status: "attending" },
-        { stageId: "stage-2", status: "undecided" },
-      ],
+      [],
       "遅刻します",
       undefined,
+    );
+  });
+
+  it("メモを空にしてフォーカスアウトすると、メモを消す（null）", async () => {
+    vi.mocked(concertsApi.respondSurvey).mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+    render(<SurveyTab concert={makeConcert()} {...defaultProps({ isAdmin: true })} />);
+
+    const memoInputs = await screen.findAllByPlaceholderText("メモ");
+    await user.clear(memoInputs[1]);
+    await user.tab();
+
+    expect(concertsApi.respondSurvey).toHaveBeenCalledWith(
+      "tokyo-men-choir",
+      "concert-1",
+      "survey-1",
+      [],
+      null,
+      "member-2",
     );
   });
 

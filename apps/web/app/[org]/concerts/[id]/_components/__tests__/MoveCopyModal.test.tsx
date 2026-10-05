@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MoveCopyModal } from "../MoveCopyModal";
 import { concertsApi, type ProgramDetail, type ConcertStructure } from "@/lib/concerts-api";
+import { ApiClientError } from "@/lib/api-client";
 
 vi.mock("@/lib/concerts-api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/concerts-api")>("@/lib/concerts-api");
@@ -134,7 +135,9 @@ describe("MoveCopyModal（他ステージへの移動・コピー）", () => {
   });
 
   it("操作失敗時はエラーメッセージを表示する", async () => {
-    vi.mocked(concertsApi.addProgram).mockRejectedValue(new Error("操作に失敗しました"));
+    vi.mocked(concertsApi.addProgram).mockRejectedValue(
+      new ApiClientError("NOT_FOUND", "ステージが見つかりません", 404),
+    );
     const user = userEvent.setup();
     renderModal();
 
@@ -144,7 +147,50 @@ describe("MoveCopyModal（他ステージへの移動・コピー）", () => {
     );
     await user.click(screen.getByText("移動する"));
 
-    expect(await screen.findByText("操作に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("ステージが見つかりません");
+  });
+});
+
+describe("MoveCopyModal（失敗の表示）", () => {
+  it("移動先の読み込み中は実行ボタンを押せない", () => {
+    vi.mocked(concertsApi.getStructure).mockReturnValue(new Promise(() => {}));
+    renderModal();
+
+    expect(screen.getByRole("button", { name: "演奏会から削除" })).toBeDisabled();
+  });
+
+  it("移動先の読み込みに失敗したらエラーを表示し、実行ボタンを押せない", async () => {
+    vi.mocked(concertsApi.getStructure).mockRejectedValue(new TypeError("Failed to fetch"));
+    renderModal();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "移動先の読み込みに失敗しました。閉じてからもう一度開いてください。",
+    );
+    expect(screen.getByRole("button", { name: "演奏会から削除" })).toBeDisabled();
+    expect(screen.queryByLabelText("移動先 / コピー先")).not.toBeInTheDocument();
+  });
+
+  it("移動で元の曲目の削除に失敗したら、コピーとして完了を通知し警告を渡す", async () => {
+    vi.mocked(concertsApi.addProgram).mockResolvedValue({ ...program, id: "program-new" });
+    vi.mocked(concertsApi.deleteProgram).mockRejectedValue(new TypeError("Failed to fetch"));
+    const onComplete = vi.fn();
+    const user = userEvent.setup();
+    renderModal({ onComplete });
+
+    await user.selectOptions(
+      await screen.findByLabelText("移動先 / コピー先"),
+      "concert-1::stage-2",
+    );
+    await user.click(screen.getByText("移動する"));
+
+    await waitFor(() =>
+      expect(onComplete).toHaveBeenCalledWith(
+        "copy",
+        { type: "stage", concertId: "concert-1", stageId: "stage-2" },
+        expect.objectContaining({ id: "program-new" }),
+        expect.stringContaining("元の曲目を削除できませんでした"),
+      ),
+    );
   });
 });
 
@@ -158,5 +204,42 @@ describe("MoveCopyModal（閉じる）", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("曲名を説明に持つ「移動 / コピー」ダイアログとして開き、読み込み後は移動先にフォーカスが当たる", async () => {
+    renderModal();
+
+    const dialog = screen.getByRole("dialog", { name: "移動 / コピー" });
+    expect(dialog).toHaveAccessibleDescription(
+      "「男声合唱のための〇〇」の移動先 / コピー先を選択してください。",
+    );
+    expect(await screen.findByLabelText("移動先 / コピー先")).toHaveFocus();
+  });
+
+  it("操作の選択肢は「操作」という名前のグループになる", async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.selectOptions(
+      await screen.findByLabelText("移動先 / コピー先"),
+      "concert-1::stage-2",
+    );
+
+    expect(screen.getByRole("group", { name: "操作" })).toBeInTheDocument();
+  });
+
+  it("実行中はEscで閉じず、×・キャンセルも押せない", async () => {
+    vi.mocked(concertsApi.deleteProgram).mockReturnValue(new Promise(() => {}));
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderModal({ onClose });
+
+    await screen.findByLabelText("移動先 / コピー先");
+    await user.click(screen.getByText("演奏会から削除"));
+    await user.keyboard("{Escape}");
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("閉じる")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "キャンセル" })).toBeDisabled();
   });
 });

@@ -68,4 +68,14 @@ describe("PageWithHeader", () => {
     const content = screen.getByTestId("content");
     expect(content.parentElement).not.toHaveClass("max-w-lg");
   });
+
+  it("toolbarを指定した場合はloading中もヘッダーの下に表示する", () => {
+    render(
+      <PageWithHeader title="本番" loading toolbar={<button>すべて</button>}>
+        <div>本文</div>
+      </PageWithHeader>,
+    );
+    expect(screen.getByRole("button", { name: "すべて" })).toBeInTheDocument();
+    expect(screen.queryByText("本文")).not.toBeInTheDocument();
+  });
 });

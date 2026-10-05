@@ -80,20 +80,26 @@ function ChipBody({
         <button
           type="button"
           onClick={onEdit}
-          className="hover:text-brand-600 absolute -top-1 -right-1 z-10 rounded-full border border-gray-200 bg-white p-0.5 text-gray-400 shadow-sm"
+          aria-label={`${fullName}の表示名を編集`}
           title="表示名を編集"
+          className="group absolute -top-2 -right-2 z-10 flex h-6 w-6 items-center justify-center"
         >
-          <Pencil size={9} />
+          <span className="group-hover:text-brand-600 rounded-full border border-gray-200 bg-white p-0.5 text-gray-400 shadow-sm">
+            <Pencil size={9} />
+          </span>
         </button>
       )}
       {!disabled && onRemove && (
         <button
           type="button"
           onClick={onRemove}
-          className="absolute -right-1 -bottom-1 z-10 rounded-full border border-gray-200 bg-white p-0.5 text-gray-300 shadow-sm hover:text-red-500"
+          aria-label={`${fullName}を削除`}
           title="削除"
+          className="group absolute -right-2 -bottom-2 z-10 flex h-6 w-6 items-center justify-center"
         >
-          <X size={9} />
+          <span className="rounded-full border border-gray-200 bg-white p-0.5 text-gray-300 shadow-sm group-hover:text-red-500">
+            <X size={9} />
+          </span>
         </button>
       )}
     </span>

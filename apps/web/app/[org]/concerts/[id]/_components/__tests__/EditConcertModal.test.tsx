@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EditConcertModal } from "../EditConcertModal";
 import { concertsApi, type ConcertDetail } from "@/lib/concerts-api";
+import { ApiClientError } from "@/lib/api-client";
 
 vi.mock("@/lib/concerts-api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/concerts-api")>("@/lib/concerts-api");
@@ -111,13 +112,26 @@ describe("EditConcertModal（送信）", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("送信失敗時はエラーメッセージを表示する", async () => {
-    vi.mocked(concertsApi.update).mockRejectedValue(new Error("保存に失敗しました"));
+  it("4xxの送信失敗時はサーバーのメッセージを表示する", async () => {
+    vi.mocked(concertsApi.update).mockRejectedValue(
+      new ApiClientError("VALIDATION_ERROR", "入力値が不正です", 400),
+    );
     const user = userEvent.setup();
     render(<EditConcertModal concert={concert} orgSlug="o" onClose={vi.fn()} onSaved={vi.fn()} />);
 
     await user.click(screen.getByText("保存する"));
-    expect(await screen.findByText("保存に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("入力値が不正です");
+  });
+
+  it("通信エラー時は代わりの文言を表示する", async () => {
+    vi.mocked(concertsApi.update).mockRejectedValue(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    render(<EditConcertModal concert={concert} orgSlug="o" onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await user.click(screen.getByText("保存する"));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "演奏会情報の保存に失敗しました。もう一度お試しください。",
+    );
   });
 });
 
@@ -131,5 +145,44 @@ describe("EditConcertModal（閉じる）", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("「演奏会情報を編集」という名前のダイアログとして開き、演奏会名欄にフォーカスが当たる", () => {
+    render(<EditConcertModal concert={concert} orgSlug="o" onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    expect(screen.getByRole("dialog", { name: "演奏会情報を編集" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/演奏会名/)).toHaveFocus();
+  });
+
+  it("すべての入力欄がラベルの名前で見つかる", () => {
+    render(<EditConcertModal concert={concert} orgSlug="o" onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    expect(screen.getByLabelText(/開催日/)).toHaveValue("2026-11-23");
+    expect(screen.getByLabelText("会場")).toHaveValue("○○ホール");
+    expect(screen.getByLabelText("ステータス")).toHaveValue("draft");
+  });
+
+  it("演奏会名欄でEnterを押すと送信する", async () => {
+    vi.mocked(concertsApi.update).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    render(<EditConcertModal concert={concert} orgSlug="o" onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await user.type(screen.getByLabelText(/演奏会名/), "{Enter}");
+
+    await waitFor(() => expect(concertsApi.update).toHaveBeenCalledTimes(1));
+  });
+
+  it("保存中はEscで閉じず、×・キャンセルも押せない", async () => {
+    vi.mocked(concertsApi.update).mockReturnValue(new Promise(() => {}));
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<EditConcertModal concert={concert} orgSlug="o" onClose={onClose} onSaved={vi.fn()} />);
+
+    await user.click(screen.getByText("保存する"));
+    await user.keyboard("{Escape}");
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("閉じる")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "キャンセル" })).toBeDisabled();
   });
 });

@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Loader2, Check, X } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { Loader2, Check } from "lucide-react";
+import { Modal } from "@/components/Modal";
+import { ErrorMessage } from "@/components/ErrorMessage";
 import {
   concertsApi,
   type ConcertDetail,
@@ -10,6 +12,7 @@ import {
 } from "@/lib/concerts-api";
 import { LocationSearch } from "@/components/LocationSearch";
 import { isoToJstParts } from "@/lib/date";
+import { userErrorMessage } from "@/lib/api-client";
 
 interface EditConcertModalProps {
   concert: ConcertDetail;
@@ -18,13 +21,16 @@ interface EditConcertModalProps {
   onSaved: (updated: Partial<ConcertDetail>) => void;
 }
 
-export function EditConcertModal({ concert, orgSlug, onClose, onSaved }: EditConcertModalProps) {
-  const STATUS_OPTIONS: { value: ConcertStatus; label: string }[] = [
-    { value: "draft", label: "準備中" },
-    { value: "confirmed", label: "確定済み" },
-    { value: "past", label: "終了" },
-  ];
+const STATUS_OPTIONS: { value: ConcertStatus; label: string }[] = [
+  { value: "draft", label: "準備中" },
+  { value: "confirmed", label: "確定済み" },
+  { value: "past", label: "終了" },
+];
 
+const INPUT_CLS =
+  "focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:ring-2 focus:outline-none";
+
+export function EditConcertModal({ concert, orgSlug, onClose, onSaved }: EditConcertModalProps) {
   const [form, setForm] = useState<UpdateConcertInput>({
     title: concert.title,
     heldOn: isoToJstParts(concert.heldOn).date,
@@ -34,15 +40,8 @@ export function EditConcertModal({ concert, orgSlug, onClose, onSaved }: EditCon
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [onClose]);
-
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     if (!form.title?.trim()) {
       setError("演奏会名を入力してください");
       return;
@@ -61,97 +60,95 @@ export function EditConcertModal({ concert, orgSlug, onClose, onSaved }: EditCon
       onSaved(updated);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存に失敗しました");
+      setError(userErrorMessage(err, "演奏会情報の保存に失敗しました。もう一度お試しください。"));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-sm rounded-2xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <h2 className="text-sm font-semibold text-gray-800">演奏会情報を編集</h2>
+    <Modal
+      title="演奏会情報を編集"
+      size="sm"
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      busy={saving}
+      footer={
+        <>
           <button
-            aria-label="閉じる"
+            type="button"
             onClick={onClose}
-            className="text-gray-400 transition-colors hover:text-gray-600"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="space-y-4 px-6 py-5">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-600">
-              演奏会名 <span className="text-red-500">*</span>
-            </label>
-            <input
-              value={form.title ?? ""}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:ring-2 focus:outline-none"
-              autoFocus
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-600">
-              開催日 <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="date"
-              value={form.heldOn ?? ""}
-              onChange={(e) => setForm({ ...form, heldOn: e.target.value })}
-              className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:ring-2 focus:outline-none"
-            />
-          </div>
-          <div className="relative z-10">
-            <label className="mb-1.5 block text-xs font-medium text-gray-600">会場</label>
-            <LocationSearch
-              value={form.venue ?? ""}
-              placeholder="例: ○○ホール 大ホール"
-              onChangeName={(name) => setForm({ ...form, venue: name })}
-              onSelectPlace={(name) => setForm({ ...form, venue: name })}
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-600">ステータス</label>
-            <select
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value as ConcertStatus })}
-              className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:ring-2 focus:outline-none"
-            >
-              {STATUS_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          {error && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
-              {error}
-            </p>
-          )}
-        </div>
-
-        <div className="flex gap-2 px-6 pb-5">
-          <button
-            onClick={handleSubmit}
             disabled={saving}
-            className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-colors disabled:opacity-60"
+            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50"
+          >
+            キャンセル
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
             保存する
           </button>
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-500 transition-colors hover:bg-gray-50"
-          >
-            キャンセル
-          </button>
-        </div>
+        </>
+      }
+    >
+      <div>
+        <label htmlFor="concert-title" className="mb-1.5 block text-xs font-medium text-gray-600">
+          演奏会名 <span className="text-red-500">*</span>
+        </label>
+        <input
+          id="concert-title"
+          value={form.title ?? ""}
+          onChange={(e) => setForm({ ...form, title: e.target.value })}
+          className={INPUT_CLS}
+          autoFocus
+        />
       </div>
-    </div>
+      <div>
+        <label htmlFor="concert-held-on" className="mb-1.5 block text-xs font-medium text-gray-600">
+          開催日 <span className="text-red-500">*</span>
+        </label>
+        <input
+          id="concert-held-on"
+          type="date"
+          value={form.heldOn ?? ""}
+          onChange={(e) => setForm({ ...form, heldOn: e.target.value })}
+          className={INPUT_CLS}
+        />
+      </div>
+      <div>
+        <label htmlFor="concert-venue" className="mb-1.5 block text-xs font-medium text-gray-600">
+          会場
+        </label>
+        <LocationSearch
+          id="concert-venue"
+          value={form.venue ?? ""}
+          placeholder="例: ○○ホール 大ホール"
+          inlineSuggestions
+          onChangeName={(name) => setForm({ ...form, venue: name })}
+          onSelectPlace={(name) => setForm({ ...form, venue: name })}
+        />
+      </div>
+      <div>
+        <label htmlFor="concert-status" className="mb-1.5 block text-xs font-medium text-gray-600">
+          ステータス
+        </label>
+        <select
+          id="concert-status"
+          value={form.status}
+          onChange={(e) => setForm({ ...form, status: e.target.value as ConcertStatus })}
+          className={`${INPUT_CLS} bg-white`}
+        >
+          {STATUS_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <ErrorMessage>{error}</ErrorMessage>
+    </Modal>
   );
 }

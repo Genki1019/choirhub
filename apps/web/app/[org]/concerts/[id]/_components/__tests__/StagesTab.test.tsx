@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StagesTab } from "../StagesTab";
 import { type ConcertDetail } from "@/lib/concerts-api";
@@ -47,7 +47,8 @@ function defaultProps(overrides = {}) {
     onAddStage: vi.fn(),
     onReorderStages: vi.fn(),
     onReorderPrograms: vi.fn(),
-    onEditStageName: vi.fn().mockResolvedValue(undefined),
+    onEditStageName: vi.fn().mockResolvedValue(true),
+    onCancelEditStageName: vi.fn(),
     onMoveCopyClick: vi.fn(),
     onEditProgramClick: vi.fn(),
     ...overrides,
@@ -147,7 +148,7 @@ describe("StagesTab（演目の編集・移動・コピー）", () => {
 
 describe("StagesTab（ステージ名インライン編集）", () => {
   it("✏️クリックで入力欄に切り替わり、Enterで保存する", async () => {
-    const onEditStageName = vi.fn().mockResolvedValue(undefined);
+    const onEditStageName = vi.fn().mockResolvedValue(true);
     const user = userEvent.setup();
     render(<StagesTab concert={makeConcert()} {...defaultProps({ onEditStageName })} />);
 
@@ -158,18 +159,66 @@ describe("StagesTab（ステージ名インライン編集）", () => {
     await user.type(input, "改称ステージ{Enter}");
 
     expect(onEditStageName).toHaveBeenCalledWith("stage-1", "改称ステージ");
+    await waitFor(() => expect(screen.queryByDisplayValue("改称ステージ")).not.toBeInTheDocument());
   });
 
-  it("Escapeキーで編集をキャンセルする", async () => {
-    const onEditStageName = vi.fn();
+  it("保存に失敗したら入力欄を開いたままにする", async () => {
+    const onEditStageName = vi.fn().mockResolvedValue(false);
     const user = userEvent.setup();
     render(<StagesTab concert={makeConcert()} {...defaultProps({ onEditStageName })} />);
+
+    const stage1Header = screen.getByText("第1ステージ").closest("div") as HTMLElement;
+    await user.click(within(stage1Header).getByTitle("名前を編集"));
+    const input = screen.getByDisplayValue("第1ステージ");
+    await user.clear(input);
+    await user.type(input, "改称ステージ{Enter}");
+
+    expect(onEditStageName).toHaveBeenCalledTimes(1);
+    expect(screen.getByDisplayValue("改称ステージ")).toBeInTheDocument();
+  });
+
+  it("保存中はEscapeキーで取り消せず、保存に成功したら編集欄を閉じる", async () => {
+    let finish: (saved: boolean) => void = () => {};
+    const onEditStageName = vi.fn(() => new Promise<boolean>((r) => (finish = r)));
+    const onCancelEditStageName = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <StagesTab
+        concert={makeConcert()}
+        {...defaultProps({ onEditStageName, onCancelEditStageName })}
+      />,
+    );
+
+    const stage1Header = screen.getByText("第1ステージ").closest("div") as HTMLElement;
+    await user.click(within(stage1Header).getByTitle("名前を編集"));
+    const input = screen.getByDisplayValue("第1ステージ");
+    await user.clear(input);
+    await user.type(input, "改称ステージ{Enter}");
+    await user.keyboard("{Escape}");
+
+    expect(onCancelEditStageName).not.toHaveBeenCalled();
+    expect(screen.getByDisplayValue("改称ステージ")).toBeInTheDocument();
+    finish(true);
+    await waitFor(() => expect(screen.queryByDisplayValue("改称ステージ")).not.toBeInTheDocument());
+  });
+
+  it("Escapeキーで編集をキャンセルし、親にキャンセルを伝える", async () => {
+    const onEditStageName = vi.fn();
+    const onCancelEditStageName = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <StagesTab
+        concert={makeConcert()}
+        {...defaultProps({ onEditStageName, onCancelEditStageName })}
+      />,
+    );
 
     const stage1Header = screen.getByText("第1ステージ").closest("div") as HTMLElement;
     await user.click(within(stage1Header).getByTitle("名前を編集"));
     await user.type(screen.getByDisplayValue("第1ステージ"), "変更中{Escape}");
 
     expect(onEditStageName).not.toHaveBeenCalled();
+    expect(onCancelEditStageName).toHaveBeenCalledTimes(1);
     expect(screen.getByText("第1ステージ")).toBeInTheDocument();
   });
 

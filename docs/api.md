@@ -2962,7 +2962,8 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 > `status` は `attending` / `absent` / `undecided` の3択（`Attendance`（スケジュール出欠）と共有する enum だが、オンステ調査では `maybe` は受け付けない）。  
 > `targetMemberId` は admin のみ指定可。省略時は自分の回答として保存。  
-> `memo` はステージ横断で共有（全ステージの SurveyResponse に同じ値を書き込む）。  
+> `memo` はステージ横断で共有（全ステージの SurveyResponse に同じ値を書き込む）。`null` で消去。  
+> `responses` は省略可（既定は空配列）。空の場合は `memo` が必須で、回答（`status`）は変えずにメモだけを更新する。`responses` も `memo` もない場合は `400`。  
 > 調査が `isOpen: false` かつ admin 以外の場合は `403 LOCKED`。
 
 **Response** `200`

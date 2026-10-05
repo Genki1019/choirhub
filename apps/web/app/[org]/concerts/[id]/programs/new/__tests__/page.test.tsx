@@ -87,10 +87,13 @@ describe("NewProgramPage（権限・表示状態）", () => {
     expect(screen.getByText("読み込み中...")).toBeInTheDocument();
   });
 
-  it("取得エラー時はエラーメッセージを表示する", async () => {
-    vi.mocked(concertsApi.get).mockRejectedValue(new Error("取得に失敗しました"));
+  it("取得エラー時はヘッダー付きで代わりの文言をalertで表示する", async () => {
+    vi.mocked(concertsApi.get).mockRejectedValue(new TypeError("Failed to fetch"));
     renderPage();
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "演奏会の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+    expect(screen.getByRole("heading", { name: "曲目を追加" })).toBeInTheDocument();
   });
 
   it("stageIdに一致するステージが無い場合はステージが見つかりませんと表示する", async () => {
@@ -114,7 +117,7 @@ describe("NewProgramPage（新しく作成）", () => {
 
     await user.click(screen.getByRole("button", { name: "追加する" }));
 
-    expect(await screen.findByText("曲名を入力してください")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("曲名を入力してください");
     expect(concertsApi.addProgram).not.toHaveBeenCalled();
   });
 

@@ -11,14 +11,24 @@ interface PlaceResult {
 }
 
 interface Props {
+  id?: string;
   value: string;
   mapUrl?: string;
   placeholder?: string;
+  inlineSuggestions?: boolean;
   onChangeName: (name: string) => void;
   onSelectPlace: (name: string, url: string) => void;
 }
 
-export function LocationSearch({ value, mapUrl, placeholder, onChangeName, onSelectPlace }: Props) {
+export function LocationSearch({
+  id,
+  value,
+  mapUrl,
+  placeholder,
+  inlineSuggestions = false,
+  onChangeName,
+  onSelectPlace,
+}: Props) {
   const [suggestions, setSuggestions] = useState<PlaceResult[]>([]);
   const [open, setOpen] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -63,6 +73,7 @@ export function LocationSearch({ value, mapUrl, placeholder, onChangeName, onSel
       {/* 場所名インプット */}
       <div className="relative">
         <input
+          id={id}
           type="text"
           value={value}
           onChange={(e) => handleChange(e.target.value)}
@@ -80,7 +91,9 @@ export function LocationSearch({ value, mapUrl, placeholder, onChangeName, onSel
 
         {/* サジェストドロップダウン — z-[200] で確実に前面へ */}
         {open && suggestions.length > 0 && (
-          <div className="absolute right-0 left-0 z-[200] mt-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+          <div
+            className={`mt-1 overflow-hidden rounded-xl border border-gray-200 bg-white ${inlineSuggestions ? "" : "absolute right-0 left-0 z-[200] shadow-xl"}`}
+          >
             {suggestions.map((place) => (
               <button
                 key={place.id}

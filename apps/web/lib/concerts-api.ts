@@ -260,7 +260,7 @@ export const concertsApi = {
   ) =>
     apiClient.put<{ ok: boolean }>(
       `/${orgSlug}/concerts/${concertId}/surveys/${surveyId}/respond`,
-      { responses, memo: memo ?? undefined, targetMemberId },
+      { responses, memo, targetMemberId },
     ),
 
   applySurveyToFormation: (orgSlug: string, concertId: string, surveyId: string) =>

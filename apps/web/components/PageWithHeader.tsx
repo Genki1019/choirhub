@@ -6,6 +6,7 @@ export interface PageWithHeaderProps extends Pick<
   PageHeaderProps,
   "title" | "badge" | "subtitle" | "backHref" | "actions"
 > {
+  toolbar?: React.ReactNode;
   loading?: boolean;
   mainClassName?: string;
   children: React.ReactNode;
@@ -17,6 +18,7 @@ export function PageWithHeader({
   subtitle,
   backHref,
   actions,
+  toolbar,
   loading = false,
   mainClassName,
   children,
@@ -30,6 +32,7 @@ export function PageWithHeader({
         backHref={backHref}
         actions={actions}
       />
+      {toolbar && <div className="shrink-0 border-b border-gray-100 bg-white">{toolbar}</div>}
       <PageMain>
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-16 text-gray-400">

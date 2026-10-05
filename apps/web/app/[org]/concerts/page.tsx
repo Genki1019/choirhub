@@ -3,14 +3,15 @@
 import { useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { CalendarDays, Plus, Loader2, AlertCircle } from "lucide-react";
+import { CalendarDays, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { concertsApi, type ConcertStatus } from "@/lib/concerts-api";
 import { concertKeys } from "@/lib/query-keys";
 import { ConcertCard } from "./_components/ConcertCard";
-import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
-import { PageHeader } from "@/components/PageHeader";
+import { PageWithHeader } from "@/components/PageWithHeader";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 import { useMember } from "@/contexts/MemberContext";
 
 type Filter = "all" | ConcertStatus;
@@ -43,28 +44,24 @@ export default function ConcertsPage() {
   }, [concerts, filter]);
 
   return (
-    <div className="flex flex-col">
-      <PageHeader
-        title="本番"
-        badge={
-          !loading ? <span className="text-sm text-gray-400">{sorted.length}件</span> : undefined
-        }
-        actions={
-          roles.includes("admin") ? (
-            <Link
-              href={`/${org}/concerts/new`}
-              prefetch={false}
-              className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
-            >
-              <Plus size={14} />
-              演奏会を登録
-            </Link>
-          ) : undefined
-        }
-      />
-
-      {/* フィルタ */}
-      <div className="shrink-0 border-b border-gray-100 bg-white">
+    <PageWithHeader
+      title="本番"
+      badge={
+        !loading ? <span className="text-sm text-gray-400">{sorted.length}件</span> : undefined
+      }
+      actions={
+        roles.includes("admin") ? (
+          <Link
+            href={`/${org}/concerts/new`}
+            prefetch={false}
+            className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
+          >
+            <Plus size={14} />
+            演奏会を登録
+          </Link>
+        ) : undefined
+      }
+      toolbar={
         <PageBleedRow className="flex gap-1 py-3">
           {FILTERS.map(({ value, label }) => (
             <button
@@ -79,34 +76,27 @@ export default function ConcertsPage() {
             </button>
           ))}
         </PageBleedRow>
-      </div>
+      }
+      loading={loading}
+      mainClassName="space-y-3"
+    >
+      <ErrorMessage variant="section">
+        {concertsError &&
+          userErrorMessage(
+            concertsError,
+            "演奏会の読み込みに失敗しました。ページを再読み込みしてください。",
+          )}
+      </ErrorMessage>
 
-      <PageMain className="space-y-3">
-        {loading && (
-          <div className="flex items-center justify-center gap-2 py-16 text-gray-400">
-            <Loader2 size={18} className="animate-spin" />
-            <span className="text-sm">読み込み中...</span>
-          </div>
-        )}
+      {!concertsError && sorted.length === 0 && (
+        <div className="py-16 text-center text-gray-400">
+          <CalendarDays size={32} className="mx-auto mb-3 opacity-40" />
+          <p className="text-sm">演奏会が登録されていません</p>
+        </div>
+      )}
 
-        {!loading && concertsError && (
-          <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-            <AlertCircle size={16} />
-            <span className="text-sm">{concertsError.message}</span>
-          </div>
-        )}
-
-        {!loading && !concertsError && sorted.length === 0 && (
-          <div className="py-16 text-center text-gray-400">
-            <CalendarDays size={32} className="mx-auto mb-3 opacity-40" />
-            <p className="text-sm">演奏会が登録されていません</p>
-          </div>
-        )}
-
-        {!loading &&
-          !concertsError &&
-          sorted.map((concert) => <ConcertCard key={concert.id} concert={concert} org={org} />)}
-      </PageMain>
-    </div>
+      {!concertsError &&
+        sorted.map((concert) => <ConcertCard key={concert.id} concert={concert} org={org} />)}
+    </PageWithHeader>
   );
 }

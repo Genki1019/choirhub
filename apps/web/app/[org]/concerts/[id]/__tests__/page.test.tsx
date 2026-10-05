@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ConcertDetailPage from "../page";
@@ -124,9 +124,10 @@ describe("ConcertDetailPage（編集・削除ボタンの権限）", () => {
     renderPage(["admin"]);
 
     await user.click(await screen.findByText("削除"));
-    expect(screen.getByText("演奏会を削除しますか？")).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: "演奏会を削除しますか？" });
+    expect(within(dialog).getByRole("button", { name: "キャンセル" })).toHaveFocus();
 
-    await user.click(screen.getByText("キャンセル"));
+    await user.click(within(dialog).getByRole("button", { name: "キャンセル" }));
     expect(screen.queryByText("演奏会を削除しますか？")).not.toBeInTheDocument();
   });
 
@@ -143,6 +144,20 @@ describe("ConcertDetailPage（編集・削除ボタンの権限）", () => {
       expect(concertsApi.delete).toHaveBeenCalledWith("tokyo-men-choir", "concert-1"),
     );
     expect(pushMock).toHaveBeenCalledWith("/tokyo-men-choir/concerts");
+  });
+
+  it("削除中はEscで閉じず、キャンセルも押せない", async () => {
+    vi.mocked(concertsApi.get).mockResolvedValue(makeConcert());
+    vi.mocked(concertsApi.delete).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderPage(["admin"]);
+
+    await user.click(await screen.findByText("削除"));
+    await user.click(screen.getByText("削除する"));
+    await user.keyboard("{Escape}");
+
+    const dialog = screen.getByRole("dialog", { name: "演奏会を削除しますか？" });
+    expect(within(dialog).getByRole("button", { name: "キャンセル" })).toBeDisabled();
   });
 });
 

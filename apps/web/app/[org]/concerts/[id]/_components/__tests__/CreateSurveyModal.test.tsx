@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CreateSurveyModal } from "../CreateSurveyModal";
 import { concertsApi } from "@/lib/concerts-api";
@@ -118,7 +118,7 @@ describe("CreateSurveyModal（バリデーション・送信）", () => {
   });
 
   it("送信失敗時はエラーメッセージを表示する", async () => {
-    vi.mocked(concertsApi.createSurvey).mockRejectedValue(new Error("作成に失敗しました"));
+    vi.mocked(concertsApi.createSurvey).mockRejectedValue(new TypeError("Failed to fetch"));
     const user = userEvent.setup();
     render(
       <CreateSurveyModal
@@ -131,7 +131,9 @@ describe("CreateSurveyModal（バリデーション・送信）", () => {
     );
 
     await user.click(screen.getByText("開設する"));
-    expect(await screen.findByText("作成に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "調査の開設に失敗しました。もう一度お試しください。",
+    );
   });
 });
 
@@ -155,5 +157,48 @@ describe("CreateSurveyModal（閉じる）", () => {
     expect(onClose).toHaveBeenCalledTimes(2);
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(3);
+  });
+
+  function renderModal(onClose = vi.fn()) {
+    render(
+      <CreateSurveyModal
+        orgSlug="o"
+        concertId="concert-1"
+        surveyCount={0}
+        onClose={onClose}
+        onCreated={vi.fn()}
+      />,
+    );
+    return { onClose };
+  }
+
+  it("「調査を開設する」という名前のダイアログとして開き、タイトル欄にフォーカスが当たる", () => {
+    renderModal();
+
+    expect(screen.getByRole("dialog", { name: "調査を開設する" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/調査タイトル/)).toHaveFocus();
+  });
+
+  it("タイトル欄でEnterを押すと送信する", async () => {
+    vi.mocked(concertsApi.createSurvey).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.type(screen.getByLabelText(/調査タイトル/), "{Enter}");
+
+    await waitFor(() => expect(concertsApi.createSurvey).toHaveBeenCalledTimes(1));
+  });
+
+  it("開設中はEscで閉じず、×・キャンセルも押せない", async () => {
+    vi.mocked(concertsApi.createSurvey).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    const { onClose } = renderModal();
+
+    await user.click(screen.getByText("開設する"));
+    await user.keyboard("{Escape}");
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("閉じる")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "キャンセル" })).toBeDisabled();
   });
 });

@@ -40,6 +40,7 @@ import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
 import { PageHeader } from "@/components/PageHeader";
 import { FileAttachmentSection } from "@/components/FileAttachmentSection";
+import { Modal } from "@/components/Modal";
 
 const STATUS_CONFIG: Record<ConcertStatus, { label: string; badge: string }> = {
   draft: { label: "準備中", badge: "bg-gray-100 text-gray-500" },
@@ -450,35 +451,38 @@ export default function ConcertDetailPage() {
       )}
 
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setShowDeleteConfirm(false)}
-          />
-          <div className="relative w-full max-w-sm rounded-2xl bg-white px-6 py-6 shadow-xl">
-            <h2 className="mb-2 font-semibold text-gray-800">演奏会を削除しますか？</h2>
-            <p className="mb-5 text-sm text-gray-500">
-              「{concert.title}
-              」を削除します。ステージ・曲目・スケジュール連携も全て削除されます。この操作は取り消せません。
-            </p>
-            <div className="flex gap-2">
+        <Modal
+          title="演奏会を削除しますか？"
+          size="sm"
+          onClose={() => setShowDeleteConfirm(false)}
+          busy={deleting}
+          footer={
+            <>
               <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+                className="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60"
               >
                 {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                 削除する
               </button>
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-500 transition-colors hover:bg-gray-50"
-              >
-                キャンセル
-              </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <p className="text-sm text-gray-500">
+            「{concert.title}
+            」を削除します。ステージ・曲目・スケジュール連携も全て削除されます。この操作は取り消せません。
+          </p>
+        </Modal>
       )}
     </div>
   );

@@ -22,9 +22,11 @@ function sleep(ms: number) {
 // LocationSearch は value を親が管理する制御コンポーネントなので、
 // テストでは実際に入力値を反映するラッパーで包む
 function ControlledLocationSearch({
+  inlineSuggestions,
   onChangeName,
   onSelectPlace,
 }: {
+  inlineSuggestions?: boolean;
   onChangeName: (name: string) => void;
   onSelectPlace: (name: string, url: string) => void;
 }) {
@@ -34,6 +36,7 @@ function ControlledLocationSearch({
     <LocationSearch
       value={value}
       mapUrl={mapUrl}
+      inlineSuggestions={inlineSuggestions}
       onChangeName={(name) => {
         setValue(name);
         setMapUrl(undefined);
@@ -191,4 +194,29 @@ describe("LocationSearch（選択・表示）", () => {
     const link = screen.getByText("Google マップで開く").closest("a");
     expect(link).toHaveAttribute("href", "https://maps.example.com/1");
   });
+
+  it("idを指定するとラベルと入力欄を結びつけられる", () => {
+    render(
+      <>
+        <label htmlFor="venue">会場</label>
+        <LocationSearch id="venue" value="" onChangeName={vi.fn()} onSelectPlace={vi.fn()} />
+      </>,
+    );
+    expect(screen.getByLabelText("会場")).toHaveAttribute("type", "text");
+  });
+
+  it("inlineSuggestionsを指定すると候補を重ねずに入力欄の下へ並べる", async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      json: () => Promise.resolve(placeResults),
+    } as Response);
+    const user = userEvent.setup();
+    render(
+      <ControlledLocationSearch inlineSuggestions onChangeName={vi.fn()} onSelectPlace={vi.fn()} />,
+    );
+
+    await user.type(screen.getByRole("textbox"), "文化");
+    const suggestion = await screen.findByText("○○文化センター", {}, { timeout: 2000 });
+
+    expect(suggestion.closest("button")?.parentElement).not.toHaveClass("absolute");
+  }, 10000);
 });

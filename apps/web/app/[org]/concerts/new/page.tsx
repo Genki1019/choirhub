@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Calendar, MapPin, FileText, AlertCircle, Loader2 } from "lucide-react";
+import { Calendar, MapPin, FileText, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { concertsApi } from "@/lib/concerts-api";
 import { membersApi } from "@/lib/members-api";
@@ -19,6 +19,8 @@ import { DeadlineSection } from "../../_components/DeadlineSection";
 import { PageMain } from "@/components/PageMain";
 import { PageHeader } from "@/components/PageHeader";
 import { PageErrorState } from "@/components/PageErrorState";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 
 export default function NewConcertPage() {
   const { org } = useParams<{ org: string }>();
@@ -54,7 +56,12 @@ export default function NewConcertPage() {
   });
 
   const loading = canCreate && partsLoading;
-  const initError = partsError?.message ?? null;
+  const initError = partsError
+    ? userErrorMessage(
+        partsError,
+        "パートの読み込みに失敗しました。ページを再読み込みしてください。",
+      )
+    : null;
 
   if (!canCreate) {
     return (
@@ -116,7 +123,7 @@ export default function NewConcertPage() {
       });
       router.push(`/${org}/concerts/${created.id}`);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "作成に失敗しました。");
+      setError(userErrorMessage(err, "演奏会の登録に失敗しました。もう一度お試しください。"));
       setSaving(false);
     }
   };
@@ -127,12 +134,7 @@ export default function NewConcertPage() {
 
       <PageMain>
         <form onSubmit={handleSubmit} className="mx-auto max-w-xl space-y-4">
-          {error && (
-            <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-              <AlertCircle size={14} className="shrink-0" />
-              {error}
-            </div>
-          )}
+          <ErrorMessage variant="section">{error}</ErrorMessage>
 
           {/* タイトル */}
           <div className="space-y-4 rounded-xl border border-gray-200 bg-white px-5 py-4">

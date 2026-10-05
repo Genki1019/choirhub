@@ -9,7 +9,6 @@ import {
   ClipboardList,
   Users,
   Loader2,
-  AlertCircle,
   Pencil,
   Trash2,
   Paperclip,
@@ -23,7 +22,7 @@ import {
   type ProgramDetail,
   type StageDetail,
 } from "@/lib/concerts-api";
-import { ApiClientError } from "@/lib/api-client";
+import { ApiClientError, userErrorMessage } from "@/lib/api-client";
 import { formatJaDate } from "@/lib/date";
 import { concertKeys } from "@/lib/query-keys";
 import { mergeOrderedIds } from "@/lib/sort-order";
@@ -41,6 +40,7 @@ import { PageBleedRow } from "@/components/PageBleedRow";
 import { PageHeader } from "@/components/PageHeader";
 import { FileAttachmentSection } from "@/components/FileAttachmentSection";
 import { Modal } from "@/components/Modal";
+import { PageErrorState } from "@/components/PageErrorState";
 
 const STATUS_CONFIG: Record<ConcertStatus, { label: string; badge: string }> = {
   draft: { label: "準備中", badge: "bg-gray-100 text-gray-500" },
@@ -262,12 +262,18 @@ export default function ConcertDetailPage() {
 
   if (queryError || !concert) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-          <AlertCircle size={16} />
-          <span className="text-sm">{queryError?.message ?? "演奏会が見つかりません"}</span>
-        </div>
-      </div>
+      <PageErrorState
+        title="本番"
+        backHref={backHref}
+        message={
+          queryError
+            ? userErrorMessage(
+                queryError,
+                "演奏会の読み込みに失敗しました。ページを再読み込みしてください。",
+              )
+            : "演奏会が見つかりません"
+        }
+      />
     );
   }
 

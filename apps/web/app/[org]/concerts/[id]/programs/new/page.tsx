@@ -3,16 +3,18 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { AlertCircle, Check, Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { concertsApi, type AddProgramInput } from "@/lib/concerts-api";
 import { scoresApi } from "@/lib/scores-api";
-import { ApiClientError } from "@/lib/api-client";
+import { ApiClientError, userErrorMessage } from "@/lib/api-client";
 import { concertKeys, scoresKeys } from "@/lib/query-keys";
 import { useMember } from "@/contexts/MemberContext";
 import { NotFoundPage } from "@/components/NotFoundPage";
 import { PageMain } from "@/components/PageMain";
 import { PageHeader } from "@/components/PageHeader";
+import { PageErrorState } from "@/components/PageErrorState";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 export default function NewProgramPage() {
   const { org, id } = useParams<{ org: string; id: string }>();
@@ -79,12 +81,18 @@ export default function NewProgramPage() {
 
   if (queryError || !concert) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-          <AlertCircle size={16} />
-          <span className="text-sm">{queryError?.message ?? "演奏会が見つかりません"}</span>
-        </div>
-      </div>
+      <PageErrorState
+        title="曲目を追加"
+        backHref={backHref}
+        message={
+          queryError
+            ? userErrorMessage(
+                queryError,
+                "演奏会の読み込みに失敗しました。ページを再読み込みしてください。",
+              )
+            : "演奏会が見つかりません"
+        }
+      />
     );
   }
 
@@ -121,7 +129,7 @@ export default function NewProgramPage() {
       await queryClient.invalidateQueries({ queryKey: concertKeys.detail(org, id) });
       router.push(backHref);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "登録に失敗しました");
+      setError(userErrorMessage(err, "曲目の追加に失敗しました。もう一度お試しください。"));
     } finally {
       setSaving(false);
     }
@@ -240,11 +248,7 @@ export default function NewProgramPage() {
             </div>
           )}
 
-          {error && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
-              {error}
-            </p>
-          )}
+          <ErrorMessage>{error}</ErrorMessage>
 
           <div className="flex justify-end gap-2 pb-8">
             <Link

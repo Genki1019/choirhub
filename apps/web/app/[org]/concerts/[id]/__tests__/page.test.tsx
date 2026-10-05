@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ConcertDetailPage from "../page";
 import { MemberProvider } from "@/contexts/MemberContext";
 import { concertsApi, type ConcertDetail } from "@/lib/concerts-api";
+import { ApiClientError } from "@/lib/api-client";
 
 const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
 let searchParamsMock = new URLSearchParams();
@@ -72,11 +73,23 @@ describe("ConcertDetailPage（表示状態）", () => {
     expect(screen.getByText("読み込み中...")).toBeInTheDocument();
   });
 
-  it("取得エラー（404以外）はエラーメッセージを表示する", async () => {
-    vi.mocked(concertsApi.get).mockRejectedValue(new Error("取得に失敗しました"));
+  it("取得エラー（404以外）はヘッダー付きで代わりの文言をalertで表示する", async () => {
+    vi.mocked(concertsApi.get).mockRejectedValue(new TypeError("Failed to fetch"));
     renderPage();
 
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "演奏会の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+    expect(screen.getByRole("heading", { name: "本番" })).toBeInTheDocument();
+  });
+
+  it("4xxの取得エラーはサーバーのメッセージを表示する", async () => {
+    vi.mocked(concertsApi.get).mockRejectedValue(
+      new ApiClientError("FORBIDDEN", "権限がありません", 403),
+    );
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("権限がありません");
   });
 
   it("演奏会名・ステータス・日付・会場・ステージ数・曲数を表示する", async () => {

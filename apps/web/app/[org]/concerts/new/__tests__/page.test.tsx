@@ -6,6 +6,7 @@ import NewConcertPage from "../page";
 import { MemberProvider } from "@/contexts/MemberContext";
 import { concertsApi } from "@/lib/concerts-api";
 import { membersApi } from "@/lib/members-api";
+import { ApiClientError } from "@/lib/api-client";
 
 const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
 
@@ -66,10 +67,12 @@ describe("NewConcertPage（権限・表示状態）", () => {
     expect(screen.getByText("読み込み中...")).toBeInTheDocument();
   });
 
-  it("初期化エラー時はエラーメッセージを表示する", async () => {
-    vi.mocked(membersApi.parts).mockRejectedValue(new Error("取得に失敗しました"));
+  it("初期化エラー時は代わりの文言をalertで表示する", async () => {
+    vi.mocked(membersApi.parts).mockRejectedValue(new TypeError("Failed to fetch"));
     renderPage(["admin"]);
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "パートの読み込みに失敗しました。ページを再読み込みしてください。",
+    );
   });
 });
 
@@ -132,7 +135,9 @@ describe("NewConcertPage（送信）", () => {
   });
 
   it("送信失敗時はエラーメッセージを表示する", async () => {
-    vi.mocked(concertsApi.create).mockRejectedValue(new Error("作成に失敗しました。"));
+    vi.mocked(concertsApi.create).mockRejectedValue(
+      new ApiClientError("VALIDATION_ERROR", "入力値が不正です", 400),
+    );
     const user = userEvent.setup();
     renderPage(["admin"]);
 
@@ -143,7 +148,7 @@ describe("NewConcertPage（送信）", () => {
     );
     await user.click(screen.getByText("登録する"));
 
-    expect(await screen.findByText("作成に失敗しました。")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("入力値が不正です");
     expect(pushMock).not.toHaveBeenCalled();
   });
 });

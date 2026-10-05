@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ConcertsPage from "../page";
 import { MemberProvider } from "@/contexts/MemberContext";
 import { concertsApi, type ConcertSummary } from "@/lib/concerts-api";
+import { ApiClientError } from "@/lib/api-client";
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ org: "tokyo-men-choir" }),
@@ -52,18 +53,31 @@ beforeEach(() => {
 });
 
 describe("ConcertsPage（表示状態）", () => {
-  it("データ取得中は「読み込み中...」を表示する", () => {
+  it("データ取得中は「読み込み中...」を表示し、フィルタは表示したままにする", () => {
     vi.mocked(concertsApi.list).mockReturnValue(new Promise(() => {}));
     renderPage();
 
     expect(screen.getByText("読み込み中...")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "すべて" })).toBeInTheDocument();
   });
 
-  it("取得エラー時はエラーメッセージを表示する", async () => {
-    vi.mocked(concertsApi.list).mockRejectedValue(new Error("取得に失敗しました"));
+  it("4xxの取得エラー時はサーバーのメッセージをalertで表示し、空表示を出さない", async () => {
+    vi.mocked(concertsApi.list).mockRejectedValue(
+      new ApiClientError("FORBIDDEN", "権限がありません", 403),
+    );
     renderPage();
 
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("権限がありません");
+    expect(screen.queryByText("演奏会が登録されていません")).not.toBeInTheDocument();
+  });
+
+  it("5xx・通信エラー時は代わりの文言を表示する", async () => {
+    vi.mocked(concertsApi.list).mockRejectedValue(new TypeError("Failed to fetch"));
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "演奏会の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
   });
 
   it("0件の場合は空表示を出す", async () => {
@@ -71,6 +85,7 @@ describe("ConcertsPage（表示状態）", () => {
     renderPage();
 
     expect(await screen.findByText("演奏会が登録されていません")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
 

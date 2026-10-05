@@ -11,6 +11,8 @@ import {
   type SurveySummary,
 } from "@/lib/concerts-api";
 import { CreateSurveyModal } from "./CreateSurveyModal";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 
 function buildStateMap(rows: SurveyDetail["rows"]): Map<string, Map<string, AttendanceStatus>> {
   const m = new Map<string, Map<string, AttendanceStatus>>();
@@ -77,16 +79,21 @@ export function SurveyTab({
   const [surveyDetail, setSurveyDetail] = useState<SurveyDetail | null>(null);
   const [loadedForId, setLoadedForId] = useState<string | null>(null);
 
-  const [stateMap, setStateMap] = useState<Map<string, Map<string, AttendanceStatus>>>(() =>
-    buildStateMap([]),
-  );
+  const [cells, setCells] = useState<{
+    surveyId: string | null;
+    map: Map<string, Map<string, AttendanceStatus>>;
+  }>(() => ({ surveyId: null, map: buildStateMap([]) }));
+  const stateMap = cells.map;
   const [memoMap, setMemoMap] = useState<Map<string, string>>(() => new Map());
-  const [saving, setSaving] = useState<string | null>(null);
+  const [savingCells, setSavingCells] = useState<ReadonlySet<string>>(() => new Set());
   const [savingMemo, setSavingMemo] = useState<string | null>(null);
   const [toggling, setToggling] = useState(false);
   const [applying, setApplying] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [applyError, setApplyError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<{ surveyId: string; message: string } | null>(
+    null,
+  );
 
   const loadingDetail = selectedSurveyId !== null && loadedForId !== selectedSurveyId;
   const activeSurveyDetail =
@@ -100,15 +107,22 @@ export function SurveyTab({
       .getSurveyDetail(org, concert.id, id)
       .then((detail) => {
         if (cancelled) return;
+        setLoadError(null);
         setSurveyDetail(detail);
-        setStateMap(buildStateMap(detail.rows));
+        setCells({ surveyId: id, map: buildStateMap(detail.rows) });
         const m = new Map<string, string>();
         detail.rows.forEach((r) => {
           if (r.memo) m.set(r.memberId, r.memo);
         });
         setMemoMap(m);
       })
-      .catch(() => {})
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setSurveyDetail(null);
+        setLoadError(
+          userErrorMessage(err, "調査の読み込みに失敗しました。ページを再読み込みしてください。"),
+        );
+      })
       .finally(() => {
         if (!cancelled) setLoadedForId(id);
       });
@@ -117,30 +131,47 @@ export function SurveyTab({
     };
   }, [selectedSurveyId, org, concert.id]);
 
+  const selectSurvey = (surveyId: string) => {
+    if (surveyId !== selectedSurveyId) setLoadedForId(null);
+    setSelectedSurveyId(surveyId);
+    setActionError(null);
+  };
+
   const canEdit = (rowMemberId: string) => isAdmin || rowMemberId === myMemberId;
 
-  const setCellStatus = (rowMemberId: string, stageId: string, status: AttendanceStatus) => {
-    setStateMap((prev) => {
-      const next = new Map(prev);
+  const setCellStatus = (
+    surveyId: string,
+    rowMemberId: string,
+    stageId: string,
+    status: AttendanceStatus,
+  ) => {
+    setCells((prev) => {
+      if (prev.surveyId !== surveyId) return prev;
+      const next = new Map(prev.map);
       const inner = new Map(next.get(rowMemberId) ?? []);
       inner.set(stageId, status);
       next.set(rowMemberId, inner);
-      return next;
+      return { surveyId, map: next };
     });
+  };
+
+  const showActionError = (surveyId: string, err: unknown, fallback: string) => {
+    setActionError({ surveyId, message: userErrorMessage(err, fallback) });
   };
 
   const handleCellClick = async (rowMemberId: string, stageId: string) => {
     if (!activeSurveyDetail || !selectedSurveyId || !canEdit(rowMemberId)) return;
     if (!activeSurveyDetail.isOpen && !isAdmin) return;
 
-    const key = `${rowMemberId}:${stageId}`;
-    if (saving === key) return;
+    const key = `${selectedSurveyId}:${rowMemberId}:${stageId}`;
+    if (savingCells.has(key)) return;
 
     const prevStatus = stateMap.get(rowMemberId)?.get(stageId) ?? "undecided";
     const nextStatus = STATUS_CYCLE[(STATUS_CYCLE.indexOf(prevStatus) + 1) % STATUS_CYCLE.length];
 
-    setCellStatus(rowMemberId, stageId, nextStatus);
-    setSaving(key);
+    setCellStatus(selectedSurveyId, rowMemberId, stageId, nextStatus);
+    setSavingCells((prev) => new Set(prev).add(key));
+    setActionError(null);
 
     try {
       await concertsApi.respondSurvey(
@@ -153,16 +184,26 @@ export function SurveyTab({
       );
       // 締切済みの調査を管理者が修正した場合、オンステ確定にも反映されるため出演メンバータブ側を再取得する
       if (!activeSurveyDetail.isOpen) onAssignmentsMayChange();
-    } catch {
-      setCellStatus(rowMemberId, stageId, prevStatus);
+    } catch (err) {
+      setCellStatus(selectedSurveyId, rowMemberId, stageId, prevStatus);
+      showActionError(
+        selectedSurveyId,
+        err,
+        "回答の保存に失敗しました。元の回答に戻しました。もう一度お試しください。",
+      );
     } finally {
-      setSaving(null);
+      setSavingCells((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
   };
 
   const handleMemoBlur = async (rowMemberId: string, memo: string) => {
     if (!activeSurveyDetail || !selectedSurveyId || !canEdit(rowMemberId)) return;
     setSavingMemo(rowMemberId);
+    setActionError(null);
     const allStages = concert.stages.map((s) => ({
       stageId: s.id,
       status: stateMap.get(rowMemberId)?.get(s.id) ?? "undecided",
@@ -176,6 +217,8 @@ export function SurveyTab({
         memo || null,
         rowMemberId !== myMemberId ? rowMemberId : undefined,
       );
+    } catch (err) {
+      showActionError(selectedSurveyId, err, "メモの保存に失敗しました。もう一度お試しください。");
     } finally {
       setSavingMemo(null);
     }
@@ -184,11 +227,14 @@ export function SurveyTab({
   const handleToggle = async () => {
     if (!activeSurveyDetail || !selectedSurveyId || toggling) return;
     setToggling(true);
+    setActionError(null);
     try {
       const result = await concertsApi.patchSurvey(org, concert.id, selectedSurveyId, {
         isOpen: !activeSurveyDetail.isOpen,
       });
-      setSurveyDetail((prev) => (prev ? { ...prev, isOpen: result.isOpen } : prev));
+      setSurveyDetail((prev) =>
+        prev?.id === selectedSurveyId ? { ...prev, isOpen: result.isOpen } : prev,
+      );
       onSurveysChanged(
         surveys.map((s) =>
           s.id === selectedSurveyId
@@ -199,6 +245,12 @@ export function SurveyTab({
         ),
       );
       onConcertStatusChanged(result.concertStatus);
+    } catch (err) {
+      showActionError(
+        selectedSurveyId,
+        err,
+        "調査の受付状態の変更に失敗しました。もう一度お試しください。",
+      );
     } finally {
       setToggling(false);
     }
@@ -207,12 +259,16 @@ export function SurveyTab({
   const handleApplyToFormation = async () => {
     if (!selectedSurveyId || applying) return;
     setApplying(true);
-    setApplyError(null);
+    setActionError(null);
     try {
       await concertsApi.applySurveyToFormation(org, concert.id, selectedSurveyId);
       onAssignmentsMayChange();
-    } catch {
-      setApplyError("フォーメーションへの反映に失敗しました。もう一度お試しください。");
+    } catch (err) {
+      showActionError(
+        selectedSurveyId,
+        err,
+        "フォーメーションへの反映に失敗しました。もう一度お試しください。",
+      );
     } finally {
       setApplying(false);
     }
@@ -221,7 +277,7 @@ export function SurveyTab({
   const handleSurveyCreated = (newSurvey: SurveySummary) => {
     onSurveysChanged([newSurvey, ...surveys.map((s) => (s.isOpen ? { ...s, isOpen: false } : s))]);
     onConcertStatusChanged("survey_open");
-    setSelectedSurveyId(newSurvey.id);
+    selectSurvey(newSurvey.id);
     setShowCreateModal(false);
   };
 
@@ -262,7 +318,7 @@ export function SurveyTab({
         {surveys.map((s) => (
           <button
             key={s.id}
-            onClick={() => setSelectedSurveyId(s.id)}
+            onClick={() => selectSurvey(s.id)}
             className={[
               "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
               selectedSurveyId === s.id
@@ -304,6 +360,8 @@ export function SurveyTab({
           <span className="text-sm">読み込み中...</span>
         </div>
       )}
+
+      {!loadingDetail && <ErrorMessage variant="section">{loadError}</ErrorMessage>}
 
       {!loadingDetail &&
         activeSurveyDetail &&
@@ -376,7 +434,9 @@ export function SurveyTab({
                   確定すると回答をもとにオンステが確定し、出演メンバータブでフォーメーションを設定できるようになります
                 </p>
               )}
-              {applyError && <p className="-mt-3 px-1 text-xs text-red-500">{applyError}</p>}
+              <ErrorMessage>
+                {actionError?.surveyId === selectedSurveyId ? actionError.message : null}
+              </ErrorMessage>
 
               {stages.length === 0 && (
                 <p className="py-8 text-center text-sm text-gray-400">
@@ -454,10 +514,10 @@ export function SurveyTab({
                         </div>
 
                         {stages.map((s) => {
-                          const key = `${row.memberId}:${s.id}`;
+                          const key = `${selectedSurveyId}:${row.memberId}:${s.id}`;
                           const status = stateMap.get(row.memberId)?.get(s.id) ?? "undecided";
                           const cfg = SURVEY_STATUS_CONFIG[status];
-                          const isSav = saving === key;
+                          const isSav = savingCells.has(key);
 
                           return (
                             <div key={s.id} className="flex justify-center">

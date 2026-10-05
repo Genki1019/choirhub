@@ -13,7 +13,7 @@ import {
   Trash2,
   Paperclip,
 } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   concertsApi,
   type ConcertDetail,
@@ -41,6 +41,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { FileAttachmentSection } from "@/components/FileAttachmentSection";
 import { Modal } from "@/components/Modal";
 import { PageErrorState } from "@/components/PageErrorState";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 const STATUS_CONFIG: Record<ConcertStatus, { label: string; badge: string }> = {
   draft: { label: "準備中", badge: "bg-gray-100 text-gray-500" },
@@ -88,6 +89,8 @@ export default function ConcertDetailPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [stagesError, setStagesError] = useState<string | null>(null);
 
   const {
     data: concert,
@@ -104,54 +107,93 @@ export default function ConcertDetailPage() {
     }
   }, [queryError, org, router]);
 
+  const detailKey = concertKeys.detail(org, id);
+  const reorderKey = [...detailKey, "reorder"];
+
+  const reorderMutation = useMutation({
+    mutationKey: reorderKey,
+    mutationFn: ({ save }: { save: () => Promise<void>; snapshot?: ConcertDetail }) => save(),
+    onError: (err, { snapshot }) => {
+      if (queryClient.isMutating({ mutationKey: reorderKey }) === 1) {
+        queryClient.setQueryData(detailKey, snapshot);
+      }
+      setStagesError(
+        userErrorMessage(
+          err,
+          "並び順の保存に失敗しました。元の順に戻しました。もう一度お試しください。",
+        ),
+      );
+    },
+    onSettled: () => {
+      if (queryClient.isMutating({ mutationKey: reorderKey }) === 1) {
+        queryClient.invalidateQueries({ queryKey: detailKey });
+      }
+    },
+  });
+
+  const reorderOptimistically = (
+    update: (prev: ConcertDetail) => ConcertDetail,
+    save: () => Promise<void>,
+  ) => {
+    queryClient.cancelQueries({ queryKey: detailKey });
+    const snapshot = queryClient.getQueryData<ConcertDetail>(detailKey);
+    queryClient.setQueryData<ConcertDetail>(detailKey, (prev) => (prev ? update(prev) : prev));
+    setStagesError(null);
+    reorderMutation.mutate({ save, snapshot });
+  };
+
   const handleStageAdded = (stage: StageDetail) => {
     queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) =>
       prev ? { ...prev, stages: [...prev.stages, stage] } : prev,
     );
     setShowAddStageModal(false);
+    setStagesError(null);
   };
 
   const handleReorderStages = (orderedIds: string[]) => {
-    const snapshot = queryClient.getQueryData<ConcertDetail>(concertKeys.detail(org, id));
-    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) =>
-      prev ? { ...prev, stages: mergeOrderedIds(prev.stages, orderedIds) } : prev,
+    reorderOptimistically(
+      (prev) => ({ ...prev, stages: mergeOrderedIds(prev.stages, orderedIds) }),
+      () => concertsApi.reorderStages(org, id, orderedIds),
     );
-    concertsApi.reorderStages(org, id, orderedIds).catch(() => {
-      queryClient.setQueryData(concertKeys.detail(org, id), snapshot);
-    });
   };
 
   const handleReorderPrograms = (stageId: string, orderedIds: string[]) => {
-    const snapshot = queryClient.getQueryData<ConcertDetail>(concertKeys.detail(org, id));
-    queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) => {
-      if (!prev) return prev;
-      const stageIdx = prev.stages.findIndex((s) => s.id === stageId);
-      if (stageIdx === -1) return prev;
-      const nextPrograms = mergeOrderedIds(prev.stages[stageIdx].programs, orderedIds);
-      const nextStages = prev.stages.map((s, i) =>
-        i === stageIdx ? { ...s, programs: nextPrograms } : s,
-      );
-      return { ...prev, stages: nextStages };
-    });
-    concertsApi.reorderPrograms(org, id, stageId, orderedIds).catch(() => {
-      queryClient.setQueryData(concertKeys.detail(org, id), snapshot);
-    });
+    reorderOptimistically(
+      (prev) => ({
+        ...prev,
+        stages: prev.stages.map((s) =>
+          s.id === stageId ? { ...s, programs: mergeOrderedIds(s.programs, orderedIds) } : s,
+        ),
+      }),
+      () => concertsApi.reorderPrograms(org, id, stageId, orderedIds),
+    );
   };
 
   const handleEditStageName = async (stageId: string, name: string) => {
-    await concertsApi.updateStage(org, id, stageId, { name });
+    setStagesError(null);
+    try {
+      await concertsApi.updateStage(org, id, stageId, { name });
+    } catch (err) {
+      setStagesError(
+        userErrorMessage(err, "ステージ名の保存に失敗しました。もう一度お試しください。"),
+      );
+      return false;
+    }
     queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) => {
       if (!prev) return prev;
       return { ...prev, stages: prev.stages.map((s) => (s.id === stageId ? { ...s, name } : s)) };
     });
+    return true;
   };
 
   const handleMoveCopyComplete = (
     action: "move" | "copy",
     target: MoveCopyTarget,
     newProgram?: ProgramDetail,
+    warning?: string,
   ) => {
     if (!moveCopySource) return;
+    setStagesError(warning ?? null);
     const {
       stageId: sourceStageId,
       program: { id: sourceProgramId },
@@ -227,13 +269,19 @@ export default function ConcertDetailPage() {
 
   const handleDelete = async () => {
     setDeleting(true);
+    setDeleteError(null);
     try {
       await concertsApi.delete(org, id);
       router.push(`/${org}/concerts`);
-    } catch {
+    } catch (err) {
+      setDeleteError(userErrorMessage(err, "演奏会の削除に失敗しました。もう一度お試しください。"));
       setDeleting(false);
-      setShowDeleteConfirm(false);
     }
+  };
+
+  const closeDeleteConfirm = () => {
+    setShowDeleteConfirm(false);
+    setDeleteError(null);
   };
 
   const handleProgramEdited = (stageId: string, updated: ProgramDetail) => {
@@ -249,6 +297,7 @@ export default function ConcertDetailPage() {
       };
     });
     setEditProgramTarget(null);
+    setStagesError(null);
   };
 
   if (loading) {
@@ -260,7 +309,7 @@ export default function ConcertDetailPage() {
     );
   }
 
-  if (queryError || !concert) {
+  if (!concert) {
     return (
       <PageErrorState
         title="本番"
@@ -370,6 +419,7 @@ export default function ConcertDetailPage() {
       </PageHeader>
 
       <PageMain>
+        {activeTab === "stages" && <ErrorMessage className="mb-4">{stagesError}</ErrorMessage>}
         {activeTab === "stages" && (
           <StagesTab
             concert={concert}
@@ -381,6 +431,7 @@ export default function ConcertDetailPage() {
             onReorderStages={handleReorderStages}
             onReorderPrograms={handleReorderPrograms}
             onEditStageName={handleEditStageName}
+            onCancelEditStageName={() => setStagesError(null)}
             onMoveCopyClick={(stageId, program) => setMoveCopySource({ stageId, program })}
             onEditProgramClick={(stageId, program) => setEditProgramTarget({ stageId, program })}
           />
@@ -460,13 +511,13 @@ export default function ConcertDetailPage() {
         <Modal
           title="演奏会を削除しますか？"
           size="sm"
-          onClose={() => setShowDeleteConfirm(false)}
+          onClose={closeDeleteConfirm}
           busy={deleting}
           footer={
             <>
               <button
                 type="button"
-                onClick={() => setShowDeleteConfirm(false)}
+                onClick={closeDeleteConfirm}
                 disabled={deleting}
                 className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50"
               >
@@ -488,6 +539,7 @@ export default function ConcertDetailPage() {
             「{concert.title}
             」を削除します。ステージ・曲目・スケジュール連携も全て削除されます。この操作は取り消せません。
           </p>
+          <ErrorMessage>{deleteError}</ErrorMessage>
         </Modal>
       )}
     </div>

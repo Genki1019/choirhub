@@ -16,7 +16,12 @@ interface MoveCopyModalProps {
   stageId: string;
   program: ProgramDetail;
   onClose: () => void;
-  onComplete: (action: "move" | "copy", target: MoveCopyTarget, newProgram?: ProgramDetail) => void;
+  onComplete: (
+    action: "move" | "copy",
+    target: MoveCopyTarget,
+    newProgram?: ProgramDetail,
+    warning?: string,
+  ) => void;
 }
 
 export function MoveCopyModal({
@@ -31,6 +36,7 @@ export function MoveCopyModal({
   const [loadingStructure, setLoadingStructure] = useState(true);
   const [targetValue, setTargetValue] = useState<string>("unassigned");
   const [action, setAction] = useState<"move" | "copy">("move");
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +46,14 @@ export function MoveCopyModal({
     concertsApi
       .getStructure(orgSlug)
       .then(setStructure)
-      .catch(() => {})
+      .catch((err: unknown) =>
+        setLoadError(
+          userErrorMessage(
+            err,
+            "移動先の読み込みに失敗しました。閉じてからもう一度開いてください。",
+          ),
+        ),
+      )
       .finally(() => setLoadingStructure(false));
   }, [orgSlug]);
 
@@ -63,15 +76,27 @@ export function MoveCopyModal({
         title: program.title,
       });
 
+      const target: MoveCopyTarget = {
+        type: "stage",
+        concertId: targetConcertId,
+        stageId: targetStageId,
+      };
+
       if (action === "move") {
-        await concertsApi.deleteProgram(orgSlug, concertId, program.id);
+        try {
+          await concertsApi.deleteProgram(orgSlug, concertId, program.id);
+        } catch {
+          onComplete(
+            "copy",
+            target,
+            newProgram,
+            "移動先に追加しましたが、元の曲目を削除できませんでした。元のステージに残った曲目は「移動 / コピー」で演奏会未定を選ぶと削除できます。",
+          );
+          return;
+        }
       }
 
-      onComplete(
-        action,
-        { type: "stage", concertId: targetConcertId, stageId: targetStageId },
-        newProgram,
-      );
+      onComplete(action, target, newProgram);
     } catch (err) {
       setError(userErrorMessage(err, "操作に失敗しました。もう一度お試しください。"));
     } finally {
@@ -99,7 +124,7 @@ export function MoveCopyModal({
           </button>
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || loadingStructure || !!loadError}
             className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
@@ -115,7 +140,9 @@ export function MoveCopyModal({
         >
           移動先 / コピー先
         </label>
-        {loadingStructure ? (
+        {loadError ? (
+          <ErrorMessage variant="section">{loadError}</ErrorMessage>
+        ) : loadingStructure ? (
           <div className="flex items-center gap-2 py-2 text-gray-400">
             <Loader2 size={13} className="animate-spin" />
             <span className="text-xs">読み込み中...</span>
@@ -147,7 +174,7 @@ export function MoveCopyModal({
         )}
       </div>
 
-      {!isUnassigned && (
+      {!isUnassigned && !loadError && (
         <fieldset>
           <legend className="mb-1.5 block text-xs font-medium text-gray-600">操作</legend>
           <div className="flex gap-3">

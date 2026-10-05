@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MoveCopyModal } from "../MoveCopyModal";
 import { concertsApi, type ProgramDetail, type ConcertStructure } from "@/lib/concerts-api";
@@ -148,6 +148,49 @@ describe("MoveCopyModal（他ステージへの移動・コピー）", () => {
     await user.click(screen.getByText("移動する"));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("ステージが見つかりません");
+  });
+});
+
+describe("MoveCopyModal（失敗の表示）", () => {
+  it("移動先の読み込み中は実行ボタンを押せない", () => {
+    vi.mocked(concertsApi.getStructure).mockReturnValue(new Promise(() => {}));
+    renderModal();
+
+    expect(screen.getByRole("button", { name: "演奏会から削除" })).toBeDisabled();
+  });
+
+  it("移動先の読み込みに失敗したらエラーを表示し、実行ボタンを押せない", async () => {
+    vi.mocked(concertsApi.getStructure).mockRejectedValue(new TypeError("Failed to fetch"));
+    renderModal();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "移動先の読み込みに失敗しました。閉じてからもう一度開いてください。",
+    );
+    expect(screen.getByRole("button", { name: "演奏会から削除" })).toBeDisabled();
+    expect(screen.queryByLabelText("移動先 / コピー先")).not.toBeInTheDocument();
+  });
+
+  it("移動で元の曲目の削除に失敗したら、コピーとして完了を通知し警告を渡す", async () => {
+    vi.mocked(concertsApi.addProgram).mockResolvedValue({ ...program, id: "program-new" });
+    vi.mocked(concertsApi.deleteProgram).mockRejectedValue(new TypeError("Failed to fetch"));
+    const onComplete = vi.fn();
+    const user = userEvent.setup();
+    renderModal({ onComplete });
+
+    await user.selectOptions(
+      await screen.findByLabelText("移動先 / コピー先"),
+      "concert-1::stage-2",
+    );
+    await user.click(screen.getByText("移動する"));
+
+    await waitFor(() =>
+      expect(onComplete).toHaveBeenCalledWith(
+        "copy",
+        { type: "stage", concertId: "concert-1", stageId: "stage-2" },
+        expect.objectContaining({ id: "program-new" }),
+        expect.stringContaining("元の曲目を削除できませんでした"),
+      ),
+    );
   });
 });
 

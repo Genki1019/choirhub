@@ -15,7 +15,8 @@ interface StagesTabProps {
   onAddStage: () => void;
   onReorderStages: (orderedIds: string[]) => void;
   onReorderPrograms: (stageId: string, orderedIds: string[]) => void;
-  onEditStageName: (stageId: string, name: string) => Promise<void>;
+  onEditStageName: (stageId: string, name: string) => Promise<boolean>;
+  onCancelEditStageName: () => void;
   onMoveCopyClick: (stageId: string, program: ProgramDetail) => void;
   onEditProgramClick: (stageId: string, program: ProgramDetail) => void;
 }
@@ -28,6 +29,7 @@ export function StagesTab({
   onReorderStages,
   onReorderPrograms,
   onEditStageName,
+  onCancelEditStageName,
   onMoveCopyClick,
   onEditProgramClick,
 }: StagesTabProps) {
@@ -58,7 +60,11 @@ export function StagesTab({
     setEditStageName(stage.name);
   };
 
-  const cancelEdit = () => setEditingStageId(null);
+  const cancelEdit = () => {
+    if (savingStageId && savingStageId === editingStageId) return;
+    setEditingStageId(null);
+    onCancelEditStageName();
+  };
 
   const saveEdit = async (stageId: string) => {
     if (savingRef.current) return;
@@ -69,13 +75,10 @@ export function StagesTab({
     }
     savingRef.current = true;
     setSavingStageId(stageId);
-    try {
-      await onEditStageName(stageId, trimmed);
-    } finally {
-      savingRef.current = false;
-      setSavingStageId(null);
-      setEditingStageId(null);
-    }
+    const saved = await onEditStageName(stageId, trimmed);
+    savingRef.current = false;
+    setSavingStageId(null);
+    if (saved) setEditingStageId((prev) => (prev === stageId ? null : prev));
   };
 
   return (

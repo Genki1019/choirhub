@@ -6,6 +6,7 @@ import ConcertDetailPage from "../page";
 import { MemberProvider } from "@/contexts/MemberContext";
 import { concertsApi, type ConcertDetail } from "@/lib/concerts-api";
 import { ApiClientError } from "@/lib/api-client";
+import { dragAndDrop, mockPointerCapture } from "@/test-utils/dnd";
 
 const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
 let searchParamsMock = new URLSearchParams();
@@ -23,6 +24,12 @@ vi.mock("@/lib/concerts-api", async () => {
     concertsApi: {
       get: vi.fn(),
       delete: vi.fn(),
+      updateStage: vi.fn(),
+      addStage: vi.fn(),
+      reorderStages: vi.fn(),
+      getStructure: vi.fn(),
+      addProgram: vi.fn(),
+      deleteProgram: vi.fn(),
       listFiles: vi.fn(),
       uploadFile: vi.fn(),
       deleteFile: vi.fn(),
@@ -174,6 +181,132 @@ describe("ConcertDetailPage（編集・削除ボタンの権限）", () => {
   });
 });
 
+describe("ConcertDetailPage（失敗の表示）", () => {
+  it("削除に失敗したら確認を開いたままエラーを表示する", async () => {
+    vi.mocked(concertsApi.get).mockResolvedValue(makeConcert());
+    vi.mocked(concertsApi.delete).mockRejectedValue(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    renderPage(["admin"]);
+
+    await user.click(await screen.findByText("削除"));
+    await user.click(screen.getByText("削除する"));
+
+    const dialog = screen.getByRole("dialog", { name: "演奏会を削除しますか？" });
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "演奏会の削除に失敗しました。もう一度お試しください。",
+    );
+    expect(pushMock).not.toHaveBeenCalled();
+    expect(within(dialog).getByRole("button", { name: "削除する" })).toBeEnabled();
+  });
+
+  it("ステージ名の保存に失敗したらエラーを表示し、入力した名前を残す", async () => {
+    vi.mocked(concertsApi.get).mockResolvedValue(makeConcert());
+    vi.mocked(concertsApi.updateStage).mockRejectedValue(
+      new ApiClientError("VALIDATION_ERROR", "入力値が不正です", 400),
+    );
+    const user = userEvent.setup();
+    renderPage(["admin"]);
+
+    const header = (await screen.findByText("第1ステージ")).closest("div") as HTMLElement;
+    await user.click(within(header).getByTitle("名前を編集"));
+    const input = screen.getByDisplayValue("第1ステージ");
+    await user.clear(input);
+    await user.type(input, "改称ステージ{Enter}");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("入力値が不正です");
+    expect(screen.getByDisplayValue("改称ステージ")).toBeInTheDocument();
+  });
+
+  it("ステージ名の保存に失敗したあと、編集を取り消すとエラーを消す", async () => {
+    vi.mocked(concertsApi.get).mockResolvedValue(makeConcert());
+    vi.mocked(concertsApi.updateStage).mockRejectedValue(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    renderPage(["admin"]);
+
+    const header = (await screen.findByText("第1ステージ")).closest("div") as HTMLElement;
+    await user.click(within(header).getByTitle("名前を編集"));
+    await user.type(screen.getByDisplayValue("第1ステージ"), "改{Enter}");
+    await screen.findByRole("alert");
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("ステージ構成のエラーは、そのあとステージの追加に成功すると消える", async () => {
+    vi.mocked(concertsApi.get).mockResolvedValue(makeConcert());
+    vi.mocked(concertsApi.updateStage).mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.mocked(concertsApi.addStage).mockResolvedValue({
+      id: "stage-3",
+      name: "第3ステージ",
+      sortOrder: 2,
+      programs: [],
+    });
+    const user = userEvent.setup();
+    renderPage(["admin"]);
+
+    const header = (await screen.findByText("第1ステージ")).closest("div") as HTMLElement;
+    await user.click(within(header).getByTitle("名前を編集"));
+    await user.type(screen.getByDisplayValue("第1ステージ"), "改{Enter}");
+    await screen.findByRole("alert");
+    await user.click(screen.getByText("ステージを追加"));
+    await user.click(
+      within(screen.getByRole("dialog", { name: "ステージを追加" })).getByText("追加する"),
+    );
+
+    expect(await screen.findByText("第3ステージ")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("移動で元の曲目の削除に失敗したら、移動先に追加した状態にして警告を表示する", async () => {
+    vi.mocked(concertsApi.get).mockResolvedValue(
+      makeConcert({
+        stages: [
+          {
+            id: "stage-1",
+            name: "第1ステージ",
+            sortOrder: 0,
+            programs: [{ id: "program-1", title: "1曲目", sortOrder: 0, score: null }],
+          },
+          { id: "stage-2", name: "第2ステージ", sortOrder: 1, programs: [] },
+        ],
+      }),
+    );
+    vi.mocked(concertsApi.getStructure).mockResolvedValue([
+      {
+        id: "concert-1",
+        title: "第20回定期演奏会",
+        stages: [
+          { id: "stage-1", name: "第1ステージ", sortOrder: 0 },
+          { id: "stage-2", name: "第2ステージ", sortOrder: 1 },
+        ],
+      },
+    ]);
+    vi.mocked(concertsApi.addProgram).mockResolvedValue({
+      id: "program-new",
+      title: "1曲目",
+      sortOrder: 0,
+      score: null,
+    });
+    vi.mocked(concertsApi.deleteProgram).mockRejectedValue(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    renderPage(["admin"]);
+
+    await user.click(await screen.findByTitle("移動 / コピー"));
+    const dialog = screen.getByRole("dialog", { name: "移動 / コピー" });
+    await user.selectOptions(
+      await within(dialog).findByLabelText("移動先 / コピー先"),
+      "concert-1::stage-2",
+    );
+    await user.click(within(dialog).getByText("移動する"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "移動先に追加しましたが、元の曲目を削除できませんでした。",
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getAllByText("1曲目")).toHaveLength(2);
+  });
+});
+
 describe("ConcertDetailPage（タブ切替）", () => {
   it("初期表示は「ステージ構成」タブ", async () => {
     vi.mocked(concertsApi.get).mockResolvedValue(makeConcert());
@@ -262,5 +395,53 @@ describe("ConcertDetailPage（ファイルタブ）", () => {
     renderPage(["visitor"]);
 
     expect(await screen.findByText("登録されているファイルはありません")).toBeInTheDocument();
+  });
+});
+
+// dnd-kitのドラッグ操作はjsdom上でpointer capture状態が後続テストのクリックに干渉するため、ファイル末尾に置く
+describe("ConcertDetailPage（並び替えの失敗）", () => {
+  it("ステージの並び替えの保存に失敗したらサーバーから取り直して元の順に戻し、エラーを表示する", async () => {
+    mockPointerCapture();
+    vi.mocked(concertsApi.get).mockResolvedValue(makeConcert());
+    vi.mocked(concertsApi.reorderStages).mockRejectedValue(new TypeError("Failed to fetch"));
+    renderPage(["admin"]);
+
+    dragAndDrop(
+      await screen.findByLabelText("第1ステージをドラッグして並び替え"),
+      screen.getByLabelText("第2ステージをドラッグして並び替え"),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "並び順の保存に失敗しました。元の順に戻しました。",
+    );
+    await waitFor(() => expect(concertsApi.get).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
+        "第1ステージ",
+        "第2ステージ",
+      ]),
+    );
+  });
+
+  it("並び替えの保存も取り直しも失敗したとき、画面を残して元の順に戻しエラーを表示する", async () => {
+    mockPointerCapture();
+    vi.mocked(concertsApi.get)
+      .mockResolvedValueOnce(makeConcert())
+      .mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.mocked(concertsApi.reorderStages).mockRejectedValue(new TypeError("Failed to fetch"));
+    renderPage(["admin"]);
+
+    dragAndDrop(
+      await screen.findByLabelText("第1ステージをドラッグして並び替え"),
+      screen.getByLabelText("第2ステージをドラッグして並び替え"),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("並び順の保存に失敗しました。");
+    await waitFor(() => expect(concertsApi.get).toHaveBeenCalledTimes(2));
+    expect(screen.getByText("ステージを追加")).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
+      "第1ステージ",
+      "第2ステージ",
+    ]);
   });
 });

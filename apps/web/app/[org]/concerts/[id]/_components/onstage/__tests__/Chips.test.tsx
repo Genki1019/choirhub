@@ -76,10 +76,27 @@ describe("SeatContainer", () => {
       />,
     );
 
-    await user.click(screen.getByTitle("表示名を編集"));
+    await user.click(screen.getByRole("button", { name: "山田太郎の表示名を編集" }));
     expect(onEdit).toHaveBeenCalled();
-    await user.click(screen.getByTitle("削除"));
+    await user.click(screen.getByRole("button", { name: "山田太郎を削除" }));
     expect(onRemove).toHaveBeenCalled();
+  });
+
+  it("編集・削除ボタンは見た目を変えずに24px四方の押せる範囲を持つ", () => {
+    render(
+      <SeatContainer
+        id="box-1"
+        items={[makeItem()]}
+        partColorMap={partColorMap}
+        chipProps={() => ({ onEdit: vi.fn(), onRemove: vi.fn() })}
+      />,
+    );
+
+    for (const name of ["山田太郎の表示名を編集", "山田太郎を削除"]) {
+      const button = screen.getByRole("button", { name });
+      expect(button).toHaveClass("h-6", "w-6");
+      expect(button.querySelector("span")).toHaveClass("rounded-full", "p-0.5");
+    }
   });
 });
 
@@ -104,7 +121,7 @@ describe("GridCell", () => {
       />,
     );
 
-    await user.click(screen.getByTitle("表示名を編集"));
+    await user.click(screen.getByRole("button", { name: "山田太郎の表示名を編集" }));
     expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ key: "i:a" }), expect.anything());
 
     await user.click(screen.getByTitle("山田太郎（クリックで未配置に戻す）"));

@@ -317,6 +317,15 @@ describe("TicketDetailPage（席種の追加・編集）", () => {
     expect(screen.getByText("席種を編集", { selector: "h2" })).toBeInTheDocument();
   });
 
+  it("席種の編集ボタンは常に見え、席種名入りの名前を持つ。追加ボタンにも名前がある", async () => {
+    vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
+    renderPage(["admin"]);
+
+    const edit = await screen.findByRole("button", { name: "席種「一般」を編集" });
+    expect(edit).not.toHaveClass("opacity-0");
+    expect(screen.getByRole("button", { name: "席種を追加" })).toBeInTheDocument();
+  });
+
   it("非adminの場合は席種を編集する✏️を表示しない", async () => {
     vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail({ isAdmin: false }));
     renderPage(["member"]);
@@ -352,7 +361,22 @@ describe("TicketDetailPage（入力の締め切りの失敗）", () => {
   });
 });
 
-describe("TicketDetailPage（団員の追加のあと）", () => {
+describe("TicketDetailPage（席種の削除・団員の追加のあと）", () => {
+  it("席種を削除すると「席種を追加」ボタンにフォーカスが移る", async () => {
+    vi.mocked(ticketsApi.get).mockResolvedValue(
+      makeDetail({ batches: [makeBatch(), makeBatch({ id: "batch-2", name: "学生" })] }),
+    );
+    vi.mocked(ticketsApi.deleteBatch).mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "席種「一般」を編集" }));
+    await user.click(screen.getByText("この席種を削除"));
+    await user.click(screen.getByText("削除する"));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "席種を追加" })).toHaveFocus());
+  });
+
   it("団員を追加すると、販売数などをサーバーから取り直す", async () => {
     vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
     vi.mocked(membersApi.list).mockResolvedValue([makeMember()]);

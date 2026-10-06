@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Pencil, Loader2, ChevronRight, Trophy, Plus, Lock, LockOpen, Bus } from "lucide-react";
@@ -34,6 +34,7 @@ export default function TicketDetailPage() {
   const [showCreateBatch, setShowCreateBatch] = useState(false);
   const [editingBatch, setEditingBatch] = useState<BatchDetail | null>(null);
   const [closingInput, setClosingInput] = useState(false);
+  const addBatchButtonRef = useRef<HTMLButtonElement>(null);
   const [inputToggleError, setInputToggleError] = useState<string | null>(null);
 
   const {
@@ -87,6 +88,7 @@ export default function TicketDetailPage() {
     patchDetail((prev) => ({ ...prev, batches: prev.batches.filter((b) => b.id !== batchId) }));
     setActiveBatchIdx(0);
     setEditingBatch(null);
+    requestAnimationFrame(() => addBatchButtonRef.current?.focus());
   };
 
   const handleMemberAdded = () => queryClient.invalidateQueries({ queryKey: detailKey });
@@ -184,7 +186,9 @@ export default function TicketDetailPage() {
       )}
       {detail.isAdmin && (
         <button
+          ref={addBatchButtonRef}
           onClick={() => setShowCreateBatch(true)}
+          aria-label="席種を追加"
           className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-white transition-colors"
         >
           <Plus size={14} />
@@ -217,7 +221,7 @@ export default function TicketDetailPage() {
     <div className="border-t border-gray-100">
       <PageBleedRow className="flex items-end overflow-x-auto pt-1">
         {detail.batches.map((batch, idx) => (
-          <div key={batch.id} className="group relative shrink-0">
+          <div key={batch.id} className="relative shrink-0">
             <button
               onClick={() => setActiveBatchIdx(idx)}
               className={[
@@ -236,7 +240,8 @@ export default function TicketDetailPage() {
             {detail.isAdmin && (
               <button
                 onClick={() => setEditingBatch(batch)}
-                className="hover:text-brand-500 absolute top-1 right-0 p-1 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100"
+                aria-label={`席種「${batch.name}」を編集`}
+                className="hover:text-brand-500 absolute top-1 right-0 p-1 text-gray-400 transition-colors"
                 title="席種を編集"
               >
                 <Pencil size={10} />

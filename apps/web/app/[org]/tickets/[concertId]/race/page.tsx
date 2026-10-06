@@ -43,7 +43,7 @@ export default function RacePage() {
     );
   }
 
-  if (error || !data) {
+  if (!data) {
     return (
       <PageErrorState
         title="チケットレース"
@@ -65,6 +65,13 @@ export default function RacePage() {
     return (
       <div className="flex h-full flex-col">
         <PageHeader title="チケットレース" backHref={backHref} />
+        <ErrorMessage className="mx-4 mt-6 sm:mx-8" autoScroll={false}>
+          {error &&
+            userErrorMessage(
+              error,
+              "最新のレース結果の読み込みに失敗しました。ページを再読み込みしてください。",
+            )}
+        </ErrorMessage>
         <div className="flex flex-1 items-center justify-center">
           <p className="text-sm text-gray-400">まだ配布・販売データがありません</p>
         </div>
@@ -184,6 +191,13 @@ export default function RacePage() {
       </PageHeader>
 
       <main className="mx-auto w-full max-w-2xl flex-1 space-y-4 px-4 py-6 sm:px-8">
+        <ErrorMessage autoScroll={false}>
+          {error &&
+            userErrorMessage(
+              error,
+              "最新のレース結果の読み込みに失敗しました。ページを再読み込みしてください。",
+            )}
+        </ErrorMessage>
         <ErrorMessage>{publishError}</ErrorMessage>
         <ScoringRules scoring={data.scoring} />
 

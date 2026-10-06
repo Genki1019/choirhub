@@ -13,6 +13,7 @@ import { ActivityCard } from "./_components/ActivityCard";
 import { PageHeader } from "@/components/PageHeader";
 import { PageErrorState } from "@/components/PageErrorState";
 import { userErrorMessage } from "@/lib/api-client";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 export default function OutreachPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -21,14 +22,18 @@ export default function OutreachPage() {
   const [showCreate, setShowCreate] = useState(false);
 
   const {
-    data: activities = [],
+    data: activitiesData,
     isLoading: loadingActs,
     error,
   } = useQuery({
     queryKey: ticketKeys.outreach(org, concertId),
     queryFn: () => ticketsApi.listOutreachActivities(org, concertId),
   });
-  const { data: members = [], isLoading: loadingMembers } = useQuery({
+  const {
+    data: members = [],
+    isLoading: loadingMembers,
+    error: membersError,
+  } = useQuery({
     queryKey: memberKeys.activeList(org),
     queryFn: () => membersApi.list(org, { status: "active" }),
   });
@@ -48,7 +53,7 @@ export default function OutreachPage() {
     );
   }
 
-  if (error) {
+  if (!activitiesData) {
     return (
       <PageErrorState
         title="情宣活動"
@@ -60,6 +65,8 @@ export default function OutreachPage() {
       />
     );
   }
+
+  const activities = activitiesData;
 
   return (
     <div className="flex flex-col">
@@ -79,6 +86,20 @@ export default function OutreachPage() {
       />
 
       <main className="mx-auto w-full max-w-lg flex-1 space-y-3 px-6 py-6">
+        <ErrorMessage autoScroll={false}>
+          {error &&
+            userErrorMessage(
+              error,
+              "最新の情宣活動の読み込みに失敗しました。ページを再読み込みしてください。",
+            )}
+        </ErrorMessage>
+        <ErrorMessage autoScroll={false}>
+          {membersError &&
+            userErrorMessage(
+              membersError,
+              "団員一覧の読み込みに失敗したため、新規申請で参加者を選べません。ページを再読み込みしてください。",
+            )}
+        </ErrorMessage>
         {activities.length === 0 ? (
           <div className="py-16 text-center text-gray-400">
             <MapPin size={32} className="mx-auto mb-3 opacity-30" />

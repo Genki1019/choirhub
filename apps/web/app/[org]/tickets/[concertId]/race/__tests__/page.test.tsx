@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import RacePage from "../page";
@@ -236,5 +236,46 @@ describe("RacePage（公開操作の失敗）", () => {
       "公開の取り消しに失敗しました。もう一度お試しください。",
     );
     expect(screen.getByText("公開取消")).toBeInTheDocument();
+  });
+});
+
+describe("RacePage（保存後の取り直しの失敗）", () => {
+  it("採点設定の保存後の取り直しに失敗しても画面は残し、上部にエラーを表示する", async () => {
+    vi.mocked(ticketsApi.race)
+      .mockResolvedValueOnce(makeRaceData())
+      .mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.mocked(ticketsApi.updateScoringConfig).mockResolvedValue({ scoring: makeScoring() });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: /採点設定/ }));
+    await user.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "最新のレース結果の読み込みに失敗しました。",
+    );
+    expect(screen.getByRole("button", { name: /採点設定/ })).toBeInTheDocument();
+  });
+});
+
+describe("RacePage（空状態での取り直しの失敗）", () => {
+  it("0件の画面で取り直しに失敗したら、案内は残して上部にエラーを表示する", async () => {
+    vi.mocked(ticketsApi.race)
+      .mockResolvedValueOnce(makeRaceData({ individuals: [] }))
+      .mockRejectedValue(new TypeError("Failed to fetch"));
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RacePage />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByText("まだ配布・販売データがありません");
+    await act(() => queryClient.invalidateQueries());
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "最新のレース結果の読み込みに失敗しました。",
+    );
+    expect(screen.getByText("まだ配布・販売データがありません")).toBeInTheDocument();
   });
 });

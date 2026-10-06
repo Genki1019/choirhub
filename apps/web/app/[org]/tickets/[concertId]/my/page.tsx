@@ -11,6 +11,7 @@ import { OutreachCountCard } from "./_components/OutreachCountCard";
 import { PageHeader } from "@/components/PageHeader";
 import { PageErrorState } from "@/components/PageErrorState";
 import { userErrorMessage } from "@/lib/api-client";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 export default function MyTicketPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -51,7 +52,7 @@ export default function MyTicketPage() {
     );
   }
 
-  if (error || !concert) {
+  if (!concert) {
     return (
       <PageErrorState
         title="チケット"
@@ -78,6 +79,13 @@ export default function MyTicketPage() {
       />
 
       <main className="mx-auto w-full max-w-lg flex-1 space-y-4 px-6 py-6">
+        <ErrorMessage autoScroll={false}>
+          {error &&
+            userErrorMessage(
+              error,
+              "最新のチケット情報の読み込みに失敗しました。ページを再読み込みしてください。",
+            )}
+        </ErrorMessage>
         {isClosed && (
           <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <Lock size={14} className="shrink-0" />

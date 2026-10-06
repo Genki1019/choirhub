@@ -95,6 +95,7 @@ export function CreateModal({ orgSlug, concertId, members, onClose, onCreated }:
   ]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   const addRow = () =>
     setParticipants((prev) => [...prev, { memberId: "", ticketsSold: 0, expense: "" }]);
@@ -105,6 +106,7 @@ export function CreateModal({ orgSlug, concertId, members, onClose, onCreated }:
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    setAttempt((n) => n + 1);
     const valid = participants.filter((p) => p.memberId);
     if (!destination.trim()) {
       setError("行き先を入力してください");
@@ -246,7 +248,7 @@ export function CreateModal({ orgSlug, concertId, members, onClose, onCreated }:
           <Plus size={12} /> 参加者を追加
         </button>
       </fieldset>
-      <ErrorMessage>{error}</ErrorMessage>
+      <ErrorMessage key={attempt}>{error}</ErrorMessage>
     </Modal>
   );
 }

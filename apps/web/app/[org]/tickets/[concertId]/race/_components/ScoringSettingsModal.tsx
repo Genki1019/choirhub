@@ -97,12 +97,14 @@ export function ScoringSettingsModal({
   const [form, setForm] = useState<FormState>(() => toFormState(initialScoring));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   const updateCriterion = (key: keyof FormState, patch: Partial<CriterionForm>) =>
     setForm((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setAttempt((n) => n + 1);
     const payload = buildPayload(form);
     if (!payload) {
       setError("配点は10個以内のカンマ区切りの整数で、閾値・人数は1以上の整数で入力してください");
@@ -220,7 +222,7 @@ export function ScoringSettingsModal({
           </fieldset>
         );
       })}
-      <ErrorMessage>{error}</ErrorMessage>
+      <ErrorMessage key={attempt}>{error}</ErrorMessage>
     </Modal>
   );
 }

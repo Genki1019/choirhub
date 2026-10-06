@@ -317,4 +317,18 @@ describe("CreateModal（モーダルの操作）", () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "キャンセル" })).toBeDisabled();
   });
+
+  it("同じ入力エラーのまま送信し直しても、エラーを出し直して見える位置までスクロールする", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.click(screen.getByText("申請する"));
+    await screen.findByRole("alert");
+    await user.click(screen.getByText("申請する"));
+
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(2));
+    delete (Element.prototype as Partial<Element>).scrollIntoView;
+  });
 });

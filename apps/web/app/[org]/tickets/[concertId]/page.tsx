@@ -278,7 +278,7 @@ export default function TicketDetailPage() {
       </PageHeader>
 
       <PageMain>
-        <ErrorMessage className="mb-4">
+        <ErrorMessage className="mb-4" autoScroll={false}>
           {queryError &&
             userErrorMessage(
               queryError,

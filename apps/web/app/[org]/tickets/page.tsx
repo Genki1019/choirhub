@@ -1,14 +1,15 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { Ticket, AlertCircle } from "lucide-react";
+import { Ticket } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { ticketsApi } from "@/lib/tickets-api";
-import { ApiClientError } from "@/lib/api-client";
+import { ApiClientError, userErrorMessage } from "@/lib/api-client";
 import { ticketKeys } from "@/lib/query-keys";
 import { ManagerConcertCard } from "./_components/ManagerConcertCard";
 import { MyConcertCard } from "./_components/MyConcertCard";
 import { PageWithHeader } from "@/components/PageWithHeader";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 export default function TicketsPage() {
   const { org } = useParams<{ org: string }>();
@@ -37,22 +38,17 @@ export default function TicketsPage() {
   });
 
   const loading = loadingManager || (isForbidden && loadingMember);
+  const listError = isForbidden ? memberError : managerError;
 
   return (
     <PageWithHeader title="チケット" loading={loading} mainClassName="space-y-3">
-      {!isForbidden && managerError && (
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-          <AlertCircle size={16} />
-          <span className="text-sm">{managerError.message}</span>
-        </div>
-      )}
-
-      {isForbidden && memberError && (
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-          <AlertCircle size={16} />
-          <span className="text-sm">{memberError.message}</span>
-        </div>
-      )}
+      <ErrorMessage variant="section">
+        {listError &&
+          userErrorMessage(
+            listError,
+            "チケット情報の読み込みに失敗しました。ページを再読み込みしてください。",
+          )}
+      </ErrorMessage>
 
       {isForbidden && !memberError && (!memberData || memberData.length === 0) && (
         <div className="py-16 text-center text-gray-400">

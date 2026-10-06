@@ -89,7 +89,9 @@ describe("TicketsPage（チケット担当者・admin）", () => {
   });
 
   it("取得エラー時はエラーメッセージを表示する（403以外は自動リトライされるため待つ）", async () => {
-    vi.mocked(ticketsApi.list).mockRejectedValue(new Error("取得に失敗しました"));
+    vi.mocked(ticketsApi.list).mockRejectedValue(
+      new ApiClientError("BAD_REQUEST", "取得に失敗しました", 400),
+    );
     renderPage();
 
     expect(

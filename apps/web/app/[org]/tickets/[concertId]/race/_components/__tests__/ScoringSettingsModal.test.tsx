@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ScoringSettingsModal } from "../ScoringSettingsModal";
 import type { RaceScoringConfig } from "@/lib/tickets-api";
+import { ApiClientError } from "@/lib/api-client";
 
 function makeScoring(): RaceScoringConfig {
   return {
@@ -33,9 +34,9 @@ describe("ScoringSettingsModal", () => {
     );
 
     expect(screen.getByDisplayValue("10, 8, 6, 4")).toBeInTheDocument();
-    const outreachCheckbox = screen.getByLabelText("情宣回数");
+    const outreachCheckbox = screen.getByRole("checkbox", { name: "情宣回数" });
     expect(outreachCheckbox).not.toBeChecked();
-    const avgSalesCheckbox = screen.getByLabelText("平均販売枚数");
+    const avgSalesCheckbox = screen.getByRole("checkbox", { name: "平均販売枚数" });
     expect(avgSalesCheckbox).toBeChecked();
   });
 
@@ -46,7 +47,7 @@ describe("ScoringSettingsModal", () => {
       <ScoringSettingsModal initialScoring={makeScoring()} onSubmit={onSubmit} onClose={vi.fn()} />,
     );
 
-    await user.click(screen.getByLabelText("情宣回数"));
+    await user.click(screen.getByRole("checkbox", { name: "情宣回数" }));
     await user.click(screen.getByRole("button", { name: "保存" }));
 
     expect(onSubmit).toHaveBeenCalledWith(
@@ -95,7 +96,11 @@ describe("ScoringSettingsModal", () => {
   });
 
   it("保存失敗時はサーバーのエラーメッセージを表示する", async () => {
-    const onSubmit = vi.fn().mockRejectedValue(new Error("レース公開後は採点設定を変更できません"));
+    const onSubmit = vi
+      .fn()
+      .mockRejectedValue(
+        new ApiClientError("CONFLICT", "レース公開後は採点設定を変更できません", 409),
+      );
     const user = userEvent.setup();
     render(
       <ScoringSettingsModal initialScoring={makeScoring()} onSubmit={onSubmit} onClose={vi.fn()} />,
@@ -103,7 +108,9 @@ describe("ScoringSettingsModal", () => {
 
     await user.click(screen.getByRole("button", { name: "保存" }));
 
-    expect(await screen.findByText("レース公開後は採点設定を変更できません")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "レース公開後は採点設定を変更できません",
+    );
   });
 
   it("キャンセルクリックでonCloseが呼ばれる", async () => {
@@ -115,5 +122,43 @@ describe("ScoringSettingsModal", () => {
 
     await user.click(screen.getByRole("button", { name: "キャンセル" }));
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("ScoringSettingsModal（モーダルの操作）", () => {
+  it("「採点設定」という名前のダイアログとして開き、最初の基準にフォーカスが当たる", () => {
+    render(
+      <ScoringSettingsModal initialScoring={makeScoring()} onSubmit={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    expect(screen.getByRole("dialog", { name: "採点設定" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "平均販売枚数" })).toHaveFocus();
+  });
+
+  it("基準ごとに名前付きのグループになり、配点欄がラベルで見つかる", () => {
+    render(
+      <ScoringSettingsModal initialScoring={makeScoring()} onSubmit={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    const group = screen.getByRole("group", { name: "平均販売枚数" });
+    expect(within(group).getByLabelText("配点（カンマ区切り）")).toHaveValue("10, 8, 6, 4");
+  });
+
+  it("保存中はEscで閉じず、キャンセルも押せない", async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ScoringSettingsModal
+        initialScoring={makeScoring()}
+        onSubmit={() => new Promise(() => {})}
+        onClose={onClose}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "保存" }));
+    await user.keyboard("{Escape}");
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "キャンセル" })).toBeDisabled();
   });
 });

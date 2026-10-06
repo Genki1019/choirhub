@@ -95,11 +95,27 @@ describe("OutreachPage（表示）", () => {
   });
 
   it("取得エラー時はエラーメッセージを表示する", async () => {
-    vi.mocked(ticketsApi.listOutreachActivities).mockRejectedValue(new Error("取得に失敗しました"));
+    vi.mocked(ticketsApi.listOutreachActivities).mockRejectedValue(
+      new TypeError("Failed to fetch"),
+    );
     vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
     renderPage();
 
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+  });
+
+  it("団員一覧の取得に失敗したら、参加者を選べないことを上部に表示する", async () => {
+    vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue([]);
+    vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
+    vi.mocked(membersApi.list).mockRejectedValue(new TypeError("Failed to fetch"));
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "団員一覧の読み込みに失敗したため、新規申請で参加者を選べません。",
+    );
+    expect(screen.getByText("情宣活動の申請がありません")).toBeInTheDocument();
   });
 
   it("0件の場合は案内メッセージを表示する", async () => {

@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ActivityCard } from "../ActivityCard";
 import { ticketsApi, type OutreachActivityRow } from "@/lib/tickets-api";
+import { ApiClientError } from "@/lib/api-client";
 
 vi.mock("@/lib/tickets-api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/tickets-api")>("@/lib/tickets-api");
@@ -182,9 +183,35 @@ describe("ActivityCard（削除操作）", () => {
     await waitFor(() => expect(onDeleted).toHaveBeenCalledWith("activity-1"));
   });
 
+  it("通信エラーで削除に失敗した場合、代わりの文言をalertで表示する", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.mocked(ticketsApi.deleteOutreachActivity).mockRejectedValue(
+      new TypeError("Failed to fetch"),
+    );
+    const user = userEvent.setup();
+    render(
+      <ActivityCard
+        activity={makeActivity()}
+        myMemberId="member-1"
+        isAdmin={false}
+        orgSlug="o"
+        concertId="concert-1"
+        onDeleted={vi.fn()}
+        onStatusChanged={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByLabelText("渋谷駅前を削除"));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "情宣活動の削除に失敗しました。もう一度お試しください。",
+    );
+  });
+
   it("削除に失敗した場合、エラーメッセージを表示する", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
-    vi.mocked(ticketsApi.deleteOutreachActivity).mockRejectedValue(new Error("削除できません"));
+    vi.mocked(ticketsApi.deleteOutreachActivity).mockRejectedValue(
+      new ApiClientError("BAD_REQUEST", "削除できません", 400),
+    );
     const user = userEvent.setup();
     render(
       <ActivityCard
@@ -276,7 +303,9 @@ describe("ActivityCard（支払い・取り消し操作）", () => {
   });
 
   it("支払い記録に失敗した場合、エラーメッセージを表示する", async () => {
-    vi.mocked(ticketsApi.payOutreachActivity).mockRejectedValue(new Error("権限がありません"));
+    vi.mocked(ticketsApi.payOutreachActivity).mockRejectedValue(
+      new ApiClientError("FORBIDDEN", "権限がありません", 403),
+    );
     const user = userEvent.setup();
     render(
       <ActivityCard
@@ -396,7 +425,7 @@ describe("ActivityCard（支払い・取り消し操作）", () => {
 
   it("取り消しに失敗した場合、エラーメッセージを表示する", async () => {
     vi.mocked(ticketsApi.unpayOutreachActivity).mockRejectedValue(
-      new Error("取り消しに失敗しました"),
+      new ApiClientError("BAD_REQUEST", "取り消しに失敗しました", 400),
     );
     const user = userEvent.setup();
     render(

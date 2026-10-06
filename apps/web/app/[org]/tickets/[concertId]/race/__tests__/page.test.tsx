@@ -103,10 +103,12 @@ describe("RacePage（表示）", () => {
   });
 
   it("取得エラー時はエラーメッセージを表示する", async () => {
-    vi.mocked(ticketsApi.race).mockRejectedValue(new Error("取得に失敗しました"));
+    vi.mocked(ticketsApi.race).mockRejectedValue(new TypeError("Failed to fetch"));
     renderPage();
 
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "読み込みに失敗しました。ページを再読み込みしてください。",
+    );
   });
 
   it("配布・販売データが0件の場合は案内メッセージを表示する", async () => {

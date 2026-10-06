@@ -96,7 +96,9 @@ describe("TicketDetailPage（表示状態）", () => {
   });
 
   it("403エラー時は権限エラーメッセージを表示する", async () => {
-    vi.mocked(ticketsApi.get).mockRejectedValue(new ApiClientError("FORBIDDEN", "forbidden", 403));
+    vi.mocked(ticketsApi.get).mockRejectedValue(
+      new ApiClientError("FORBIDDEN", "チケット担当者または管理者のみアクセスできます", 403),
+    );
     renderPage();
 
     expect(
@@ -105,10 +107,12 @@ describe("TicketDetailPage（表示状態）", () => {
   });
 
   it("403以外のエラー時はエラーメッセージを表示する", async () => {
-    vi.mocked(ticketsApi.get).mockRejectedValue(new Error("取得に失敗しました"));
+    vi.mocked(ticketsApi.get).mockRejectedValue(new TypeError("Failed to fetch"));
     renderPage();
 
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "チケット情報の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
   });
 
   it("演奏会名・日付を表示する", async () => {

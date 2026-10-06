@@ -3,17 +3,7 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import {
-  Pencil,
-  Loader2,
-  AlertCircle,
-  ChevronRight,
-  Trophy,
-  Plus,
-  Lock,
-  LockOpen,
-  Bus,
-} from "lucide-react";
+import { Pencil, Loader2, ChevronRight, Trophy, Plus, Lock, LockOpen, Bus } from "lucide-react";
 import {
   ticketsApi,
   type TicketDetail,
@@ -22,7 +12,7 @@ import {
   type UpdateBatchInput,
 } from "@/lib/tickets-api";
 import { membersApi } from "@/lib/members-api";
-import { ApiClientError } from "@/lib/api-client";
+import { userErrorMessage } from "@/lib/api-client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ticketKeys, memberKeys } from "@/lib/query-keys";
 import { CreateBatchModal } from "./_components/CreateBatchModal";
@@ -33,6 +23,7 @@ import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
 import { PageHeader } from "@/components/PageHeader";
 import { CsvExportButton } from "@/components/CsvExportButton";
+import { PageErrorState } from "@/components/PageErrorState";
 
 export default function TicketDetailPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -110,19 +101,20 @@ export default function TicketDetailPage() {
     );
   }
 
-  const errorMsg =
-    queryError instanceof ApiClientError && queryError.status === 403
-      ? "チケット担当者または管理者のみアクセスできます"
-      : (queryError?.message ?? "チケット情報が見つかりません");
-
   if (queryError || !detail) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-          <AlertCircle size={16} />
-          <span className="text-sm">{errorMsg}</span>
-        </div>
-      </div>
+      <PageErrorState
+        title="チケット"
+        backHref={`/${org}/tickets`}
+        message={
+          queryError
+            ? userErrorMessage(
+                queryError,
+                "チケット情報の読み込みに失敗しました。ページを再読み込みしてください。",
+              )
+            : "チケット情報が見つかりません"
+        }
+      />
     );
   }
 

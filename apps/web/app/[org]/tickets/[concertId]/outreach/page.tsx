@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { Plus, Loader2, AlertCircle, MapPin } from "lucide-react";
+import { Plus, Loader2, MapPin } from "lucide-react";
 import { ticketsApi, type OutreachActivityRow } from "@/lib/tickets-api";
 import { membersApi } from "@/lib/members-api";
 import { useMember } from "@/contexts/MemberContext";
@@ -11,6 +11,8 @@ import { ticketKeys, memberKeys } from "@/lib/query-keys";
 import { CreateModal } from "./_components/CreateModal";
 import { ActivityCard } from "./_components/ActivityCard";
 import { PageHeader } from "@/components/PageHeader";
+import { PageErrorState } from "@/components/PageErrorState";
+import { userErrorMessage } from "@/lib/api-client";
 
 export default function OutreachPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -48,12 +50,14 @@ export default function OutreachPage() {
 
   if (error) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-          <AlertCircle size={16} />
-          <span className="text-sm">{error?.message}</span>
-        </div>
-      </div>
+      <PageErrorState
+        title="情宣活動"
+        backHref={`/${org}/tickets/${concertId}/my`}
+        message={userErrorMessage(
+          error,
+          "読み込みに失敗しました。ページを再読み込みしてください。",
+        )}
+      />
     );
   }
 

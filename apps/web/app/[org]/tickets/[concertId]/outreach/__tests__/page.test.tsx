@@ -95,11 +95,15 @@ describe("OutreachPage（表示）", () => {
   });
 
   it("取得エラー時はエラーメッセージを表示する", async () => {
-    vi.mocked(ticketsApi.listOutreachActivities).mockRejectedValue(new Error("取得に失敗しました"));
+    vi.mocked(ticketsApi.listOutreachActivities).mockRejectedValue(
+      new TypeError("Failed to fetch"),
+    );
     vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
     renderPage();
 
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "読み込みに失敗しました。ページを再読み込みしてください。",
+    );
   });
 
   it("0件の場合は案内メッセージを表示する", async () => {

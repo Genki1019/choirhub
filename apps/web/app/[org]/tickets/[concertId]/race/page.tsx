@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { Loader2, AlertCircle, Users, User, Globe, EyeOff, Settings } from "lucide-react";
+import { Loader2, Users, User, Globe, EyeOff, Settings } from "lucide-react";
 import { ticketsApi, type RaceData } from "@/lib/tickets-api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ticketKeys } from "@/lib/query-keys";
@@ -12,6 +12,8 @@ import { ScoringRules } from "./_components/ScoringRules";
 import { ScoringSettingsModal } from "./_components/ScoringSettingsModal";
 import { PageBleedRow } from "@/components/PageBleedRow";
 import { PageHeader } from "@/components/PageHeader";
+import { PageErrorState } from "@/components/PageErrorState";
+import { userErrorMessage } from "@/lib/api-client";
 
 export default function RacePage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -41,12 +43,15 @@ export default function RacePage() {
 
   if (error || !data) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-          <AlertCircle size={16} />
-          <span className="text-sm">{error?.message ?? "データが見つかりません"}</span>
-        </div>
-      </div>
+      <PageErrorState
+        title="チケットレース"
+        backHref={`/${org}/tickets`}
+        message={
+          error
+            ? userErrorMessage(error, "読み込みに失敗しました。ページを再読み込みしてください。")
+            : "データが見つかりません"
+        }
+      />
     );
   }
 

@@ -12,13 +12,14 @@ import {
   Loader2,
   Check,
   Undo2,
-  AlertCircle,
 } from "lucide-react";
 import {
   ticketsApi,
   type OutreachActivityRow,
   type OutreachParticipantRow,
 } from "@/lib/tickets-api";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 
 function yen(n: number) {
   return `¥${n.toLocaleString()}`;
@@ -64,7 +65,7 @@ export function ActivityCard({
       await ticketsApi.deleteOutreachActivity(orgSlug, concertId, activity.id);
       onDeleted(activity.id);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "削除に失敗しました");
+      setError(userErrorMessage(err, "情宣活動の削除に失敗しました。もう一度お試しください。"));
     } finally {
       setDeleting(false);
     }
@@ -77,7 +78,7 @@ export function ActivityCard({
       const updated = await ticketsApi.payOutreachActivity(orgSlug, concertId, activity.id);
       onStatusChanged(updated);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "支払い記録に失敗しました");
+      setError(userErrorMessage(err, "支払いの記録に失敗しました。もう一度お試しください。"));
     } finally {
       setUpdating(false);
     }
@@ -90,7 +91,7 @@ export function ActivityCard({
       const updated = await ticketsApi.unpayOutreachActivity(orgSlug, concertId, activity.id);
       onStatusChanged(updated);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "取り消しに失敗しました");
+      setError(userErrorMessage(err, "支払いの取り消しに失敗しました。もう一度お試しください。"));
     } finally {
       setUpdating(false);
     }
@@ -180,12 +181,7 @@ export function ActivityCard({
         </div>
       </div>
 
-      {error && (
-        <div className="flex items-center gap-1.5 border-t border-red-100 bg-red-50 px-4 py-2 text-xs text-red-600">
-          <AlertCircle size={12} className="shrink-0" />
-          {error}
-        </div>
-      )}
+      <ErrorMessage className="mx-4 mb-3">{error}</ErrorMessage>
 
       {expanded && (
         <div className="border-t border-gray-100 px-4 pt-3 pb-4">

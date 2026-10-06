@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Check, Undo2, Trash2, Loader2, Bus, AlertCircle } from "lucide-react";
+import { Check, Undo2, Trash2, Loader2, Bus } from "lucide-react";
 import { ticketsApi, type OutreachActivityRow } from "@/lib/tickets-api";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 
 interface OutreachExpenseTabProps {
   orgSlug: string;
@@ -29,7 +31,9 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
       const updated = await ticketsApi.payOutreachActivity(orgSlug, concertId, activityId);
       setActivities((prev) => prev.map((a) => (a.id === activityId ? updated : a)));
     } catch (err: unknown) {
-      setActivitiesError(err instanceof Error ? err.message : "支払い記録に失敗しました");
+      setActivitiesError(
+        userErrorMessage(err, "支払いの記録に失敗しました。もう一度お試しください。"),
+      );
     } finally {
       setUpdatingId(null);
     }
@@ -42,7 +46,9 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
       const updated = await ticketsApi.unpayOutreachActivity(orgSlug, concertId, activityId);
       setActivities((prev) => prev.map((a) => (a.id === activityId ? updated : a)));
     } catch (err: unknown) {
-      setActivitiesError(err instanceof Error ? err.message : "取り消しに失敗しました");
+      setActivitiesError(
+        userErrorMessage(err, "支払いの取り消しに失敗しました。もう一度お試しください。"),
+      );
     } finally {
       setUpdatingId(null);
     }
@@ -55,7 +61,9 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
       await ticketsApi.deleteOutreachActivity(orgSlug, concertId, activityId);
       setActivities((prev) => prev.filter((a) => a.id !== activityId));
     } catch (err: unknown) {
-      setActivitiesError(err instanceof Error ? err.message : "削除に失敗しました");
+      setActivitiesError(
+        userErrorMessage(err, "情宣活動の削除に失敗しました。もう一度お試しください。"),
+      );
     }
   };
 
@@ -103,12 +111,7 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
         )}
       </div>
 
-      {activitiesError && (
-        <div className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
-          <AlertCircle size={12} className="shrink-0" />
-          {activitiesError}
-        </div>
-      )}
+      <ErrorMessage>{activitiesError}</ErrorMessage>
 
       {activities.length === 0 ? (
         <div className="py-12 text-center text-sm text-gray-400">

@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { OutreachExpenseTab } from "../OutreachExpenseTab";
 import { ticketsApi, type OutreachActivityRow } from "@/lib/tickets-api";
+import { ApiClientError } from "@/lib/api-client";
 
 vi.mock("@/lib/tickets-api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/tickets-api")>("@/lib/tickets-api");
@@ -124,7 +125,9 @@ describe("OutreachExpenseTab（支払い・取り消し操作）", () => {
 
   it("支払い記録に失敗した場合、エラーメッセージを表示する", async () => {
     vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue([makeActivity()]);
-    vi.mocked(ticketsApi.payOutreachActivity).mockRejectedValue(new Error("支払いに失敗しました"));
+    vi.mocked(ticketsApi.payOutreachActivity).mockRejectedValue(
+      new ApiClientError("BAD_REQUEST", "支払いに失敗しました", 400),
+    );
     const user = userEvent.setup();
     renderTab();
 
@@ -163,7 +166,7 @@ describe("OutreachExpenseTab（支払い・取り消し操作）", () => {
       makeActivity({ status: "paid" }),
     ]);
     vi.mocked(ticketsApi.unpayOutreachActivity).mockRejectedValue(
-      new Error("取り消しに失敗しました"),
+      new ApiClientError("BAD_REQUEST", "取り消しに失敗しました", 400),
     );
     const user = userEvent.setup();
     renderTab();
@@ -231,7 +234,9 @@ describe("OutreachExpenseTab（削除操作）", () => {
   it("削除に失敗した場合、エラーメッセージを表示する", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue([makeActivity()]);
-    vi.mocked(ticketsApi.deleteOutreachActivity).mockRejectedValue(new Error("削除できません"));
+    vi.mocked(ticketsApi.deleteOutreachActivity).mockRejectedValue(
+      new ApiClientError("BAD_REQUEST", "削除できません", 400),
+    );
     const user = userEvent.setup();
     renderTab();
 

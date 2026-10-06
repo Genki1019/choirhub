@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CreateModal } from "../CreateModal";
 import { ticketsApi, type OutreachActivityRow } from "@/lib/tickets-api";
@@ -72,7 +72,7 @@ describe("CreateModal（表示）", () => {
       />,
     );
 
-    await user.click(screen.getByText("×"));
+    await user.click(screen.getByRole("button", { name: "閉じる" }));
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -88,9 +88,9 @@ describe("CreateModal（表示）", () => {
       />,
     );
 
-    expect(screen.getAllByLabelText("参加者を削除")).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /^参加者\d+を削除$/ })).toHaveLength(1);
     await user.click(screen.getByText("参加者を追加"));
-    expect(screen.getAllByLabelText("参加者を削除")).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /^参加者\d+を削除$/ })).toHaveLength(2);
   });
 
   it("参加者削除ボタンで行が減る", async () => {
@@ -106,10 +106,10 @@ describe("CreateModal（表示）", () => {
     );
 
     await user.click(screen.getByText("参加者を追加"));
-    expect(screen.getAllByLabelText("参加者を削除")).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /^参加者\d+を削除$/ })).toHaveLength(2);
 
-    await user.click(screen.getAllByLabelText("参加者を削除")[0]);
-    expect(screen.getAllByLabelText("参加者を削除")).toHaveLength(1);
+    await user.click(screen.getAllByRole("button", { name: /^参加者\d+を削除$/ })[0]);
+    expect(screen.getAllByRole("button", { name: /^参加者\d+を削除$/ })).toHaveLength(1);
   });
 });
 
@@ -237,7 +237,9 @@ describe("CreateModal（送信）", () => {
   });
 
   it("送信失敗時はエラーメッセージを表示する", async () => {
-    vi.mocked(ticketsApi.createOutreachActivity).mockRejectedValue(new Error("送信に失敗しました"));
+    vi.mocked(ticketsApi.createOutreachActivity).mockRejectedValue(
+      new TypeError("Failed to fetch"),
+    );
     const user = userEvent.setup();
     render(
       <CreateModal
@@ -253,6 +255,66 @@ describe("CreateModal（送信）", () => {
     await user.selectOptions(screen.getByRole("combobox"), "member-1");
     await user.click(screen.getByText("申請する"));
 
-    expect(await screen.findByText("送信に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "情宣活動の申請に失敗しました。もう一度お試しください。",
+    );
+  });
+});
+
+describe("CreateModal（モーダルの操作）", () => {
+  function renderModal(onClose = vi.fn()) {
+    render(
+      <CreateModal
+        orgSlug="o"
+        concertId="concert-1"
+        members={members}
+        onClose={onClose}
+        onCreated={vi.fn()}
+      />,
+    );
+    return { onClose };
+  }
+
+  it("「情宣活動を申請」という名前のダイアログとして開き、行き先欄にフォーカスが当たる", () => {
+    renderModal();
+
+    expect(screen.getByRole("dialog", { name: "情宣活動を申請" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/行き先/)).toHaveFocus();
+  });
+
+  it("すべての入力欄がラベルや名前で見つかる", () => {
+    renderModal();
+
+    expect(screen.getByLabelText(/活動日/)).toBeInTheDocument();
+    expect(screen.getByLabelText("メモ（任意）")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /参加者/ })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "参加者1の団員" })).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "参加者1の販売枚数" })).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "参加者1の交通費（円）" })).toBeInTheDocument();
+  });
+
+  it("行き先欄でEnterを押すと送信する（参加者が空ならalertを出して送らない）", async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.type(screen.getByLabelText(/行き先/), "渋谷駅前{Enter}");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("参加者を1人以上選択してください");
+    expect(ticketsApi.createOutreachActivity).not.toHaveBeenCalled();
+  });
+
+  it("申請中はEscで閉じず、キャンセルも押せない", async () => {
+    vi.mocked(ticketsApi.createOutreachActivity).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    const { onClose } = renderModal();
+
+    await user.type(screen.getByLabelText(/行き先/), "渋谷駅前");
+    await user.selectOptions(screen.getByRole("combobox", { name: "参加者1の団員" }), "member-1");
+    await user.click(screen.getByText("申請する"));
+    await waitFor(() => expect(ticketsApi.createOutreachActivity).toHaveBeenCalled());
+    await user.keyboard("{Escape}");
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "キャンセル" })).toBeDisabled();
   });
 });

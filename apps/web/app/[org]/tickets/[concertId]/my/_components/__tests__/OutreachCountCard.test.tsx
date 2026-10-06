@@ -139,3 +139,20 @@ describe("OutreachCountCard（保存後の反映）", () => {
     expect(onSaved).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("OutreachCountCard（配色）", () => {
+  it("入力のフォーカス枠と保存ボタンはブランドカラーを使う", () => {
+    render(
+      <OutreachCountCard
+        orgSlug="o"
+        allocationId="alloc-1"
+        initialCount={2}
+        isClosed={false}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("情宣に行った回数")).toHaveClass("focus:ring-brand-400");
+    expect(screen.getByRole("button", { name: "情宣回数を保存" })).toHaveClass("bg-brand-600");
+  });
+});

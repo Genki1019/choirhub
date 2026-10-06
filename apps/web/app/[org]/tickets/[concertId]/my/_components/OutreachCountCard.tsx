@@ -67,7 +67,7 @@ export function OutreachCountCard({
               onChange={(e) => setCount(Math.max(0, Number(e.target.value)))}
               disabled={isClosed}
               aria-label="情宣に行った回数"
-              className="w-14 rounded-lg border border-gray-200 px-2 py-1.5 text-center text-sm font-medium focus:ring-2 focus:ring-purple-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+              className="focus:ring-brand-400 w-14 rounded-lg border border-gray-200 px-2 py-1.5 text-center text-sm font-medium focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
             />
             <button
               type="button"
@@ -83,7 +83,7 @@ export function OutreachCountCard({
         <button
           onClick={handleSave}
           disabled={isClosed || saving || count === initialCount}
-          className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-purple-600 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700 disabled:opacity-50"
+          className="bg-brand-600 hover:bg-brand-700 flex w-full items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-medium text-white transition-colors disabled:opacity-50"
         >
           {saving ? (
             <Loader2 size={13} className="animate-spin" />

@@ -35,6 +35,7 @@ export const ticketsRouter = new Hono<TenantEnv>()
         ticketBatches: {
           include: {
             allocations: {
+              where: { member: { orgId: org.id } },
               select: {
                 allocatedCount: true,
                 soldAdult: true,
@@ -176,7 +177,7 @@ export const ticketsRouter = new Hono<TenantEnv>()
       orderBy: { createdAt: "asc" },
       include: {
         allocations: {
-          where: { member: { NOT: { roles: { hasSome: ["guest", "visitor"] } } } },
+          where: { member: { orgId: org.id, ...EXCLUDE_HIDDEN_ROLES } },
           include: {
             member: {
               include: {
@@ -275,7 +276,7 @@ export const ticketsRouter = new Hono<TenantEnv>()
     const allocations = await prisma.ticketAllocation.findMany({
       where: {
         batch: { concertId },
-        member: EXCLUDE_HIDDEN_ROLES,
+        member: { orgId: org.id, ...EXCLUDE_HIDDEN_ROLES },
       },
       include: {
         batch: { select: { name: true, price: true, priceStudent: true } },
@@ -657,6 +658,16 @@ export const ticketsRouter = new Hono<TenantEnv>()
         return c.json({ error: { code: "NOT_FOUND", message: "席種が見つかりません" } }, 404);
       }
 
+      if (!isSelf) {
+        const target = await prisma.member.findFirst({
+          where: { id: targetMemberId, orgId: org.id, deletedAt: null, ...EXCLUDE_HIDDEN_ROLES },
+          select: { id: true },
+        });
+        if (!target) {
+          return c.json({ error: { code: "NOT_FOUND", message: "メンバーが見つかりません" } }, 404);
+        }
+      }
+
       if (isSelf && !isTicketManager(actingMember) && batch.concert.ticketInputClosedAt) {
         return c.json(
           { error: { code: "INPUT_CLOSED", message: "チケット入力は締め切られています" } },
@@ -808,9 +819,7 @@ export const ticketsRouter = new Hono<TenantEnv>()
         where: { concertId },
         include: {
           allocations: {
-            where: {
-              member: { NOT: { roles: { hasSome: ["guest", "visitor"] } } },
-            },
+            where: { member: { orgId: org.id, ...EXCLUDE_HIDDEN_ROLES } },
             include: {
               member: {
                 include: {

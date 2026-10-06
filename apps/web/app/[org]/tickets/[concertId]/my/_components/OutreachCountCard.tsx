@@ -3,12 +3,15 @@
 import { useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { ticketsApi } from "@/lib/tickets-api";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 
 interface OutreachCountCardProps {
   orgSlug: string;
   allocationId: string;
   initialCount: number;
   isClosed: boolean;
+  onSaved: (count: number) => void;
 }
 
 export function OutreachCountCard({
@@ -16,17 +19,23 @@ export function OutreachCountCard({
   allocationId,
   initialCount,
   isClosed,
+  onSaved,
 }: OutreachCountCardProps) {
   const [count, setCount] = useState(initialCount);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSave = async () => {
     setSaving(true);
+    setError(null);
     try {
       await ticketsApi.updateAllocation(orgSlug, allocationId, { outreachCount: count });
+      onSaved(count);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setError(userErrorMessage(err, "情宣回数の保存に失敗しました。もう一度お試しください。"));
     } finally {
       setSaving(false);
     }
@@ -83,6 +92,7 @@ export function OutreachCountCard({
           ) : null}
           {saved ? "保存しました" : "情宣回数を保存"}
         </button>
+        <ErrorMessage className="mt-3">{error}</ErrorMessage>
       </div>
     </div>
   );

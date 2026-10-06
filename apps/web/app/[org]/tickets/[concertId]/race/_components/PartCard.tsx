@@ -8,6 +8,8 @@ import {
   type RaceScoringConfig,
 } from "@/lib/tickets-api";
 import { RankBadge } from "./RankBadge";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 
 function fmt(n: number, digits = 1) {
   return n.toFixed(digits);
@@ -124,6 +126,7 @@ function OrganizerPeriodRow({
   const [fromMonth, setFromMonth] = useState(period?.fromMonth ?? "");
   const [toMonth, setToMonth] = useState(period?.toMonth ?? "");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!isTicketManager && !period) return null;
 
@@ -138,10 +141,13 @@ function OrganizerPeriodRow({
   const handleSave = async () => {
     const nextPeriod = fromMonth && toMonth ? { fromMonth, toMonth } : null;
     setSaving(true);
+    setError(null);
     try {
       await ticketsApi.saveOrganizerPeriod(org, concertId, partId, nextPeriod);
       onSaved(partId, nextPeriod);
       setEditing(false);
+    } catch (err) {
+      setError(userErrorMessage(err, "幹事期間の保存に失敗しました。もう一度お試しください。"));
     } finally {
       setSaving(false);
     }
@@ -151,6 +157,7 @@ function OrganizerPeriodRow({
     setFromMonth(period?.fromMonth ?? "");
     setToMonth(period?.toMonth ?? "");
     setEditing(false);
+    setError(null);
   };
 
   const isRangeInvalid = !!fromMonth !== !!toMonth || (!!fromMonth && fromMonth > toMonth);
@@ -164,6 +171,7 @@ function OrganizerPeriodRow({
         </span>
         <button
           onClick={() => setEditing(true)}
+          aria-label="幹事期間を編集"
           className="text-gray-300 transition-colors hover:text-gray-500"
         >
           <Pencil size={12} />
@@ -173,25 +181,28 @@ function OrganizerPeriodRow({
   }
 
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-      <MonthSelect label="開始月" value={fromMonth} onChange={setFromMonth} />
-      <span className="text-xs text-gray-400">〜</span>
-      <MonthSelect label="終了月" value={toMonth} onChange={setToMonth} />
-      <button
-        onClick={handleSave}
-        disabled={saving || isRangeInvalid}
-        aria-label="保存"
-        className="text-teal-600 hover:text-teal-800 disabled:opacity-40"
-      >
-        {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
-      </button>
-      <button
-        onClick={handleCancel}
-        aria-label="キャンセル"
-        className="text-gray-400 hover:text-gray-600"
-      >
-        <X size={13} />
-      </button>
+    <div className="mt-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <MonthSelect label="開始月" value={fromMonth} onChange={setFromMonth} />
+        <span className="text-xs text-gray-400">〜</span>
+        <MonthSelect label="終了月" value={toMonth} onChange={setToMonth} />
+        <button
+          onClick={handleSave}
+          disabled={saving || isRangeInvalid}
+          aria-label="保存"
+          className="text-teal-600 hover:text-teal-800 disabled:opacity-40"
+        >
+          {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+        </button>
+        <button
+          onClick={handleCancel}
+          aria-label="キャンセル"
+          className="text-gray-400 hover:text-gray-600"
+        >
+          <X size={13} />
+        </button>
+      </div>
+      <ErrorMessage className="mt-2">{error}</ErrorMessage>
     </div>
   );
 }

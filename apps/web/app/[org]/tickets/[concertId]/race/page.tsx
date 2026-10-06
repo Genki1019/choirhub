@@ -14,6 +14,7 @@ import { PageBleedRow } from "@/components/PageBleedRow";
 import { PageHeader } from "@/components/PageHeader";
 import { PageErrorState } from "@/components/PageErrorState";
 import { userErrorMessage } from "@/lib/api-client";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 export default function RacePage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -21,6 +22,7 @@ export default function RacePage() {
 
   const [tab, setTab] = useState<"parts" | "individuals">("parts");
   const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
   const [showScoringModal, setShowScoringModal] = useState(false);
 
   const {
@@ -75,10 +77,15 @@ export default function RacePage() {
       <button
         onClick={async () => {
           setPublishing(true);
+          setPublishError(null);
           try {
             await ticketsApi.unpublishRace(org, concertId);
             queryClient.setQueryData<RaceData>(ticketKeys.race(org, concertId), (prev) =>
               prev ? { ...prev, racePublishedAt: null } : prev,
+            );
+          } catch (err) {
+            setPublishError(
+              userErrorMessage(err, "公開の取り消しに失敗しました。もう一度お試しください。"),
             );
           } finally {
             setPublishing(false);
@@ -94,11 +101,14 @@ export default function RacePage() {
       <button
         onClick={async () => {
           setPublishing(true);
+          setPublishError(null);
           try {
             const result = await ticketsApi.publishRace(org, concertId);
             queryClient.setQueryData<RaceData>(ticketKeys.race(org, concertId), (prev) =>
               prev ? { ...prev, racePublishedAt: result.racePublishedAt } : prev,
             );
+          } catch (err) {
+            setPublishError(userErrorMessage(err, "公開に失敗しました。もう一度お試しください。"));
           } finally {
             setPublishing(false);
           }
@@ -174,6 +184,7 @@ export default function RacePage() {
       </PageHeader>
 
       <main className="mx-auto w-full max-w-2xl flex-1 space-y-4 px-4 py-6 sm:px-8">
+        <ErrorMessage>{publishError}</ErrorMessage>
         <ScoringRules scoring={data.scoring} />
 
         {tab === "parts" ? (

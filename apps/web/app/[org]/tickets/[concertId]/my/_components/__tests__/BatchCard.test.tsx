@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BatchCard } from "../BatchCard";
 import { ticketsApi, type MyAllocationBatch } from "@/lib/tickets-api";
+import { ApiClientError } from "@/lib/api-client";
 
 vi.mock("@/lib/tickets-api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/tickets-api")>("@/lib/tickets-api");
@@ -173,5 +174,54 @@ describe("BatchCard（販売状況の報告）", () => {
 
     expect(screen.getByLabelText("大人を増やす")).toBeDisabled();
     expect(screen.getByText("販売状況を確定")).toBeDisabled();
+  });
+});
+
+describe("BatchCard（保存の失敗）", () => {
+  it("締め切り後に販売状況を確定するとサーバーの理由を表示し、入力を残す", async () => {
+    vi.mocked(ticketsApi.updateAllocation).mockRejectedValue(
+      new ApiClientError("INPUT_CLOSED", "チケット入力は締め切られています", 403),
+    );
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <BatchCard
+        batch={makeBatch()}
+        orgSlug="o"
+        concertId="concert-1"
+        isClosed={false}
+        onChange={onChange}
+      />,
+    );
+
+    await user.click(screen.getByLabelText("大人を増やす"));
+    await user.click(screen.getByText("販売状況を確定"));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("チケット入力は締め切られています");
+    expect(alert.previousElementSibling).toBe(screen.getByText("販売状況を確定").closest("button"));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.queryByText("販売状況を更新しました")).not.toBeInTheDocument();
+  });
+
+  it("希望枚数の申請に失敗したら代わりの文言を表示する", async () => {
+    vi.mocked(ticketsApi.allocate).mockRejectedValue(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    render(
+      <BatchCard
+        batch={makeBatch()}
+        orgSlug="o"
+        concertId="concert-1"
+        isClosed={false}
+        onChange={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByLabelText("希望枚数を増やす"));
+    await user.click(screen.getByText("変更を申請する"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "申請の送信に失敗しました。もう一度お試しください。",
+    );
   });
 });

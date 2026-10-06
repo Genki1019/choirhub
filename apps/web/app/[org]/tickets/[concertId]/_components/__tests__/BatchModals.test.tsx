@@ -286,3 +286,30 @@ describe("BatchFormModal（モーダルの操作）", () => {
     expect(buttons.map((b) => b.textContent?.trim())).toEqual(["キャンセル", "追加"]);
   });
 });
+
+describe("EditBatchModal（削除の失敗）", () => {
+  it("削除に失敗したら確認を開いたままエラーを表示する", async () => {
+    vi.mocked(ticketsApi.deleteBatch).mockRejectedValue(new TypeError("Failed to fetch"));
+    const onDeleted = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <EditBatchModal
+        orgSlug="o"
+        concertId="concert-1"
+        batch={makeBatch()}
+        onUpdated={vi.fn()}
+        onDeleted={onDeleted}
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByText("この席種を削除"));
+    await user.click(screen.getByText("削除する"));
+
+    const confirm = screen.getByRole("dialog", { name: "「一般」を削除しますか？" });
+    expect(await within(confirm).findByRole("alert")).toHaveTextContent(
+      "席種の削除に失敗しました。もう一度お試しください。",
+    );
+    expect(onDeleted).not.toHaveBeenCalled();
+  });
+});

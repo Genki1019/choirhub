@@ -5,6 +5,8 @@ import { Trash2, Loader2 } from "lucide-react";
 import { Modal } from "@/components/Modal";
 import { ticketsApi, type BatchDetail, type UpdateBatchInput } from "@/lib/tickets-api";
 import { BatchFormModal } from "./BatchFormModal";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 
 interface EditBatchModalProps {
   orgSlug: string;
@@ -25,15 +27,24 @@ export function EditBatchModal({
 }: EditBatchModalProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleDelete = async () => {
     setDeleting(true);
+    setDeleteError(null);
     try {
       await ticketsApi.deleteBatch(orgSlug, concertId, batch.id);
       onDeleted(batch.id);
+    } catch (err) {
+      setDeleteError(userErrorMessage(err, "席種の削除に失敗しました。もう一度お試しください。"));
     } finally {
       setDeleting(false);
     }
+  };
+
+  const closeConfirm = () => {
+    setConfirmDelete(false);
+    setDeleteError(null);
   };
 
   return (
@@ -74,13 +85,13 @@ export function EditBatchModal({
         <Modal
           title={`「${batch.name}」を削除しますか？`}
           size="sm"
-          onClose={() => setConfirmDelete(false)}
+          onClose={closeConfirm}
           busy={deleting}
           footer={
             <>
               <button
                 type="button"
-                onClick={() => setConfirmDelete(false)}
+                onClick={closeConfirm}
                 disabled={deleting}
                 className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50"
               >
@@ -102,6 +113,7 @@ export function EditBatchModal({
             配布登録データ（{batch.allocations.length}
             件）もすべて削除されます。この操作は元に戻せません。
           </p>
+          <ErrorMessage>{deleteError}</ErrorMessage>
         </Modal>
       )}
     </>

@@ -133,6 +133,7 @@ export function BatchTab({
 
         {isAdmin && (
           <AddMemberPanel
+            key={batch.id}
             batch={batch}
             orgSlug={orgSlug}
             concertId={concertId}

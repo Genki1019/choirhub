@@ -16,11 +16,20 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     ticketsApi
       .listOutreachActivities(orgSlug, concertId)
       .then(setActivities)
+      .catch((err: unknown) =>
+        setLoadError(
+          userErrorMessage(
+            err,
+            "情宣活動の読み込みに失敗しました。ページを再読み込みしてください。",
+          ),
+        ),
+      )
       .finally(() => setLoading(false));
   }, [orgSlug, concertId]);
 
@@ -56,6 +65,7 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
 
   const handleDelete = async (activityId: string) => {
     if (!confirm("この情宣活動を削除しますか？")) return;
+    setUpdatingId(activityId);
     setActivitiesError(null);
     try {
       await ticketsApi.deleteOutreachActivity(orgSlug, concertId, activityId);
@@ -64,6 +74,8 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
       setActivitiesError(
         userErrorMessage(err, "情宣活動の削除に失敗しました。もう一度お試しください。"),
       );
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -85,6 +97,8 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
       </div>
     );
   }
+
+  if (loadError) return <ErrorMessage variant="section">{loadError}</ErrorMessage>;
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
@@ -183,7 +197,9 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
                     <button
                       type="button"
                       onClick={() => handleDelete(a.id)}
-                      className="p-1 text-gray-300 transition-colors hover:text-red-400"
+                      disabled={updatingId === a.id}
+                      aria-label={`${a.destination}を削除`}
+                      className="p-1 text-gray-300 transition-colors hover:text-red-400 disabled:opacity-40"
                     >
                       <Trash2 size={14} />
                     </button>

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { UserPlus, X, Loader2 } from "lucide-react";
 import { ticketsApi, type BatchDetail, type AllocationRow } from "@/lib/tickets-api";
 import type { MemberProfile } from "@/lib/api-types";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 
 interface AddMemberPanelProps {
   batch: BatchDetail;
@@ -24,6 +26,7 @@ export function AddMemberPanel({
   const [selectedId, setSelectedId] = useState("");
   const [count, setCount] = useState("0");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const allocatedIds = new Set(batch.allocations.map((a) => a.memberId));
   const unallocated = allMembers.filter((m) => !allocatedIds.has(m.id) && m.status === "active");
@@ -33,6 +36,7 @@ export function AddMemberPanel({
   const handleAdd = async () => {
     if (!selectedId) return;
     setSaving(true);
+    setError(null);
     try {
       await ticketsApi.allocate(orgSlug, concertId, {
         batchId: batch.id,
@@ -64,6 +68,8 @@ export function AddMemberPanel({
       setSelectedId("");
       setCount("0");
       setOpen(false);
+    } catch (err) {
+      setError(userErrorMessage(err, "団員の追加に失敗しました。もう一度お試しください。"));
     } finally {
       setSaving(false);
     }
@@ -116,13 +122,18 @@ export function AddMemberPanel({
           追加
         </button>
         <button
-          onClick={() => setOpen(false)}
+          onClick={() => {
+            setOpen(false);
+            setError(null);
+          }}
+          disabled={saving}
           aria-label="パネルを閉じる"
           className="p-1 text-gray-400 hover:text-gray-600"
         >
           <X size={14} />
         </button>
       </div>
+      <ErrorMessage className="mt-2">{error}</ErrorMessage>
     </div>
   );
 }

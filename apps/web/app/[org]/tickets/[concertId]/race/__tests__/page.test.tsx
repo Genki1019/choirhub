@@ -206,3 +206,35 @@ describe("RacePage（公開操作）", () => {
     expect(await screen.findByText("全体に公開")).toBeInTheDocument();
   });
 });
+
+describe("RacePage（公開操作の失敗）", () => {
+  it("公開に失敗したらエラーを表示し、未公開のままにする", async () => {
+    vi.mocked(ticketsApi.race).mockResolvedValue(makeRaceData());
+    vi.mocked(ticketsApi.publishRace).mockRejectedValue(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("全体に公開"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "公開に失敗しました。もう一度お試しください。",
+    );
+    expect(screen.getByText("全体に公開")).toBeInTheDocument();
+  });
+
+  it("公開の取り消しに失敗したらエラーを表示し、公開中のままにする", async () => {
+    vi.mocked(ticketsApi.race).mockResolvedValue(
+      makeRaceData({ racePublishedAt: "2026-06-01T00:00:00+09:00" }),
+    );
+    vi.mocked(ticketsApi.unpublishRace).mockRejectedValue(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("公開取消"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "公開の取り消しに失敗しました。もう一度お試しください。",
+    );
+    expect(screen.getByText("公開取消")).toBeInTheDocument();
+  });
+});

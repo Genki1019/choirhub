@@ -304,3 +304,30 @@ describe("PartCard（幹事期間）", () => {
     expect(screen.getByLabelText("保存")).toBeDisabled();
   });
 });
+
+describe("PartCard（幹事期間の保存の失敗）", () => {
+  it("保存に失敗したらエラーを表示し、編集中のままにする", async () => {
+    vi.mocked(ticketsApi.saveOrganizerPeriod).mockRejectedValue(new TypeError("Failed to fetch"));
+    const onOrganizerPeriodSaved = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <PartCard
+        part={makePart()}
+        scoring={makeScoring()}
+        isTicketManager={true}
+        org="tokyo-men-choir"
+        concertId="concert-1"
+        onOrganizerPeriodSaved={onOrganizerPeriodSaved}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "幹事期間を編集" }));
+    await user.click(screen.getByLabelText("保存"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "幹事期間の保存に失敗しました。もう一度お試しください。",
+    );
+    expect(onOrganizerPeriodSaved).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("開始月（年）")).toBeInTheDocument();
+  });
+});

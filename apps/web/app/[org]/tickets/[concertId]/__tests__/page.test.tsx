@@ -282,3 +282,19 @@ describe("TicketDetailPage（チケットレースリンク）", () => {
     expect(link.closest("a")).toHaveAttribute("href", "/tokyo-men-choir/tickets/concert-1/race");
   });
 });
+
+describe("TicketDetailPage（入力の締め切りの失敗）", () => {
+  it("締め切りに失敗したらエラーを表示し、締め切っていない状態のままにする", async () => {
+    vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
+    vi.mocked(ticketsApi.closeTicketInput).mockRejectedValue(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("入力を締め切る"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "入力の締め切りに失敗しました。もう一度お試しください。",
+    );
+    expect(screen.queryByText(/以降、団員の入力は締め切り済み/)).not.toBeInTheDocument();
+  });
+});

@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AllocationRowComponent } from "../AllocationRow";
 import { ticketsApi, type AllocationRow } from "@/lib/tickets-api";
+import { ApiClientError } from "@/lib/api-client";
 
 vi.mock("@/lib/tickets-api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/tickets-api")>("@/lib/tickets-api");
@@ -175,5 +176,79 @@ describe("AllocationRowComponent（販売状況の編集）", () => {
       "alloc-1",
       expect.objectContaining({ isCollected: true }),
     );
+  });
+});
+
+describe("AllocationRowComponent（保存の失敗）", () => {
+  it("販売状況の保存に失敗したらエラーを表示し、編集中の入力を残す", async () => {
+    vi.mocked(ticketsApi.updateAllocation).mockRejectedValue(new TypeError("Failed to fetch"));
+    const onUpdated = vi.fn();
+    const user = userEvent.setup();
+    renderRow({ onUpdated });
+
+    await user.click(screen.getByLabelText("山田太郎の販売状況を編集"));
+    await user.click(screen.getByText("保存"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "販売状況の保存に失敗しました。もう一度お試しください。",
+    );
+    expect(onUpdated).not.toHaveBeenCalled();
+    expect(screen.getByText("保存")).toBeInTheDocument();
+  });
+
+  it("配布数の保存に失敗したらサーバーの理由を表示する", async () => {
+    vi.mocked(ticketsApi.updateAllocation).mockRejectedValue(
+      new ApiClientError("FORBIDDEN", "配布枚数の変更はチケット担当者のみ可能です", 403),
+    );
+    const user = userEvent.setup();
+    renderRow();
+
+    await user.click(screen.getByLabelText("山田太郎の配布数を編集"));
+    await user.click(screen.getByLabelText("配布数を保存"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "配布枚数の変更はチケット担当者のみ可能です",
+    );
+    expect(screen.getByLabelText("山田太郎の配布数")).toBeInTheDocument();
+  });
+});
+
+describe("AllocationRowComponent（エラーの後始末）", () => {
+  it("配布数の編集を取り消すとエラーが消える", async () => {
+    vi.mocked(ticketsApi.updateAllocation).mockRejectedValue(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    renderRow();
+
+    await user.click(screen.getByLabelText("山田太郎の配布数を編集"));
+    await user.click(screen.getByLabelText("配布数を保存"));
+    await screen.findByRole("alert");
+    await user.click(screen.getByLabelText("配布数の編集をキャンセル"));
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("販売状況の保存中は取り消しボタンを押せない", async () => {
+    vi.mocked(ticketsApi.updateAllocation).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderRow();
+
+    await user.click(screen.getByLabelText("山田太郎の販売状況を編集"));
+    await user.click(screen.getByText("保存"));
+
+    expect(screen.getByLabelText("編集をキャンセル")).toBeDisabled();
+  });
+
+  it("販売状況のエラーは、配布数の編集を取り消しても消えない", async () => {
+    vi.mocked(ticketsApi.updateAllocation).mockRejectedValue(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    renderRow();
+
+    await user.click(screen.getByLabelText("山田太郎の販売状況を編集"));
+    await user.click(screen.getByText("保存"));
+    await screen.findByRole("alert");
+    await user.click(screen.getByLabelText("山田太郎の配布数を編集"));
+    await user.click(screen.getByLabelText("配布数の編集をキャンセル"));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("販売状況の保存に失敗しました。");
   });
 });

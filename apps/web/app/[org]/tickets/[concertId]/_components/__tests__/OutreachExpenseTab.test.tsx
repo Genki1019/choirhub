@@ -249,3 +249,31 @@ describe("OutreachExpenseTab（削除操作）", () => {
     expect(await screen.findByText("削除できません")).toBeInTheDocument();
   });
 });
+
+describe("OutreachExpenseTab（取得の失敗・削除中）", () => {
+  it("一覧の取得に失敗したらエラーを表示し、「申請がありません」は出さない", async () => {
+    vi.mocked(ticketsApi.listOutreachActivities).mockRejectedValue(
+      new TypeError("Failed to fetch"),
+    );
+    renderTab();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "情宣活動の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+    expect(screen.queryByText("情宣活動の申請がありません")).not.toBeInTheDocument();
+    expect(screen.queryByText("申請件数")).not.toBeInTheDocument();
+  });
+
+  it("削除中は削除ボタンを押せない", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue([makeActivity()]);
+    vi.mocked(ticketsApi.deleteOutreachActivity).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderTab();
+
+    const del = await screen.findByRole("button", { name: /を削除$/ });
+    await user.click(del);
+
+    expect(del).toBeDisabled();
+  });
+});

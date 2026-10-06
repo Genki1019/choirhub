@@ -24,6 +24,7 @@ import { PageBleedRow } from "@/components/PageBleedRow";
 import { PageHeader } from "@/components/PageHeader";
 import { CsvExportButton } from "@/components/CsvExportButton";
 import { PageErrorState } from "@/components/PageErrorState";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 export default function TicketDetailPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -33,6 +34,7 @@ export default function TicketDetailPage() {
   const [showCreateBatch, setShowCreateBatch] = useState(false);
   const [editingBatch, setEditingBatch] = useState<BatchDetail | null>(null);
   const [closingInput, setClosingInput] = useState(false);
+  const [inputToggleError, setInputToggleError] = useState<string | null>(null);
 
   const {
     data: detail,
@@ -130,12 +132,17 @@ export default function TicketDetailPage() {
           <button
             onClick={async () => {
               setClosingInput(true);
+              setInputToggleError(null);
               try {
                 await ticketsApi.reopenTicketInput(org, concertId);
                 patchDetail((prev) => ({
                   ...prev,
                   concert: { ...prev.concert, ticketInputClosedAt: null },
                 }));
+              } catch (err) {
+                setInputToggleError(
+                  userErrorMessage(err, "入力の再開に失敗しました。もう一度お試しください。"),
+                );
               } finally {
                 setClosingInput(false);
               }
@@ -150,6 +157,7 @@ export default function TicketDetailPage() {
           <button
             onClick={async () => {
               setClosingInput(true);
+              setInputToggleError(null);
               try {
                 const result = await ticketsApi.closeTicketInput(org, concertId);
                 patchDetail((prev) => ({
@@ -159,6 +167,10 @@ export default function TicketDetailPage() {
                     ticketInputClosedAt: result.ticketInputClosedAt,
                   },
                 }));
+              } catch (err) {
+                setInputToggleError(
+                  userErrorMessage(err, "入力の締め切りに失敗しました。もう一度お試しください。"),
+                );
               } finally {
                 setClosingInput(false);
               }
@@ -264,6 +276,7 @@ export default function TicketDetailPage() {
       </PageHeader>
 
       <PageMain>
+        <ErrorMessage className="mb-4">{inputToggleError}</ErrorMessage>
         {detail.batches.length === 0 ? (
           <div className="py-12 text-center">
             <p className="mb-4 text-sm text-gray-400">席種が登録されていません</p>

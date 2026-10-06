@@ -141,6 +141,9 @@ export default function MyTicketPage() {
                 allocationId={concert.batches[0].allocationId}
                 initialCount={concert.batches[0].outreachCount}
                 isClosed={isClosed}
+                onSaved={(outreachCount) =>
+                  handleBatchUpdated(concert.batches[0].batchId, { outreachCount })
+                }
               />
             )}
           </>

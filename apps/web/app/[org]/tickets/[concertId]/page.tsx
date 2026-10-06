@@ -50,10 +50,14 @@ export default function TicketDetailPage() {
     enabled: detail?.isAdmin === true,
   });
 
-  const patchDetail = (fn: (prev: TicketDetail) => TicketDetail) =>
-    queryClient.setQueryData<TicketDetail>(ticketKeys.detail(org, concertId), (prev) =>
-      prev ? fn(prev) : prev,
-    );
+  const detailKey = ticketKeys.detail(org, concertId);
+
+  const patchDetail = (fn: (prev: TicketDetail) => TicketDetail) => {
+    queryClient.setQueryData<TicketDetail>(detailKey, (prev) => (prev ? fn(prev) : prev));
+    if (queryClient.isFetching({ queryKey: detailKey }) > 0) {
+      queryClient.invalidateQueries({ queryKey: detailKey });
+    }
+  };
 
   const handleAllocationUpdated = (allocationId: string, data: Partial<AllocationRow>) => {
     patchDetail((prev) => ({
@@ -85,14 +89,7 @@ export default function TicketDetailPage() {
     setEditingBatch(null);
   };
 
-  const handleMemberAdded = (batchId: string, row: AllocationRow) => {
-    patchDetail((prev) => ({
-      ...prev,
-      batches: prev.batches.map((b) =>
-        b.id === batchId ? { ...b, allocations: [...b.allocations, row] } : b,
-      ),
-    }));
-  };
+  const handleMemberAdded = () => queryClient.invalidateQueries({ queryKey: detailKey });
 
   if (loading) {
     return (
@@ -103,7 +100,7 @@ export default function TicketDetailPage() {
     );
   }
 
-  if (queryError || !detail) {
+  if (!detail) {
     return (
       <PageErrorState
         title="チケット"
@@ -276,6 +273,13 @@ export default function TicketDetailPage() {
       </PageHeader>
 
       <PageMain>
+        <ErrorMessage className="mb-4">
+          {queryError &&
+            userErrorMessage(
+              queryError,
+              "最新のチケット情報の読み込みに失敗しました。ページを再読み込みしてください。",
+            )}
+        </ErrorMessage>
         <ErrorMessage className="mb-4">{inputToggleError}</ErrorMessage>
         {detail.batches.length === 0 ? (
           <div className="py-12 text-center">

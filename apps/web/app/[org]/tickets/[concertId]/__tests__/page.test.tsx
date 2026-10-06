@@ -4,9 +4,15 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import TicketDetailPage from "../page";
 import { MemberProvider } from "@/contexts/MemberContext";
-import { ticketsApi, type BatchDetail, type TicketDetail } from "@/lib/tickets-api";
+import {
+  ticketsApi,
+  type AllocationRow,
+  type BatchDetail,
+  type TicketDetail,
+} from "@/lib/tickets-api";
 import { membersApi } from "@/lib/members-api";
 import { ApiClientError } from "@/lib/api-client";
+import type { MemberProfile } from "@/lib/api-types";
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ org: "tokyo-men-choir", concertId: "concert-1" }),
@@ -23,6 +29,8 @@ vi.mock("@/lib/tickets-api", async () => {
       createBatch: vi.fn(),
       updateBatch: vi.fn(),
       deleteBatch: vi.fn(),
+      allocate: vi.fn(),
+      updateAllocation: vi.fn(),
       listOutreachActivities: vi.fn().mockResolvedValue([]),
       exportCsv: vi.fn(),
     },
@@ -49,6 +57,51 @@ function makeBatch(overrides: Partial<BatchDetail> = {}): BatchDetail {
     saleStart: null,
     saleEnd: null,
     allocations: [],
+    ...overrides,
+  };
+}
+
+function makeMember(overrides: Partial<MemberProfile> = {}): MemberProfile {
+  return {
+    id: "member-1",
+    nameJa: "山田太郎",
+    nameKana: null,
+    nameEn: null,
+    avatarUrl: null,
+    part: null,
+    memberType: null,
+    roles: ["member"],
+    status: "active",
+    bio: null,
+    job: null,
+    interests: null,
+    originGroup: null,
+    joinedAt: null,
+    ...overrides,
+  };
+}
+
+function makeRow(overrides: Partial<AllocationRow> = {}): AllocationRow {
+  return {
+    id: "alloc-1",
+    batchId: "batch-1",
+    memberId: "member-1",
+    requestedCount: null,
+    nameJa: "山田太郎",
+    partId: "part-1",
+    partName: "テノール1",
+    partSortOrder: 1,
+    partVoiceType: "tenor1",
+    allocatedCount: 10,
+    soldAdult: 6,
+    soldStudent: 1,
+    soldOther: 0,
+    returnedCount: 3,
+    outreachCount: 0,
+    isOutreachExpensePaid: false,
+    outreachExpensePaidAt: null,
+    isCollected: true,
+    reportedAt: null,
     ...overrides,
   };
 }
@@ -296,5 +349,83 @@ describe("TicketDetailPage（入力の締め切りの失敗）", () => {
       "入力の締め切りに失敗しました。もう一度お試しください。",
     );
     expect(screen.queryByText(/以降、団員の入力は締め切り済み/)).not.toBeInTheDocument();
+  });
+});
+
+describe("TicketDetailPage（団員の追加のあと）", () => {
+  it("団員を追加すると、販売数などをサーバーから取り直す", async () => {
+    vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
+    vi.mocked(membersApi.list).mockResolvedValue([makeMember()]);
+    vi.mocked(ticketsApi.allocate).mockResolvedValue({
+      id: "alloc-new",
+      batchId: "batch-1",
+      memberId: "member-1",
+      allocatedCount: 0,
+      requestedCount: null,
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("団員を追加（1名未配布）"));
+    await user.selectOptions(screen.getByRole("combobox"), "member-1");
+    await user.click(screen.getByRole("button", { name: "追加" }));
+
+    await waitFor(() => expect(ticketsApi.get).toHaveBeenCalledTimes(2));
+  });
+
+  it("追加後の取り直しに失敗しても画面は残し、上部にエラーを表示する", async () => {
+    vi.mocked(ticketsApi.get)
+      .mockResolvedValueOnce(makeDetail())
+      .mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.mocked(membersApi.list).mockResolvedValue([makeMember()]);
+    vi.mocked(ticketsApi.allocate).mockResolvedValue({
+      id: "alloc-new",
+      batchId: "batch-1",
+      memberId: "member-1",
+      allocatedCount: 0,
+      requestedCount: null,
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("団員を追加（1名未配布）"));
+    await user.selectOptions(screen.getByRole("combobox"), "member-1");
+    await user.click(screen.getByRole("button", { name: "追加" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "最新のチケット情報の読み込みに失敗しました。",
+    );
+    expect(screen.getByRole("button", { name: "席種を追加" })).toBeInTheDocument();
+  });
+
+  it("取り直しの途中で別の行を保存したら、古い取得結果で上書きせずに取り直し直す", async () => {
+    const detail = makeDetail({ batches: [makeBatch({ allocations: [makeRow()] })] });
+    let resolveSecond: (d: typeof detail) => void = () => {};
+    vi.mocked(ticketsApi.get)
+      .mockResolvedValueOnce(detail)
+      .mockImplementationOnce(() => new Promise((r) => (resolveSecond = r)))
+      .mockResolvedValue(detail);
+    vi.mocked(membersApi.list).mockResolvedValue([makeMember({ id: "member-9" })]);
+    vi.mocked(ticketsApi.allocate).mockResolvedValue({
+      id: "alloc-new",
+      batchId: "batch-1",
+      memberId: "member-9",
+      allocatedCount: 0,
+      requestedCount: null,
+    });
+    vi.mocked(ticketsApi.updateAllocation).mockResolvedValue(makeRow());
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("団員を追加（1名未配布）"));
+    await user.selectOptions(screen.getByRole("combobox"), "member-9");
+    await user.click(screen.getByRole("button", { name: "追加" }));
+    await waitFor(() => expect(ticketsApi.get).toHaveBeenCalledTimes(2));
+
+    await user.click(screen.getByLabelText(/の販売状況を編集$/));
+    await user.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => expect(ticketsApi.get).toHaveBeenCalledTimes(3));
+    resolveSecond(detail);
   });
 });

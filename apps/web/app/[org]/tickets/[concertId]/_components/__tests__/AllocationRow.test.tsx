@@ -252,3 +252,30 @@ describe("AllocationRowComponent（エラーの後始末）", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("販売状況の保存に失敗しました。");
   });
 });
+
+describe("AllocationRowComponent（編集の開始）", () => {
+  it("取り直しで行の値が新しくなったあとに編集を開くと、新しい値から始まる", async () => {
+    vi.mocked(ticketsApi.updateAllocation).mockResolvedValue(makeRow());
+    const user = userEvent.setup();
+    const { rerender } = renderRow();
+
+    rerender(
+      <AllocationRowComponent
+        row={makeRow({ soldAdult: 9 })}
+        orgSlug="o"
+        canEdit
+        canEditAllocation
+        isAdmin
+        onUpdated={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByLabelText("山田太郎の販売状況を編集"));
+    await user.click(screen.getByText("保存"));
+
+    expect(ticketsApi.updateAllocation).toHaveBeenCalledWith(
+      "o",
+      "alloc-1",
+      expect.objectContaining({ soldAdult: 9 }),
+    );
+  });
+});

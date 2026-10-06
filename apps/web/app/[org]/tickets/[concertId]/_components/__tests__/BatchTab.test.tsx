@@ -66,7 +66,7 @@ const defaultProps = {
   concertId: "concert-1",
   allMembers: [] as MemberProfile[],
   onAllocationUpdated: () => {},
-  onMemberAdded: () => {},
+  onMemberAdded: () => Promise.resolve(),
 };
 
 describe("BatchTab（集計カード）", () => {

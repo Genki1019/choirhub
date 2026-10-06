@@ -219,7 +219,16 @@ export function AllocationRowComponent({
         <div className="ml-auto flex shrink-0 items-center gap-1">
           {!editing && canEdit && (
             <button
-              onClick={() => setEditing(true)}
+              onClick={() => {
+                setForm({
+                  soldAdult: row.soldAdult,
+                  soldStudent: row.soldStudent,
+                  soldOther: row.soldOther,
+                  returnedCount: row.returnedCount,
+                  isCollected: row.isCollected,
+                });
+                setEditing(true);
+              }}
               aria-label={`${row.nameJa}の販売状況を編集`}
               className="hover:text-brand-500 hover:bg-brand-50 rounded-lg p-1.5 text-gray-400 transition-colors"
             >

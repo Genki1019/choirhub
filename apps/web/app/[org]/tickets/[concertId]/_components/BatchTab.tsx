@@ -26,7 +26,7 @@ interface BatchTabProps {
   concertId: string;
   allMembers: MemberProfile[];
   onAllocationUpdated: (allocationId: string, data: Partial<AllocationRow>) => void;
-  onMemberAdded: (batchId: string, row: AllocationRow) => void;
+  onMemberAdded: () => Promise<void>;
 }
 
 export function BatchTab({
@@ -138,7 +138,7 @@ export function BatchTab({
             orgSlug={orgSlug}
             concertId={concertId}
             allMembers={allMembers}
-            onAdded={(row) => onMemberAdded(batch.id, row)}
+            onAdded={onMemberAdded}
           />
         )}
       </div>

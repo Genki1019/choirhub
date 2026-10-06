@@ -5,6 +5,8 @@ import { Check, Loader2, Clock } from "lucide-react";
 import { ticketsApi, type MyAllocationBatch } from "@/lib/tickets-api";
 import { AmountSummary } from "./AmountSummary";
 import { Stepper } from "./Stepper";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 
 function yen(amount: number) {
   return `¥${amount.toLocaleString()}`;
@@ -28,6 +30,8 @@ export function BatchCard({ batch, orgSlug, concertId, isClosed, onChange }: Bat
   const [savingReq, setSavingReq] = useState(false);
   const [savingSales, setSavingSales] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  const [requestError, setRequestError] = useState<string | null>(null);
+  const [salesError, setSalesError] = useState<string | null>(null);
 
   const soldTotal = sales.soldAdult + sales.soldStudent;
   const hasPendingRequest =
@@ -41,6 +45,7 @@ export function BatchCard({ batch, orgSlug, concertId, isClosed, onChange }: Bat
 
   const handleRequestSubmit = async () => {
     setSavingReq(true);
+    setRequestError(null);
     try {
       const result = await ticketsApi.allocate(orgSlug, concertId, {
         batchId: batch.batchId,
@@ -48,6 +53,8 @@ export function BatchCard({ batch, orgSlug, concertId, isClosed, onChange }: Bat
       });
       onChange({ requestedCount: result.requestedCount });
       flash("申請を送信しました");
+    } catch (err) {
+      setRequestError(userErrorMessage(err, "申請の送信に失敗しました。もう一度お試しください。"));
     } finally {
       setSavingReq(false);
     }
@@ -55,10 +62,15 @@ export function BatchCard({ batch, orgSlug, concertId, isClosed, onChange }: Bat
 
   const handleSalesSubmit = async () => {
     setSavingSales(true);
+    setSalesError(null);
     try {
       await ticketsApi.updateAllocation(orgSlug, batch.allocationId, { ...sales, soldOther: 0 });
       onChange({ ...sales, soldOther: 0, reportedAt: new Date().toISOString() });
       flash("販売状況を更新しました");
+    } catch (err) {
+      setSalesError(
+        userErrorMessage(err, "販売状況の保存に失敗しました。もう一度お試しください。"),
+      );
     } finally {
       setSavingSales(false);
     }
@@ -156,6 +168,7 @@ export function BatchCard({ batch, orgSlug, concertId, isClosed, onChange }: Bat
               {savingReq && <Loader2 size={13} className="animate-spin" />}
               変更を申請する
             </button>
+            <ErrorMessage className="mt-2">{requestError}</ErrorMessage>
           </div>
         </section>
 
@@ -202,6 +215,7 @@ export function BatchCard({ batch, orgSlug, concertId, isClosed, onChange }: Bat
             {savingSales && <Loader2 size={13} className="animate-spin" />}
             販売状況を確定
           </button>
+          <ErrorMessage className="mt-2">{salesError}</ErrorMessage>
           {batch.reportedAt && (
             <p className="mt-1.5 text-center text-xs text-gray-400">
               最終報告: {new Date(batch.reportedAt).toLocaleDateString("ja-JP")}

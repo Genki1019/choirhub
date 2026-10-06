@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AddMemberPanel } from "../AddMemberPanel";
 import { ticketsApi, type BatchDetail } from "@/lib/tickets-api";
@@ -135,7 +135,7 @@ describe("AddMemberPanel（追加操作）", () => {
     expect(screen.getByText("追加")).toBeDisabled();
   });
 
-  it("団員・枚数を指定して追加するとticketsApi.allocateが呼ばれonAddedが呼ばれる", async () => {
+  it("団員・枚数を指定して追加するとticketsApi.allocateが呼ばれ、onAddedで親に取り直しを任せる", async () => {
     vi.mocked(ticketsApi.allocate).mockResolvedValue({
       id: "alloc-new",
       batchId: "batch-1",
@@ -167,7 +167,7 @@ describe("AddMemberPanel（追加操作）", () => {
       memberId: "member-1",
       allocatedCount: 5,
     });
-    expect(onAdded).toHaveBeenCalledWith(expect.objectContaining({ memberId: "member-1" }));
+    expect(onAdded).toHaveBeenCalledWith();
   });
 
   it("「パネルを閉じる」ボタンで展開前の状態に戻る", async () => {
@@ -186,5 +186,95 @@ describe("AddMemberPanel（追加操作）", () => {
     await user.click(screen.getByLabelText("パネルを閉じる"));
 
     expect(screen.getByText("団員を追加（1名未配布）")).toBeInTheDocument();
+  });
+});
+
+describe("AddMemberPanel（追加の失敗）", () => {
+  it("追加に失敗したらエラーを表示し、パネルを開いたままにする", async () => {
+    vi.mocked(ticketsApi.allocate).mockRejectedValue(new TypeError("Failed to fetch"));
+    const onAdded = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <AddMemberPanel
+        batch={makeBatch()}
+        orgSlug="o"
+        concertId="concert-1"
+        allMembers={[makeMember()]}
+        onAdded={onAdded}
+      />,
+    );
+
+    await user.click(screen.getByText("団員を追加（1名未配布）"));
+    await user.selectOptions(screen.getByRole("combobox"), "member-1");
+    await user.click(screen.getByText("追加"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "団員の追加に失敗しました。もう一度お試しください。",
+    );
+    expect(onAdded).not.toHaveBeenCalled();
+    expect(screen.getByRole("combobox")).toHaveValue("member-1");
+  });
+});
+
+describe("AddMemberPanel（エラーの後始末）", () => {
+  it("失敗後にパネルを閉じて開き直すと、前のエラーは消えている。追加中は閉じられない", async () => {
+    vi.mocked(ticketsApi.allocate).mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    render(
+      <AddMemberPanel
+        batch={makeBatch()}
+        orgSlug="o"
+        concertId="concert-1"
+        allMembers={[makeMember()]}
+        onAdded={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByText("団員を追加（1名未配布）"));
+    await user.selectOptions(screen.getByRole("combobox"), "member-1");
+    await user.click(screen.getByText("追加"));
+    await screen.findByRole("alert");
+    await user.click(screen.getByLabelText("パネルを閉じる"));
+    await user.click(screen.getByText("団員を追加（1名未配布）"));
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    vi.mocked(ticketsApi.allocate).mockReturnValue(new Promise(() => {}));
+    await user.selectOptions(screen.getByRole("combobox"), "member-1");
+    await user.click(screen.getByText("追加"));
+    expect(screen.getByLabelText("パネルを閉じる")).toBeDisabled();
+  });
+});
+
+describe("AddMemberPanel（追加後の取り直し）", () => {
+  it("取り直しが終わるまでパネルを開いたまま追加中にし、終わったら閉じる", async () => {
+    vi.mocked(ticketsApi.allocate).mockResolvedValue({
+      id: "alloc-new",
+      batchId: "batch-1",
+      memberId: "member-1",
+      allocatedCount: 0,
+      requestedCount: null,
+    });
+    let finish: () => void = () => {};
+    const onAdded = vi.fn(() => new Promise<void>((r) => (finish = r)));
+    const user = userEvent.setup();
+    render(
+      <AddMemberPanel
+        batch={makeBatch()}
+        orgSlug="o"
+        concertId="concert-1"
+        allMembers={[makeMember()]}
+        onAdded={onAdded}
+      />,
+    );
+
+    await user.click(screen.getByText("団員を追加（1名未配布）"));
+    await user.selectOptions(screen.getByRole("combobox"), "member-1");
+    await user.click(screen.getByText("追加"));
+    await waitFor(() => expect(onAdded).toHaveBeenCalled());
+
+    expect(screen.getByLabelText("パネルを閉じる")).toBeDisabled();
+    finish();
+    await waitFor(() => expect(screen.queryByLabelText("パネルを閉じる")).not.toBeInTheDocument());
   });
 });

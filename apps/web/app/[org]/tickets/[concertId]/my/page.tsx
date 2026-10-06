@@ -2,13 +2,16 @@
 
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, AlertCircle, Trophy, Lock, MapPin } from "lucide-react";
+import { ArrowLeft, Loader2, Trophy, Lock, MapPin } from "lucide-react";
 import { ticketsApi, type MyAllocationConcert, type MyAllocationBatch } from "@/lib/tickets-api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ticketKeys } from "@/lib/query-keys";
 import { BatchCard } from "./_components/BatchCard";
 import { OutreachCountCard } from "./_components/OutreachCountCard";
 import { PageHeader } from "@/components/PageHeader";
+import { PageErrorState } from "@/components/PageErrorState";
+import { userErrorMessage } from "@/lib/api-client";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 export default function MyTicketPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -49,14 +52,17 @@ export default function MyTicketPage() {
     );
   }
 
-  if (error || !concert) {
+  if (!concert) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-          <AlertCircle size={16} />
-          <span className="text-sm">{error?.message ?? "チケット情報が見つかりません"}</span>
-        </div>
-      </div>
+      <PageErrorState
+        title="チケット"
+        backHref={`/${org}/tickets`}
+        message={
+          error
+            ? userErrorMessage(error, "読み込みに失敗しました。ページを再読み込みしてください。")
+            : "チケット情報が見つかりません"
+        }
+      />
     );
   }
 
@@ -73,6 +79,13 @@ export default function MyTicketPage() {
       />
 
       <main className="mx-auto w-full max-w-lg flex-1 space-y-4 px-6 py-6">
+        <ErrorMessage autoScroll={false}>
+          {error &&
+            userErrorMessage(
+              error,
+              "最新のチケット情報の読み込みに失敗しました。ページを再読み込みしてください。",
+            )}
+        </ErrorMessage>
         {isClosed && (
           <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <Lock size={14} className="shrink-0" />
@@ -136,6 +149,9 @@ export default function MyTicketPage() {
                 allocationId={concert.batches[0].allocationId}
                 initialCount={concert.batches[0].outreachCount}
                 isClosed={isClosed}
+                onSaved={(outreachCount) =>
+                  handleBatchUpdated(concert.batches[0].batchId, { outreachCount })
+                }
               />
             )}
           </>

@@ -77,10 +77,12 @@ describe("MyTicketPage（表示）", () => {
   });
 
   it("取得エラー時はエラーメッセージを表示する", async () => {
-    vi.mocked(ticketsApi.myList).mockRejectedValue(new Error("取得に失敗しました"));
+    vi.mocked(ticketsApi.myList).mockRejectedValue(new TypeError("Failed to fetch"));
     renderPage();
 
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "読み込みに失敗しました。ページを再読み込みしてください。",
+    );
   });
 
   it("タイトル・開催日・BatchCard・情宣活動リンクを表示する", async () => {

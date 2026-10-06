@@ -1,19 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import {
-  Pencil,
-  Loader2,
-  AlertCircle,
-  ChevronRight,
-  Trophy,
-  Plus,
-  Lock,
-  LockOpen,
-  Bus,
-} from "lucide-react";
+import { Pencil, Loader2, ChevronRight, Trophy, Plus, Lock, LockOpen, Bus } from "lucide-react";
 import {
   ticketsApi,
   type TicketDetail,
@@ -22,7 +12,7 @@ import {
   type UpdateBatchInput,
 } from "@/lib/tickets-api";
 import { membersApi } from "@/lib/members-api";
-import { ApiClientError } from "@/lib/api-client";
+import { userErrorMessage } from "@/lib/api-client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ticketKeys, memberKeys } from "@/lib/query-keys";
 import { CreateBatchModal } from "./_components/CreateBatchModal";
@@ -33,6 +23,8 @@ import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
 import { PageHeader } from "@/components/PageHeader";
 import { CsvExportButton } from "@/components/CsvExportButton";
+import { PageErrorState } from "@/components/PageErrorState";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 export default function TicketDetailPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -42,6 +34,8 @@ export default function TicketDetailPage() {
   const [showCreateBatch, setShowCreateBatch] = useState(false);
   const [editingBatch, setEditingBatch] = useState<BatchDetail | null>(null);
   const [closingInput, setClosingInput] = useState(false);
+  const addBatchButtonRef = useRef<HTMLButtonElement>(null);
+  const [inputToggleError, setInputToggleError] = useState<string | null>(null);
 
   const {
     data: detail,
@@ -57,10 +51,14 @@ export default function TicketDetailPage() {
     enabled: detail?.isAdmin === true,
   });
 
-  const patchDetail = (fn: (prev: TicketDetail) => TicketDetail) =>
-    queryClient.setQueryData<TicketDetail>(ticketKeys.detail(org, concertId), (prev) =>
-      prev ? fn(prev) : prev,
-    );
+  const detailKey = ticketKeys.detail(org, concertId);
+
+  const patchDetail = (fn: (prev: TicketDetail) => TicketDetail) => {
+    queryClient.setQueryData<TicketDetail>(detailKey, (prev) => (prev ? fn(prev) : prev));
+    if (queryClient.isFetching({ queryKey: detailKey }) > 0) {
+      queryClient.invalidateQueries({ queryKey: detailKey });
+    }
+  };
 
   const handleAllocationUpdated = (allocationId: string, data: Partial<AllocationRow>) => {
     patchDetail((prev) => ({
@@ -90,16 +88,10 @@ export default function TicketDetailPage() {
     patchDetail((prev) => ({ ...prev, batches: prev.batches.filter((b) => b.id !== batchId) }));
     setActiveBatchIdx(0);
     setEditingBatch(null);
+    requestAnimationFrame(() => addBatchButtonRef.current?.focus());
   };
 
-  const handleMemberAdded = (batchId: string, row: AllocationRow) => {
-    patchDetail((prev) => ({
-      ...prev,
-      batches: prev.batches.map((b) =>
-        b.id === batchId ? { ...b, allocations: [...b.allocations, row] } : b,
-      ),
-    }));
-  };
+  const handleMemberAdded = () => queryClient.invalidateQueries({ queryKey: detailKey });
 
   if (loading) {
     return (
@@ -110,19 +102,20 @@ export default function TicketDetailPage() {
     );
   }
 
-  const errorMsg =
-    queryError instanceof ApiClientError && queryError.status === 403
-      ? "チケット担当者または管理者のみアクセスできます"
-      : (queryError?.message ?? "チケット情報が見つかりません");
-
-  if (queryError || !detail) {
+  if (!detail) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-          <AlertCircle size={16} />
-          <span className="text-sm">{errorMsg}</span>
-        </div>
-      </div>
+      <PageErrorState
+        title="チケット"
+        backHref={`/${org}/tickets`}
+        message={
+          queryError
+            ? userErrorMessage(
+                queryError,
+                "チケット情報の読み込みに失敗しました。ページを再読み込みしてください。",
+              )
+            : "チケット情報が見つかりません"
+        }
+      />
     );
   }
 
@@ -138,12 +131,17 @@ export default function TicketDetailPage() {
           <button
             onClick={async () => {
               setClosingInput(true);
+              setInputToggleError(null);
               try {
                 await ticketsApi.reopenTicketInput(org, concertId);
                 patchDetail((prev) => ({
                   ...prev,
                   concert: { ...prev.concert, ticketInputClosedAt: null },
                 }));
+              } catch (err) {
+                setInputToggleError(
+                  userErrorMessage(err, "入力の再開に失敗しました。もう一度お試しください。"),
+                );
               } finally {
                 setClosingInput(false);
               }
@@ -158,6 +156,7 @@ export default function TicketDetailPage() {
           <button
             onClick={async () => {
               setClosingInput(true);
+              setInputToggleError(null);
               try {
                 const result = await ticketsApi.closeTicketInput(org, concertId);
                 patchDetail((prev) => ({
@@ -167,6 +166,10 @@ export default function TicketDetailPage() {
                     ticketInputClosedAt: result.ticketInputClosedAt,
                   },
                 }));
+              } catch (err) {
+                setInputToggleError(
+                  userErrorMessage(err, "入力の締め切りに失敗しました。もう一度お試しください。"),
+                );
               } finally {
                 setClosingInput(false);
               }
@@ -183,7 +186,9 @@ export default function TicketDetailPage() {
       )}
       {detail.isAdmin && (
         <button
+          ref={addBatchButtonRef}
           onClick={() => setShowCreateBatch(true)}
+          aria-label="席種を追加"
           className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-white transition-colors"
         >
           <Plus size={14} />
@@ -216,7 +221,7 @@ export default function TicketDetailPage() {
     <div className="border-t border-gray-100">
       <PageBleedRow className="flex items-end overflow-x-auto pt-1">
         {detail.batches.map((batch, idx) => (
-          <div key={batch.id} className="group relative shrink-0">
+          <div key={batch.id} className="relative shrink-0">
             <button
               onClick={() => setActiveBatchIdx(idx)}
               className={[
@@ -235,7 +240,8 @@ export default function TicketDetailPage() {
             {detail.isAdmin && (
               <button
                 onClick={() => setEditingBatch(batch)}
-                className="hover:text-brand-500 absolute top-1 right-0 p-1 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100"
+                aria-label={`席種「${batch.name}」を編集`}
+                className="hover:text-brand-500 absolute top-1 right-0 p-1 text-gray-400 transition-colors"
                 title="席種を編集"
               >
                 <Pencil size={10} />
@@ -272,6 +278,14 @@ export default function TicketDetailPage() {
       </PageHeader>
 
       <PageMain>
+        <ErrorMessage className="mb-4" autoScroll={false}>
+          {queryError &&
+            userErrorMessage(
+              queryError,
+              "最新のチケット情報の読み込みに失敗しました。ページを再読み込みしてください。",
+            )}
+        </ErrorMessage>
+        <ErrorMessage className="mb-4">{inputToggleError}</ErrorMessage>
         {detail.batches.length === 0 ? (
           <div className="py-12 text-center">
             <p className="mb-4 text-sm text-gray-400">席種が登録されていません</p>

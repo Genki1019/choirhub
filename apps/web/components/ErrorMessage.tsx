@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useEffect, useRef, type ReactNode } from "react";
 import { AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -12,13 +14,26 @@ interface ErrorMessageProps {
   children?: ReactNode;
   variant?: keyof typeof VARIANT_CLASS;
   className?: string;
+  autoScroll?: boolean;
 }
 
-export function ErrorMessage({ children, variant = "inline", className }: ErrorMessageProps) {
+export function ErrorMessage({
+  children,
+  variant = "inline",
+  className,
+  autoScroll = true,
+}: ErrorMessageProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const message = typeof children === "string" ? children : null;
+
+  useEffect(() => {
+    if (message && autoScroll) ref.current?.scrollIntoView?.({ block: "nearest" });
+  }, [message, autoScroll]);
+
   if (!children) return null;
 
   return (
-    <div role="alert" className={cn(VARIANT_CLASS[variant], className)}>
+    <div ref={ref} role="alert" className={cn(VARIANT_CLASS[variant], className)}>
       {variant === "section" ? (
         <>
           <AlertCircle size={16} className="shrink-0" />

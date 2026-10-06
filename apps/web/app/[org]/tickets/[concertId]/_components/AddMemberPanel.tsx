@@ -2,15 +2,17 @@
 
 import { useState } from "react";
 import { UserPlus, X, Loader2 } from "lucide-react";
-import { ticketsApi, type BatchDetail, type AllocationRow } from "@/lib/tickets-api";
+import { ticketsApi, type BatchDetail } from "@/lib/tickets-api";
 import type { MemberProfile } from "@/lib/api-types";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 
 interface AddMemberPanelProps {
   batch: BatchDetail;
   orgSlug: string;
   concertId: string;
   allMembers: MemberProfile[];
-  onAdded: (row: AllocationRow) => void;
+  onAdded: () => Promise<void>;
 }
 
 export function AddMemberPanel({
@@ -24,6 +26,7 @@ export function AddMemberPanel({
   const [selectedId, setSelectedId] = useState("");
   const [count, setCount] = useState("0");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const allocatedIds = new Set(batch.allocations.map((a) => a.memberId));
   const unallocated = allMembers.filter((m) => !allocatedIds.has(m.id) && m.status === "active");
@@ -33,37 +36,19 @@ export function AddMemberPanel({
   const handleAdd = async () => {
     if (!selectedId) return;
     setSaving(true);
+    setError(null);
     try {
       await ticketsApi.allocate(orgSlug, concertId, {
         batchId: batch.id,
         memberId: selectedId,
         allocatedCount: Number(count),
       });
-      const member = allMembers.find((m) => m.id === selectedId)!;
-      onAdded({
-        id: "",
-        batchId: batch.id,
-        memberId: selectedId,
-        nameJa: member.nameJa,
-        partId: member.part?.id ?? null,
-        partName: member.part?.name ?? null,
-        partSortOrder: 99,
-        partVoiceType: "other",
-        allocatedCount: Number(count),
-        requestedCount: null,
-        soldAdult: 0,
-        soldStudent: 0,
-        soldOther: 0,
-        returnedCount: 0,
-        outreachCount: 0,
-        isOutreachExpensePaid: false,
-        outreachExpensePaidAt: null,
-        isCollected: false,
-        reportedAt: null,
-      });
+      await onAdded();
       setSelectedId("");
       setCount("0");
       setOpen(false);
+    } catch (err) {
+      setError(userErrorMessage(err, "団員の追加に失敗しました。もう一度お試しください。"));
     } finally {
       setSaving(false);
     }
@@ -116,13 +101,18 @@ export function AddMemberPanel({
           追加
         </button>
         <button
-          onClick={() => setOpen(false)}
+          onClick={() => {
+            setOpen(false);
+            setError(null);
+          }}
+          disabled={saving}
           aria-label="パネルを閉じる"
           className="p-1 text-gray-400 hover:text-gray-600"
         >
           <X size={14} />
         </button>
       </div>
+      <ErrorMessage className="mt-2">{error}</ErrorMessage>
     </div>
   );
 }

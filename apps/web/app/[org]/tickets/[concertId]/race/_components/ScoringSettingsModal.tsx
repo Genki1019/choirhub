@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
+import { Modal } from "@/components/Modal";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 import { SCORING_CRITERIA } from "@/lib/scoring-criteria";
 import type { RaceScoringConfig, ScoringConfigInput } from "@/lib/tickets-api";
 
@@ -94,12 +97,14 @@ export function ScoringSettingsModal({
   const [form, setForm] = useState<FormState>(() => toFormState(initialScoring));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   const updateCriterion = (key: keyof FormState, patch: Partial<CriterionForm>) =>
     setForm((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setAttempt((n) => n + 1);
     const payload = buildPayload(form);
     if (!payload) {
       setError("配点は10個以内のカンマ区切りの整数で、閾値・人数は1以上の整数で入力してください");
@@ -110,89 +115,114 @@ export function ScoringSettingsModal({
     try {
       await onSubmit(payload);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存に失敗しました");
+      setError(userErrorMessage(err, "採点設定の保存に失敗しました。もう一度お試しください。"));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-        <h2 className="mb-4 text-base font-semibold text-gray-800">採点設定</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {SCORING_CRITERIA.map((c) => {
-            const cfg = form[c.key];
-            return (
-              <div key={c.key} className="rounded-xl border border-gray-100 p-3">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={cfg.enabled}
-                    onChange={(e) => updateCriterion(c.key, { enabled: e.target.checked })}
-                  />
-                  {initialScoring[c.key].label}
+    <Modal
+      title="採点設定"
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      busy={saving}
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50"
+          >
+            キャンセル
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
+          >
+            {saving && <Loader2 size={13} className="animate-spin" />}
+            保存
+          </button>
+        </>
+      }
+    >
+      {SCORING_CRITERIA.map((c) => {
+        const cfg = form[c.key];
+        const label = initialScoring[c.key].label;
+        return (
+          <fieldset
+            key={c.key}
+            aria-label={label}
+            className="rounded-xl border border-gray-100 p-3"
+          >
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <input
+                type="checkbox"
+                checked={cfg.enabled}
+                onChange={(e) => updateCriterion(c.key, { enabled: e.target.checked })}
+              />
+              {label}
+            </label>
+            <div className="mt-2 space-y-2">
+              <div>
+                <label
+                  htmlFor={`scoring-${c.key}-points`}
+                  className="mb-1 block text-xs text-gray-500"
+                >
+                  配点（カンマ区切り）
                 </label>
-                <div className="mt-2 space-y-2">
+                <input
+                  id={`scoring-${c.key}-points`}
+                  type="text"
+                  value={cfg.pointsStr}
+                  onChange={(e) => updateCriterion(c.key, { pointsStr: e.target.value })}
+                  placeholder="5, 4, 3, 2"
+                  className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:ring-2 focus:outline-none"
+                />
+              </div>
+              {c.hasSpeedFields && (
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="mb-1 block text-xs text-gray-500">配点（カンマ区切り）</label>
+                    <label
+                      htmlFor={`scoring-${c.key}-threshold`}
+                      className="mb-1 block text-xs text-gray-500"
+                    >
+                      枚数閾値
+                    </label>
                     <input
-                      type="text"
-                      value={cfg.pointsStr}
-                      onChange={(e) => updateCriterion(c.key, { pointsStr: e.target.value })}
-                      placeholder="5, 4, 3, 2"
+                      id={`scoring-${c.key}-threshold`}
+                      type="number"
+                      min={1}
+                      value={cfg.thresholdStr}
+                      onChange={(e) => updateCriterion(c.key, { thresholdStr: e.target.value })}
                       className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:ring-2 focus:outline-none"
                     />
                   </div>
-                  {c.hasSpeedFields && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="mb-1 block text-xs text-gray-500">枚数閾値</label>
-                        <input
-                          type="number"
-                          min={1}
-                          value={cfg.thresholdStr}
-                          onChange={(e) => updateCriterion(c.key, { thresholdStr: e.target.value })}
-                          className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:ring-2 focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs text-gray-500">最低人数</label>
-                        <input
-                          type="number"
-                          min={1}
-                          value={cfg.minCountStr}
-                          onChange={(e) => updateCriterion(c.key, { minCountStr: e.target.value })}
-                          className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:ring-2 focus:outline-none"
-                        />
-                      </div>
-                    </div>
-                  )}
+                  <div>
+                    <label
+                      htmlFor={`scoring-${c.key}-min-count`}
+                      className="mb-1 block text-xs text-gray-500"
+                    >
+                      最低人数
+                    </label>
+                    <input
+                      id={`scoring-${c.key}-min-count`}
+                      type="number"
+                      min={1}
+                      value={cfg.minCountStr}
+                      onChange={(e) => updateCriterion(c.key, { minCountStr: e.target.value })}
+                      className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:ring-2 focus:outline-none"
+                    />
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-          {error && <p className="text-xs text-red-500">{error}</p>}
-          <div className="flex gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="flex-1 rounded-lg border border-gray-200 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-60"
-            >
-              キャンセル
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="bg-brand-600 hover:bg-brand-700 flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
-            >
-              {saving && <Loader2 size={13} className="animate-spin" />}
-              保存
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+              )}
+            </div>
+          </fieldset>
+        );
+      })}
+      <ErrorMessage key={attempt}>{error}</ErrorMessage>
+    </Modal>
   );
 }

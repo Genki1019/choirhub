@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import userEvent from "@testing-library/user-event";
 import { render, screen } from "@testing-library/react";
 import { BatchTab } from "../BatchTab";
 import type { AllocationRow, BatchDetail, TicketDetail } from "@/lib/tickets-api";
@@ -65,7 +66,7 @@ const defaultProps = {
   concertId: "concert-1",
   allMembers: [] as MemberProfile[],
   onAllocationUpdated: () => {},
-  onMemberAdded: () => {},
+  onMemberAdded: () => Promise.resolve(),
 };
 
 describe("BatchTab（集計カード）", () => {
@@ -187,5 +188,40 @@ describe("BatchTab（団員を追加パネル）", () => {
     render(<BatchTab batch={batch} detail={detail} {...defaultProps} allMembers={[member]} />);
 
     expect(screen.queryByText(/団員を追加/)).not.toBeInTheDocument();
+  });
+});
+
+describe("BatchTab（席種の切り替え）", () => {
+  it("席種を切り替えると、団員の追加パネルは閉じた状態に戻る", async () => {
+    const member: MemberProfile = {
+      id: "member-2",
+      nameJa: "未配布太郎",
+      nameKana: null,
+      nameEn: null,
+      avatarUrl: null,
+      part: null,
+      memberType: null,
+      roles: ["member"],
+      status: "active",
+      bio: null,
+      job: null,
+      interests: null,
+      originGroup: null,
+      joinedAt: null,
+    };
+    const batchA = makeBatch({ id: "batch-a", allocations: [] });
+    const batchB = makeBatch({ id: "batch-b", allocations: [] });
+    const detail = makeDetail({ batches: [batchA, batchB] });
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <BatchTab batch={batchA} detail={detail} {...defaultProps} allMembers={[member]} />,
+    );
+
+    await user.click(screen.getByText(/団員を追加（/));
+    expect(screen.getByLabelText("パネルを閉じる")).toBeInTheDocument();
+    rerender(<BatchTab batch={batchB} detail={detail} {...defaultProps} allMembers={[member]} />);
+
+    expect(screen.queryByLabelText("パネルを閉じる")).not.toBeInTheDocument();
+    expect(screen.getByText(/団員を追加（/)).toBeInTheDocument();
   });
 });

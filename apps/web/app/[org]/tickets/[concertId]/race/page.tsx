@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { Loader2, AlertCircle, Users, User, Globe, EyeOff, Settings } from "lucide-react";
+import { Loader2, Users, User, Globe, EyeOff, Settings } from "lucide-react";
 import { ticketsApi, type RaceData } from "@/lib/tickets-api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ticketKeys } from "@/lib/query-keys";
@@ -12,6 +12,9 @@ import { ScoringRules } from "./_components/ScoringRules";
 import { ScoringSettingsModal } from "./_components/ScoringSettingsModal";
 import { PageBleedRow } from "@/components/PageBleedRow";
 import { PageHeader } from "@/components/PageHeader";
+import { PageErrorState } from "@/components/PageErrorState";
+import { userErrorMessage } from "@/lib/api-client";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 export default function RacePage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -19,6 +22,7 @@ export default function RacePage() {
 
   const [tab, setTab] = useState<"parts" | "individuals">("parts");
   const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
   const [showScoringModal, setShowScoringModal] = useState(false);
 
   const {
@@ -39,14 +43,17 @@ export default function RacePage() {
     );
   }
 
-  if (error || !data) {
+  if (!data) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-          <AlertCircle size={16} />
-          <span className="text-sm">{error?.message ?? "データが見つかりません"}</span>
-        </div>
-      </div>
+      <PageErrorState
+        title="チケットレース"
+        backHref={`/${org}/tickets`}
+        message={
+          error
+            ? userErrorMessage(error, "読み込みに失敗しました。ページを再読み込みしてください。")
+            : "データが見つかりません"
+        }
+      />
     );
   }
 
@@ -58,6 +65,13 @@ export default function RacePage() {
     return (
       <div className="flex h-full flex-col">
         <PageHeader title="チケットレース" backHref={backHref} />
+        <ErrorMessage className="mx-4 mt-6 sm:mx-8" autoScroll={false}>
+          {error &&
+            userErrorMessage(
+              error,
+              "最新のレース結果の読み込みに失敗しました。ページを再読み込みしてください。",
+            )}
+        </ErrorMessage>
         <div className="flex flex-1 items-center justify-center">
           <p className="text-sm text-gray-400">まだ配布・販売データがありません</p>
         </div>
@@ -70,10 +84,15 @@ export default function RacePage() {
       <button
         onClick={async () => {
           setPublishing(true);
+          setPublishError(null);
           try {
             await ticketsApi.unpublishRace(org, concertId);
             queryClient.setQueryData<RaceData>(ticketKeys.race(org, concertId), (prev) =>
               prev ? { ...prev, racePublishedAt: null } : prev,
+            );
+          } catch (err) {
+            setPublishError(
+              userErrorMessage(err, "公開の取り消しに失敗しました。もう一度お試しください。"),
             );
           } finally {
             setPublishing(false);
@@ -89,11 +108,14 @@ export default function RacePage() {
       <button
         onClick={async () => {
           setPublishing(true);
+          setPublishError(null);
           try {
             const result = await ticketsApi.publishRace(org, concertId);
             queryClient.setQueryData<RaceData>(ticketKeys.race(org, concertId), (prev) =>
               prev ? { ...prev, racePublishedAt: result.racePublishedAt } : prev,
             );
+          } catch (err) {
+            setPublishError(userErrorMessage(err, "公開に失敗しました。もう一度お試しください。"));
           } finally {
             setPublishing(false);
           }
@@ -169,6 +191,14 @@ export default function RacePage() {
       </PageHeader>
 
       <main className="mx-auto w-full max-w-2xl flex-1 space-y-4 px-4 py-6 sm:px-8">
+        <ErrorMessage autoScroll={false}>
+          {error &&
+            userErrorMessage(
+              error,
+              "最新のレース結果の読み込みに失敗しました。ページを再読み込みしてください。",
+            )}
+        </ErrorMessage>
+        <ErrorMessage>{publishError}</ErrorMessage>
         <ScoringRules scoring={data.scoring} />
 
         {tab === "parts" ? (

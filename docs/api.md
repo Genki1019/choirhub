@@ -5097,33 +5097,38 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 
 ```json
 {
-  "data": [
-    {
-      "id": "string",
-      "concertId": "string",
-      "destination": "渋谷駅前",
-      "activityDate": "2026-05-10T00:00:00.000Z",
-      "note": "string | null",
-      "status": "pending | paid",
-      "paidAt": "string | null",
-      "createdBy": "string",
-      "creatorName": "string",
-      "createdAt": "string",
-      "participants": [
-        {
-          "id": "string",
-          "memberId": "string",
-          "memberName": "string",
-          "partId": "string | null",
-          "partName": "string | null",
-          "ticketsSold": 3,
-          "expense": 500
-        }
-      ]
-    }
-  ]
+  "data": {
+    "concert": { "id": "string", "title": "第20回定期演奏会" },
+    "activities": [
+      {
+        "id": "string",
+        "concertId": "string",
+        "destination": "渋谷駅前",
+        "activityDate": "2026-05-10T00:00:00.000Z",
+        "note": "string | null",
+        "status": "pending | paid",
+        "paidAt": "string | null",
+        "createdById": "string",
+        "creatorName": "string",
+        "createdAt": "string",
+        "participants": [
+          {
+            "id": "string",
+            "memberId": "string",
+            "memberName": "string",
+            "partId": "string | null",
+            "partName": "string | null",
+            "ticketsSold": 3,
+            "expense": 500
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
+
+> - `concert`は演奏会の ID と名前。一般団員も呼べるので、情宣ページのヘッダーの演奏会名はここから表示する（担当者専用の[チケット集計の取得](#tickets-id-get)は使わない）
 
 **Errors:**: `404` `NOT_FOUND` 演奏会が存在しない
 

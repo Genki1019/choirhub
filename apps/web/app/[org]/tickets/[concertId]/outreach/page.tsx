@@ -7,7 +7,7 @@ import { ticketsApi } from "@/lib/tickets-api";
 import { membersApi } from "@/lib/members-api";
 import { useMember } from "@/contexts/MemberContext";
 import { useQuery } from "@tanstack/react-query";
-import { ticketKeys, memberKeys } from "@/lib/query-keys";
+import { memberKeys } from "@/lib/query-keys";
 import { CreateModal } from "./_components/CreateModal";
 import { ActivityCard } from "./_components/ActivityCard";
 import { PageHeader } from "@/components/PageHeader";
@@ -37,11 +37,6 @@ export default function OutreachPage() {
     queryKey: memberKeys.activeList(org),
     queryFn: () => membersApi.list(org, { status: "active" }),
   });
-  const { data: concertTitle = "" } = useQuery({
-    queryKey: ticketKeys.detail(org, concertId),
-    queryFn: () => ticketsApi.get(org, concertId),
-    select: (d) => d.concert.title,
-  });
   const loading = loadingActs || loadingMembers;
 
   if (loading) {
@@ -66,13 +61,13 @@ export default function OutreachPage() {
     );
   }
 
-  const { activities } = activitiesData;
+  const { concert, activities } = activitiesData;
 
   return (
     <div className="flex flex-col">
       <PageHeader
         title="情宣活動の申請"
-        subtitle={<span className="text-sm text-gray-400">{concertTitle}</span>}
+        subtitle={<span className="text-sm text-gray-400">{concert.title}</span>}
         backHref={`/${org}/tickets/${concertId}/my`}
         actions={
           <button

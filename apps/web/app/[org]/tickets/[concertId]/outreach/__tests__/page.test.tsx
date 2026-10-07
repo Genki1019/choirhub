@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import OutreachPage from "../page";
 import { MemberProvider } from "@/contexts/MemberContext";
-import { ticketsApi, type OutreachActivityRow, type TicketDetail } from "@/lib/tickets-api";
+import { ticketsApi, type OutreachActivityRow } from "@/lib/tickets-api";
 import { membersApi } from "@/lib/members-api";
 
 vi.mock("next/navigation", () => ({
@@ -52,21 +52,6 @@ function makeActivity(overrides: Partial<OutreachActivityRow> = {}): OutreachAct
   };
 }
 
-function makeDetail(overrides: Partial<TicketDetail> = {}): TicketDetail {
-  return {
-    concert: {
-      id: "concert-1",
-      title: "第20回定期演奏会",
-      heldOn: "2026-11-23",
-      ticketInputClosedAt: null,
-      outreachExpensePerTrip: null,
-    },
-    batches: [],
-    partSummary: [],
-    ...overrides,
-  };
-}
-
 function listOf(activities: OutreachActivityRow[]) {
   return { concert: { id: "concert-1", title: "第20回定期演奏会" }, activities };
 }
@@ -90,7 +75,6 @@ beforeEach(() => {
 describe("OutreachPage（表示）", () => {
   it("データ取得中は「読み込み中...」を表示する", () => {
     vi.mocked(ticketsApi.listOutreachActivities).mockReturnValue(new Promise(() => {}));
-    vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
     renderPage();
 
     expect(screen.getByText("読み込み中...")).toBeInTheDocument();
@@ -100,7 +84,6 @@ describe("OutreachPage（表示）", () => {
     vi.mocked(ticketsApi.listOutreachActivities).mockRejectedValue(
       new TypeError("Failed to fetch"),
     );
-    vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
     renderPage();
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -110,7 +93,6 @@ describe("OutreachPage（表示）", () => {
 
   it("団員一覧の取得に失敗したら、参加者を選べないことを上部に表示する", async () => {
     vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue(listOf([]));
-    vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
     vi.mocked(membersApi.list).mockRejectedValue(new TypeError("Failed to fetch"));
     renderPage();
 
@@ -122,26 +104,24 @@ describe("OutreachPage（表示）", () => {
 
   it("0件の場合は案内メッセージを表示する", async () => {
     vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue(listOf([]));
-    vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
     renderPage();
 
     expect(await screen.findByText("情宣活動の申請がありません")).toBeInTheDocument();
   });
 
-  it("演奏会タイトルとActivityCard一覧を表示する", async () => {
+  it("一般団員でも、一覧の応答から演奏会名とActivityCardを表示する（担当者専用のチケット詳細APIは呼ばない）", async () => {
     vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue(listOf([makeActivity()]));
-    vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
-    renderPage();
+    renderPage(["member"]);
 
     expect(await screen.findByText("第20回定期演奏会")).toBeInTheDocument();
     expect(screen.getByText("渋谷駅前")).toBeInTheDocument();
+    expect(ticketsApi.get).not.toHaveBeenCalled();
   });
 });
 
 describe("OutreachPage（支払い・取り消し操作）", () => {
   it("「支払済みにする」クリック後、一覧のキャッシュがpaidに更新される", async () => {
     vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue(listOf([makeActivity()]));
-    vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
     vi.mocked(ticketsApi.payOutreachActivity).mockResolvedValue(makeActivity({ status: "paid" }));
     const user = userEvent.setup();
     renderPage(["ticket"]);
@@ -156,7 +136,6 @@ describe("OutreachPage（支払い・取り消し操作）", () => {
     vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue(
       listOf([makeActivity({ status: "paid" })]),
     );
-    vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
     vi.mocked(ticketsApi.unpayOutreachActivity).mockResolvedValue(
       makeActivity({ status: "pending" }),
     );
@@ -175,7 +154,6 @@ describe("OutreachPage（支払い・取り消し操作）", () => {
 describe("OutreachPage（新規申請）", () => {
   it("「新規申請」クリックでCreateModalが開く", async () => {
     vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue(listOf([]));
-    vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
     const user = userEvent.setup();
     renderPage();
 

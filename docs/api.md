@@ -174,7 +174,7 @@
 | [席種更新](#tickets-batches-patch)                          | PATCH  | `/:orgSlug/tickets/:concertId/batches/:batchId`               | ticket or admin                       |
 | [席種削除](#tickets-batches-delete)                         | DELETE | `/:orgSlug/tickets/:concertId/batches/:batchId`               | ticket or admin                       |
 | [チケット配布記録](#tickets-allocate)                       | POST   | `/:orgSlug/tickets/:concertId/allocate`                       | ticket or admin / member+（自分のみ） |
-| [販売・回収報告](#tickets-allocation-patch)                 | PATCH  | `/:orgSlug/tickets/allocations/:id`                           | member（自分）/ ticket or admin       |
+| [販売・回収報告](#tickets-allocation-patch)                 | PATCH  | `/:orgSlug/tickets/allocations/:id`                           | member+（自分）/ ticket or admin      |
 | [情宣交通費一括支払い記録](#tickets-outreach-expenses-bulk) | POST   | `/:orgSlug/tickets/:concertId/outreach-expenses/bulk`         | ticket or admin                       |
 | [情宣交通費単価設定](#tickets-outreach-expense-rate)        | PATCH  | `/:orgSlug/tickets/:concertId/outreach-expense-rate`          | ticket or admin                       |
 | [パートレース取得](#tickets-race)                           | GET    | `/:orgSlug/tickets/:concertId/race`                           | ticket or admin                       |
@@ -3806,7 +3806,7 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 }
 ```
 
-**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 他メンバーへの登録を一般団員が行おうとした / `403` `INPUT_CLOSED` 入力締切後に非担当者が自分の申請をしようとした / `404` `NOT_FOUND` 席種が存在しない・指定の演奏会に属していない / `404` `NOT_FOUND` 指定のメンバーがこの団体にいない（別団体・削除済み・客演・体験）
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 客演・体験が自分の申請をしようとした / `403` `FORBIDDEN` 他メンバーへの登録を一般団員が行おうとした / `403` `INPUT_CLOSED` 入力締切後に非担当者が自分の申請をしようとした / `404` `NOT_FOUND` 席種が存在しない・指定の演奏会に属していない / `404` `NOT_FOUND` 指定のメンバーがこの団体にいない（別団体・削除済み・客演・体験）
 
 ---
 
@@ -3816,7 +3816,7 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 
 販売・回収報告を更新する（自分の配布分の報告、またはticket担当者/adminによる全員分の更新）。
 
-**権限**: `member`（自分の記録のみ）/ `ticket or admin`（全員）
+**権限**: `member+`（自分の記録のみ。客演・体験は不可）/ `ticket or admin`（全員）
 
 **Request Body:**（すべて省略可）
 
@@ -3839,7 +3839,7 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 
 **Response** `200` → 更新後の配布情報
 
-**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 自分以外の記録を編集しようとした / `403` `FORBIDDEN` 一般団員が`allocatedCount`・`isOutreachExpensePaid`を指定した / `403` `INPUT_CLOSED` 入力締切後に非担当者が編集しようとした / `404` `NOT_FOUND` 配布記録が存在しない
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 客演・体験が編集しようとした / `403` `FORBIDDEN` 自分以外の記録を編集しようとした / `403` `FORBIDDEN` 一般団員が`allocatedCount`・`isOutreachExpensePaid`を指定した / `403` `INPUT_CLOSED` 入力締切後に非担当者が編集しようとした / `404` `NOT_FOUND` 配布記録が存在しない
 
 ---
 

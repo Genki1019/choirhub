@@ -64,6 +64,11 @@ describe("AllocationRowComponent（表示）", () => {
     expect(screen.getByText("-5")).toHaveClass("text-red-500");
   });
 
+  it("配布数の編集ボタンは、マウスを乗せなくても常に見える", () => {
+    renderRow();
+    expect(screen.getByLabelText("山田太郎の配布数を編集")).not.toHaveClass("opacity-0");
+  });
+
   it("requestedCountがallocatedCountと異なる場合は申請バッジを表示する", () => {
     renderRow({ row: makeRow({ requestedCount: 15 }) });
     expect(screen.getByText("申請15")).toBeInTheDocument();

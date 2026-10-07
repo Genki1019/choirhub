@@ -117,7 +117,7 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
               </button>
             </div>
           ) : (
-            <div className="group flex items-center gap-1">
+            <div className="flex items-center gap-1">
               <span className="text-sm text-gray-700">{row.allocatedCount}</span>
               {row.requestedCount !== null && row.requestedCount !== row.allocatedCount && (
                 <span className="rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs leading-none text-amber-600">
@@ -130,7 +130,7 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
                   setEditingAlloc(true);
                 }}
                 aria-label={`${row.nameJa}の配布数を編集`}
-                className="hover:text-brand-500 p-0.5 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100"
+                className="hover:text-brand-500 p-0.5 text-gray-400 transition-colors"
               >
                 <Pencil size={10} />
               </button>

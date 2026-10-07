@@ -824,6 +824,49 @@ describe("POST /tickets/:concertId/allocate", () => {
     expect(prisma.member.findFirst).not.toHaveBeenCalled();
   });
 
+  it.each([["guest"], ["visitor"]])(
+    "%sだけの団員が自分の分を申請: 403を返し席種も調べない",
+    async (role) => {
+      const app = createTestApp(makeMember([role], "guest-1"));
+      const res = await app.request(`/tickets/${testConcert.id}/allocate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ batchId: "batch-1", allocatedCount: 5 }),
+      });
+
+      expect(res.status).toBe(403);
+      const body = await json(res);
+      expect(body.error).toEqual({
+        code: "FORBIDDEN",
+        message: "チケットの入力は一般団員以上のみ可能です",
+      });
+      expect(prisma.ticketBatch.findUnique).not.toHaveBeenCalled();
+      expect(prisma.ticketAllocation.upsert).not.toHaveBeenCalled();
+    },
+  );
+
+  it("memberとguestを兼ねる団員は自分の分を申請できる", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.ticketBatch.findUnique).mockResolvedValue(openBatch as any);
+    vi.mocked(prisma.ticketAllocation.upsert).mockResolvedValue({
+      id: "allocation-1",
+      batchId: "batch-1",
+      memberId: "member-1",
+      allocatedCount: 0,
+      requestedCount: 5,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const app = createTestApp(makeMember(["member", "guest"], "member-1"));
+    const res = await app.request(`/tickets/${testConcert.id}/allocate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ batchId: "batch-1", allocatedCount: 5 }),
+    });
+
+    expect(res.status).toBe(201);
+  });
+
   it("席種が存在しない/別演奏会・別テナント: 404を返す", async () => {
     vi.mocked(prisma.ticketBatch.findUnique).mockResolvedValue(null);
 
@@ -1007,6 +1050,43 @@ describe("PATCH /tickets/allocations/:id", () => {
     expect(res.status).toBe(400);
     const body = await json(res);
     expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it.each([["guest"], ["visitor"]])(
+    "%sだけの団員が自分の記録を更新: 403を返し記録も調べない",
+    async (role) => {
+      const app = createTestApp(makeMember([role], "member-1"));
+      const res = await app.request("/tickets/allocations/allocation-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ soldAdult: 1 }),
+      });
+
+      expect(res.status).toBe(403);
+      const body = await json(res);
+      expect(body.error).toEqual({
+        code: "FORBIDDEN",
+        message: "チケットの入力は一般団員以上のみ可能です",
+      });
+      expect(prisma.ticketAllocation.findUnique).not.toHaveBeenCalled();
+      expect(prisma.ticketAllocation.update).not.toHaveBeenCalled();
+    },
+  );
+
+  it("memberとguestを兼ねる団員は自分の記録を更新できる", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.ticketAllocation.findUnique).mockResolvedValue(openAllocation as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.ticketAllocation.update).mockResolvedValue(openAllocation as any);
+
+    const app = createTestApp(makeMember(["member", "guest"], "member-1"));
+    const res = await app.request("/tickets/allocations/allocation-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ outreachCount: 1 }),
+    });
+
+    expect(res.status).toBe(200);
   });
 
   it("配布記録が存在しない/別テナント: 404を返す", async () => {

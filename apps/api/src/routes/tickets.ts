@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { isTicketManager, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
+import { isTicketManager, isMemberPlus, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
 import {
   computePartScores,
   resolveScoringConfig,
@@ -367,6 +367,13 @@ export const ticketsRouter = new Hono<TenantEnv>()
       const actingMember = c.get("member");
       const { id } = c.req.param();
 
+      if (!isMemberPlus(actingMember)) {
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "チケットの入力は一般団員以上のみ可能です" } },
+          403,
+        );
+      }
+
       const allocation = await prisma.ticketAllocation.findUnique({
         where: { id },
         include: { batch: { include: { concert: true } } },
@@ -634,6 +641,13 @@ export const ticketsRouter = new Hono<TenantEnv>()
       const org = c.get("org");
       const { concertId } = c.req.param();
       const { batchId, memberId: rawMemberId, allocatedCount } = c.req.valid("json");
+
+      if (!isMemberPlus(actingMember)) {
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "チケットの入力は一般団員以上のみ可能です" } },
+          403,
+        );
+      }
 
       const targetMemberId = rawMemberId ?? actingMember.id;
       const isSelf = targetMemberId === actingMember.id;

@@ -67,6 +67,10 @@ function makeDetail(overrides: Partial<TicketDetail> = {}): TicketDetail {
   };
 }
 
+function listOf(activities: OutreachActivityRow[]) {
+  return { concert: { id: "concert-1", title: "第20回定期演奏会" }, activities };
+}
+
 function renderPage(roles: string[] = ["member"]) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -105,7 +109,7 @@ describe("OutreachPage（表示）", () => {
   });
 
   it("団員一覧の取得に失敗したら、参加者を選べないことを上部に表示する", async () => {
-    vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue([]);
+    vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue(listOf([]));
     vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
     vi.mocked(membersApi.list).mockRejectedValue(new TypeError("Failed to fetch"));
     renderPage();
@@ -117,7 +121,7 @@ describe("OutreachPage（表示）", () => {
   });
 
   it("0件の場合は案内メッセージを表示する", async () => {
-    vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue([]);
+    vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue(listOf([]));
     vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
     renderPage();
 
@@ -125,7 +129,7 @@ describe("OutreachPage（表示）", () => {
   });
 
   it("演奏会タイトルとActivityCard一覧を表示する", async () => {
-    vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue([makeActivity()]);
+    vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue(listOf([makeActivity()]));
     vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
     renderPage();
 
@@ -136,7 +140,7 @@ describe("OutreachPage（表示）", () => {
 
 describe("OutreachPage（支払い・取り消し操作）", () => {
   it("「支払済みにする」クリック後、一覧のキャッシュがpaidに更新される", async () => {
-    vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue([makeActivity()]);
+    vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue(listOf([makeActivity()]));
     vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
     vi.mocked(ticketsApi.payOutreachActivity).mockResolvedValue(makeActivity({ status: "paid" }));
     const user = userEvent.setup();
@@ -149,9 +153,9 @@ describe("OutreachPage（支払い・取り消し操作）", () => {
   });
 
   it("「未払いに戻す」クリック後、一覧のキャッシュがpendingに更新される", async () => {
-    vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue([
-      makeActivity({ status: "paid" }),
-    ]);
+    vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue(
+      listOf([makeActivity({ status: "paid" })]),
+    );
     vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
     vi.mocked(ticketsApi.unpayOutreachActivity).mockResolvedValue(
       makeActivity({ status: "pending" }),
@@ -170,7 +174,7 @@ describe("OutreachPage（支払い・取り消し操作）", () => {
 
 describe("OutreachPage（新規申請）", () => {
   it("「新規申請」クリックでCreateModalが開く", async () => {
-    vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue([]);
+    vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue(listOf([]));
     vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail());
     const user = userEvent.setup();
     renderPage();

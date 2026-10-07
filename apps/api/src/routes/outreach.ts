@@ -39,16 +39,20 @@ export const outreachRouter = new Hono<TenantEnv>()
       },
     });
 
-    if (!isTicketManager(actingMember)) {
-      const filtered = activities.filter(
-        (a) =>
-          a.createdById === actingMember.id ||
-          a.participants.some((p) => p.memberId === actingMember.id),
-      );
-      return c.json({ data: filtered.map(formatActivity) });
-    }
+    const visible = isTicketManager(actingMember)
+      ? activities
+      : activities.filter(
+          (a) =>
+            a.createdById === actingMember.id ||
+            a.participants.some((p) => p.memberId === actingMember.id),
+        );
 
-    return c.json({ data: activities.map(formatActivity) });
+    return c.json({
+      data: {
+        concert: { id: concert.id, title: concert.title },
+        activities: visible.map(formatActivity),
+      },
+    });
   })
 
   // POST /tickets/:concertId/outreach

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Check, Undo2, Trash2, Loader2, Bus } from "lucide-react";
-import { ticketsApi, type OutreachActivityRow } from "@/lib/tickets-api";
+import { ticketsApi } from "@/lib/tickets-api";
+import { useOutreachActivities } from "@/hooks/useOutreachActivities";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { userErrorMessage } from "@/lib/api-client";
 
@@ -12,33 +13,18 @@ interface OutreachExpenseTabProps {
 }
 
 export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabProps) {
-  const [activities, setActivities] = useState<OutreachActivityRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading, error, updateActivity, removeActivity } = useOutreachActivities(
+    orgSlug,
+    concertId,
+  );
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  useEffect(() => {
-    ticketsApi
-      .listOutreachActivities(orgSlug, concertId)
-      .then(setActivities)
-      .catch((err: unknown) =>
-        setLoadError(
-          userErrorMessage(
-            err,
-            "情宣活動の読み込みに失敗しました。ページを再読み込みしてください。",
-          ),
-        ),
-      )
-      .finally(() => setLoading(false));
-  }, [orgSlug, concertId]);
 
   const handlePay = async (activityId: string) => {
     setUpdatingId(activityId);
     setActivitiesError(null);
     try {
-      const updated = await ticketsApi.payOutreachActivity(orgSlug, concertId, activityId);
-      setActivities((prev) => prev.map((a) => (a.id === activityId ? updated : a)));
+      updateActivity(await ticketsApi.payOutreachActivity(orgSlug, concertId, activityId));
     } catch (err: unknown) {
       setActivitiesError(
         userErrorMessage(err, "支払いの記録に失敗しました。もう一度お試しください。"),
@@ -52,8 +38,7 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
     setUpdatingId(activityId);
     setActivitiesError(null);
     try {
-      const updated = await ticketsApi.unpayOutreachActivity(orgSlug, concertId, activityId);
-      setActivities((prev) => prev.map((a) => (a.id === activityId ? updated : a)));
+      updateActivity(await ticketsApi.unpayOutreachActivity(orgSlug, concertId, activityId));
     } catch (err: unknown) {
       setActivitiesError(
         userErrorMessage(err, "支払いの取り消しに失敗しました。もう一度お試しください。"),
@@ -69,7 +54,7 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
     setActivitiesError(null);
     try {
       await ticketsApi.deleteOutreachActivity(orgSlug, concertId, activityId);
-      setActivities((prev) => prev.filter((a) => a.id !== activityId));
+      removeActivity(activityId);
     } catch (err: unknown) {
       setActivitiesError(
         userErrorMessage(err, "情宣活動の削除に失敗しました。もう一度お試しください。"),
@@ -79,6 +64,27 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-12 text-gray-400">
+        <Loader2 size={16} className="animate-spin" />
+        <span className="text-sm">読み込み中...</span>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <ErrorMessage variant="section">
+        {userErrorMessage(
+          error,
+          "情宣活動の読み込みに失敗しました。ページを再読み込みしてください。",
+        )}
+      </ErrorMessage>
+    );
+  }
+
+  const { activities } = data;
   const pending = activities.filter((a) => a.status === "pending");
   const totalExpense = activities.reduce(
     (s, a) => s + a.participants.reduce((ps, p) => ps + (p.expense ?? 0), 0),
@@ -89,19 +95,15 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
     0,
   );
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-12 text-gray-400">
-        <Loader2 size={16} className="animate-spin" />
-        <span className="text-sm">読み込み中...</span>
-      </div>
-    );
-  }
-
-  if (loadError) return <ErrorMessage variant="section">{loadError}</ErrorMessage>;
-
   return (
     <div className="mx-auto max-w-2xl space-y-5">
+      <ErrorMessage autoScroll={false}>
+        {error &&
+          userErrorMessage(
+            error,
+            "最新の情宣活動の読み込みに失敗しました。ページを再読み込みしてください。",
+          )}
+      </ErrorMessage>
       <div className="flex flex-wrap items-center gap-4">
         <div className="rounded-xl border border-gray-200 bg-white px-5 py-3 text-center">
           <p className="mb-0.5 text-xs text-gray-400">申請件数</p>

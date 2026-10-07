@@ -427,6 +427,12 @@ export const ticketsRouter = new Hono<TenantEnv>()
           403,
         );
       }
+      if (body.isCollected !== undefined && !isMgr) {
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "集金状況の記録はチケット担当者のみ可能です" } },
+          403,
+        );
+      }
 
       const updated = await prisma.ticketAllocation.update({
         where: { id, batch: { concert: { orgId: c.get("org").id } } },

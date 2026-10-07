@@ -1152,6 +1152,56 @@ describe("PATCH /tickets/allocations/:id", () => {
     expect(body.error.code).toBe("FORBIDDEN");
   });
 
+  it.each([[true], [false]])(
+    "一般団員が自分の記録にisCollected=%sを指定: 403を返し更新しない",
+    async (isCollected) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      vi.mocked(prisma.ticketAllocation.findUnique).mockResolvedValue(openAllocation as any);
+
+      const app = createTestApp(makeMember(["member"], "member-1"));
+      const res = await app.request("/tickets/allocations/allocation-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isCollected }),
+      });
+
+      expect(res.status).toBe(403);
+      const body = await json(res);
+      expect(body.error).toEqual({
+        code: "FORBIDDEN",
+        message: "集金状況の記録はチケット担当者のみ可能です",
+      });
+      expect(prisma.ticketAllocation.update).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([[["ticket"]], [["admin"]]])(
+    "%s が他人の記録にisCollectedを指定: 集金済みに更新される",
+    async (roles) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      vi.mocked(prisma.ticketAllocation.findUnique).mockResolvedValue(openAllocation as any);
+      vi.mocked(prisma.ticketAllocation.update).mockResolvedValue({
+        ...openAllocation,
+        isCollected: true,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+
+      const app = createTestApp(makeMember(roles, "manager-1"));
+      const res = await app.request("/tickets/allocations/allocation-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isCollected: true }),
+      });
+
+      expect(res.status).toBe(200);
+      const body = await json(res);
+      expect(body.data.isCollected).toBe(true);
+      expect(prisma.ticketAllocation.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { isCollected: true } }),
+      );
+    },
+  );
+
   it("締切後・非担当者が自分の記録を編集: 403 INPUT_CLOSEDを返す", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.ticketAllocation.findUnique).mockResolvedValue(closedAllocation as any);

@@ -323,7 +323,7 @@ function formatActivity(a: ActivityWithRelations) {
     note: a!.note,
     status: a!.status,
     paidAt: a!.paidAt,
-    createdBy: a!.createdById,
+    createdById: a!.createdById,
     creatorName: a!.creator.userRef.nameJa,
     createdAt: a!.createdAt,
     participants: a!.participants.map((p) => ({

@@ -146,6 +146,8 @@ describe("GET /tickets/:concertId/outreach", () => {
     const body = await json(res);
     expect(body.data.activities.map((a: { id: string }) => a.id)).toEqual(["activity-mine"]);
     expect(body.data.concert).toEqual({ id: testConcert.id, title: testConcert.title });
+    expect(body.data.activities[0].createdById).toBe("member-1");
+    expect(body.data.activities[0]).not.toHaveProperty("createdBy");
   });
 
   it("正常（ticket担当者）: 全件返る", async () => {

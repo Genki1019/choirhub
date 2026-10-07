@@ -15,6 +15,7 @@ import { PageErrorState } from "@/components/PageErrorState";
 import { userErrorMessage } from "@/lib/api-client";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { useOutreachActivities } from "@/hooks/useOutreachActivities";
+import { canManageTickets } from "@/lib/roles";
 
 export default function OutreachPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -107,7 +108,7 @@ export default function OutreachPage() {
               key={a.id}
               activity={a}
               myMemberId={memberId}
-              isAdmin={roles.includes("admin") || roles.includes("ticket")}
+              canManage={canManageTickets(roles)}
               orgSlug={org}
               concertId={concertId}
               onDeleted={removeActivity}

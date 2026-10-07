@@ -98,6 +98,10 @@ export const canManageScorePdf = (roles: string[]): boolean =>
 export const canManageScoreMidi = (roles: string[]): boolean =>
   roles.includes("admin") || roles.includes("tech") || roles.includes("conductor");
 
+/** チケットの管理権限（admin / ticket。APIの isTicketManager と同じ判定） */
+export const canManageTickets = (roles: string[]): boolean =>
+  roles.includes("admin") || roles.includes("ticket");
+
 /** 設定画面・財務画面へのアクセス権限（admin / finance） */
 export const canAccessSettings = (roles: string[]): boolean =>
   roles.includes("admin") || roles.includes("finance");

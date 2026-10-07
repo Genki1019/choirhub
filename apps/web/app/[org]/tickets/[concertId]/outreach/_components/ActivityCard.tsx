@@ -32,7 +32,7 @@ function dateLabel(iso: string) {
 interface ActivityCardProps {
   activity: OutreachActivityRow;
   myMemberId: string;
-  isAdmin: boolean;
+  canManage: boolean;
   orgSlug: string;
   concertId: string;
   onDeleted: (id: string) => void;
@@ -42,7 +42,7 @@ interface ActivityCardProps {
 export function ActivityCard({
   activity,
   myMemberId,
-  isAdmin,
+  canManage,
   orgSlug,
   concertId,
   onDeleted,
@@ -53,7 +53,7 @@ export function ActivityCard({
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canDelete = activity.createdById === myMemberId || isAdmin;
+  const canDelete = activity.createdById === myMemberId || canManage;
   const totalExpense = activity.participants.reduce((s, p) => s + (p.expense ?? 0), 0);
   const totalSold = activity.participants.reduce((s, p) => s + p.ticketsSold, 0);
 
@@ -129,7 +129,7 @@ export function ActivityCard({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {isAdmin && activity.status === "pending" && (
+          {canManage && activity.status === "pending" && (
             <button
               type="button"
               onClick={(e) => {
@@ -144,7 +144,7 @@ export function ActivityCard({
               支払済みにする
             </button>
           )}
-          {isAdmin && activity.status === "paid" && (
+          {canManage && activity.status === "paid" && (
             <button
               type="button"
               onClick={(e) => {

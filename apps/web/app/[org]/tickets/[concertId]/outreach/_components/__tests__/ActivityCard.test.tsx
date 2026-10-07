@@ -54,7 +54,7 @@ describe("ActivityCard（表示）", () => {
       <ActivityCard
         activity={makeActivity()}
         myMemberId="member-1"
-        isAdmin={false}
+        canManage={false}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
@@ -74,7 +74,7 @@ describe("ActivityCard（表示）", () => {
       <ActivityCard
         activity={makeActivity({ status: "paid" })}
         myMemberId="member-1"
-        isAdmin={false}
+        canManage={false}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
@@ -85,12 +85,12 @@ describe("ActivityCard（表示）", () => {
     expect(screen.getByText("支払済")).toBeInTheDocument();
   });
 
-  it("申請者本人でもadminでもない場合は削除ボタンを表示しない", () => {
+  it("申請者本人でも担当者でもない場合は削除ボタンを表示しない", () => {
     render(
       <ActivityCard
         activity={makeActivity({ createdById: "other-member" })}
         myMemberId="member-1"
-        isAdmin={false}
+        canManage={false}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
@@ -101,12 +101,12 @@ describe("ActivityCard（表示）", () => {
     expect(screen.queryByLabelText("渋谷駅前を削除")).not.toBeInTheDocument();
   });
 
-  it("adminの場合は申請者本人でなくても削除ボタンを表示する", () => {
+  it("担当者の場合は申請者本人でなくても削除ボタンを表示する", () => {
     render(
       <ActivityCard
         activity={makeActivity({ createdById: "other-member" })}
         myMemberId="member-1"
-        isAdmin={true}
+        canManage={true}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
@@ -125,7 +125,7 @@ describe("ActivityCard（展開）", () => {
       <ActivityCard
         activity={makeActivity()}
         myMemberId="member-1"
-        isAdmin={false}
+        canManage={false}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
@@ -148,7 +148,7 @@ describe("ActivityCard（削除操作）", () => {
       <ActivityCard
         activity={makeActivity()}
         myMemberId="member-1"
-        isAdmin={false}
+        canManage={false}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
@@ -169,7 +169,7 @@ describe("ActivityCard（削除操作）", () => {
       <ActivityCard
         activity={makeActivity()}
         myMemberId="member-1"
-        isAdmin={false}
+        canManage={false}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={onDeleted}
@@ -193,7 +193,7 @@ describe("ActivityCard（削除操作）", () => {
       <ActivityCard
         activity={makeActivity()}
         myMemberId="member-1"
-        isAdmin={false}
+        canManage={false}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
@@ -217,7 +217,7 @@ describe("ActivityCard（削除操作）", () => {
       <ActivityCard
         activity={makeActivity()}
         myMemberId="member-1"
-        isAdmin={false}
+        canManage={false}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
@@ -231,12 +231,12 @@ describe("ActivityCard（削除操作）", () => {
 });
 
 describe("ActivityCard（支払い・取り消し操作）", () => {
-  it("adminかつpending時のみ「支払済みにする」ボタンを表示する", () => {
+  it("担当者かつpending時のみ「支払済みにする」ボタンを表示する", () => {
     render(
       <ActivityCard
         activity={makeActivity({ status: "pending" })}
         myMemberId="member-1"
-        isAdmin={true}
+        canManage={true}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
@@ -247,12 +247,12 @@ describe("ActivityCard（支払い・取り消し操作）", () => {
     expect(screen.getByLabelText("渋谷駅前を支払済みにする")).toBeInTheDocument();
   });
 
-  it("adminでない場合は「支払済みにする」ボタンを表示しない", () => {
+  it("担当者でない場合は「支払済みにする」ボタンを表示しない", () => {
     render(
       <ActivityCard
         activity={makeActivity({ status: "pending" })}
         myMemberId="member-1"
-        isAdmin={false}
+        canManage={false}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
@@ -268,7 +268,7 @@ describe("ActivityCard（支払い・取り消し操作）", () => {
       <ActivityCard
         activity={makeActivity({ status: "paid" })}
         myMemberId="member-1"
-        isAdmin={true}
+        canManage={true}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
@@ -288,7 +288,7 @@ describe("ActivityCard（支払い・取り消し操作）", () => {
       <ActivityCard
         activity={makeActivity({ status: "pending" })}
         myMemberId="member-1"
-        isAdmin={true}
+        canManage={true}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
@@ -311,7 +311,7 @@ describe("ActivityCard（支払い・取り消し操作）", () => {
       <ActivityCard
         activity={makeActivity({ status: "pending" })}
         myMemberId="member-1"
-        isAdmin={true}
+        canManage={true}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
@@ -335,7 +335,7 @@ describe("ActivityCard（支払い・取り消し操作）", () => {
       <ActivityCard
         activity={makeActivity({ status: "pending" })}
         myMemberId="member-1"
-        isAdmin={true}
+        canManage={true}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
@@ -352,12 +352,12 @@ describe("ActivityCard（支払い・取り消し操作）", () => {
     await waitFor(() => expect(screen.getByLabelText("渋谷駅前を支払済みにする")).toBeEnabled());
   });
 
-  it("adminかつpaid時のみ「未払いに戻す」ボタンを表示する", () => {
+  it("担当者かつpaid時のみ「未払いに戻す」ボタンを表示する", () => {
     render(
       <ActivityCard
         activity={makeActivity({ status: "paid" })}
         myMemberId="member-1"
-        isAdmin={true}
+        canManage={true}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
@@ -368,12 +368,12 @@ describe("ActivityCard（支払い・取り消し操作）", () => {
     expect(screen.getByLabelText("渋谷駅前を未払いに戻す")).toBeInTheDocument();
   });
 
-  it("adminでない場合は「未払いに戻す」ボタンを表示しない", () => {
+  it("担当者でない場合は「未払いに戻す」ボタンを表示しない", () => {
     render(
       <ActivityCard
         activity={makeActivity({ status: "paid" })}
         myMemberId="member-1"
-        isAdmin={false}
+        canManage={false}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
@@ -389,7 +389,7 @@ describe("ActivityCard（支払い・取り消し操作）", () => {
       <ActivityCard
         activity={makeActivity({ status: "pending" })}
         myMemberId="member-1"
-        isAdmin={true}
+        canManage={true}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
@@ -409,7 +409,7 @@ describe("ActivityCard（支払い・取り消し操作）", () => {
       <ActivityCard
         activity={makeActivity({ status: "paid" })}
         myMemberId="member-1"
-        isAdmin={true}
+        canManage={true}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
@@ -432,7 +432,7 @@ describe("ActivityCard（支払い・取り消し操作）", () => {
       <ActivityCard
         activity={makeActivity({ status: "paid" })}
         myMemberId="member-1"
-        isAdmin={true}
+        canManage={true}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}
@@ -456,7 +456,7 @@ describe("ActivityCard（支払い・取り消し操作）", () => {
       <ActivityCard
         activity={makeActivity({ status: "paid" })}
         myMemberId="member-1"
-        isAdmin={true}
+        canManage={true}
         orgSlug="o"
         concertId="concert-1"
         onDeleted={vi.fn()}

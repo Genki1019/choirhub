@@ -29,7 +29,7 @@ vi.mock("../../lib/prisma.js", () => ({
       delete: vi.fn(),
     },
     part: { findMany: vi.fn(), findUnique: vi.fn() },
-    member: { findMany: vi.fn(), findUnique: vi.fn() },
+    member: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn() },
     organizerPeriod: { findMany: vi.fn(), upsert: vi.fn(), deleteMany: vi.fn() },
   },
 }));
@@ -193,6 +193,25 @@ describe("GET /tickets", () => {
     expect(body.data[0].soldRate).toBe(0);
   });
 
+  it("正常: 別団体の団員のallocationは集計から除外するクエリになっている", async () => {
+    vi.mocked(prisma.concert.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    await app.request("/tickets");
+
+    expect(prisma.concert.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: {
+          ticketBatches: {
+            include: {
+              allocations: expect.objectContaining({ where: { member: { orgId: "org-1" } } }),
+            },
+          },
+        },
+      }),
+    );
+  });
+
   it("演奏会が0件: 空配列を返す", async () => {
     vi.mocked(prisma.concert.findMany).mockResolvedValue([]);
 
@@ -348,7 +367,7 @@ describe("GET /tickets/:concertId", () => {
     expect(body.error.code).toBe("NOT_FOUND");
   });
 
-  it("正常: guest/visitorのallocationは除外するクエリになっている", async () => {
+  it("正常: 別団体の団員・guest/visitorのallocationは除外するクエリになっている", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
     vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([]);
@@ -361,7 +380,9 @@ describe("GET /tickets/:concertId", () => {
       expect.objectContaining({
         include: expect.objectContaining({
           allocations: expect.objectContaining({
-            where: { member: { NOT: { roles: { hasSome: ["guest", "visitor"] } } } },
+            where: {
+              member: { orgId: "org-1", NOT: { roles: { hasSome: ["guest", "visitor"] } } },
+            },
           }),
         }),
       }),
@@ -509,7 +530,7 @@ describe("GET /tickets/:concertId/export", () => {
     expect(res.headers.get("Content-Disposition")).toContain("tickets_20261123_");
   });
 
-  it("正常: 配券・販売実績をCSVで返し、guest/visitorを除外する", async () => {
+  it("正常: 配券・販売実績をCSVで返し、別団体の団員・guest/visitorを除外する", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
     vi.mocked(prisma.ticketAllocation.findMany).mockResolvedValue([
@@ -537,7 +558,7 @@ describe("GET /tickets/:concertId/export", () => {
       expect.objectContaining({
         where: {
           batch: { concertId: testConcert.id },
-          member: { NOT: { roles: { hasSome: ["guest", "visitor"] } } },
+          member: { orgId: "org-1", NOT: { roles: { hasSome: ["guest", "visitor"] } } },
         },
       }),
     );
@@ -800,6 +821,7 @@ describe("POST /tickets/:concertId/allocate", () => {
     expect(res.status).toBe(403);
     const body = await json(res);
     expect(body.error.code).toBe("FORBIDDEN");
+    expect(prisma.member.findFirst).not.toHaveBeenCalled();
   });
 
   it("席種が存在しない/別演奏会・別テナント: 404を返す", async () => {
@@ -836,6 +858,8 @@ describe("POST /tickets/:concertId/allocate", () => {
   it("正常（ticket担当者が他者へ登録）: allocatedCountが確定しrequestedCountはnullになる", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.ticketBatch.findUnique).mockResolvedValue(openBatch as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.member.findFirst).mockResolvedValue({ id: "member-2" } as any);
     vi.mocked(prisma.ticketAllocation.upsert).mockResolvedValue({
       id: "allocation-1",
       batchId: "batch-1",
@@ -866,6 +890,37 @@ describe("POST /tickets/:concertId/allocate", () => {
       create: { batchId: "batch-1", memberId: "member-2", allocatedCount: 10 },
       update: { allocatedCount: 10, requestedCount: null },
     });
+    expect(prisma.member.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "member-2",
+        orgId: "org-1",
+        deletedAt: null,
+        NOT: { roles: { hasSome: ["guest", "visitor"] } },
+      },
+      select: { id: true },
+    });
+  });
+
+  it("指定した団員が別団体・削除済み・客演・体験（この団体で見つからない）: 404を返し登録しない", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.ticketBatch.findUnique).mockResolvedValue(openBatch as any);
+    vi.mocked(prisma.member.findFirst).mockResolvedValue(null);
+
+    const app = createTestApp(makeMember(["ticket"], "ticket-manager-1"));
+    const res = await app.request(`/tickets/${testConcert.id}/allocate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        batchId: "batch-1",
+        memberId: "other-org-member",
+        allocatedCount: 10,
+      }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await json(res);
+    expect(body.error).toEqual({ code: "NOT_FOUND", message: "メンバーが見つかりません" });
+    expect(prisma.ticketAllocation.upsert).not.toHaveBeenCalled();
   });
 
   it("正常（一般団員が自分の希望枚数申請）: requestedCountに入りallocatedCountは変更されない", async () => {
@@ -894,6 +949,7 @@ describe("POST /tickets/:concertId/allocate", () => {
       create: { batchId: "batch-1", memberId: actingMember.id, requestedCount: 8 },
       update: { requestedCount: 8 },
     });
+    expect(prisma.member.findFirst).not.toHaveBeenCalled();
   });
 
   it("正常（ticket担当者が自分の分を登録）: 締切後でも通る", async () => {
@@ -1643,7 +1699,7 @@ describe("GET /tickets/:concertId/race", () => {
     expect(body.data.individuals[0].outreachCount).toBe(5);
   });
 
-  it("正常: guest/visitorの配布記録は除外するクエリになっている", async () => {
+  it("正常: 別団体の団員・guest/visitorの配布記録は除外するクエリになっている", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
     vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([]);
@@ -1655,7 +1711,9 @@ describe("GET /tickets/:concertId/race", () => {
       expect.objectContaining({
         include: expect.objectContaining({
           allocations: expect.objectContaining({
-            where: { member: { NOT: { roles: { hasSome: ["guest", "visitor"] } } } },
+            where: {
+              member: { orgId: "org-1", NOT: { roles: { hasSome: ["guest", "visitor"] } } },
+            },
           }),
         }),
       }),

@@ -8,21 +8,11 @@ import { userErrorMessage } from "@/lib/api-client";
 
 interface AllocationRowProps {
   row: AllocationRow;
-  canEdit: boolean;
-  canEditAllocation: boolean;
-  isAdmin: boolean;
   orgSlug: string;
   onUpdated: (updated: Partial<AllocationRow>) => void;
 }
 
-export function AllocationRowComponent({
-  row,
-  canEdit,
-  canEditAllocation,
-  isAdmin,
-  orgSlug,
-  onUpdated,
-}: AllocationRowProps) {
+export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRowProps) {
   const [editing, setEditing] = useState(false);
   const [editingAlloc, setEditingAlloc] = useState(false);
   const [form, setForm] = useState({
@@ -127,25 +117,23 @@ export function AllocationRowComponent({
               </button>
             </div>
           ) : (
-            <div className="group flex items-center gap-1">
+            <div className="flex items-center gap-1">
               <span className="text-sm text-gray-700">{row.allocatedCount}</span>
               {row.requestedCount !== null && row.requestedCount !== row.allocatedCount && (
                 <span className="rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs leading-none text-amber-600">
                   申請{row.requestedCount}
                 </span>
               )}
-              {canEditAllocation && (
-                <button
-                  onClick={() => {
-                    setAllocCount(row.allocatedCount);
-                    setEditingAlloc(true);
-                  }}
-                  aria-label={`${row.nameJa}の配布数を編集`}
-                  className="hover:text-brand-500 p-0.5 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100"
-                >
-                  <Pencil size={10} />
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  setAllocCount(row.allocatedCount);
+                  setEditingAlloc(true);
+                }}
+                aria-label={`${row.nameJa}の配布数を編集`}
+                className="hover:text-brand-500 p-0.5 text-gray-400 transition-colors"
+              >
+                <Pencil size={10} />
+              </button>
             </div>
           )}
         </div>
@@ -201,7 +189,7 @@ export function AllocationRowComponent({
         </div>
 
         <div className="w-10 shrink-0 text-center">
-          {editing && isAdmin ? (
+          {editing ? (
             <input
               type="checkbox"
               aria-label={`${row.nameJa}の集金済み`}
@@ -217,7 +205,7 @@ export function AllocationRowComponent({
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-1">
-          {!editing && canEdit && (
+          {!editing && (
             <button
               onClick={() => {
                 setForm({

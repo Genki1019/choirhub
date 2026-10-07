@@ -440,44 +440,51 @@ describe("GET /tickets/:concertId", () => {
     ]);
   });
 
-  it("正常: myMemberIdが正しく返る", async () => {
+  it("正常: 配布行の集金状況をisCollectedとして返す", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
-    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([
+      {
+        id: "batch-1",
+        name: "一般",
+        price: 2000,
+        priceStudent: null,
+        totalCount: 100,
+        saleStart: null,
+        saleEnd: null,
+        allocations: [
+          {
+            id: "allocation-1",
+            memberId: "member-1",
+            allocatedCount: 10,
+            requestedCount: null,
+            soldAdult: 5,
+            soldStudent: 0,
+            soldOther: 0,
+            returnedCount: 0,
+            outreachCount: 0,
+            isOutreachExpensePaid: false,
+            outreachExpensePaidAt: null,
+            isCollected: true,
+            reportedAt: null,
+            member: {
+              userRef: { nameJa: "山田 太郎" },
+              part: { id: "part-1", name: "Tenor I", sortOrder: 1, voiceType: "tenor" },
+            },
+          },
+        ],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
     vi.mocked(prisma.part.findMany).mockResolvedValue([]);
 
-    const actingMember = makeMember(["ticket"], "member-9");
-    const app = createTestApp(actingMember);
+    const app = createTestApp(makeMember(["ticket"]));
     const res = await app.request(`/tickets/${testConcert.id}`);
 
     const body = await json(res);
-    expect(body.data.myMemberId).toBe("member-9");
-  });
-
-  it("正常: isAdminはticketロールのみのメンバーでもtrueになる（isTicketManager基準）", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
-    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.part.findMany).mockResolvedValue([]);
-
-    const app = createTestApp(makeMember(["ticket"], "member-9"));
-    const res = await app.request(`/tickets/${testConcert.id}`);
-
-    const body = await json(res);
-    expect(body.data.isAdmin).toBe(true);
-  });
-
-  it("正常: isAdminはadminロールのメンバーでもtrueになる", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
-    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.part.findMany).mockResolvedValue([]);
-
-    const app = createTestApp(makeMember(["admin"], "member-9"));
-    const res = await app.request(`/tickets/${testConcert.id}`);
-
-    const body = await json(res);
-    expect(body.data.isAdmin).toBe(true);
+    const allocation = body.data.batches[0].allocations[0];
+    expect(allocation.isCollected).toBe(true);
+    expect(allocation).not.toHaveProperty("collected");
   });
 
   it("正常: outreachExpensePerTripがnullの場合もnullとして返る", async () => {
@@ -1151,6 +1158,56 @@ describe("PATCH /tickets/allocations/:id", () => {
     const body = await json(res);
     expect(body.error.code).toBe("FORBIDDEN");
   });
+
+  it.each([[true], [false]])(
+    "一般団員が自分の記録にisCollected=%sを指定: 403を返し更新しない",
+    async (isCollected) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      vi.mocked(prisma.ticketAllocation.findUnique).mockResolvedValue(openAllocation as any);
+
+      const app = createTestApp(makeMember(["member"], "member-1"));
+      const res = await app.request("/tickets/allocations/allocation-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isCollected }),
+      });
+
+      expect(res.status).toBe(403);
+      const body = await json(res);
+      expect(body.error).toEqual({
+        code: "FORBIDDEN",
+        message: "集金状況の記録はチケット担当者のみ可能です",
+      });
+      expect(prisma.ticketAllocation.update).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([[["ticket"]], [["admin"]]])(
+    "%s が他人の記録にisCollectedを指定: 集金済みに更新される",
+    async (roles) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      vi.mocked(prisma.ticketAllocation.findUnique).mockResolvedValue(openAllocation as any);
+      vi.mocked(prisma.ticketAllocation.update).mockResolvedValue({
+        ...openAllocation,
+        isCollected: true,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+
+      const app = createTestApp(makeMember(roles, "manager-1"));
+      const res = await app.request("/tickets/allocations/allocation-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isCollected: true }),
+      });
+
+      expect(res.status).toBe(200);
+      const body = await json(res);
+      expect(body.data.isCollected).toBe(true);
+      expect(prisma.ticketAllocation.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { isCollected: true } }),
+      );
+    },
+  );
 
   it("締切後・非担当者が自分の記録を編集: 403 INPUT_CLOSEDを返す", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

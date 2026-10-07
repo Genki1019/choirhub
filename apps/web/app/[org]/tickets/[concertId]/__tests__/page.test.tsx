@@ -115,8 +115,6 @@ function makeDetail(overrides: Partial<TicketDetail> = {}): TicketDetail {
       ticketInputClosedAt: null,
       outreachExpensePerTrip: null,
     },
-    isAdmin: true,
-    myMemberId: "member-self",
     batches: [makeBatch()],
     partSummary: [],
     ...overrides,
@@ -148,7 +146,7 @@ describe("TicketDetailPage（表示状態）", () => {
     expect(screen.getByText("読み込み中...")).toBeInTheDocument();
   });
 
-  it("403エラー時は権限エラーメッセージを表示する", async () => {
+  it("403エラー時は権限エラーメッセージだけを表示し、管理用の操作も団員一覧の取得も出さない", async () => {
     vi.mocked(ticketsApi.get).mockRejectedValue(
       new ApiClientError("FORBIDDEN", "チケット担当者または管理者のみアクセスできます", 403),
     );
@@ -157,6 +155,8 @@ describe("TicketDetailPage（表示状態）", () => {
     expect(
       await screen.findByText("チケット担当者または管理者のみアクセスできます"),
     ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /入力を締め切る|CSV出力|席種を追加/ })).toBeNull();
+    expect(membersApi.list).not.toHaveBeenCalled();
   });
 
   it("403以外のエラー時はエラーメッセージを表示する", async () => {
@@ -226,14 +226,6 @@ describe("TicketDetailPage（締切バナー・締切/再開ボタン）", () =>
       expect(screen.queryByText(/以降、団員の入力は締め切り済み/)).not.toBeInTheDocument(),
     );
   });
-
-  it("非adminの場合は締切/再開ボタンを表示しない", async () => {
-    vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail({ isAdmin: false }));
-    renderPage(["member"]);
-
-    await screen.findByText("第20回定期演奏会");
-    expect(screen.queryByText("入力を締め切る")).not.toBeInTheDocument();
-  });
 });
 
 describe("TicketDetailPage（CSV出力）", () => {
@@ -245,14 +237,6 @@ describe("TicketDetailPage（CSV出力）", () => {
 
     await user.click(await screen.findByRole("button", { name: "CSV出力" }));
     expect(ticketsApi.exportCsv).toHaveBeenCalledWith("tokyo-men-choir", "concert-1");
-  });
-
-  it("非adminの場合は「CSV出力」ボタンを表示しない", async () => {
-    vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail({ isAdmin: false }));
-    renderPage(["member"]);
-
-    await screen.findByText("第20回定期演奏会");
-    expect(screen.queryByRole("button", { name: "CSV出力" })).not.toBeInTheDocument();
   });
 });
 
@@ -324,14 +308,6 @@ describe("TicketDetailPage（席種の追加・編集）", () => {
     const edit = await screen.findByRole("button", { name: "席種「一般」を編集" });
     expect(edit).not.toHaveClass("opacity-0");
     expect(screen.getByRole("button", { name: "席種を追加" })).toBeInTheDocument();
-  });
-
-  it("非adminの場合は席種を編集する✏️を表示しない", async () => {
-    vi.mocked(ticketsApi.get).mockResolvedValue(makeDetail({ isAdmin: false }));
-    renderPage(["member"]);
-
-    await screen.findByText("配布登録されていません");
-    expect(screen.queryByTitle("席種を編集")).not.toBeInTheDocument();
   });
 });
 

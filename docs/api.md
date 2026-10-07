@@ -3633,8 +3633,6 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
       "ticketInputClosedAt": null,
       "outreachExpensePerTrip": 500
     },
-    "isAdmin": true,
-    "myMemberId": "cuid",
     "batches": [
       {
         "id": "cuid",
@@ -3663,7 +3661,7 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
             "outreachCount": 3,
             "isOutreachExpensePaid": false,
             "outreachExpensePaidAt": null,
-            "collected": false,
+            "isCollected": false,
             "reportedAt": null
           }
         ]
@@ -3677,7 +3675,7 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 ```
 
 > - `allocations`はguest/visitorロールのメンバーを除外して返す。`partSummary`は割当0件のパートを除外する。
-> - `isAdmin`はフィールド名によらず`ticket or admin`（`isTicketManager`）の判定結果。このエンドポイント自体`ticket or admin`のみアクセス可能なため、200が返る時点で常に`true`になる。
+> - `ticket or admin`専用のため、権限を表すフィールドは返さない（200が返る時点で操作できる）。
 
 **Errors:**: `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` 演奏会が存在しない
 
@@ -3833,13 +3831,13 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 }
 ```
 
-> - `allocatedCount`（配布枚数）・`isOutreachExpensePaid`（情宣交通費支払い記録）は`ticket or admin`のみ更新可能。一般団員が自分の記録に対して指定した場合は無視されず`403 FORBIDDEN`を返す。
+> - `allocatedCount`（配布枚数）・`isOutreachExpensePaid`（情宣交通費支払い記録）・`isCollected`（集金済み）は`ticket or admin`のみ更新可能。一般団員が自分の記録に対して指定した場合は無視されず`403 FORBIDDEN`を返す。
 > - `ticketInputClosedAt`（入力締切）を過ぎている場合、`ticket or admin`以外は編集不可（`403 INPUT_CLOSED`）。
 > - `soldAdult`/`soldStudent`/`soldOther`/`returnedCount`のいずれかを更新すると`reportedAt`が現在時刻に更新される（`outreachCount`単独の変更では更新されない）。
 
 **Response** `200` → 更新後の配布情報
 
-**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 客演・体験が編集しようとした / `403` `FORBIDDEN` 自分以外の記録を編集しようとした / `403` `FORBIDDEN` 一般団員が`allocatedCount`・`isOutreachExpensePaid`を指定した / `403` `INPUT_CLOSED` 入力締切後に非担当者が編集しようとした / `404` `NOT_FOUND` 配布記録が存在しない
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 客演・体験が編集しようとした / `403` `FORBIDDEN` 自分以外の記録を編集しようとした / `403` `FORBIDDEN` 一般団員が`allocatedCount`・`isOutreachExpensePaid`・`isCollected`を指定した / `403` `INPUT_CLOSED` 入力締切後に非担当者が編集しようとした / `404` `NOT_FOUND` 配布記録が存在しない
 
 ---
 

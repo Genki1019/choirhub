@@ -61,8 +61,6 @@ function makeDetail(overrides: Partial<TicketDetail> = {}): TicketDetail {
       ticketInputClosedAt: null,
       outreachExpensePerTrip: null,
     },
-    isAdmin: false,
-    myMemberId: "member-1",
     batches: [],
     partSummary: [],
     ...overrides,

@@ -62,8 +62,6 @@ export interface TicketDetail {
     ticketInputClosedAt: string | null;
     outreachExpensePerTrip: number | null;
   };
-  isAdmin: boolean;
-  myMemberId: string;
   batches: BatchDetail[];
   partSummary: PartSummaryRow[];
 }

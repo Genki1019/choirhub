@@ -218,8 +218,6 @@ export const ticketsRouter = new Hono<TenantEnv>()
           ticketInputClosedAt: concert.ticketInputClosedAt?.toISOString() ?? null,
           outreachExpensePerTrip: concert.outreachExpensePerTrip ?? null,
         },
-        isAdmin: isTicketManager(actingMember),
-        myMemberId: actingMember.id,
         batches: batches.map((batch) => ({
           id: batch.id,
           name: batch.name,
@@ -246,7 +244,7 @@ export const ticketsRouter = new Hono<TenantEnv>()
             outreachCount: a.outreachCount,
             isOutreachExpensePaid: a.isOutreachExpensePaid,
             outreachExpensePaidAt: a.outreachExpensePaidAt?.toISOString() ?? null,
-            collected: a.isCollected,
+            isCollected: a.isCollected,
             reportedAt: a.reportedAt?.toISOString() ?? null,
           })),
         })),
@@ -424,6 +422,12 @@ export const ticketsRouter = new Hono<TenantEnv>()
       if (isOutreachExpensePaid !== undefined && !isMgr) {
         return c.json(
           { error: { code: "FORBIDDEN", message: "情宣交通費の記録はチケット担当者のみ可能です" } },
+          403,
+        );
+      }
+      if (body.isCollected !== undefined && !isMgr) {
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "集金状況の記録はチケット担当者のみ可能です" } },
           403,
         );
       }

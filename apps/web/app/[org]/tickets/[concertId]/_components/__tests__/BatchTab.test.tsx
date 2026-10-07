@@ -53,8 +53,6 @@ function makeDetail(overrides: Partial<TicketDetail> = {}): TicketDetail {
       ticketInputClosedAt: null,
       outreachExpensePerTrip: null,
     },
-    isAdmin: true,
-    myMemberId: "member-self",
     batches: [],
     partSummary: [],
     ...overrides,
@@ -162,32 +160,6 @@ describe("BatchTab（パート別集計）", () => {
     render(<BatchTab batch={batch} detail={makeDetail({ batches: [batch] })} {...defaultProps} />);
 
     expect(screen.queryByText("パート別集計")).not.toBeInTheDocument();
-  });
-});
-
-describe("BatchTab（団員を追加パネル）", () => {
-  it("isAdmin: falseの場合はAddMemberPanelを表示しない", () => {
-    const batch = makeBatch();
-    const detail = makeDetail({ batches: [batch], isAdmin: false });
-    const member: MemberProfile = {
-      id: "member-2",
-      nameJa: "未配布太郎",
-      nameKana: null,
-      nameEn: null,
-      avatarUrl: null,
-      part: null,
-      memberType: null,
-      roles: ["member"],
-      status: "active",
-      bio: null,
-      job: null,
-      interests: null,
-      originGroup: null,
-      joinedAt: null,
-    };
-    render(<BatchTab batch={batch} detail={detail} {...defaultProps} allMembers={[member]} />);
-
-    expect(screen.queryByText(/団員を追加/)).not.toBeInTheDocument();
   });
 });
 

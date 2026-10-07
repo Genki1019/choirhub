@@ -246,7 +246,7 @@ export const ticketsRouter = new Hono<TenantEnv>()
             outreachCount: a.outreachCount,
             isOutreachExpensePaid: a.isOutreachExpensePaid,
             outreachExpensePaidAt: a.outreachExpensePaidAt?.toISOString() ?? null,
-            collected: a.isCollected,
+            isCollected: a.isCollected,
             reportedAt: a.reportedAt?.toISOString() ?? null,
           })),
         })),

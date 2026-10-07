@@ -440,6 +440,53 @@ describe("GET /tickets/:concertId", () => {
     ]);
   });
 
+  it("正常: 配布行の集金状況をisCollectedとして返す", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
+    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([
+      {
+        id: "batch-1",
+        name: "一般",
+        price: 2000,
+        priceStudent: null,
+        totalCount: 100,
+        saleStart: null,
+        saleEnd: null,
+        allocations: [
+          {
+            id: "allocation-1",
+            memberId: "member-1",
+            allocatedCount: 10,
+            requestedCount: null,
+            soldAdult: 5,
+            soldStudent: 0,
+            soldOther: 0,
+            returnedCount: 0,
+            outreachCount: 0,
+            isOutreachExpensePaid: false,
+            outreachExpensePaidAt: null,
+            isCollected: true,
+            reportedAt: null,
+            member: {
+              userRef: { nameJa: "山田 太郎" },
+              part: { id: "part-1", name: "Tenor I", sortOrder: 1, voiceType: "tenor" },
+            },
+          },
+        ],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+    vi.mocked(prisma.part.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["ticket"]));
+    const res = await app.request(`/tickets/${testConcert.id}`);
+
+    const body = await json(res);
+    const allocation = body.data.batches[0].allocations[0];
+    expect(allocation.isCollected).toBe(true);
+    expect(allocation).not.toHaveProperty("collected");
+  });
+
   it("正常: myMemberIdが正しく返る", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);

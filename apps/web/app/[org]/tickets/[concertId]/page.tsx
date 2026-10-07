@@ -48,7 +48,7 @@ export default function TicketDetailPage() {
   const { data: allMembers = [] } = useQuery({
     queryKey: memberKeys.list(org),
     queryFn: () => membersApi.list(org),
-    enabled: detail?.isAdmin === true,
+    enabled: !!detail,
   });
 
   const detailKey = ticketKeys.detail(org, concertId);
@@ -126,75 +126,70 @@ export default function TicketDetailPage() {
 
   const headerActions = (
     <>
-      {detail.isAdmin &&
-        (detail.concert.ticketInputClosedAt ? (
-          <button
-            onClick={async () => {
-              setClosingInput(true);
-              setInputToggleError(null);
-              try {
-                await ticketsApi.reopenTicketInput(org, concertId);
-                patchDetail((prev) => ({
-                  ...prev,
-                  concert: { ...prev.concert, ticketInputClosedAt: null },
-                }));
-              } catch (err) {
-                setInputToggleError(
-                  userErrorMessage(err, "入力の再開に失敗しました。もう一度お試しください。"),
-                );
-              } finally {
-                setClosingInput(false);
-              }
-            }}
-            disabled={closingInput}
-            className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-2.5 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-60"
-          >
-            {closingInput ? <Loader2 size={13} className="animate-spin" /> : <LockOpen size={13} />}
-            <span className="hidden sm:inline">入力を再開</span>
-          </button>
-        ) : (
-          <button
-            onClick={async () => {
-              setClosingInput(true);
-              setInputToggleError(null);
-              try {
-                const result = await ticketsApi.closeTicketInput(org, concertId);
-                patchDetail((prev) => ({
-                  ...prev,
-                  concert: {
-                    ...prev.concert,
-                    ticketInputClosedAt: result.ticketInputClosedAt,
-                  },
-                }));
-              } catch (err) {
-                setInputToggleError(
-                  userErrorMessage(err, "入力の締め切りに失敗しました。もう一度お試しください。"),
-                );
-              } finally {
-                setClosingInput(false);
-              }
-            }}
-            disabled={closingInput}
-            className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-100 disabled:opacity-60"
-          >
-            {closingInput ? <Loader2 size={13} className="animate-spin" /> : <Lock size={13} />}
-            <span className="hidden sm:inline">入力を締め切る</span>
-          </button>
-        ))}
-      {detail.isAdmin && (
-        <CsvExportButton onDownload={() => ticketsApi.exportCsv(org, concertId)} />
-      )}
-      {detail.isAdmin && (
+      {detail.concert.ticketInputClosedAt ? (
         <button
-          ref={addBatchButtonRef}
-          onClick={() => setShowCreateBatch(true)}
-          aria-label="席種を追加"
-          className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-white transition-colors"
+          onClick={async () => {
+            setClosingInput(true);
+            setInputToggleError(null);
+            try {
+              await ticketsApi.reopenTicketInput(org, concertId);
+              patchDetail((prev) => ({
+                ...prev,
+                concert: { ...prev.concert, ticketInputClosedAt: null },
+              }));
+            } catch (err) {
+              setInputToggleError(
+                userErrorMessage(err, "入力の再開に失敗しました。もう一度お試しください。"),
+              );
+            } finally {
+              setClosingInput(false);
+            }
+          }}
+          disabled={closingInput}
+          className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-2.5 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-60"
         >
-          <Plus size={14} />
-          <span className="hidden sm:inline">席種を追加</span>
+          {closingInput ? <Loader2 size={13} className="animate-spin" /> : <LockOpen size={13} />}
+          <span className="hidden sm:inline">入力を再開</span>
+        </button>
+      ) : (
+        <button
+          onClick={async () => {
+            setClosingInput(true);
+            setInputToggleError(null);
+            try {
+              const result = await ticketsApi.closeTicketInput(org, concertId);
+              patchDetail((prev) => ({
+                ...prev,
+                concert: {
+                  ...prev.concert,
+                  ticketInputClosedAt: result.ticketInputClosedAt,
+                },
+              }));
+            } catch (err) {
+              setInputToggleError(
+                userErrorMessage(err, "入力の締め切りに失敗しました。もう一度お試しください。"),
+              );
+            } finally {
+              setClosingInput(false);
+            }
+          }}
+          disabled={closingInput}
+          className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-100 disabled:opacity-60"
+        >
+          {closingInput ? <Loader2 size={13} className="animate-spin" /> : <Lock size={13} />}
+          <span className="hidden sm:inline">入力を締め切る</span>
         </button>
       )}
+      <CsvExportButton onDownload={() => ticketsApi.exportCsv(org, concertId)} />
+      <button
+        ref={addBatchButtonRef}
+        onClick={() => setShowCreateBatch(true)}
+        aria-label="席種を追加"
+        className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-white transition-colors"
+      >
+        <Plus size={14} />
+        <span className="hidden sm:inline">席種を追加</span>
+      </button>
       <Link
         href={`/${org}/tickets/${concertId}/race`}
         prefetch={false}
@@ -237,16 +232,14 @@ export default function TicketDetailPage() {
                 {batch.priceStudent != null && ` / 学生¥${batch.priceStudent.toLocaleString()}`}
               </span>
             </button>
-            {detail.isAdmin && (
-              <button
-                onClick={() => setEditingBatch(batch)}
-                aria-label={`席種「${batch.name}」を編集`}
-                className="hover:text-brand-500 absolute top-1 right-0 p-1 text-gray-400 transition-colors"
-                title="席種を編集"
-              >
-                <Pencil size={10} />
-              </button>
-            )}
+            <button
+              onClick={() => setEditingBatch(batch)}
+              aria-label={`席種「${batch.name}」を編集`}
+              className="hover:text-brand-500 absolute top-1 right-0 p-1 text-gray-400 transition-colors"
+              title="席種を編集"
+            >
+              <Pencil size={10} />
+            </button>
           </div>
         ))}
         <button
@@ -289,15 +282,13 @@ export default function TicketDetailPage() {
         {detail.batches.length === 0 ? (
           <div className="py-12 text-center">
             <p className="mb-4 text-sm text-gray-400">席種が登録されていません</p>
-            {detail.isAdmin && (
-              <button
-                onClick={() => setShowCreateBatch(true)}
-                className="bg-brand-600 hover:bg-brand-700 mx-auto flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors"
-              >
-                <Plus size={14} />
-                最初の席種を追加
-              </button>
-            )}
+            <button
+              onClick={() => setShowCreateBatch(true)}
+              className="bg-brand-600 hover:bg-brand-700 mx-auto flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors"
+            >
+              <Plus size={14} />
+              最初の席種を追加
+            </button>
           </div>
         ) : activeBatchIdx === "outreach" ? (
           <OutreachExpenseTab orgSlug={org} concertId={concertId} />

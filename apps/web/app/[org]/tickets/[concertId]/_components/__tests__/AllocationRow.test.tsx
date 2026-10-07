@@ -46,15 +46,7 @@ beforeEach(() => {
 
 function renderRow(overrides: Partial<Parameters<typeof AllocationRowComponent>[0]> = {}) {
   return render(
-    <AllocationRowComponent
-      row={makeRow()}
-      canEdit={true}
-      canEditAllocation={true}
-      isAdmin={true}
-      orgSlug="o"
-      onUpdated={vi.fn()}
-      {...overrides}
-    />,
+    <AllocationRowComponent row={makeRow()} orgSlug="o" onUpdated={vi.fn()} {...overrides} />,
   );
 }
 
@@ -75,16 +67,6 @@ describe("AllocationRowComponent（表示）", () => {
   it("requestedCountがallocatedCountと異なる場合は申請バッジを表示する", () => {
     renderRow({ row: makeRow({ requestedCount: 15 }) });
     expect(screen.getByText("申請15")).toBeInTheDocument();
-  });
-
-  it("canEdit: falseの場合は販売状況の編集ボタンを表示しない", () => {
-    renderRow({ canEdit: false });
-    expect(screen.queryByLabelText("山田太郎の販売状況を編集")).not.toBeInTheDocument();
-  });
-
-  it("canEditAllocation: falseの場合は配布数の編集ボタンを表示しない", () => {
-    renderRow({ canEditAllocation: false });
-    expect(screen.queryByLabelText("山田太郎の配布数を編集")).not.toBeInTheDocument();
   });
 });
 
@@ -153,15 +135,7 @@ describe("AllocationRowComponent（販売状況の編集）", () => {
     expect(screen.getByText("6")).toBeInTheDocument();
   });
 
-  it("isAdmin: falseの場合は編集中でも集金チェックボックスを表示しない", async () => {
-    const user = userEvent.setup();
-    renderRow({ isAdmin: false });
-
-    await user.click(screen.getByLabelText("山田太郎の販売状況を編集"));
-    expect(screen.queryByLabelText("山田太郎の集金済み")).not.toBeInTheDocument();
-  });
-
-  it("isAdmin: trueの場合は編集中に集金チェックボックスを操作できる", async () => {
+  it("編集中に集金チェックボックスを操作できる", async () => {
     vi.mocked(ticketsApi.updateAllocation).mockResolvedValue(makeRow());
     const onUpdated = vi.fn();
     const user = userEvent.setup();
@@ -260,14 +234,7 @@ describe("AllocationRowComponent（編集の開始）", () => {
     const { rerender } = renderRow();
 
     rerender(
-      <AllocationRowComponent
-        row={makeRow({ soldAdult: 9 })}
-        orgSlug="o"
-        canEdit
-        canEditAllocation
-        isAdmin
-        onUpdated={vi.fn()}
-      />,
+      <AllocationRowComponent row={makeRow({ soldAdult: 9 })} orgSlug="o" onUpdated={vi.fn()} />,
     );
     await user.click(screen.getByLabelText("山田太郎の販売状況を編集"));
     await user.click(screen.getByText("保存"));

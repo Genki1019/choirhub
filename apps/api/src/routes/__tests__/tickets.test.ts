@@ -487,46 +487,6 @@ describe("GET /tickets/:concertId", () => {
     expect(allocation).not.toHaveProperty("collected");
   });
 
-  it("正常: myMemberIdが正しく返る", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
-    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.part.findMany).mockResolvedValue([]);
-
-    const actingMember = makeMember(["ticket"], "member-9");
-    const app = createTestApp(actingMember);
-    const res = await app.request(`/tickets/${testConcert.id}`);
-
-    const body = await json(res);
-    expect(body.data.myMemberId).toBe("member-9");
-  });
-
-  it("正常: isAdminはticketロールのみのメンバーでもtrueになる（isTicketManager基準）", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
-    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.part.findMany).mockResolvedValue([]);
-
-    const app = createTestApp(makeMember(["ticket"], "member-9"));
-    const res = await app.request(`/tickets/${testConcert.id}`);
-
-    const body = await json(res);
-    expect(body.data.isAdmin).toBe(true);
-  });
-
-  it("正常: isAdminはadminロールのメンバーでもtrueになる", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);
-    vi.mocked(prisma.ticketBatch.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.part.findMany).mockResolvedValue([]);
-
-    const app = createTestApp(makeMember(["admin"], "member-9"));
-    const res = await app.request(`/tickets/${testConcert.id}`);
-
-    const body = await json(res);
-    expect(body.data.isAdmin).toBe(true);
-  });
-
   it("正常: outreachExpensePerTripがnullの場合もnullとして返る", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.concert.findUnique).mockResolvedValue(testConcert as any);

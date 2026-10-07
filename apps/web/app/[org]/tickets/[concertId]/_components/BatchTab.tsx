@@ -38,8 +38,6 @@ export function BatchTab({
   onAllocationUpdated,
   onMemberAdded,
 }: BatchTabProps) {
-  const { isAdmin, myMemberId } = detail;
-
   const partMap = new Map<
     string,
     { partName: string; sortOrder: number; voiceType: string; rows: AllocationRow[] }
@@ -113,9 +111,6 @@ export function BatchTab({
                 <div key={row.id} className="min-w-max border-b border-gray-100 last:border-0">
                   <AllocationRowComponent
                     row={row}
-                    canEdit={isAdmin || row.memberId === myMemberId}
-                    canEditAllocation={isAdmin || row.memberId === myMemberId}
-                    isAdmin={isAdmin}
                     orgSlug={orgSlug}
                     onUpdated={(data) => onAllocationUpdated(row.id, data)}
                   />
@@ -131,16 +126,14 @@ export function BatchTab({
           )}
         </div>
 
-        {isAdmin && (
-          <AddMemberPanel
-            key={batch.id}
-            batch={batch}
-            orgSlug={orgSlug}
-            concertId={concertId}
-            allMembers={allMembers}
-            onAdded={onMemberAdded}
-          />
-        )}
+        <AddMemberPanel
+          key={batch.id}
+          batch={batch}
+          orgSlug={orgSlug}
+          concertId={concertId}
+          allMembers={allMembers}
+          onAdded={onMemberAdded}
+        />
       </div>
 
       {detail.partSummary.length > 0 && (

@@ -218,8 +218,6 @@ export const ticketsRouter = new Hono<TenantEnv>()
           ticketInputClosedAt: concert.ticketInputClosedAt?.toISOString() ?? null,
           outreachExpensePerTrip: concert.outreachExpensePerTrip ?? null,
         },
-        isAdmin: isTicketManager(actingMember),
-        myMemberId: actingMember.id,
         batches: batches.map((batch) => ({
           id: batch.id,
           name: batch.name,

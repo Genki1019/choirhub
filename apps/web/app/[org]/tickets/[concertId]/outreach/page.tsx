@@ -3,21 +3,22 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { Plus, Loader2, MapPin } from "lucide-react";
-import { ticketsApi, type OutreachActivityRow } from "@/lib/tickets-api";
+import { ticketsApi } from "@/lib/tickets-api";
 import { membersApi } from "@/lib/members-api";
 import { useMember } from "@/contexts/MemberContext";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ticketKeys, memberKeys } from "@/lib/query-keys";
+import { useQuery } from "@tanstack/react-query";
+import { memberKeys } from "@/lib/query-keys";
 import { CreateModal } from "./_components/CreateModal";
 import { ActivityCard } from "./_components/ActivityCard";
 import { PageHeader } from "@/components/PageHeader";
 import { PageErrorState } from "@/components/PageErrorState";
 import { userErrorMessage } from "@/lib/api-client";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { useOutreachActivities } from "@/hooks/useOutreachActivities";
+import { canManageTickets } from "@/lib/roles";
 
 export default function OutreachPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
-  const queryClient = useQueryClient();
   const { roles, memberId } = useMember();
   const [showCreate, setShowCreate] = useState(false);
 
@@ -25,10 +26,10 @@ export default function OutreachPage() {
     data: activitiesData,
     isLoading: loadingActs,
     error,
-  } = useQuery({
-    queryKey: ticketKeys.outreach(org, concertId),
-    queryFn: () => ticketsApi.listOutreachActivities(org, concertId),
-  });
+    addActivity,
+    updateActivity,
+    removeActivity,
+  } = useOutreachActivities(org, concertId);
   const {
     data: members = [],
     isLoading: loadingMembers,
@@ -36,11 +37,6 @@ export default function OutreachPage() {
   } = useQuery({
     queryKey: memberKeys.activeList(org),
     queryFn: () => membersApi.list(org, { status: "active" }),
-  });
-  const { data: concertTitle = "" } = useQuery({
-    queryKey: ticketKeys.detail(org, concertId),
-    queryFn: () => ticketsApi.get(org, concertId),
-    select: (d) => d.concert.title,
   });
   const loading = loadingActs || loadingMembers;
 
@@ -66,13 +62,13 @@ export default function OutreachPage() {
     );
   }
 
-  const activities = activitiesData;
+  const { concert, activities } = activitiesData;
 
   return (
     <div className="flex flex-col">
       <PageHeader
         title="情宣活動の申請"
-        subtitle={<span className="text-sm text-gray-400">{concertTitle}</span>}
+        subtitle={<span className="text-sm text-gray-400">{concert.title}</span>}
         backHref={`/${org}/tickets/${concertId}/my`}
         actions={
           <button
@@ -112,21 +108,11 @@ export default function OutreachPage() {
               key={a.id}
               activity={a}
               myMemberId={memberId}
-              isAdmin={roles.includes("admin") || roles.includes("ticket")}
+              canManage={canManageTickets(roles)}
               orgSlug={org}
               concertId={concertId}
-              onDeleted={(id) =>
-                queryClient.setQueryData<OutreachActivityRow[]>(
-                  ticketKeys.outreach(org, concertId),
-                  (prev) => (prev ? prev.filter((x) => x.id !== id) : prev),
-                )
-              }
-              onStatusChanged={(updated) =>
-                queryClient.setQueryData<OutreachActivityRow[]>(
-                  ticketKeys.outreach(org, concertId),
-                  (prev) => (prev ? prev.map((x) => (x.id === updated.id ? updated : x)) : prev),
-                )
-              }
+              onDeleted={removeActivity}
+              onStatusChanged={updateActivity}
             />
           ))
         )}
@@ -139,10 +125,7 @@ export default function OutreachPage() {
           members={members}
           onClose={() => setShowCreate(false)}
           onCreated={(activity) => {
-            queryClient.setQueryData<OutreachActivityRow[]>(
-              ticketKeys.outreach(org, concertId),
-              (prev) => (prev ? [activity, ...prev] : prev),
-            );
+            addActivity(activity);
             setShowCreate(false);
           }}
         />

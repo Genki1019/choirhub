@@ -241,6 +241,11 @@ export interface OutreachActivityRow {
   participants: OutreachParticipantRow[];
 }
 
+export interface OutreachActivityList {
+  concert: { id: string; title: string };
+  activities: OutreachActivityRow[];
+}
+
 export interface CreateOutreachActivityInput {
   destination: string;
   activityDate: string;
@@ -341,7 +346,7 @@ export const ticketsApi = {
     ),
 
   listOutreachActivities: (orgSlug: string, concertId: string) =>
-    apiClient.get<OutreachActivityRow[]>(`/${orgSlug}/tickets/${concertId}/outreach`),
+    apiClient.get<OutreachActivityList>(`/${orgSlug}/tickets/${concertId}/outreach`),
 
   createOutreachActivity: (orgSlug: string, concertId: string, data: CreateOutreachActivityInput) =>
     apiClient.post<OutreachActivityRow>(`/${orgSlug}/tickets/${concertId}/outreach`, data),

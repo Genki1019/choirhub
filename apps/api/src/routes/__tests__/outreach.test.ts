@@ -144,7 +144,10 @@ describe("GET /tickets/:concertId/outreach", () => {
 
     expect(res.status).toBe(200);
     const body = await json(res);
-    expect(body.data.map((a: { id: string }) => a.id)).toEqual(["activity-mine"]);
+    expect(body.data.activities.map((a: { id: string }) => a.id)).toEqual(["activity-mine"]);
+    expect(body.data.concert).toEqual({ id: testConcert.id, title: testConcert.title });
+    expect(body.data.activities[0].createdById).toBe("member-1");
+    expect(body.data.activities[0]).not.toHaveProperty("createdBy");
   });
 
   it("正常（ticket担当者）: 全件返る", async () => {
@@ -160,7 +163,11 @@ describe("GET /tickets/:concertId/outreach", () => {
     const res = await app.request(`/tickets/${testConcert.id}/outreach`);
 
     const body = await json(res);
-    expect(body.data.map((a: { id: string }) => a.id)).toEqual(["activity-1", "activity-2"]);
+    expect(body.data.activities.map((a: { id: string }) => a.id)).toEqual([
+      "activity-1",
+      "activity-2",
+    ]);
+    expect(body.data.concert).toEqual({ id: testConcert.id, title: testConcert.title });
   });
 });
 

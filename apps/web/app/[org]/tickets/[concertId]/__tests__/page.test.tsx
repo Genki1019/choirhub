@@ -31,7 +31,9 @@ vi.mock("@/lib/tickets-api", async () => {
       deleteBatch: vi.fn(),
       allocate: vi.fn(),
       updateAllocation: vi.fn(),
-      listOutreachActivities: vi.fn().mockResolvedValue([]),
+      listOutreachActivities: vi
+        .fn()
+        .mockResolvedValue({ concert: { id: "concert-1", title: "" }, activities: [] }),
       exportCsv: vi.fn(),
     },
   };
@@ -135,7 +137,10 @@ function renderPage(roles: string[] = ["ticket"]) {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(membersApi.list).mockResolvedValue([]);
-  vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue([]);
+  vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue({
+    concert: { id: "concert-1", title: "" },
+    activities: [],
+  });
 });
 
 describe("TicketDetailPage（表示状態）", () => {

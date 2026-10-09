@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import type { MemberProfile } from "@/lib/members-api";
+import { jstParts } from "@/lib/date";
 
 function formatJoined(joinedAt: string | null): string {
   if (!joinedAt) return "不明";
-  const d = new Date(joinedAt);
-  return `${d.getFullYear()}年${d.getMonth() + 1}月`;
+  const { year, month } = jstParts(joinedAt);
+  return `${year}年${month}月`;
 }
 
 function InfoRow({ label, value, icon }: { label: string; value: string; icon?: ReactNode }) {

@@ -43,6 +43,12 @@ export function jstParts(value: string | Date): JstParts {
   };
 }
 
+/** from から to まで、日本時間の暦で何日あるか（同じ日なら 0、to が前なら負） */
+export function jstDayDiff(from: string | Date, to: string | Date): number {
+  const dayStart = ({ year, month, day }: JstParts) => Date.UTC(year, month - 1, day);
+  return Math.round((dayStart(jstParts(to)) - dayStart(jstParts(from))) / 86400000);
+}
+
 /** 日時 → "YYYY年M月D日"（日本時間） */
 export function formatJaDate(value: string | Date): string {
   const { year, month, day } = jstParts(value);

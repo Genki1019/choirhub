@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CalendarDays, MapPin, ChevronRight } from "lucide-react";
 import { type ConcertSummary, type ConcertStatus } from "@/lib/concerts-api";
+import { formatJaDate } from "@/lib/date";
 
 const STATUS_CONFIG: Record<ConcertStatus, { label: string; badge: string; dot: string }> = {
   draft: { label: "準備中", badge: "bg-gray-100 text-gray-500", dot: "bg-gray-400" },
@@ -16,8 +17,7 @@ interface ConcertCardProps {
 
 export function ConcertCard({ concert, org }: ConcertCardProps) {
   const s = STATUS_CONFIG[concert.status];
-  const date = new Date(concert.heldOn);
-  const dateStr = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+  const dateStr = formatJaDate(concert.heldOn);
   const isPast = concert.status === "past";
 
   return (

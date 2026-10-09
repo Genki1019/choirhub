@@ -6,6 +6,7 @@ import { ticketsApi } from "@/lib/tickets-api";
 import { useOutreachActivities } from "@/hooks/useOutreachActivities";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { userErrorMessage } from "@/lib/api-client";
+import { formatShortDate } from "@/lib/date";
 
 interface OutreachExpenseTabProps {
   orgSlug: string;
@@ -159,7 +160,7 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
                       </span>
                     </div>
                     <div className="mt-0.5 flex items-center gap-3 text-xs text-gray-400">
-                      <span>{new Date(a.activityDate).toLocaleDateString("ja-JP")}</span>
+                      <span>{formatShortDate(a.activityDate)}</span>
                       <span>{a.participants.length}名</span>
                       {actSold > 0 && <span>{actSold}枚販売</span>}
                       {actExpense > 0 && <span>¥{actExpense.toLocaleString()}</span>}

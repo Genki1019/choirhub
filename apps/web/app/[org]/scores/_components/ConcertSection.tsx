@@ -4,6 +4,7 @@ import { useState, memo } from "react";
 import { ChevronDown, ChevronRight, CalendarDays } from "lucide-react";
 import { type ConcertWithScores } from "@/lib/scores-api";
 import { ScoreRow } from "./ScoreRow";
+import { formatJaDate } from "@/lib/date";
 
 interface ConcertSectionProps {
   concert: ConcertWithScores;
@@ -16,8 +17,7 @@ export const ConcertSection = memo(function ConcertSection({
 }: ConcertSectionProps) {
   const [open, setOpen] = useState(true);
 
-  const date = new Date(concert.heldOn);
-  const dateStr = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+  const dateStr = formatJaDate(concert.heldOn);
   const totalPrograms = concert.stages.reduce((n, s) => n + s.programs.length, 0);
 
   return (

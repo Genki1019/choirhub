@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { EventSummary, EventCategory, AttendanceStatus } from "@/lib/events-api";
 import { getConcertHref } from "@/lib/routes";
+import { jstParts } from "@/lib/date";
 
 function getCategoryColor(cat: EventCategory): string {
   return cat.color || "#8B5CF6";
@@ -22,10 +23,10 @@ const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
 
 // ── ユーティリティ ────────────────────────────────────
 
-// 日曜始まり: getDay() は 0=日 でそのまま列インデックスと一致するのでオフセット不要
+// 日曜始まり: getUTCDay() は 0=日 でそのまま列インデックスと一致するのでオフセット不要
 function buildCalendarCells(year: number, month: number) {
-  const firstDow = new Date(year, month - 1, 1).getDay();
-  const daysInMonth = new Date(year, month, 0).getDate();
+  const firstDow = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const total = Math.ceil((firstDow + daysInMonth) / 7) * 7;
   return Array.from({ length: total }, (_, i) => {
     const day = i - firstDow + 1;
@@ -35,8 +36,8 @@ function buildCalendarCells(year: number, month: number) {
 
 function eventsOnDay(events: EventSummary[], year: number, month: number, day: number) {
   return events.filter((e) => {
-    const d = new Date(e.startsAt);
-    return d.getFullYear() === year && d.getMonth() + 1 === month && d.getDate() === day;
+    const d = jstParts(e.startsAt);
+    return d.year === year && d.month === month && d.day === day;
   });
 }
 
@@ -62,6 +63,7 @@ export function Calendar({
   onNextMonth,
 }: CalendarProps) {
   const cells = buildCalendarCells(year, month);
+  const todayJst = jstParts(today);
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
@@ -107,9 +109,9 @@ export function Calendar({
           const dow = idx % 7; // 0=日, 6=土
           const isToday =
             day !== null &&
-            year === today.getFullYear() &&
-            month === today.getMonth() + 1 &&
-            day === today.getDate();
+            year === todayJst.year &&
+            month === todayJst.month &&
+            day === todayJst.day;
           const dayEvents = day ? eventsOnDay(events, year, month, day) : [];
 
           return (

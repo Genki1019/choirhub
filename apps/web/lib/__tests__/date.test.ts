@@ -8,6 +8,7 @@ import {
   formatJaDate,
   formatJaDateTime,
   formatShortDate,
+  jstDayDiff,
 } from "../date";
 
 describe("monthStart", () => {
@@ -77,6 +78,12 @@ describe("日本時間のヘルパー（ブラウザのタイムゾーンによ�
 
   it("jstParts: 日付だけの文字列（UTC 0時）は同じ日付", () => {
     expect(jstParts("2026-11-23")).toMatchObject({ year: 2026, month: 11, day: 23 });
+  });
+
+  it("jstDayDiff: 日本時間の暦の日付の差を返す（時刻の差ではない）", () => {
+    expect(jstDayDiff("2026-11-22T14:59:00Z", "2026-11-22T15:00:00Z")).toBe(1);
+    expect(jstDayDiff("2026-11-22T15:00:00Z", "2026-11-23T14:59:00Z")).toBe(0);
+    expect(jstDayDiff("2026-11-25T00:00:00Z", "2026-11-22T00:00:00Z")).toBe(-3);
   });
 
   it("formatJaDate・formatJaDateTime・formatShortDate は日本時間で表示する", () => {

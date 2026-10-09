@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Calendar } from "../Calendar";
@@ -214,5 +214,33 @@ describe("Calendar（月ナビゲーション）", () => {
     );
     await user.click(screen.getByLabelText("次の月"));
     expect(onNextMonth).toHaveBeenCalled();
+  });
+});
+
+describe("Calendar（ブラウザのタイムゾーンによらず日本時間）", () => {
+  beforeEach(() => {
+    vi.stubEnv("TZ", "America/Los_Angeles");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("日本時間の日付のマスに予定を出し、日本時間の今日に印を付ける", () => {
+    render(
+      <Calendar
+        year={2026}
+        month={7}
+        today={new Date("2026-07-15T16:00:00Z")}
+        events={[makeEvent({ title: "早朝練習", startsAt: "2026-07-09T16:00:00Z" })]}
+        org="tokyo"
+        onPrevMonth={vi.fn()}
+        onNextMonth={vi.fn()}
+      />,
+    );
+
+    const day10Cell = screen.getByText("10").parentElement?.parentElement;
+    expect(day10Cell).toHaveTextContent("早朝練習");
+    expect(screen.getByText("16")).toHaveClass("bg-brand-600");
+    expect(screen.getByText("15")).not.toHaveClass("bg-brand-600");
   });
 });

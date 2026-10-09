@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { CalendarDays, ChevronRight } from "lucide-react";
 import type { TicketConcertSummary } from "@/lib/tickets-api";
+import { formatJaDate } from "@/lib/date";
 
 function SoldBar({ rate }: { rate: number }) {
   const pct = Math.min(100, Math.round(rate * 100));
@@ -25,8 +26,7 @@ function SoldBar({ rate }: { rate: number }) {
 }
 
 export function ManagerConcertCard({ item, org }: { item: TicketConcertSummary; org: string }) {
-  const date = new Date(item.heldOn);
-  const dateStr = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+  const dateStr = formatJaDate(item.heldOn);
   const unreported = item.memberCount - item.collectedCount;
 
   return (

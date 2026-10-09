@@ -1,6 +1,7 @@
 import { CalendarDays } from "lucide-react";
 import type { EventSummary } from "@/lib/events-api";
 import { EventCard } from "../../_components/EventCard";
+import { jstParts } from "@/lib/date";
 
 interface EventListProps {
   events: EventSummary[];
@@ -10,8 +11,8 @@ interface EventListProps {
 }
 
 function emptyMessage(year: number, month: number, today: Date): string {
-  const isFuture =
-    year > today.getFullYear() || (year === today.getFullYear() && month > today.getMonth() + 1);
+  const now = jstParts(today);
+  const isFuture = year > now.year || (year === now.year && month > now.month);
 
   return isFuture ? "予定はありません" : "予定はすべて終了しました";
 }
@@ -21,8 +22,8 @@ export function EventList({ events, year, month, org }: EventListProps) {
 
   const monthEvents = events
     .filter((e) => {
-      const d = new Date(e.startsAt);
-      return d.getFullYear() === year && d.getMonth() + 1 === month && d >= today;
+      const d = jstParts(e.startsAt);
+      return d.year === year && d.month === month && new Date(e.startsAt) >= today;
     })
     .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
 

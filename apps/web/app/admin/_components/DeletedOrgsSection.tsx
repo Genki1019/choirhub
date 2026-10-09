@@ -6,6 +6,7 @@ import { Loader2, RotateCcw } from "lucide-react";
 import { AdminListSection } from "./AdminListSection";
 import { deletedOrgsApi, type DeletedOrg } from "@/lib/deleted-orgs-api";
 import { deletedOrgKeys } from "@/lib/query-keys";
+import { formatShortDate } from "@/lib/date";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -62,11 +63,11 @@ export function DeletedOrgsSection() {
             <div className="mt-1 space-y-0.5 text-xs text-gray-500">
               <p>スラグ: {org.slug}</p>
               <p>
-                削除日: {new Date(org.deletedAt).toLocaleDateString("ja-JP")}
+                削除日: {formatShortDate(org.deletedAt)}
                 {org.deletedByEmail && `（${org.deletedByEmail}）`}
               </p>
               <p className="text-red-500">
-                完全削除予定: {new Date(org.purgeScheduledAt).toLocaleDateString("ja-JP")}（残り
+                完全削除予定: {formatShortDate(org.purgeScheduledAt)}（残り
                 {daysUntil(org.purgeScheduledAt)}日）
               </p>
             </div>

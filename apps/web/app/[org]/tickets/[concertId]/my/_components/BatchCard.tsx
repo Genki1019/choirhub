@@ -7,6 +7,7 @@ import { AmountSummary } from "./AmountSummary";
 import { Stepper } from "./Stepper";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { userErrorMessage } from "@/lib/api-client";
+import { formatShortDate } from "@/lib/date";
 
 function yen(amount: number) {
   return `¥${amount.toLocaleString()}`;
@@ -218,7 +219,7 @@ export function BatchCard({ batch, orgSlug, concertId, isClosed, onChange }: Bat
           <ErrorMessage className="mt-2">{salesError}</ErrorMessage>
           {batch.reportedAt && (
             <p className="mt-1.5 text-center text-xs text-gray-400">
-              最終報告: {new Date(batch.reportedAt).toLocaleDateString("ja-JP")}
+              最終報告: {formatShortDate(batch.reportedAt)}
             </p>
           )}
         </section>

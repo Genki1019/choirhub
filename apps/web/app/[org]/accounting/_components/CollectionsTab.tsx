@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Wallet, Plus, ChevronRight } from "lucide-react";
 import type { CollectionSummaryItem } from "@/lib/accounting-api";
 import { CsvExportButton } from "@/components/CsvExportButton";
+import { jstParts } from "@/lib/date";
 
 function yen(n: number) {
   return `¥${n.toLocaleString()}`;
@@ -9,8 +10,8 @@ function yen(n: number) {
 
 function fmtDate(iso: string | null) {
   if (!iso) return "—";
-  const d = new Date(iso);
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
+  const { year, month, day } = jstParts(iso);
+  return `${year}/${String(month).padStart(2, "0")}/${String(day).padStart(2, "0")}`;
 }
 
 interface CollectionsTabProps {

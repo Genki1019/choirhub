@@ -3,6 +3,7 @@ import { PAYMENT_METHOD_LABEL } from "@/lib/accounting-api";
 import type { CollectionPaymentItem } from "@/lib/accounting-api";
 import { comparePartOrder } from "@/lib/voice-order";
 import { StatusBadge } from "./RecordModal";
+import { formatShortDate } from "@/lib/date";
 
 interface PaymentsListProps {
   payments: CollectionPaymentItem[];
@@ -110,7 +111,7 @@ export function PaymentsList({
                     <p className="text-sm font-medium text-gray-800">{payment.member.nameJa}</p>
                     <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-400">
                       {payment.status === "paid" && payment.paidAt && (
-                        <span>{new Date(payment.paidAt).toLocaleDateString("ja-JP")}</span>
+                        <span>{formatShortDate(payment.paidAt)}</span>
                       )}
                       {payment.status === "paid" && payment.method && (
                         <span>{PAYMENT_METHOD_LABEL[payment.method]}</span>

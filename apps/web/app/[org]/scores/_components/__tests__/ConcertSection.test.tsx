@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ConcertSection } from "../ConcertSection";
@@ -88,5 +88,20 @@ describe("ConcertSection（開閉）", () => {
 
     await user.click(screen.getByText("第20回定期演奏会"));
     expect(screen.getByText("男声合唱のための〇〇")).toBeInTheDocument();
+  });
+});
+
+describe("ConcertSection（ブラウザのタイムゾーンによらず日本時間）", () => {
+  beforeEach(() => {
+    vi.stubEnv("TZ", "America/Los_Angeles");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("APIの開催日（日本時間の日付）を、日本より西のタイムゾーンでも同じ日付で表示する", () => {
+    render(<ConcertSection concert={baseConcert} orgSlug="tokyo-men-choir" />);
+
+    expect(screen.getByText("2026年11月23日 ・ ○○ホール ・ 2曲")).toBeInTheDocument();
   });
 });

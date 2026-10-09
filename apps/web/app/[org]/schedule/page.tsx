@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Plus, Loader2, AlertCircle, CalendarPlus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { eventsApi } from "@/lib/events-api";
-import { monthStart } from "@/lib/date";
+import { jstParts, monthStart } from "@/lib/date";
 import { eventKeys } from "@/lib/query-keys";
 import { Calendar } from "./_components/Calendar";
 import { EventList } from "./_components/EventList";
@@ -21,8 +21,8 @@ export default function SchedulePage() {
   const today = new Date();
 
   const { roles } = useMember();
-  const [year, setYear] = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth() + 1);
+  const [year, setYear] = useState(jstParts(today).year);
+  const [month, setMonth] = useState(jstParts(today).month);
   const [showCalendarFeedModal, setShowCalendarFeedModal] = useState(false);
 
   const from = monthStart(year, month);

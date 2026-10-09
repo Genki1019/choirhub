@@ -2,6 +2,7 @@ import Link from "next/link";
 import { MapPin, Circle } from "lucide-react";
 import type { AttendanceStatus, EventCardItem } from "@/lib/events-api";
 import { getConcertHref, type ConcertLinkSource } from "@/lib/routes";
+import { jstParts } from "@/lib/date";
 
 const ATTENDANCE_LABEL: Record<AttendanceStatus, { label: string; className: string }> = {
   attending: { label: "参加", className: "text-teal-600" },
@@ -11,9 +12,9 @@ const ATTENDANCE_LABEL: Record<AttendanceStatus, { label: string; className: str
 };
 
 function formatEventDate(isoString: string): string {
-  const d = new Date(isoString);
+  const { month, day, weekday, hours, minutes } = jstParts(isoString);
   const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
-  return `${d.getMonth() + 1}/${d.getDate()}（${weekdays[d.getDay()]}）${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}〜`;
+  return `${month}/${day}（${weekdays[weekday]}）${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}〜`;
 }
 
 export function EventCard({

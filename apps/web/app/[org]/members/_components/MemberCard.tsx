@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { MemberProfile, MemberStatus } from "@/lib/api-types";
+import { jstParts } from "@/lib/date";
 
 const STATUS_LABEL: Record<MemberStatus, { label: string; dot: string }> = {
   active: { label: "在団", dot: "bg-teal-400" },
@@ -37,8 +38,8 @@ function membershipYears(joinedAt: string | null): number {
 
 function formatJoined(joinedAt: string | null): string {
   if (!joinedAt) return "不明";
-  const d = new Date(joinedAt);
-  return `${d.getFullYear()}年${d.getMonth() + 1}月`;
+  const { year, month } = jstParts(joinedAt);
+  return `${year}年${month}月`;
 }
 
 export function MemberCard({ member, org }: { member: MemberProfile; org: string }) {

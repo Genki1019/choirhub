@@ -8,6 +8,7 @@ import { concertsApi } from "@/lib/concerts-api";
 import { eventsApi } from "@/lib/events-api";
 import { scoresKeys, concertKeys, eventKeys } from "@/lib/query-keys";
 import type { CrossFileKind } from "@/lib/files-api";
+import { formatJaDate } from "@/lib/date";
 
 interface PickerItem {
   id: string;
@@ -74,12 +75,12 @@ export function ResourcePickerModal({ org, kind, onClose, onSelect }: ResourcePi
     isLoading = concertQuery.isLoading;
     items = (concertQuery.data ?? [])
       .filter((c) => c.title.toLowerCase().includes(search.toLowerCase()))
-      .map((c) => ({ id: c.id, title: c.title, subtitle: c.heldOn }));
+      .map((c) => ({ id: c.id, title: c.title, subtitle: formatJaDate(c.heldOn) }));
   } else {
     isLoading = eventQuery.isLoading;
     items = (eventQuery.data ?? [])
       .filter((e) => e.title.toLowerCase().includes(search.toLowerCase()))
-      .map((e) => ({ id: e.id, title: e.title, subtitle: e.startsAt.slice(0, 10) }));
+      .map((e) => ({ id: e.id, title: e.title, subtitle: formatJaDate(e.startsAt) }));
   }
 
   return (

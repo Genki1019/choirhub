@@ -1,5 +1,14 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { monthStart, toJstIso, isoToJstParts, todayStr } from "../date";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import {
+  monthStart,
+  toJstIso,
+  isoToJstParts,
+  todayStr,
+  jstParts,
+  formatJaDate,
+  formatJaDateTime,
+  formatShortDate,
+} from "../date";
 
 describe("monthStart", () => {
   it("year/monthから月初日を組み立てる", () => {
@@ -44,5 +53,35 @@ describe("todayStr", () => {
     } finally {
       process.env.TZ = originalTz;
     }
+  });
+});
+
+describe("日本時間のヘルパー（ブラウザのタイムゾーンによらない）", () => {
+  beforeEach(() => {
+    vi.stubEnv("TZ", "America/Los_Angeles");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("jstParts: UTC 15:30 は日本時間の翌日 0:30", () => {
+    expect(jstParts("2026-11-22T15:30:00Z")).toEqual({
+      year: 2026,
+      month: 11,
+      day: 23,
+      weekday: 1,
+      hours: 0,
+      minutes: 30,
+    });
+  });
+
+  it("jstParts: 日付だけの文字列（UTC 0時）は同じ日付", () => {
+    expect(jstParts("2026-11-23")).toMatchObject({ year: 2026, month: 11, day: 23 });
+  });
+
+  it("formatJaDate・formatJaDateTime・formatShortDate は日本時間で表示する", () => {
+    expect(formatJaDate("2026-11-22T15:30:00Z")).toBe("2026年11月23日");
+    expect(formatJaDateTime("2026-11-22T15:30:00Z")).toBe("2026年11月23日 0:30");
+    expect(formatShortDate("2026-11-22T15:30:00Z")).toBe("2026/11/23");
   });
 });

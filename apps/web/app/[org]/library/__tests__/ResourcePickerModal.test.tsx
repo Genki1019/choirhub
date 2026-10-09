@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -185,5 +185,62 @@ describe("ResourcePickerModal（閉じる）", () => {
     await user.click(screen.getByLabelText("閉じる"));
 
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("ResourcePickerModal（日付の表示）", () => {
+  beforeEach(() => {
+    vi.stubEnv("TZ", "America/Los_Angeles");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("本番の開催日を、ブラウザのタイムゾーンによらず日本時間の日付で表示する", async () => {
+    vi.mocked(concertsApi.list).mockResolvedValue([
+      {
+        id: "concert-1",
+        title: "深夜公演",
+        heldOn: "2026-11-22T15:30:00.000Z",
+        venue: null,
+        status: "draft",
+        stageCount: 1,
+        programCount: 1,
+        hasSurvey: false,
+        surveyOpen: false,
+        linkedEventId: null,
+      },
+    ]);
+    renderModal("concert");
+
+    expect(await screen.findByText("2026年11月23日")).toBeInTheDocument();
+    expect(screen.queryByText(/T15:30/)).not.toBeInTheDocument();
+  });
+
+  it("予定の開始日を、ブラウザのタイムゾーンによらず日本時間の日付で表示する", async () => {
+    vi.mocked(eventsApi.list).mockResolvedValue([
+      {
+        id: "event-1",
+        title: "早朝練習",
+        category: { id: "c1", name: "練習", slug: null, color: "#000", sortOrder: 1 },
+        startsAt: "2026-06-09T22:00:00Z",
+        endsAt: "2026-06-10T00:00:00Z",
+        location: null,
+        locationUrl: null,
+        deadline: null,
+        rehearsalContent: null,
+        timeSchedule: null,
+        practiceVenue: null,
+        otherNotes: null,
+        isLocked: false,
+        targetRoles: null,
+        targetPartIds: null,
+        myAttendance: "undecided",
+        concertId: null,
+      },
+    ]);
+    renderModal("event");
+
+    expect(await screen.findByText("2026年6月10日")).toBeInTheDocument();
   });
 });

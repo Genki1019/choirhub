@@ -21,14 +21,42 @@ export function todayStr(): string {
   return new Date(Date.now() + JST_OFFSET_MS).toISOString().slice(0, 10);
 }
 
-/** ISO文字列 → "YYYY年M月D日" */
-export function formatJaDate(isoStr: string): string {
-  const d = new Date(isoStr);
-  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+export interface JstParts {
+  year: number;
+  month: number;
+  day: number;
+  weekday: number;
+  hours: number;
+  minutes: number;
 }
 
-/** ISO文字列 → "YYYY年M月D日 H:MM" */
-export function formatJaDateTime(isoStr: string): string {
-  const d = new Date(isoStr);
-  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+/** 日時（ISO文字列・Date）→ 日本時間の各部分。ブラウザのタイムゾーンによらない */
+export function jstParts(value: string | Date): JstParts {
+  const d = new Date(new Date(value).getTime() + JST_OFFSET_MS);
+  return {
+    year: d.getUTCFullYear(),
+    month: d.getUTCMonth() + 1,
+    day: d.getUTCDate(),
+    weekday: d.getUTCDay(),
+    hours: d.getUTCHours(),
+    minutes: d.getUTCMinutes(),
+  };
+}
+
+/** 日時 → "YYYY年M月D日"（日本時間） */
+export function formatJaDate(value: string | Date): string {
+  const { year, month, day } = jstParts(value);
+  return `${year}年${month}月${day}日`;
+}
+
+/** 日時 → "YYYY年M月D日 H:MM"（日本時間） */
+export function formatJaDateTime(value: string | Date): string {
+  const { year, month, day, hours, minutes } = jstParts(value);
+  return `${year}年${month}月${day}日 ${hours}:${String(minutes).padStart(2, "0")}`;
+}
+
+/** 日時 → "YYYY/M/D"（日本時間） */
+export function formatShortDate(value: string | Date): string {
+  const { year, month, day } = jstParts(value);
+  return `${year}/${month}/${day}`;
 }

@@ -119,8 +119,8 @@ describe("POST /concerts/:concertId/stages/:stageId/formation-patterns", () => {
     expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 
-  it("tech未満: 403を返す", async () => {
-    const app = createTestApp(makeMember(["member"]));
+  it.each([["member"], ["score"]])("%s（tech・指揮者以外）: 403を返す", async (role) => {
+    const app = createTestApp(makeMember([role]));
     const res = await app.request(
       `/concerts/${testConcert.id}/stages/${testStage.id}/formation-patterns`,
       {
@@ -132,7 +132,10 @@ describe("POST /concerts/:concertId/stages/:stageId/formation-patterns", () => {
 
     expect(res.status).toBe(403);
     const body = await json(res);
-    expect(body.error.code).toBe("FORBIDDEN");
+    expect(body.error).toEqual({
+      code: "FORBIDDEN",
+      message: "技術系・指揮者のみ操作できます",
+    });
   });
 
   it("演奏会が存在しない/別テナント: 404を返す", async () => {
@@ -266,8 +269,8 @@ describe("PATCH /concerts/:concertId/stages/:stageId/formation-patterns/:pattern
     expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 
-  it("tech未満: 403を返す", async () => {
-    const app = createTestApp(makeMember(["member"]));
+  it.each([["member"], ["score"]])("%s（tech・指揮者以外）: 403を返す", async (role) => {
+    const app = createTestApp(makeMember([role]));
     const res = await app.request(
       `/concerts/${testConcert.id}/stages/${testStage.id}/formation-patterns/pattern-1`,
       {
@@ -279,7 +282,10 @@ describe("PATCH /concerts/:concertId/stages/:stageId/formation-patterns/:pattern
 
     expect(res.status).toBe(403);
     const body = await json(res);
-    expect(body.error.code).toBe("FORBIDDEN");
+    expect(body.error).toEqual({
+      code: "FORBIDDEN",
+      message: "技術系・指揮者のみ操作できます",
+    });
   });
 
   it("演奏会が存在しない/別テナント: 404を返す", async () => {
@@ -363,8 +369,8 @@ describe("PATCH /concerts/:concertId/stages/:stageId/formation-patterns/:pattern
 describe("DELETE /concerts/:concertId/stages/:stageId/formation-patterns/:patternId", () => {
   const testPattern = { id: "pattern-1", stageId: "stage-1", name: "パターン1", sortOrder: 1 };
 
-  it("tech未満: 403を返す", async () => {
-    const app = createTestApp(makeMember(["member"]));
+  it.each([["member"], ["score"]])("%s（tech・指揮者以外）: 403を返す", async (role) => {
+    const app = createTestApp(makeMember([role]));
     const res = await app.request(
       `/concerts/${testConcert.id}/stages/${testStage.id}/formation-patterns/pattern-1`,
       { method: "DELETE" },
@@ -372,7 +378,10 @@ describe("DELETE /concerts/:concertId/stages/:stageId/formation-patterns/:patter
 
     expect(res.status).toBe(403);
     const body = await json(res);
-    expect(body.error.code).toBe("FORBIDDEN");
+    expect(body.error).toEqual({
+      code: "FORBIDDEN",
+      message: "技術系・指揮者のみ操作できます",
+    });
   });
 
   it("演奏会が存在しない/別テナント: 404を返す", async () => {
@@ -445,8 +454,8 @@ describe("PUT /concerts/:concertId/stages/:stageId/formation-patterns/order", ()
     expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 
-  it("tech未満: 403を返す", async () => {
-    const app = createTestApp(makeMember(["member"]));
+  it.each([["member"], ["score"]])("%s（tech・指揮者以外）: 403を返す", async (role) => {
+    const app = createTestApp(makeMember([role]));
     const res = await app.request(
       `/concerts/${testConcert.id}/stages/${testStage.id}/formation-patterns/order`,
       {
@@ -458,7 +467,10 @@ describe("PUT /concerts/:concertId/stages/:stageId/formation-patterns/order", ()
 
     expect(res.status).toBe(403);
     const body = await json(res);
-    expect(body.error.code).toBe("FORBIDDEN");
+    expect(body.error).toEqual({
+      code: "FORBIDDEN",
+      message: "技術系・指揮者のみ操作できます",
+    });
   });
 
   it("演奏会が存在しない/別テナント: 404を返す", async () => {
@@ -534,15 +546,18 @@ describe("PUT /concerts/:concertId/stages/:stageId/formation-patterns/order", ()
 describe("POST /concerts/:concertId/surveys/:surveyId/apply", () => {
   const testSurvey = { id: "survey-1", concertId: "concert-1" };
 
-  it("tech未満: 403を返す", async () => {
-    const app = createTestApp(makeMember(["member"]));
+  it.each([["member"], ["score"]])("%s（tech・指揮者以外）: 403を返す", async (role) => {
+    const app = createTestApp(makeMember([role]));
     const res = await app.request(`/concerts/${testConcert.id}/surveys/survey-1/apply`, {
       method: "POST",
     });
 
     expect(res.status).toBe(403);
     const body = await json(res);
-    expect(body.error.code).toBe("FORBIDDEN");
+    expect(body.error).toEqual({
+      code: "FORBIDDEN",
+      message: "技術系・指揮者のみ操作できます",
+    });
   });
 
   it("演奏会が存在しない/別テナント: 404を返す", async () => {
@@ -635,8 +650,8 @@ describe("PUT /concerts/:concertId/stages/:stageId/formation-patterns/:patternId
     expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 
-  it("tech未満: 403を返す", async () => {
-    const app = createTestApp(makeMember(["member"]));
+  it.each([["member"], ["score"]])("%s（tech・指揮者以外）: 403を返す", async (role) => {
+    const app = createTestApp(makeMember([role]));
     const res = await app.request(url, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -645,7 +660,10 @@ describe("PUT /concerts/:concertId/stages/:stageId/formation-patterns/:patternId
 
     expect(res.status).toBe(403);
     const body = await json(res);
-    expect(body.error.code).toBe("FORBIDDEN");
+    expect(body.error).toEqual({
+      code: "FORBIDDEN",
+      message: "技術系・指揮者のみ操作できます",
+    });
   });
 
   it("演奏会が存在しない/別テナント: 404を返す", async () => {

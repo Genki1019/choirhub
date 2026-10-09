@@ -58,8 +58,8 @@
 | 見学申込（承認キュー）           | `/[org]/members/applications`                  | admin                                                                                                                                                           |
 | スケジュール一覧                 | `/[org]/schedule`                              | visitor+                                                                                                                                                        |
 | イベント詳細・出欠表             | `/[org]/schedule/[id]`                         | visitor+                                                                                                                                                        |
-| イベント作成                     | `/[org]/schedule/new`                          | admin, tech                                                                                                                                                     |
-| イベント編集                     | `/[org]/schedule/[id]/edit`                    | admin, tech                                                                                                                                                     |
+| イベント作成                     | `/[org]/schedule/new`                          | admin, tech, conductor                                                                                                                                          |
+| イベント編集                     | `/[org]/schedule/[id]/edit`                    | admin, tech, conductor                                                                                                                                          |
 | 楽譜一覧                         | `/[org]/scores`                                | visitor+                                                                                                                                                        |
 | 楽譜詳細                         | `/[org]/scores/[scoreId]`                      | visitor+                                                                                                                                                        |
 | 本番一覧                         | `/[org]/concerts`                              | visitor+                                                                                                                                                        |
@@ -1394,7 +1394,7 @@
 
 ### 8.2 本番詳細 `/[org]/concerts/[id]`
 
-**目的**: ステージ構成・演目・オンステ確定状況の確認と管理（ステージ構成・演目編集は admin のみ、オンステ調査・フォーメーション編集は tech 以上）
+**目的**: ステージ構成・演目・オンステ確定状況の確認と管理（ステージ構成・演目編集は admin のみ、オンステ調査・フォーメーション編集は tech・指揮者。楽譜がかりは不可）
 
 > `visitor` ロールのみの場合はステージ構成タブとファイルタブのみ表示される。オンステ調査タブ・出演メンバータブは非表示（APIも限定レスポンスを返す）。
 
@@ -1530,9 +1530,9 @@
 #### レイアウト（調査セレクタ + マトリクスビュー）
 
 ```text
-│  [一次調査 受付中] [二次調査 締切]  [+ 新しい調査]  │ ← 調査セレクタ（tech 以上のみ追加可）
+│  [一次調査 受付中] [二次調査 締切]  [+ 新しい調査]  │ ← 調査セレクタ（tech・指揮者のみ追加可）
 │                                                    │
-│  一次調査  [受付中]  [確定する]  (tech 以上)        │
+│  一次調査  [受付中]  [確定する]  (tech・指揮者)        │
 │  締切: 8/31                                         │
 ├──────────────────┬────────────────┬──────────┤
 │  集計行           │ 第1St.  │ 第2St. │  メモ  │
@@ -1549,7 +1549,7 @@
 
 > ★ = 自分の行（ハイライト表示）。セルをクリックすると ○ → ✕ → — の順に循環（`maybe` はスケジュール出欠と異なりオンステ調査では選択肢に含まない）。メモ列はブラー時に保存。
 
-**調査作成ダイアログ**（tech 以上）
+**調査作成ダイアログ**（tech・指揮者）
 
 ```text
 ┌──────────────────────────────────────┐
@@ -1568,11 +1568,11 @@
 - 自分のセルをクリック → ステータス循環（attending → absent → undecided）
 - メモ入力 → フォーカスアウト時にメモだけを保存（全ステージに同じ値。回答の○✕は送らない。空にすると消去）
 - admin は他メンバーのセルも編集可能（`targetMemberId` パラメータで代理送信。締切済み調査の修正も admin のみ可）
-- 「＋ 新しい調査」（tech 以上）→ 作成ダイアログ → POST `/concerts/:id/surveys` → 既存の開放中調査を自動クローズ + Concert.status が `survey_open` に
-- 「確定する」（tech 以上）→ PATCH `/concerts/:id/surveys/:surveyId` `{isOpen: false}` → 他に開放中なければ Concert.status が `confirmed` に
-- 「再開する」（tech 以上）→ PATCH `/concerts/:id/surveys/:surveyId` `{isOpen: true}` → 他の開放中調査をクローズ + Concert.status が `survey_open` に
+- 「＋ 新しい調査」（tech・指揮者）→ 作成ダイアログ → POST `/concerts/:id/surveys` → 既存の開放中調査を自動クローズ + Concert.status が `survey_open` に
+- 「確定する」（tech・指揮者）→ PATCH `/concerts/:id/surveys/:surveyId` `{isOpen: false}` → 他に開放中なければ Concert.status が `confirmed` に
+- 「再開する」（tech・指揮者）→ PATCH `/concerts/:id/surveys/:surveyId` `{isOpen: true}` → 他の開放中調査をクローズ + Concert.status が `survey_open` に
 - 調査の読み込み、セル・メモの保存、確定・再開、フォーメーションへの反映に失敗した場合は`role="alert"`でエラーを表示する。読み込みに失敗した調査では回答表を表示しない（前に開いていた調査の回答を残さない）。セルは元の値に戻す。別の調査に切り替えるとエラーを消し、取得が終わるまで「読み込み中」にする。切り替えたあとに届いた前の調査の保存結果は、新しい調査の画面に反映しない
-- 複数調査がある場合、調査詳細ヘッダーに「フォーメーションに反映」ボタン（tech 以上）→ POST `/concerts/:id/surveys/:surveyId/apply` → 回答内容を `OnStageAssignment` に反映。`concert.appliedSurveyId` と一致する調査は「反映済み」と表示
+- 複数調査がある場合、調査詳細ヘッダーに「フォーメーションに反映」ボタン（tech・指揮者）→ POST `/concerts/:id/surveys/:surveyId/apply` → 回答内容を `OnStageAssignment` に反映。`concert.appliedSurveyId` と一致する調査は「反映済み」と表示
 
 > **ステータス自動連動**: `survey_open` は調査開設/再開で自動セットされる。編集モーダルから手動で `survey_open` を選択することはできない（`draft` / `confirmed` / `past` のみ選択可）。
 
@@ -1582,9 +1582,9 @@
 
 **目的**: オンステが確定したメンバーの確認と、ステージごとの立ち位置（フォーメーション）の作成・編集
 
-> オンステ確定（`concert.assignments` が1件以上）前は「オンステ確定後に、出演メンバーとフォーメーションがここに表示されます」という空状態のみ表示。ステージが複数ある場合はステージ切替チップが先頭に表示される。編集は `canManageStage`（admin/tech）のみ、他ロールは常にプレビュー表示。
+> オンステ確定（`concert.assignments` が1件以上）前は「オンステ確定後に、出演メンバーとフォーメーションがここに表示されます」という空状態のみ表示。ステージが複数ある場合はステージ切替チップが先頭に表示される。編集は `canManageStage`（admin・tech・指揮者。楽譜がかりは不可）のみ、他ロールは常にプレビュー表示。
 
-**レイアウト**（編集モード、admin/tech）
+**レイアウト**（編集モード、admin・tech・指揮者）
 
 ```text
 ┌──────────────────────────────────────────────────┐
@@ -1637,7 +1637,7 @@
 - チップをタップ/クリック→鉛筆アイコンで表示名編集（1〜3文字、団員はラベル上書き、客演は名前ごと編集）、✕で配置解除。鉛筆・✕ は見た目を小さく保ったまま 24px 四方のタップ領域を持ち、「<氏名>の表示名を編集」「<氏名>を削除」という名前を持つ
 - 未配置プール: オンステ確定済みだが山台・枠のいずれにも配置されていないメンバー一覧（ここからドラッグして配置）
 
-**プレビューモード / 閲覧専用ロール（tech以外の member・guest・score等）**
+**プレビューモード / 閲覧専用ロール（admin・tech・指揮者以外。member・guest・score 等）**
 
 - `ReadOnlyFormation` を表示。ドラッグ・編集操作は一切なし
 - 指揮・ピアノ・山台（列は実際に使われている範囲のみ表示）・カスタム枠（「ソロ・楽器」セクション）を静的に表示

@@ -339,6 +339,32 @@ describe("ConcertDetailPage（タブ切替）", () => {
   });
 });
 
+describe("ConcertDetailPage（オンステ調査の管理操作の権限）", () => {
+  it.each([["admin"], ["tech"], ["conductor"]])(
+    "%s: 調査を開設するボタンを表示する",
+    async (role) => {
+      vi.mocked(concertsApi.get).mockResolvedValue(makeConcert());
+      searchParamsMock = new URLSearchParams("tab=survey");
+      renderPage([role]);
+
+      expect(await screen.findByText("オンステ調査はまだ開設されていません")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "調査を開設する" })).toBeInTheDocument();
+    },
+  );
+
+  it.each([["score"], ["member", "score"], ["member"]])(
+    "%s: 調査を開設するボタンを表示しない",
+    async (...roles) => {
+      vi.mocked(concertsApi.get).mockResolvedValue(makeConcert());
+      searchParamsMock = new URLSearchParams("tab=survey");
+      renderPage(roles);
+
+      expect(await screen.findByText("オンステ調査はまだ開設されていません")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "調査を開設する" })).not.toBeInTheDocument();
+    },
+  );
+});
+
 describe("ConcertDetailPage（visitorのタブ制御）", () => {
   it("visitorのみの場合は「オンステ調査」「出演メンバー」タブを表示しない", async () => {
     vi.mocked(concertsApi.get).mockResolvedValue(makeConcert());

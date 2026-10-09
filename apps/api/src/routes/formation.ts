@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { hasRole } from "../services/access.js";
+import { isTechOrConductor } from "../services/access.js";
 import { applySurveyToOnStage } from "../services/onstage.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 
@@ -20,15 +20,18 @@ async function resolveFormationPattern(stageId: string, patternId: string) {
 
 export const formationRouter = new Hono<TenantEnv>()
 
-  // ── POST /concerts/:concertId/surveys/:surveyId/apply ── 指定した調査の回答をオンステ確定に反映（tech+）
+  // ── POST /concerts/:concertId/surveys/:surveyId/apply ── 指定した調査の回答をオンステ確定に反映（tech/conductor）
   // 調査が複数（一次・二次など）ある場合に、どの調査を反映するかを明示的に選べるようにする。
   // 開閉状態にかかわらず呼び出せる（締切時の自動反映とは独立）。
   .post("/concerts/:concertId/surveys/:surveyId/apply", async (c) => {
     const actingMember = c.get("member");
     const org = c.get("org");
 
-    if (!hasRole(actingMember, "tech")) {
-      return c.json({ error: { code: "FORBIDDEN", message: "技術系以上の権限が必要です" } }, 403);
+    if (!isTechOrConductor(actingMember)) {
+      return c.json(
+        { error: { code: "FORBIDDEN", message: "技術系・指揮者のみ操作できます" } },
+        403,
+      );
     }
 
     const { concertId, surveyId } = c.req.param();
@@ -47,7 +50,7 @@ export const formationRouter = new Hono<TenantEnv>()
     return c.json({ data: { ok: true } });
   })
 
-  // ── POST /concerts/:concertId/stages/:stageId/formation-patterns ── フォーメーションパターン作成（tech+）
+  // ── POST /concerts/:concertId/stages/:stageId/formation-patterns ── フォーメーションパターン作成（tech/conductor）
   .post(
     "/concerts/:concertId/stages/:stageId/formation-patterns",
     zValidator(
@@ -64,8 +67,11 @@ export const formationRouter = new Hono<TenantEnv>()
       const actingMember = c.get("member");
       const org = c.get("org");
 
-      if (!hasRole(actingMember, "tech")) {
-        return c.json({ error: { code: "FORBIDDEN", message: "技術系以上の権限が必要です" } }, 403);
+      if (!isTechOrConductor(actingMember)) {
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "技術系・指揮者のみ操作できます" } },
+          403,
+        );
       }
 
       const { concertId, stageId } = c.req.param();
@@ -123,7 +129,7 @@ export const formationRouter = new Hono<TenantEnv>()
     },
   )
 
-  // ── PATCH /concerts/:concertId/stages/:stageId/formation-patterns/:patternId ── 名称・ずらし設定・ピアノ位置の変更（tech+）
+  // ── PATCH /concerts/:concertId/stages/:stageId/formation-patterns/:patternId ── 名称・ずらし設定・ピアノ位置の変更（tech/conductor）
   .patch(
     "/concerts/:concertId/stages/:stageId/formation-patterns/:patternId",
     zValidator(
@@ -142,8 +148,11 @@ export const formationRouter = new Hono<TenantEnv>()
       const actingMember = c.get("member");
       const org = c.get("org");
 
-      if (!hasRole(actingMember, "tech")) {
-        return c.json({ error: { code: "FORBIDDEN", message: "技術系以上の権限が必要です" } }, 403);
+      if (!isTechOrConductor(actingMember)) {
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "技術系・指揮者のみ操作できます" } },
+          403,
+        );
       }
 
       const { concertId, stageId, patternId } = c.req.param();
@@ -175,13 +184,16 @@ export const formationRouter = new Hono<TenantEnv>()
     },
   )
 
-  // ── DELETE /concerts/:concertId/stages/:stageId/formation-patterns/:patternId ── パターン削除（tech+）
+  // ── DELETE /concerts/:concertId/stages/:stageId/formation-patterns/:patternId ── パターン削除（tech/conductor）
   .delete("/concerts/:concertId/stages/:stageId/formation-patterns/:patternId", async (c) => {
     const actingMember = c.get("member");
     const org = c.get("org");
 
-    if (!hasRole(actingMember, "tech")) {
-      return c.json({ error: { code: "FORBIDDEN", message: "技術系以上の権限が必要です" } }, 403);
+    if (!isTechOrConductor(actingMember)) {
+      return c.json(
+        { error: { code: "FORBIDDEN", message: "技術系・指揮者のみ操作できます" } },
+        403,
+      );
     }
 
     const { concertId, stageId, patternId } = c.req.param();
@@ -200,7 +212,7 @@ export const formationRouter = new Hono<TenantEnv>()
     return new Response(null, { status: 204 });
   })
 
-  // ── PUT /concerts/:concertId/stages/:stageId/formation-patterns/order ── パターン並び替え（tech+）
+  // ── PUT /concerts/:concertId/stages/:stageId/formation-patterns/order ── パターン並び替え（tech/conductor）
   .put(
     "/concerts/:concertId/stages/:stageId/formation-patterns/order",
     zValidator(
@@ -217,8 +229,11 @@ export const formationRouter = new Hono<TenantEnv>()
       const actingMember = c.get("member");
       const org = c.get("org");
 
-      if (!hasRole(actingMember, "tech")) {
-        return c.json({ error: { code: "FORBIDDEN", message: "技術系以上の権限が必要です" } }, 403);
+      if (!isTechOrConductor(actingMember)) {
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "技術系・指揮者のみ操作できます" } },
+          403,
+        );
       }
 
       const { concertId, stageId } = c.req.param();
@@ -256,7 +271,7 @@ export const formationRouter = new Hono<TenantEnv>()
     },
   )
 
-  // ── PUT /concerts/:concertId/stages/:stageId/formation-patterns/:patternId/slots ── 枠・スロットの一括保存（tech+）
+  // ── PUT /concerts/:concertId/stages/:stageId/formation-patterns/:patternId/slots ── 枠・スロットの一括保存（tech/conductor）
   .put(
     "/concerts/:concertId/stages/:stageId/formation-patterns/:patternId/slots",
     zValidator(
@@ -300,8 +315,11 @@ export const formationRouter = new Hono<TenantEnv>()
       const actingMember = c.get("member");
       const org = c.get("org");
 
-      if (!hasRole(actingMember, "tech")) {
-        return c.json({ error: { code: "FORBIDDEN", message: "技術系以上の権限が必要です" } }, 403);
+      if (!isTechOrConductor(actingMember)) {
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "技術系・指揮者のみ操作できます" } },
+          403,
+        );
       }
 
       const { concertId, stageId, patternId } = c.req.param();

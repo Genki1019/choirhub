@@ -27,7 +27,7 @@ import { formatJaDate } from "@/lib/date";
 import { concertKeys } from "@/lib/query-keys";
 import { mergeOrderedIds } from "@/lib/sort-order";
 import { useMember } from "@/contexts/MemberContext";
-import { MEMBER_LEVEL_ROLES, canManageAttachments } from "@/lib/roles";
+import { MEMBER_LEVEL_ROLES, canManageAttachments, canManageOnstage } from "@/lib/roles";
 import { StagesTab } from "./_components/StagesTab";
 import { AddStageModal } from "./_components/AddStageModal";
 import { MoveCopyModal, type MoveCopyTarget } from "./_components/MoveCopyModal";
@@ -62,7 +62,7 @@ export default function ConcertDetailPage() {
 
   const { roles, memberId } = useMember();
   const isAdmin = roles.includes("admin");
-  const canManageStage = isAdmin || roles.includes("tech");
+  const canManageStage = canManageOnstage(roles);
   // visitor（共有アカウント）のみの場合はAPIもオンステ調査・出演メンバーの限定レスポンスを返すため、該当タブ自体を非表示にする
   const isVisitorOnly = roles.includes("visitor") && !roles.some((r) => MEMBER_LEVEL_ROLES.has(r));
 

@@ -48,16 +48,16 @@ beforeEach(() => {
 });
 
 describe("NewConcertPage（権限・表示状態）", () => {
-  it.each([["member"], ["guest"], ["score"]])(
-    "%sロール: アクセス権限がありませんと表示する",
+  it.each([["member"], ["guest"], ["score"], ["tech"], ["conductor"]])(
+    "%sロール: アクセス権限がありませんと表示する（演奏会の登録はadminのみ）",
     (role) => {
       renderPage([role]);
       expect(screen.getByText("このページにアクセスする権限がありません")).toBeInTheDocument();
     },
   );
 
-  it.each([["admin"], ["tech"], ["conductor"]])("%sロール: フォームを表示する", async (role) => {
-    renderPage([role]);
+  it("adminロール: フォームを表示する", async () => {
+    renderPage(["admin"]);
     expect(await screen.findByText("演奏会を登録")).toBeInTheDocument();
   });
 

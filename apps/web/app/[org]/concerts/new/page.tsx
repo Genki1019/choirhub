@@ -8,7 +8,6 @@ import { useQuery } from "@tanstack/react-query";
 import { concertsApi } from "@/lib/concerts-api";
 import { membersApi } from "@/lib/members-api";
 import { useMember } from "@/contexts/MemberContext";
-import { canManageSchedule } from "@/lib/roles";
 import { toJstIso, todayStr } from "@/lib/date";
 import { memberKeys } from "@/lib/query-keys";
 import { NotFoundPage } from "@/components/NotFoundPage";
@@ -27,7 +26,7 @@ export default function NewConcertPage() {
   const router = useRouter();
 
   const { roles } = useMember();
-  const canCreate = canManageSchedule(roles);
+  const canCreate = roles.includes("admin");
 
   const [title, setTitle] = useState("");
   const [startDate, setStartDate] = useState(todayStr);

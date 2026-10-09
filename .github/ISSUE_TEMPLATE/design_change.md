@@ -1,7 +1,7 @@
 ---
 name: 設計変更
 about: データ構造・画面構成・UXフローの大規模な見直し
-labels: ["enhancement", "type: design"]
+labels: ["type: design"]
 ---
 
 ## 概要

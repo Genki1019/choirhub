@@ -1,7 +1,7 @@
 ---
 name: バグ報告
 about: 不具合・エラーを報告する
-labels: ["bug", "type: bug"]
+labels: ["type: bug"]
 ---
 
 ## 概要

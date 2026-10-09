@@ -1,7 +1,7 @@
 ---
 name: UX 改善
 about: 使いにくさ・表示の違和感・操作フローの改善提案
-labels: ["enhancement", "type: ux"]
+labels: ["type: ux"]
 ---
 
 ## 概要

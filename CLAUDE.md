@@ -104,6 +104,7 @@ choirhub/
 
 - **型**: `any` 禁止。API境界はZodで検証し型を推論する
 - **Prisma**: クエリには必ず `where: { orgId }` を含める（マルチテナント漏えい防止）
+- **日付・時刻**: 表示や「何日か」の判定は日本時間で行う。web は `lib/date.ts` のヘルパー（`jstParts`・`formatJaDate`・`formatShortDate`・`todayStr` 等）を使い、`getFullYear()`・`toLocaleDateString()` などブラウザのタイムゾーンに依存する書き方はしない（ESLint で禁止）。API は時刻付きの日時を `toJstDateString`、日付だけの列（`@db.Date`）を `toDateString` で切り出し、「今日」や日付での絞り込みは `jstDayStart`・`jstDayEnd` で日本時間の区切りにする（サーバーは UTC で動くため。`setHours()` などは ESLint で禁止、`toLocaleString()` 等には `timeZone: "Asia/Tokyo"` を指定する）
 - **ファイルDL**: S3/R2直リンク禁止。必ずPresigned URLを発行する（例外: アバター画像は非機密情報のため`R2_PUBLIC_URL`設定時にCDN直リンクを許容）
 - **権限チェック**: ロール判定は `services/access.ts` のヘルパー（`isAdmin`・`hasRole` 等）で行い、ロール文字列の直接比較や判定ロジックの重複をしない
 - **楽譜アクセス**: visitor（共有）→ access_level 問わず全楽譜の全体譜PDF（`full_score`）のみ閲覧可（パート譜・MIDI・音源・その他は不可）; 一般団員 → 購入記録があるもののみDL可（public含む）; secret → 特権ユーザー（admin/score/tech/conductor）のみ（visitor は例外として secret PDF も閲覧可）

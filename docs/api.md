@@ -82,21 +82,21 @@
 
 ### スケジュール・出欠
 
-| API名                                             | Method | Path                                          | 権限    |
-| ------------------------------------------------- | ------ | --------------------------------------------- | ------- |
-| [イベント一覧取得](#events-list)                  | GET    | `/:orgSlug/events`                            | member+ |
-| [イベント作成](#events-create)                    | POST   | `/:orgSlug/events`                            | tech+   |
-| [イベント詳細・出欠一覧取得](#events-id-get)      | GET    | `/:orgSlug/events/:id`                        | member+ |
-| [イベント更新](#events-id-patch)                  | PATCH  | `/:orgSlug/events/:id`                        | tech+   |
-| [イベント削除](#events-id-delete)                 | DELETE | `/:orgSlug/events/:id`                        | tech+   |
-| [自分の出欠更新](#attendance-me)                  | PUT    | `/:orgSlug/events/:id/attendance/me`          | member+ |
-| [他メンバーの出欠更新（代理）](#attendance-proxy) | PATCH  | `/:orgSlug/events/:id/attendance/:memberId`   | admin   |
-| [プレサインドURL発行](#events-file-presign)       | POST   | `/:orgSlug/events/:id/files/presign`          | tech+   |
-| [アップロード確定](#events-file-confirm)          | POST   | `/:orgSlug/events/:id/files/confirm`          | tech+   |
-| [ファイルアップロード](#events-file-upload)       | POST   | `/:orgSlug/events/:id/files`                  | tech+   |
-| [ファイル一覧取得](#events-file-list)             | GET    | `/:orgSlug/events/:id/files`                  | member+ |
-| [ファイル削除](#events-file-delete)               | DELETE | `/:orgSlug/events/:id/files/:fileId`          | tech+   |
-| [ファイルダウンロード](#events-file-download)     | GET    | `/:orgSlug/events/:id/files/:fileId/download` | member+ |
+| API名                                             | Method | Path                                          | 権限           |
+| ------------------------------------------------- | ------ | --------------------------------------------- | -------------- |
+| [イベント一覧取得](#events-list)                  | GET    | `/:orgSlug/events`                            | member+        |
+| [イベント作成](#events-create)                    | POST   | `/:orgSlug/events`                            | tech/conductor |
+| [イベント詳細・出欠一覧取得](#events-id-get)      | GET    | `/:orgSlug/events/:id`                        | member+        |
+| [イベント更新](#events-id-patch)                  | PATCH  | `/:orgSlug/events/:id`                        | tech/conductor |
+| [イベント削除](#events-id-delete)                 | DELETE | `/:orgSlug/events/:id`                        | tech/conductor |
+| [自分の出欠更新](#attendance-me)                  | PUT    | `/:orgSlug/events/:id/attendance/me`          | member+        |
+| [他メンバーの出欠更新（代理）](#attendance-proxy) | PATCH  | `/:orgSlug/events/:id/attendance/:memberId`   | admin          |
+| [プレサインドURL発行](#events-file-presign)       | POST   | `/:orgSlug/events/:id/files/presign`          | tech+          |
+| [アップロード確定](#events-file-confirm)          | POST   | `/:orgSlug/events/:id/files/confirm`          | tech+          |
+| [ファイルアップロード](#events-file-upload)       | POST   | `/:orgSlug/events/:id/files`                  | tech+          |
+| [ファイル一覧取得](#events-file-list)             | GET    | `/:orgSlug/events/:id/files`                  | member+        |
+| [ファイル削除](#events-file-delete)               | DELETE | `/:orgSlug/events/:id/files/:fileId`          | tech+          |
+| [ファイルダウンロード](#events-file-download)     | GET    | `/:orgSlug/events/:id/files/:fileId/download` | member+        |
 
 ### 楽譜管理
 
@@ -118,37 +118,37 @@
 
 ### 本番・オンステ
 
-| API名                                                         | Method | Path                                                                                | 権限     |
-| ------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------- | -------- |
-| [演奏会一覧取得](#concerts-list)                              | GET    | `/:orgSlug/concerts`                                                                | member+  |
-| [演奏会作成](#concerts-create)                                | POST   | `/:orgSlug/concerts`                                                                | admin    |
-| [演奏会+ステージ軽量一覧取得](#concerts-structure)            | GET    | `/:orgSlug/concerts/structure`                                                      | 全ロール |
-| [演奏会詳細取得](#concerts-id-get)                            | GET    | `/:orgSlug/concerts/:id`                                                            | member+  |
-| [演奏会情報更新](#concerts-id-patch)                          | PATCH  | `/:orgSlug/concerts/:id`                                                            | admin    |
-| [演奏会削除](#concerts-id-delete)                             | DELETE | `/:orgSlug/concerts/:id`                                                            | admin    |
-| [ステージ追加](#stage-create)                                 | POST   | `/:orgSlug/concerts/:concertId/stages`                                              | admin    |
-| [ステージ名更新](#stage-patch)                                | PATCH  | `/:orgSlug/concerts/:concertId/stages/:stageId`                                     | admin    |
-| [ステージ並び替え](#stages-order)                             | PUT    | `/:orgSlug/concerts/:concertId/stages/order`                                        | admin    |
-| [演目追加](#program-create)                                   | POST   | `/:orgSlug/concerts/:concertId/stages/:stageId/programs`                            | admin    |
-| [演目並び替え](#programs-order)                               | PUT    | `/:orgSlug/concerts/:concertId/stages/:stageId/programs/order`                      | admin    |
-| [演目削除](#program-delete)                                   | DELETE | `/:orgSlug/concerts/:concertId/programs/:programId`                                 | admin    |
-| [演目編集](#program-patch)                                    | PATCH  | `/:orgSlug/concerts/:concertId/programs/:programId`                                 | admin    |
-| [調査作成（複数回対応）](#surveys-create)                     | POST   | `/:orgSlug/concerts/:concertId/surveys`                                             | tech+    |
-| [調査詳細取得](#surveys-id-get)                               | GET    | `/:orgSlug/concerts/:concertId/surveys/:surveyId`                                   | member+  |
-| [調査更新（開閉・タイトル）](#surveys-id-patch)               | PATCH  | `/:orgSlug/concerts/:concertId/surveys/:surveyId`                                   | tech+    |
-| [オンステ調査回答](#surveys-respond)                          | PUT    | `/:orgSlug/concerts/:concertId/surveys/:surveyId/respond`                           | member+  |
-| [調査回答をオンステ確定に反映](#survey-apply)                 | POST   | `/:orgSlug/concerts/:concertId/surveys/:surveyId/apply`                             | tech+    |
-| [フォーメーションパターン作成](#formation-patterns-create)    | POST   | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns`                  | tech+    |
-| [フォーメーションパターン更新](#formation-patterns-patch)     | PATCH  | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId`       | tech+    |
-| [フォーメーションパターン削除](#formation-patterns-delete)    | DELETE | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId`       | tech+    |
-| [フォーメーションパターン並び替え](#formation-patterns-order) | PUT    | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/order`            | tech+    |
-| [枠・スロット一括保存](#formation-slots-save)                 | PUT    | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId/slots` | tech+    |
-| [プレサインドURL発行](#concerts-file-presign)                 | POST   | `/:orgSlug/concerts/:concertId/files/presign`                                       | tech+    |
-| [アップロード確定](#concerts-file-confirm)                    | POST   | `/:orgSlug/concerts/:concertId/files/confirm`                                       | tech+    |
-| [ファイルアップロード](#concerts-file-upload)                 | POST   | `/:orgSlug/concerts/:concertId/files`                                               | tech+    |
-| [ファイル一覧取得](#concerts-file-list)                       | GET    | `/:orgSlug/concerts/:concertId/files`                                               | member+  |
-| [ファイル削除](#concerts-file-delete)                         | DELETE | `/:orgSlug/concerts/:concertId/files/:fileId`                                       | tech+    |
-| [ファイルダウンロード](#concerts-file-download)               | GET    | `/:orgSlug/concerts/:concertId/files/:fileId/download`                              | member+  |
+| API名                                                         | Method | Path                                                                                | 権限           |
+| ------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------- | -------------- |
+| [演奏会一覧取得](#concerts-list)                              | GET    | `/:orgSlug/concerts`                                                                | member+        |
+| [演奏会作成](#concerts-create)                                | POST   | `/:orgSlug/concerts`                                                                | admin          |
+| [演奏会+ステージ軽量一覧取得](#concerts-structure)            | GET    | `/:orgSlug/concerts/structure`                                                      | 全ロール       |
+| [演奏会詳細取得](#concerts-id-get)                            | GET    | `/:orgSlug/concerts/:id`                                                            | member+        |
+| [演奏会情報更新](#concerts-id-patch)                          | PATCH  | `/:orgSlug/concerts/:id`                                                            | admin          |
+| [演奏会削除](#concerts-id-delete)                             | DELETE | `/:orgSlug/concerts/:id`                                                            | admin          |
+| [ステージ追加](#stage-create)                                 | POST   | `/:orgSlug/concerts/:concertId/stages`                                              | admin          |
+| [ステージ名更新](#stage-patch)                                | PATCH  | `/:orgSlug/concerts/:concertId/stages/:stageId`                                     | admin          |
+| [ステージ並び替え](#stages-order)                             | PUT    | `/:orgSlug/concerts/:concertId/stages/order`                                        | admin          |
+| [演目追加](#program-create)                                   | POST   | `/:orgSlug/concerts/:concertId/stages/:stageId/programs`                            | admin          |
+| [演目並び替え](#programs-order)                               | PUT    | `/:orgSlug/concerts/:concertId/stages/:stageId/programs/order`                      | admin          |
+| [演目削除](#program-delete)                                   | DELETE | `/:orgSlug/concerts/:concertId/programs/:programId`                                 | admin          |
+| [演目編集](#program-patch)                                    | PATCH  | `/:orgSlug/concerts/:concertId/programs/:programId`                                 | admin          |
+| [調査作成（複数回対応）](#surveys-create)                     | POST   | `/:orgSlug/concerts/:concertId/surveys`                                             | tech/conductor |
+| [調査詳細取得](#surveys-id-get)                               | GET    | `/:orgSlug/concerts/:concertId/surveys/:surveyId`                                   | member+        |
+| [調査更新（開閉・タイトル）](#surveys-id-patch)               | PATCH  | `/:orgSlug/concerts/:concertId/surveys/:surveyId`                                   | tech/conductor |
+| [オンステ調査回答](#surveys-respond)                          | PUT    | `/:orgSlug/concerts/:concertId/surveys/:surveyId/respond`                           | member+        |
+| [調査回答をオンステ確定に反映](#survey-apply)                 | POST   | `/:orgSlug/concerts/:concertId/surveys/:surveyId/apply`                             | tech/conductor |
+| [フォーメーションパターン作成](#formation-patterns-create)    | POST   | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns`                  | tech/conductor |
+| [フォーメーションパターン更新](#formation-patterns-patch)     | PATCH  | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId`       | tech/conductor |
+| [フォーメーションパターン削除](#formation-patterns-delete)    | DELETE | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId`       | tech/conductor |
+| [フォーメーションパターン並び替え](#formation-patterns-order) | PUT    | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/order`            | tech/conductor |
+| [枠・スロット一括保存](#formation-slots-save)                 | PUT    | `/:orgSlug/concerts/:concertId/stages/:stageId/formation-patterns/:patternId/slots` | tech/conductor |
+| [プレサインドURL発行](#concerts-file-presign)                 | POST   | `/:orgSlug/concerts/:concertId/files/presign`                                       | tech+          |
+| [アップロード確定](#concerts-file-confirm)                    | POST   | `/:orgSlug/concerts/:concertId/files/confirm`                                       | tech+          |
+| [ファイルアップロード](#concerts-file-upload)                 | POST   | `/:orgSlug/concerts/:concertId/files`                                               | tech+          |
+| [ファイル一覧取得](#concerts-file-list)                       | GET    | `/:orgSlug/concerts/:concertId/files`                                               | member+        |
+| [ファイル削除](#concerts-file-delete)                         | DELETE | `/:orgSlug/concerts/:concertId/files/:fileId`                                       | tech+          |
+| [ファイルダウンロード](#concerts-file-download)               | GET    | `/:orgSlug/concerts/:concertId/files/:fileId/download`                              | member+        |
 
 ### メール
 
@@ -379,15 +379,16 @@ Cookie: session=<session_token>
 
 本書では各エンドポイントの「最低必要ロール」を以下の表記で示す。
 
-| 表記              | 意味                                                 |
-| ----------------- | ---------------------------------------------------- |
-| `admin`           | 最高管理者のみ                                       |
-| `tech+`           | tech と同格以上（tech / conductor / score / admin）  |
-| `score+`          | score と同格以上（score / tech / conductor / admin） |
-| `tech+, score+`   | tech または score 以上（どちらか一方でよい）         |
-| `member+`         | ログイン済み全員（guest / visitor を除く）           |
-| `self or admin`   | 自分自身 または admin                                |
-| `ticket or admin` | `ticket` ロール保有者 または `admin`                 |
+| 表記              | 意味                                                                                                |
+| ----------------- | --------------------------------------------------------------------------------------------------- |
+| `admin`           | 最高管理者のみ                                                                                      |
+| `tech+`           | tech と同格以上（tech / conductor / score / admin）                                                 |
+| `tech/conductor`  | tech・conductor・admin（同じ階層値の score は含まない。オンステ調査・フォーメーション・予定の管理） |
+| `score+`          | score と同格以上（score / tech / conductor / admin）                                                |
+| `tech+, score+`   | tech または score 以上（どちらか一方でよい）                                                        |
+| `member+`         | ログイン済み全員（guest / visitor を除く）                                                          |
+| `self or admin`   | 自分自身 または admin                                                                               |
+| `ticket or admin` | `ticket` ロール保有者 または `admin`                                                                |
 
 ---
 
@@ -1434,7 +1435,7 @@ ChoirHub運営（システム管理者）へ問い合わせを送る。**公開�
 
 イベントを作成する。`categoryId`のスラグが`concert`の場合、`Concert`も同時に自動作成しリンクする。`rehearsal`区分かつ団体の`feeType`が`per_rehearsal`の場合、アクティブメンバー（`guest`/`visitor`除く）全員分の場所代徴収（`Collection`/`CollectionPayment`）を自動生成する。
 
-**権限**: `tech+`（admin / tech / conductor / score）
+**権限**: `tech/conductor`（admin / tech / conductor。score は不可）
 
 **Request Body:**
 
@@ -1544,7 +1545,7 @@ ChoirHub運営（システム管理者）へ問い合わせを送る。**公開�
 
 イベント情報を更新する。
 
-**権限**: `tech+`（admin / tech / conductor / score）
+**権限**: `tech/conductor`（admin / tech / conductor。score は不可）
 
 **Request Body:**: POST と同じ形式（すべて省略可）。`targetRoles` / `targetPartIds` も更新可能。
 
@@ -1563,7 +1564,7 @@ ChoirHub運営（システム管理者）へ問い合わせを送る。**公開�
 
 イベントを削除する。`concertId`でリンクされた`Concert`があれば同時に削除する。
 
-**権限**: `tech+`（admin / tech / conductor / score）
+**権限**: `tech/conductor`（admin / tech / conductor。score は不可）
 
 **Response** `204` No Content
 
@@ -2831,7 +2832,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 オンステ調査を開設する。ステージ × 全アクティブメンバーの `SurveyResponse` を自動生成する。既存の開放中調査は自動クローズされる。
 
-**権限**: `tech+`（admin / tech / conductor / score）
+**権限**: `tech/conductor`（admin / tech / conductor。score は不可）
 
 **Request Body:**
 
@@ -2912,7 +2913,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 調査の開閉・タイトルを変更する。`isOpen: true`にすると同じ演奏会の他の開放中調査は自動クローズされ、演奏会の`status`が`survey_open`になる。`isOpen: false`にした結果、開放中の調査が他に無くなった場合は`status`が`confirmed`になり、この調査の回答がオンステ確定へ自動反映される（[POST .../apply](#survey-apply)と同じ処理）。
 
-**権限**: `tech+`（admin / tech / conductor / score）
+**権限**: `tech/conductor`（admin / tech / conductor。score は不可）
 
 **Request Body:**
 
@@ -2982,7 +2983,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 指定した調査の回答内容を `OnStageAssignment`（オンステ確定）に反映する。調査が複数（一次・二次など）ある場合に、どの調査を反映するかを明示的に選べるようにするための操作。開閉状態にかかわらず呼び出せる（締切時の自動反映とは独立）。
 
-**権限**: `tech+`（admin / tech / conductor / score）
+**権限**: `tech/conductor`（admin / tech / conductor。score は不可）
 
 **Response** `200`
 
@@ -3004,7 +3005,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 フォーメーションパターンを新規作成する。
 
-**権限**: `tech+`（admin / tech / conductor / score）
+**権限**: `tech/conductor`（admin / tech / conductor。score は不可）
 
 **Request Body:**
 
@@ -3043,7 +3044,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 パターンの名称・段の千鳥配置・ピアノ位置を更新する（いずれも省略可・部分更新）。
 
-**権限**: `tech+`（admin / tech / conductor / score）
+**権限**: `tech/conductor`（admin / tech / conductor。score は不可）
 
 **Request Body:**
 
@@ -3065,7 +3066,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 パターンを削除する（紐づく `FormationBox` / `FormationSlot` もカスケード削除）。
 
-**権限**: `tech+`（admin / tech / conductor / score）
+**権限**: `tech/conductor`（admin / tech / conductor。score は不可）
 
 **Response** `204`
 
@@ -3079,7 +3080,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 パターンの表示順を並び替える。
 
-**権限**: `tech+`（admin / tech / conductor / score）
+**権限**: `tech/conductor`（admin / tech / conductor。score は不可）
 
 **Request Body:**
 
@@ -3099,7 +3100,7 @@ R2設定時（本番環境）は署名付きURLへのリダイレクトを返す
 
 枠（`boxes`）とスロット（`slots`）をまとめて保存する。既存の枠・スロットを全て削除してから作り直す（フォーメーション編集画面が編集操作のたびに全体を送信する）。
 
-**権限**: `tech+`（admin / tech / conductor / score）
+**権限**: `tech/conductor`（admin / tech / conductor。score は不可）
 
 **Request Body:**
 

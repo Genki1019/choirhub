@@ -296,6 +296,26 @@ describe("GET /scores/grouped", () => {
     );
   });
 
+  it("日本時間0〜9時に始まる演奏会も、開催日を日本時間の日付で返す", async () => {
+    vi.mocked(prisma.concert.findMany).mockResolvedValue([
+      {
+        id: "concert-1",
+        title: "深夜公演",
+        heldOn: new Date("2026-11-22T15:30:00Z"),
+        venue: null,
+        stages: [],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+    vi.mocked(prisma.score.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/scores/grouped");
+
+    const body = await json(res);
+    expect(body.data.concerts[0].heldOn).toBe("2026-11-23");
+  });
+
   it("プログラムにscoreが無い場合は除外される", async () => {
     vi.mocked(prisma.concert.findMany).mockResolvedValue([
       {

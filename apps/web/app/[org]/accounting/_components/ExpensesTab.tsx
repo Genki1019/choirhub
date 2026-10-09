@@ -4,6 +4,7 @@ import { Wallet, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { PAYMENT_METHOD_LABEL } from "@/lib/accounting-api";
 import type { ExpenseItem } from "@/lib/accounting-api";
 import { CsvExportButton } from "@/components/CsvExportButton";
+import { jstParts } from "@/lib/date";
 
 function yen(n: number) {
   return `¥${n.toLocaleString()}`;
@@ -11,8 +12,8 @@ function yen(n: number) {
 
 function fmtDate(iso: string | null) {
   if (!iso) return "—";
-  const d = new Date(iso);
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
+  const { year, month, day } = jstParts(iso);
+  return `${year}/${String(month).padStart(2, "0")}/${String(day).padStart(2, "0")}`;
 }
 
 interface ExpensesTabProps {

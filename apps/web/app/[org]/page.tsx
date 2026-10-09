@@ -11,18 +11,11 @@ import { StatCard } from "./_components/StatCard";
 import { EventCard } from "./_components/EventCard";
 import { MonthlyOrganizerCard } from "./_components/MonthlyOrganizerCard";
 import { PageWithHeader } from "@/components/PageWithHeader";
-
-function daysUntil(isoString: string): number {
-  const now = new Date();
-  const target = new Date(isoString);
-  now.setHours(0, 0, 0, 0);
-  target.setHours(0, 0, 0, 0);
-  return Math.ceil((target.getTime() - now.getTime()) / 86400000);
-}
+import { jstDayDiff, jstParts } from "@/lib/date";
 
 function formatMailDate(isoString: string): string {
-  const d = new Date(isoString);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
+  const { month, day } = jstParts(isoString);
+  return `${month}/${day}`;
 }
 
 export default function HomePage() {
@@ -68,7 +61,7 @@ export default function HomePage() {
         {nextRehearsal ? (
           <StatCard
             label="次回練習まで"
-            value={`${daysUntil(nextRehearsal.startsAt)}日`}
+            value={`${jstDayDiff(new Date(), nextRehearsal.startsAt)}日`}
             valueClass="text-teal-500"
             sub={nextRehearsal.title}
           />
@@ -82,7 +75,7 @@ export default function HomePage() {
         {nextConcert ? (
           <StatCard
             label="次回本番まで"
-            value={`${daysUntil(nextConcert.startsAt)}日`}
+            value={`${jstDayDiff(new Date(), nextConcert.startsAt)}日`}
             valueClass="text-orange-500"
             sub={nextConcert.title}
           />

@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { PageErrorState } from "@/components/PageErrorState";
 import { userErrorMessage } from "@/lib/api-client";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { formatShortDate } from "@/lib/date";
 
 export default function RacePage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -145,7 +146,7 @@ export default function RacePage() {
     <PageBleedRow className="pb-2">
       <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
         <Globe size={12} />
-        {new Date(data.racePublishedAt).toLocaleDateString("ja-JP")} に全団員へ公開済み
+        {formatShortDate(data.racePublishedAt)} に全団員へ公開済み
       </div>
     </PageBleedRow>
   );

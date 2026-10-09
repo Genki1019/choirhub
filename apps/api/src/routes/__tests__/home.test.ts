@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Hono } from "hono";
 import type { Member, Organization } from "../../generated/prisma/index.js";
 import type { TenantEnv } from "../../middleware/tenant.js";
@@ -406,5 +406,34 @@ describe("GET /home", () => {
     const res = await app.request("/home");
     const body = await json(res);
     expect(body.data.monthlyOrganizer).toBeNull();
+  });
+});
+
+describe("GET /home（今日の基準は日本時間）", () => {
+  beforeEach(() => {
+    vi.stubEnv("TZ", "UTC");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-31T17:00:00Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllEnvs();
+  });
+
+  it("日本時間0〜9時でも、日本時間の今日の0時以降の予定・本番を対象にし、今月を日本時間で判定する", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    await app.request("/home");
+
+    const todayStart = new Date("2026-10-31T15:00:00Z");
+    expect(vi.mocked(prisma.event.findMany).mock.calls[0][0]?.where?.startsAt).toEqual({
+      gte: todayStart,
+    });
+    expect(vi.mocked(prisma.concert.findFirst).mock.calls[0][0]?.where?.heldOn).toEqual({
+      gte: todayStart,
+    });
+    expect(vi.mocked(prisma.organizerPeriod.findFirst).mock.calls[0][0]?.where).toMatchObject({
+      fromMonth: { lte: "2026-11" },
+      toMonth: { gte: "2026-11" },
+    });
   });
 });

@@ -25,6 +25,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { CsvExportButton } from "@/components/CsvExportButton";
 import { PageErrorState } from "@/components/PageErrorState";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { formatJaDate, formatShortDate } from "@/lib/date";
 
 export default function TicketDetailPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -121,8 +122,7 @@ export default function TicketDetailPage() {
 
   const activeBatch =
     typeof activeBatchIdx === "number" ? detail.batches[activeBatchIdx] : undefined;
-  const date = new Date(detail.concert.heldOn);
-  const dateStr = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+  const dateStr = formatJaDate(detail.concert.heldOn);
 
   const headerActions = (
     <>
@@ -206,8 +206,7 @@ export default function TicketDetailPage() {
     <div className="border-t border-red-100 bg-red-50">
       <PageBleedRow className="flex items-center gap-2 py-2 text-xs text-red-600">
         <Lock size={12} className="shrink-0" />
-        {new Date(detail.concert.ticketInputClosedAt).toLocaleDateString("ja-JP")}{" "}
-        以降、団員の入力は締め切り済み
+        {formatShortDate(detail.concert.ticketInputClosedAt)} 以降、団員の入力は締め切り済み
       </PageBleedRow>
     </div>
   );

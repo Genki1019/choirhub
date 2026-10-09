@@ -6,6 +6,7 @@ import { Check, Loader2 } from "lucide-react";
 import { AdminListSection } from "./AdminListSection";
 import { inquiriesApi, INQUIRY_CATEGORY_LABELS, type Inquiry } from "@/lib/inquiries-api";
 import { inquiryKeys } from "@/lib/query-keys";
+import { formatShortDate } from "@/lib/date";
 
 export function InquiriesSection() {
   const queryClient = useQueryClient();
@@ -52,8 +53,7 @@ export function InquiriesSection() {
         >
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium text-gray-500">
-              {INQUIRY_CATEGORY_LABELS[inquiry.category]}・
-              {new Date(inquiry.createdAt).toLocaleDateString("ja-JP")}
+              {INQUIRY_CATEGORY_LABELS[inquiry.category]}・{formatShortDate(inquiry.createdAt)}
             </p>
             <p className="mt-1 text-sm font-semibold text-gray-800">
               {inquiry.name}（{inquiry.email}）

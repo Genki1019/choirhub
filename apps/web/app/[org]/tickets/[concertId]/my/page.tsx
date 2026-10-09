@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { PageErrorState } from "@/components/PageErrorState";
 import { userErrorMessage } from "@/lib/api-client";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { formatJaDate, formatShortDate } from "@/lib/date";
 
 export default function MyTicketPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -66,8 +67,7 @@ export default function MyTicketPage() {
     );
   }
 
-  const date = new Date(concert.heldOn);
-  const dateStr = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+  const dateStr = formatJaDate(concert.heldOn);
   const isClosed = !!concert.ticketInputClosedAt;
 
   return (
@@ -91,7 +91,7 @@ export default function MyTicketPage() {
             <Lock size={14} className="shrink-0" />
             <span>
               チケット入力は締め切られました（
-              {new Date(concert.ticketInputClosedAt!).toLocaleDateString("ja-JP")}）
+              {formatShortDate(concert.ticketInputClosedAt!)}）
             </span>
           </div>
         )}

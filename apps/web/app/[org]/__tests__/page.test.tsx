@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import HomePage from "../page";
@@ -87,6 +87,28 @@ describe("HomePage（次回練習・次回本番）", () => {
 
     expect(await screen.findByText("次回本番まで")).toBeInTheDocument();
     expect(screen.getByText("第20回定期演奏会")).toBeInTheDocument();
+  });
+
+  describe("ブラウザのタイムゾーンが日本以外", () => {
+    beforeEach(() => {
+      vi.stubEnv("TZ", "America/Los_Angeles");
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-11-22T16:00:00Z"));
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.unstubAllEnvs();
+    });
+
+    it("日数を日本時間の日付で数える", async () => {
+      vi.mocked(homeApi.get).mockResolvedValue({
+        ...baseHomeData,
+        nextRehearsal: { ...baseEvent, startsAt: "2026-11-24T10:00:00Z" },
+      });
+      renderPage();
+
+      expect(await screen.findByText("1日")).toBeInTheDocument();
+    });
   });
 });
 

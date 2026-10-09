@@ -18,6 +18,7 @@ import { PageMain } from "@/components/PageMain";
 import { PageHeader } from "@/components/PageHeader";
 import { PageErrorState } from "@/components/PageErrorState";
 import { FileAttachmentSection } from "@/components/FileAttachmentSection";
+import { jstParts } from "@/lib/date";
 
 const STATUS_CYCLE = ["attending", "absent", "maybe", "undecided"] as const;
 const AUDIO_EXTENSIONS = [".mp3", ".wav"];
@@ -29,9 +30,14 @@ function isAudioFile(fileName: string) {
 }
 
 function formatDatetime(iso: string) {
-  const d = new Date(iso);
+  const { month, day, weekday, hours, minutes } = jstParts(iso);
   const DOW = ["日", "月", "火", "水", "木", "金", "土"];
-  return `${d.getMonth() + 1}/${d.getDate()}（${DOW[d.getDay()]}）${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return `${month}/${day}（${DOW[weekday]}）${hours}:${String(minutes).padStart(2, "0")}`;
+}
+
+function formatTime(iso: string) {
+  const { hours, minutes } = jstParts(iso);
+  return `${hours}:${String(minutes).padStart(2, "0")}`;
 }
 
 export default function ScheduleDetailPage() {
@@ -196,8 +202,7 @@ export default function ScheduleDetailPage() {
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
       <span className="flex items-center gap-1.5">
         <Clock size={13} className="text-gray-400" />
-        {formatDatetime(event.startsAt)}〜{new Date(event.endsAt).getHours()}:
-        {String(new Date(event.endsAt).getMinutes()).padStart(2, "0")}
+        {formatDatetime(event.startsAt)}〜{formatTime(event.endsAt)}
       </span>
       {event.location && (
         <a

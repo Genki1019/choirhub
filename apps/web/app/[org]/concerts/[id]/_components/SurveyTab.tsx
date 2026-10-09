@@ -13,6 +13,7 @@ import {
 import { CreateSurveyModal } from "./CreateSurveyModal";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { userErrorMessage } from "@/lib/api-client";
+import { formatJaDate } from "@/lib/date";
 
 function buildStateMap(rows: SurveyDetail["rows"]): Map<string, Map<string, AttendanceStatus>> {
   const m = new Map<string, Map<string, AttendanceStatus>>();
@@ -362,11 +363,8 @@ export function SurveyTab({
       {!loadingDetail &&
         activeSurveyDetail &&
         (() => {
-          const closeDate = activeSurveyDetail.closeAt
-            ? new Date(activeSurveyDetail.closeAt)
-            : null;
-          const closeDateStr = closeDate
-            ? `${closeDate.getFullYear()}年${closeDate.getMonth() + 1}月${closeDate.getDate()}日`
+          const closeDateStr = activeSurveyDetail.closeAt
+            ? formatJaDate(activeSurveyDetail.closeAt)
             : null;
           const gridCols = `1fr${stages.map(() => " 80px").join("")} 1fr`;
 

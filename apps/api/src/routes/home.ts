@@ -3,16 +3,17 @@ import { prisma } from "../lib/prisma.js";
 import type { TenantEnv } from "../middleware/tenant.js";
 import { isAdmin, isVisitor, isTicketManager } from "../services/access.js";
 import { storage } from "../services/storage.js";
+import { jstDayStart, toJstDateString } from "../lib/date.js";
 
 export const homeRouter = new Hono<TenantEnv>().get("/home", async (c) => {
   const org = c.get("org");
   const member = c.get("member");
   const orgId = org.id;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const todayJst = toJstDateString(new Date());
+  const today = jstDayStart(todayJst);
 
   const isVisitorMember = isVisitor(member);
-  const currentMonth = today.toISOString().slice(0, 7);
+  const currentMonth = todayJst.slice(0, 7);
 
   const [upcomingRaw, recentMailsRaw, nextUpcomingConcert, currentOrganizerPeriod] =
     await Promise.all([

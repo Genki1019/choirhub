@@ -10,6 +10,7 @@ import {
 import { RankBadge } from "./RankBadge";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { userErrorMessage } from "@/lib/api-client";
+import { formatShortDate, jstParts } from "@/lib/date";
 
 function fmt(n: number, digits = 1) {
   return n.toFixed(digits);
@@ -57,7 +58,7 @@ function MonthSelect({
     onChange(nextYear && nextMonth ? `${nextYear}-${nextMonth}` : "");
   };
 
-  const currentYear = new Date().getFullYear();
+  const currentYear = jstParts(new Date()).year;
   const years = new Set(
     Array.from(
       { length: MONTH_SELECT_YEARS_BEFORE + MONTH_SELECT_YEARS_AFTER + 1 },
@@ -272,11 +273,9 @@ export function PartCard({
           </div>
           {(st.speed5AchievedAt || st.speed10AchievedAt) && (
             <div className="mt-1 flex gap-3 text-xs text-gray-400">
-              {st.speed5AchievedAt && (
-                <span>5枚×3名: {new Date(st.speed5AchievedAt).toLocaleDateString("ja-JP")}</span>
-              )}
+              {st.speed5AchievedAt && <span>5枚×3名: {formatShortDate(st.speed5AchievedAt)}</span>}
               {st.speed10AchievedAt && (
-                <span>10枚×3名: {new Date(st.speed10AchievedAt).toLocaleDateString("ja-JP")}</span>
+                <span>10枚×3名: {formatShortDate(st.speed10AchievedAt)}</span>
               )}
             </div>
           )}

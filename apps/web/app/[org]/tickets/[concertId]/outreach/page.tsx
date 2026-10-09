@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { Plus, Loader2, MapPin } from "lucide-react";
-import { ticketsApi } from "@/lib/tickets-api";
 import { membersApi } from "@/lib/members-api";
 import { useMember } from "@/contexts/MemberContext";
 import { useQuery } from "@tanstack/react-query";

@@ -20,13 +20,14 @@ import {
 } from "@/lib/tickets-api";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { userErrorMessage } from "@/lib/api-client";
+import { jstParts } from "@/lib/date";
 
 function yen(n: number) {
   return `¥${n.toLocaleString()}`;
 }
 function dateLabel(iso: string) {
-  const d = new Date(iso);
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
+  const { year, month, day } = jstParts(iso);
+  return `${year}/${String(month).padStart(2, "0")}/${String(day).padStart(2, "0")}`;
 }
 
 interface ActivityCardProps {

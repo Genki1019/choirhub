@@ -15,6 +15,7 @@ import { CollectionsTab } from "./_components/CollectionsTab";
 import { ExpensesTab } from "./_components/ExpensesTab";
 import { PageWithHeader } from "@/components/PageWithHeader";
 import { useToast } from "@/hooks/useToast";
+import { jstParts } from "@/lib/date";
 
 function yen(n: number) {
   return `¥${n.toLocaleString()}`;
@@ -40,7 +41,7 @@ export default function AccountingPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const currentYear = new Date().getFullYear();
+  const currentYear = jstParts(new Date()).year;
   const [year, setYear] = useState(currentYear);
   const [tab, setTab] = useState<Tab>("collections");
 

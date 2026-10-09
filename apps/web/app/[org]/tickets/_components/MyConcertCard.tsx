@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { CalendarDays, ChevronRight } from "lucide-react";
 import type { MyAllocationConcert } from "@/lib/tickets-api";
+import { formatJaDate } from "@/lib/date";
 
 function MyTotalBadge({ batches }: { batches: MyAllocationConcert["batches"] }) {
   const totalSold = batches.reduce((s, b) => s + b.soldAdult + b.soldStudent + b.soldOther, 0);
@@ -22,8 +23,7 @@ function MyTotalBadge({ batches }: { batches: MyAllocationConcert["batches"] }) 
 }
 
 export function MyConcertCard({ item, org }: { item: MyAllocationConcert; org: string }) {
-  const date = new Date(item.heldOn);
-  const dateStr = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+  const dateStr = formatJaDate(item.heldOn);
 
   return (
     <Link

@@ -57,6 +57,17 @@ describe("SchedulePage（表示状態）", () => {
 
     expect(await screen.findByText("2026年 7月")).toBeInTheDocument();
   });
+
+  it("表示月の初日から末日までを指定して予定を取得する", async () => {
+    vi.mocked(eventsApi.list).mockResolvedValue([]);
+    renderPage();
+
+    await screen.findByText("2026年 7月");
+    expect(eventsApi.list).toHaveBeenCalledWith("tokyo-men-choir", {
+      from: "2026-07-01",
+      to: "2026-07-31",
+    });
+  });
 });
 
 describe("SchedulePage（イベント追加ボタンの権限）", () => {

@@ -26,7 +26,7 @@ const INVALID_YEAR_ERROR = {
 type DateRange = { gte?: Date; lt?: Date; lte?: Date };
 
 function parseYear(raw: string | undefined): number | null {
-  if (raw === undefined) return new Date().getFullYear();
+  if (raw === undefined) return Number(toJstDateString(new Date()).slice(0, 4));
   return /^\d{4}$/.test(raw) ? parseInt(raw, 10) : null;
 }
 

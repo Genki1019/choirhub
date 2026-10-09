@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
+import { jstDayEnd, jstDayStart } from "../lib/date.js";
 import {
   isAdmin,
   isTechOrConductor,
@@ -261,13 +262,13 @@ export const eventsRouter = new Hono<TenantEnv>()
     const member = c.get("member");
     const { from, to, type } = c.req.query();
 
-    if (from && isNaN(Date.parse(from))) {
+    if (from && !z.iso.date().safeParse(from).success) {
       return c.json(
         { error: { code: "VALIDATION_ERROR", message: "from パラメータの日付形式が不正です" } },
         400,
       );
     }
-    if (to && isNaN(Date.parse(to))) {
+    if (to && !z.iso.date().safeParse(to).success) {
       return c.json(
         { error: { code: "VALIDATION_ERROR", message: "to パラメータの日付形式が不正です" } },
         400,
@@ -277,8 +278,8 @@ export const eventsRouter = new Hono<TenantEnv>()
     const dateRange =
       from || to
         ? {
-            ...(from ? { gte: new Date(from) } : {}),
-            ...(to ? { lte: new Date(to) } : {}),
+            ...(from ? { gte: jstDayStart(from) } : {}),
+            ...(to ? { lt: jstDayEnd(to) } : {}),
           }
         : undefined;
 

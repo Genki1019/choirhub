@@ -11,7 +11,7 @@ import {
   createStoredFileWithExtension,
   deleteStoredFile,
 } from "../services/files.js";
-import { toDateString } from "../lib/date.js";
+import { toDateString, toJstDateString } from "../lib/date.js";
 import { fileErrorPage } from "../lib/file-error-page.js";
 import { matchesFileSignature, FILE_SIGNATURE_CHECK_LENGTH } from "../lib/file-signature.js";
 import { Prisma } from "../generated/prisma/index.js";
@@ -148,7 +148,7 @@ export const scoresRouter = new Hono<TenantEnv>()
     const concertData = concerts.map((concert) => ({
       id: concert.id,
       title: concert.title,
-      heldOn: toDateString(concert.heldOn),
+      heldOn: toJstDateString(concert.heldOn),
       venue: concert.venue,
       stages: concert.stages.map((stage) => ({
         id: stage.id,

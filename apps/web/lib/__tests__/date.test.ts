@@ -1,5 +1,16 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { monthStart, toJstIso, isoToJstParts, todayStr } from "../date";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import {
+  monthStart,
+  monthEnd,
+  toJstIso,
+  isoToJstParts,
+  todayStr,
+  jstParts,
+  formatJaDate,
+  formatJaDateTime,
+  formatShortDate,
+  jstDayDiff,
+} from "../date";
 
 describe("monthStart", () => {
   it("year/monthから月初日を組み立てる", () => {
@@ -8,6 +19,14 @@ describe("monthStart", () => {
 
   it("1桁の月をゼロ埋めする", () => {
     expect(monthStart(2026, 3)).toBe("2026-03-01");
+  });
+});
+
+describe("monthEnd", () => {
+  it("月ごとの末日を返す（うるう年の2月・12月を含む）", () => {
+    expect(monthEnd(2026, 4)).toBe("2026-04-30");
+    expect(monthEnd(2028, 2)).toBe("2028-02-29");
+    expect(monthEnd(2026, 12)).toBe("2026-12-31");
   });
 });
 
@@ -44,5 +63,41 @@ describe("todayStr", () => {
     } finally {
       process.env.TZ = originalTz;
     }
+  });
+});
+
+describe("日本時間のヘルパー（ブラウザのタイムゾーンによらない）", () => {
+  beforeEach(() => {
+    vi.stubEnv("TZ", "America/Los_Angeles");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("jstParts: UTC 15:30 は日本時間の翌日 0:30", () => {
+    expect(jstParts("2026-11-22T15:30:00Z")).toEqual({
+      year: 2026,
+      month: 11,
+      day: 23,
+      weekday: 1,
+      hours: 0,
+      minutes: 30,
+    });
+  });
+
+  it("jstParts: 日付だけの文字列（UTC 0時）は同じ日付", () => {
+    expect(jstParts("2026-11-23")).toMatchObject({ year: 2026, month: 11, day: 23 });
+  });
+
+  it("jstDayDiff: 日本時間の暦の日付の差を返す（時刻の差ではない）", () => {
+    expect(jstDayDiff("2026-11-22T14:59:00Z", "2026-11-22T15:00:00Z")).toBe(1);
+    expect(jstDayDiff("2026-11-22T15:00:00Z", "2026-11-23T14:59:00Z")).toBe(0);
+    expect(jstDayDiff("2026-11-25T00:00:00Z", "2026-11-22T00:00:00Z")).toBe(-3);
+  });
+
+  it("formatJaDate・formatJaDateTime・formatShortDate は日本時間で表示する", () => {
+    expect(formatJaDate("2026-11-22T15:30:00Z")).toBe("2026年11月23日");
+    expect(formatJaDateTime("2026-11-22T15:30:00Z")).toBe("2026年11月23日 0:30");
+    expect(formatShortDate("2026-11-22T15:30:00Z")).toBe("2026/11/23");
   });
 });

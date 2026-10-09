@@ -3,6 +3,12 @@ export function monthStart(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, "0")}-01`;
 }
 
+/** year/month → 月末日 "YYYY-MM-DD" */
+export function monthEnd(year: number, month: number): string {
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+}
+
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 /** "YYYY-MM-DD" + "HH:MM" → JST ISO文字列 */

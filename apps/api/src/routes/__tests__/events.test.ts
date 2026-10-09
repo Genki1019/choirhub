@@ -196,6 +196,34 @@ describe("GET /events", () => {
     expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 
+  it("バリデーションエラー: toが日付だけの形式でない場合は400を返す", async () => {
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/events?to=2026-11-30T00:00:00Z");
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("from/toは日本時間の日付として扱い、toの日を含めて取得する", async () => {
+    vi.mocked(prisma.event.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.attendance.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.eventCategory.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.concert.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.onStageAssignment.findMany).mockResolvedValue([]);
+
+    const app = createTestApp(makeMember(["member"]));
+    const res = await app.request("/events?from=2026-11-01&to=2026-11-30");
+
+    expect(res.status).toBe(200);
+    const range = {
+      gte: new Date("2026-10-31T15:00:00Z"),
+      lt: new Date("2026-11-30T15:00:00Z"),
+    };
+    expect(vi.mocked(prisma.event.findMany).mock.calls[0][0]?.where?.startsAt).toEqual(range);
+    expect(vi.mocked(prisma.concert.findMany).mock.calls[0][0]?.where?.heldOn).toEqual(range);
+  });
+
   it("typeに該当する区分が無い場合: 空配列を返しConcertマージも行われない", async () => {
     vi.mocked(prisma.eventCategory.findFirst).mockResolvedValue(null);
 

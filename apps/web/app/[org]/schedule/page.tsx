@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Plus, Loader2, AlertCircle, CalendarPlus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { eventsApi } from "@/lib/events-api";
-import { jstParts, monthStart } from "@/lib/date";
+import { jstParts, monthEnd, monthStart } from "@/lib/date";
 import { eventKeys } from "@/lib/query-keys";
 import { Calendar } from "./_components/Calendar";
 import { EventList } from "./_components/EventList";
@@ -26,7 +26,7 @@ export default function SchedulePage() {
   const [showCalendarFeedModal, setShowCalendarFeedModal] = useState(false);
 
   const from = monthStart(year, month);
-  const to = month === 12 ? monthStart(year + 1, 1) : monthStart(year, month + 1);
+  const to = monthEnd(year, month);
 
   const {
     data: events = [],

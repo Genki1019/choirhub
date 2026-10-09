@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import {
   isAdmin,
-  hasRole,
+  isTechOrConductor,
   isVisitor,
   isHiddenRole,
   EXCLUDE_HIDDEN_ROLES,
@@ -923,7 +923,7 @@ export const concertsRouter = new Hono<TenantEnv>()
     return new Response(null, { status: 204 });
   })
 
-  // ── POST /concerts/:concertId/surveys ── オンステ調査を新規作成（tech+）
+  // ── POST /concerts/:concertId/surveys ── オンステ調査を新規作成（tech/conductor）
   // 既存の開放中調査は自動クローズ
   .post(
     "/concerts/:concertId/surveys",
@@ -942,8 +942,11 @@ export const concertsRouter = new Hono<TenantEnv>()
       const actingMember = c.get("member");
       const org = c.get("org");
 
-      if (!hasRole(actingMember, "tech")) {
-        return c.json({ error: { code: "FORBIDDEN", message: "技術系以上の権限が必要です" } }, 403);
+      if (!isTechOrConductor(actingMember)) {
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "技術系・指揮者のみ操作できます" } },
+          403,
+        );
       }
 
       const { concertId } = c.req.param();
@@ -1103,7 +1106,7 @@ export const concertsRouter = new Hono<TenantEnv>()
     });
   })
 
-  // ── PATCH /concerts/:concertId/surveys/:surveyId ── 調査の開閉・タイトル変更（tech+）
+  // ── PATCH /concerts/:concertId/surveys/:surveyId ── 調査の開閉・タイトル変更（tech/conductor）
   .patch(
     "/concerts/:concertId/surveys/:surveyId",
     zValidator(
@@ -1121,8 +1124,11 @@ export const concertsRouter = new Hono<TenantEnv>()
       const actingMember = c.get("member");
       const org = c.get("org");
 
-      if (!hasRole(actingMember, "tech")) {
-        return c.json({ error: { code: "FORBIDDEN", message: "技術系以上の権限が必要です" } }, 403);
+      if (!isTechOrConductor(actingMember)) {
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "技術系・指揮者のみ操作できます" } },
+          403,
+        );
       }
 
       const { concertId, surveyId } = c.req.param();

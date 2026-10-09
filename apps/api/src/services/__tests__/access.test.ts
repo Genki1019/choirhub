@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isVisitorOnlyAccount } from "../access.js";
+import { isTechOrConductor, isVisitorOnlyAccount } from "../access.js";
 import type { Member } from "../../generated/prisma/index.js";
 
 function makeMember(roles: string[]): Member {
@@ -35,4 +35,20 @@ describe("isVisitorOnlyAccount", () => {
   it("guestのみの場合もfalse（visitorロールを持たないため）", () => {
     expect(isVisitorOnlyAccount([makeMember(["guest"])])).toBe(false);
   });
+});
+
+describe("isTechOrConductor", () => {
+  it.each([[["admin"]], [["tech"]], [["conductor"]], [["member", "conductor"]]])(
+    "%s は管理できる",
+    (roles) => {
+      expect(isTechOrConductor(makeMember(roles))).toBe(true);
+    },
+  );
+
+  it.each([[["score"]], [["member", "score"]], [["member"]], [["ticket"]], [["finance"]]])(
+    "%s は管理できない（同じ階層値でも score は含まない）",
+    (roles) => {
+      expect(isTechOrConductor(makeMember(roles))).toBe(false);
+    },
+  );
 });

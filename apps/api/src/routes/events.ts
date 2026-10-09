@@ -2,7 +2,12 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { isAdmin, hasRole, isHiddenRole, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
+import {
+  isAdmin,
+  isTechOrConductor,
+  isHiddenRole,
+  EXCLUDE_HIDDEN_ROLES,
+} from "../services/access.js";
 import { createAttachmentRoutes } from "../lib/attachment-routes.js";
 import { deleteStoredFiles } from "../services/files.js";
 import type { TenantEnv } from "../middleware/tenant.js";
@@ -294,8 +299,11 @@ export const eventsRouter = new Hono<TenantEnv>()
       const org = c.get("org");
       const member = c.get("member");
 
-      if (!hasRole(member, "tech")) {
-        return c.json({ error: { code: "FORBIDDEN", message: "技術系以上の権限が必要です" } }, 403);
+      if (!isTechOrConductor(member)) {
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "技術系・指揮者のみ操作できます" } },
+          403,
+        );
       }
 
       const body = c.req.valid("json");
@@ -473,8 +481,11 @@ export const eventsRouter = new Hono<TenantEnv>()
       const member = c.get("member");
       const { id } = c.req.param();
 
-      if (!hasRole(member, "tech")) {
-        return c.json({ error: { code: "FORBIDDEN", message: "技術系以上の権限が必要です" } }, 403);
+      if (!isTechOrConductor(member)) {
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "技術系・指揮者のみ操作できます" } },
+          403,
+        );
       }
 
       const event = await prisma.event.findUnique({ where: { id } });
@@ -530,8 +541,11 @@ export const eventsRouter = new Hono<TenantEnv>()
     const member = c.get("member");
     const { id } = c.req.param();
 
-    if (!hasRole(member, "tech")) {
-      return c.json({ error: { code: "FORBIDDEN", message: "技術系以上の権限が必要です" } }, 403);
+    if (!isTechOrConductor(member)) {
+      return c.json(
+        { error: { code: "FORBIDDEN", message: "技術系・指揮者のみ操作できます" } },
+        403,
+      );
     }
 
     const event = await prisma.event.findUnique({

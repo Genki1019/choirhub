@@ -353,8 +353,8 @@ describe("POST /events", () => {
     expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 
-  it("tech未満（member）: 403を返す", async () => {
-    const app = createTestApp(makeMember(["member"]));
+  it.each([["member"], ["score"]])("%s（tech・指揮者以外）: 403を返す", async (role) => {
+    const app = createTestApp(makeMember([role]));
     const res = await app.request("/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -368,7 +368,10 @@ describe("POST /events", () => {
 
     expect(res.status).toBe(403);
     const body = await json(res);
-    expect(body.error.code).toBe("FORBIDDEN");
+    expect(body.error).toEqual({
+      code: "FORBIDDEN",
+      message: "技術系・指揮者のみ操作できます",
+    });
   });
 
   it("イベント区分が存在しない/別テナント: 404を返す", async () => {
@@ -759,8 +762,8 @@ describe("PATCH /events/:id", () => {
     expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 
-  it("tech未満: 403を返す", async () => {
-    const app = createTestApp(makeMember(["member"]));
+  it.each([["member"], ["score"]])("%s（tech・指揮者以外）: 403を返す", async (role) => {
+    const app = createTestApp(makeMember([role]));
     const res = await app.request("/events/event-1", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -769,7 +772,10 @@ describe("PATCH /events/:id", () => {
 
     expect(res.status).toBe(403);
     const body = await json(res);
-    expect(body.error.code).toBe("FORBIDDEN");
+    expect(body.error).toEqual({
+      code: "FORBIDDEN",
+      message: "技術系・指揮者のみ操作できます",
+    });
   });
 
   it("存在しない/別テナント: 404を返す", async () => {
@@ -877,13 +883,16 @@ describe("PATCH /events/:id", () => {
 });
 
 describe("DELETE /events/:id", () => {
-  it("tech未満: 403を返す", async () => {
-    const app = createTestApp(makeMember(["member"]));
+  it.each([["member"], ["score"]])("%s（tech・指揮者以外）: 403を返す", async (role) => {
+    const app = createTestApp(makeMember([role]));
     const res = await app.request("/events/event-1", { method: "DELETE" });
 
     expect(res.status).toBe(403);
     const body = await json(res);
-    expect(body.error.code).toBe("FORBIDDEN");
+    expect(body.error).toEqual({
+      code: "FORBIDDEN",
+      message: "技術系・指揮者のみ操作できます",
+    });
   });
 
   it("存在しない/別テナント: 404を返す", async () => {

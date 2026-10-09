@@ -1,7 +1,7 @@
 ---
 name: 新機能
 about: 既存機能にない新しい機能の追加提案
-labels: ["enhancement", "type: feat"]
+labels: ["type: feat"]
 ---
 
 ## 概要

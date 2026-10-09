@@ -261,6 +261,7 @@ export async function sendPasswordResetEmail(params: {
 
   const resetUrl = `${FRONTEND_URL}/password-reset/${resetToken}`;
   const expiresLabel = expiresAt.toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -379,6 +380,7 @@ export async function sendEmailChangeConfirmationEmail(params: {
 
   const confirmUrl = `${FRONTEND_URL}/email-change/${confirmToken}`;
   const expiresLabel = expiresAt.toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -483,6 +485,7 @@ export async function sendEmailChangedNotification(params: {
   const { to, nameJa, newEmail, changedAt } = params;
 
   const changedLabel = changedAt.toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -616,6 +619,7 @@ export async function sendInviteEmail(params: {
 
   const inviteUrl = `${FRONTEND_URL}/invite/${inviteToken}`;
   const expiresLabel = expiresAt.toLocaleDateString("ja-JP", {
+    timeZone: "Asia/Tokyo",
     year: "numeric",
     month: "long",
     day: "numeric",

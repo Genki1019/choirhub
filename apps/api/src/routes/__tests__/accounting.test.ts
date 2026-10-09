@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Hono } from "hono";
 import type { Member, Organization } from "../../generated/prisma/index.js";
 import type { TenantEnv } from "../../middleware/tenant.js";
@@ -185,15 +185,27 @@ describe("GET /finance/summary", () => {
     ]);
   });
 
-  it("正常: year省略時は当年になる", async () => {
-    vi.mocked(prisma.expense.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.collection.findMany).mockResolvedValue([]);
+  describe("year省略時", () => {
+    beforeEach(() => {
+      vi.stubEnv("TZ", "UTC");
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2025-12-31T16:00:00Z"));
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.unstubAllEnvs();
+    });
 
-    const app = createTestApp(makeMember(["admin"]));
-    const res = await app.request("/finance/summary");
+    it("正常: 日本時間の当年になる（元日の0〜9時も新しい年）", async () => {
+      vi.mocked(prisma.expense.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.collection.findMany).mockResolvedValue([]);
 
-    const body = await json(res);
-    expect(body.data.year).toBe(new Date().getFullYear());
+      const app = createTestApp(makeMember(["admin"]));
+      const res = await app.request("/finance/summary");
+
+      const body = await json(res);
+      expect(body.data.year).toBe(2026);
+    });
   });
 
   it("正常: yearに応じたsince/until範囲でクエリされる", async () => {

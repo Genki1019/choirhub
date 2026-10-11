@@ -10,6 +10,7 @@ import { useMember } from "@/contexts/MemberContext";
 import { useClipboardCopy } from "@/hooks/useClipboardCopy";
 import { useTokenIssuance } from "@/hooks/useTokenIssuance";
 import { PageWithHeader } from "@/components/PageWithHeader";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { IntroTemplateCard } from "./_components/IntroTemplateCard";
 
 export default function VisitorWebhookPage() {
@@ -20,6 +21,7 @@ export default function VisitorWebhookPage() {
   // Next.jsのrewriteで /api/v1/* は常にAPIへプロキシされるため、
   // NEXT_PUBLIC_API_URL未設定環境でも同一オリジンのURLがそのまま使える
   const [webhookUrl, setWebhookUrl] = useState("/api/v1/public/visitor-applications");
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
 
   useEffect(() => {
     const resolve = () =>
@@ -27,7 +29,7 @@ export default function VisitorWebhookPage() {
     resolve();
   }, []);
 
-  const { data, isLoading, regenerating, error, handleRegenerate } = useTokenIssuance(
+  const { data, isLoading, regenerating, error, handleRegenerate, clearError } = useTokenIssuance(
     settingsKeys.visitorWebhook(org),
     () => settingsApi.getVisitorWebhookToken(org),
     () => settingsApi.regenerateVisitorWebhookToken(org),
@@ -86,7 +88,7 @@ export default function VisitorWebhookPage() {
         </div>
 
         <button
-          onClick={handleRegenerate}
+          onClick={() => (data?.token ? setConfirmRegenerate(true) : handleRegenerate())}
           disabled={regenerating}
           className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-60"
         >
@@ -98,10 +100,27 @@ export default function VisitorWebhookPage() {
             再発行すると、これまでのトークンを使ったWebhookは無効になります。
           </p>
         )}
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {!confirmRegenerate && error && <p className="text-xs text-red-500">{error}</p>}
       </div>
 
       <IntroTemplateCard org={org} />
+
+      {confirmRegenerate && (
+        <ConfirmDialog
+          title="トークンを再発行しますか？"
+          description="これまでのトークンを使ったWebhookは無効になり、Googleフォームの見学申込が取り込まれなくなります。Apps Scriptのトークンを新しいものに差し替えてください。"
+          confirmLabel="再発行する"
+          busy={regenerating}
+          error={error}
+          onCancel={() => {
+            setConfirmRegenerate(false);
+            clearError();
+          }}
+          onConfirm={async () => {
+            if (await handleRegenerate()) setConfirmRegenerate(false);
+          }}
+        />
+      )}
     </PageWithHeader>
   );
 }

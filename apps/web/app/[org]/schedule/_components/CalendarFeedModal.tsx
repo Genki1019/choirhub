@@ -6,6 +6,7 @@ import { eventsApi } from "@/lib/events-api";
 import { eventKeys } from "@/lib/query-keys";
 import { useClipboardCopy } from "@/hooks/useClipboardCopy";
 import { useTokenIssuance } from "@/hooks/useTokenIssuance";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 interface CalendarFeedModalProps {
   orgSlug: string;
@@ -15,6 +16,7 @@ interface CalendarFeedModalProps {
 export function CalendarFeedModal({ orgSlug, onClose }: CalendarFeedModalProps) {
   const { copiedKey, copy } = useClipboardCopy();
   const [origin, setOrigin] = useState("");
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
 
   useEffect(() => {
     const resolve = () => setOrigin(window.location.origin);
@@ -29,7 +31,7 @@ export function CalendarFeedModal({ orgSlug, onClose }: CalendarFeedModalProps) 
     return () => document.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
-  const { data, isLoading, regenerating, error, handleRegenerate } = useTokenIssuance(
+  const { data, isLoading, regenerating, error, handleRegenerate, clearError } = useTokenIssuance(
     eventKeys.calendarFeedToken(orgSlug),
     () => eventsApi.getCalendarFeedToken(orgSlug),
     () => eventsApi.regenerateCalendarFeedToken(orgSlug),
@@ -110,7 +112,7 @@ export function CalendarFeedModal({ orgSlug, onClose }: CalendarFeedModalProps) 
               )}
 
               <button
-                onClick={handleRegenerate}
+                onClick={() => (data?.token ? setConfirmRegenerate(true) : handleRegenerate())}
                 disabled={regenerating}
                 className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-60"
               >
@@ -128,9 +130,26 @@ export function CalendarFeedModal({ orgSlug, onClose }: CalendarFeedModalProps) 
               )}
             </>
           )}
-          {error && <p className="text-xs text-red-500">{error}</p>}
+          {!confirmRegenerate && error && <p className="text-xs text-red-500">{error}</p>}
         </div>
       </div>
+
+      {confirmRegenerate && (
+        <ConfirmDialog
+          title="フィードURLを再発行しますか？"
+          description="これまでのフィードURLは無効になり、登録済みの外部カレンダーの予定が更新されなくなります。新しいURLで登録し直してください。"
+          confirmLabel="再発行する"
+          busy={regenerating}
+          error={error}
+          onCancel={() => {
+            setConfirmRegenerate(false);
+            clearError();
+          }}
+          onConfirm={async () => {
+            if (await handleRegenerate()) setConfirmRegenerate(false);
+          }}
+        />
+      )}
     </div>
   );
 }

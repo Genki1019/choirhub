@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ExpenseCategoryCard } from "../ExpenseCategoryCard";
 import { settingsApi } from "@/lib/settings-api";
@@ -95,9 +95,9 @@ describe("ExpenseCategoryCard（編集・削除）", () => {
     expect(onUpdated).toHaveBeenCalledWith({ id: "cat-1", name: "会場費改", sortOrder: 1 });
   });
 
-  it("削除して409エラー時は専用メッセージをトーストする", async () => {
+  it("削除して409エラー時はAPIの理由を確認ダイアログの中に表示する", async () => {
     vi.mocked(settingsApi.deleteExpenseCategory).mockRejectedValue(
-      new ApiClientError("CONFLICT", "conflict", 409),
+      new ApiClientError("CONFLICT", "支出記録が紐付いているため削除できません", 409),
     );
     const onToast = vi.fn();
     const user = userEvent.setup();
@@ -114,8 +114,19 @@ describe("ExpenseCategoryCard（編集・削除）", () => {
     );
 
     await user.click(screen.getByLabelText("会場費を削除"));
+    await user.click(
+      within(screen.getByRole("alertdialog", { name: "支出の区分を削除しますか？" })).getByRole(
+        "button",
+        {
+          name: "削除する",
+        },
+      ),
+    );
 
-    expect(onToast).toHaveBeenCalledWith("支出記録が紐付いているため削除できません");
+    expect(await within(screen.getByRole("alertdialog")).findByRole("alert")).toHaveTextContent(
+      "支出記録が紐付いているため削除できません",
+    );
+    expect(onToast).not.toHaveBeenCalled();
   });
 });
 

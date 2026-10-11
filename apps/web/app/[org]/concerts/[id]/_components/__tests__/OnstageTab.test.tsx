@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { OnstageTab } from "../OnstageTab";
 import {
@@ -262,12 +262,72 @@ describe("OnstageTab（パターンCRUD）", () => {
     );
 
     await user.click(screen.getByTitle("削除"));
+    expect(concertsApi.deleteFormationPattern).not.toHaveBeenCalled();
+    await user.click(
+      within(screen.getByRole("alertdialog", { name: "パターンを削除しますか？" })).getByRole(
+        "button",
+        { name: "削除する" },
+      ),
+    );
 
     expect(concertsApi.deleteFormationPattern).toHaveBeenCalledWith(
       "o",
       "concert-1",
       "stage-1",
       "pattern-1",
+    );
+  });
+
+  it("パターンの削除ボタンはパターン名つきで読み上げられる", () => {
+    render(
+      <OnstageTab
+        concert={makeConcert()}
+        org="o"
+        canManageStage={true}
+        onStagesChanged={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /を削除$/ })).toHaveAccessibleName(
+      `${makePattern().name}を削除`,
+    );
+  });
+
+  it("削除を確認でキャンセルするとdeleteFormationPatternを呼ばない", async () => {
+    const user = userEvent.setup();
+    render(
+      <OnstageTab
+        concert={makeConcert()}
+        org="o"
+        canManageStage={true}
+        onStagesChanged={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByTitle("削除"));
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(concertsApi.deleteFormationPattern).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("削除に失敗したら確認ダイアログの中にエラーを表示する", async () => {
+    vi.mocked(concertsApi.deleteFormationPattern).mockRejectedValue(new Error("failed"));
+    const user = userEvent.setup();
+    render(
+      <OnstageTab
+        concert={makeConcert()}
+        org="o"
+        canManageStage={true}
+        onStagesChanged={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByTitle("削除"));
+    await user.click(screen.getByRole("button", { name: "削除する" }));
+
+    expect(await within(screen.getByRole("alertdialog")).findByRole("alert")).toHaveTextContent(
+      "パターンの削除に失敗しました",
     );
   });
 

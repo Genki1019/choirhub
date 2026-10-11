@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PartCard } from "../PartCard";
 import { settingsApi } from "@/lib/settings-api";
@@ -95,18 +95,30 @@ describe("PartCard（canEdit: true）", () => {
     expect(onUpdated).toHaveBeenCalledWith(updated);
   });
 
-  it("🗑️クリックで削除し409エラー時は専用メッセージをトーストする", async () => {
-    vi.mocked(settingsApi.deletePart).mockRejectedValue(
-      new ApiClientError("CONFLICT", "conflict", 409),
-    );
-    const onToast = vi.fn();
-    const user = userEvent.setup();
-    renderCard(true, { onToast });
+  it.each(["在団メンバーが所属しているため削除できません", "デフォルトパートは削除できません"])(
+    "🗑️で削除し409エラー時はAPIの理由（%s）を確認ダイアログの中に表示する",
+    async (message) => {
+      vi.mocked(settingsApi.deletePart).mockRejectedValue(
+        new ApiClientError("CONFLICT", message, 409),
+      );
+      const user = userEvent.setup();
+      renderCard(true);
 
-    await user.click(screen.getByLabelText("テノール1を削除"));
+      await user.click(screen.getByLabelText("テノール1を削除"));
+      await user.click(
+        within(screen.getByRole("alertdialog", { name: "パートを削除しますか？" })).getByRole(
+          "button",
+          {
+            name: "削除する",
+          },
+        ),
+      );
 
-    expect(onToast).toHaveBeenCalledWith("在団メンバーが所属しているため削除できません");
-  });
+      expect(await within(screen.getByRole("alertdialog")).findByRole("alert")).toHaveTextContent(
+        message,
+      );
+    },
+  );
 
   it("🗑️クリックで削除に成功するとonDeletedが呼ばれる", async () => {
     vi.mocked(settingsApi.deletePart).mockResolvedValue(undefined);
@@ -115,6 +127,15 @@ describe("PartCard（canEdit: true）", () => {
     renderCard(true, { onDeleted });
 
     await user.click(screen.getByLabelText("テノール1を削除"));
+    expect(settingsApi.deletePart).not.toHaveBeenCalled();
+    await user.click(
+      within(screen.getByRole("alertdialog", { name: "パートを削除しますか？" })).getByRole(
+        "button",
+        {
+          name: "削除する",
+        },
+      ),
+    );
 
     expect(settingsApi.deletePart).toHaveBeenCalledWith("o", "part-1");
     expect(onDeleted).toHaveBeenCalledWith("part-1");

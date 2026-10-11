@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AccountingPage from "../page";
@@ -328,12 +328,33 @@ describe("AccountingPage（追加・編集操作）", () => {
     await screen.findByText("¥18,000");
     await user.click(screen.getByText("支出"));
     await user.click(await screen.findByLabelText("市民会館 第2練習室を削除"));
+    expect(accountingApi.deleteExpense).not.toHaveBeenCalled();
+    const dialog = screen.getByRole("alertdialog", { name: "支出を削除しますか？" });
+    expect(dialog).toHaveTextContent("「市民会館 第2練習室」を削除します");
+    await user.click(within(dialog).getByRole("button", { name: "削除する" }));
 
     expect(accountingApi.deleteExpense).toHaveBeenCalledWith("tokyo-men-choir", "exp-1");
     await waitFor(() => expect(screen.queryByText("市民会館 第2練習室")).not.toBeInTheDocument());
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 
-  it("支出の削除に失敗した場合はトーストを表示する", async () => {
+  it("支出の削除を確認でキャンセルするとdeleteExpenseを呼ばない", async () => {
+    vi.mocked(accountingApi.summary).mockResolvedValue(makeSummary());
+    vi.mocked(accountingApi.listExpenses).mockResolvedValue([makeExpense()]);
+    vi.mocked(accountingApi.listCollections).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("¥18,000");
+    await user.click(screen.getByText("支出"));
+    await user.click(await screen.findByLabelText("市民会館 第2練習室を削除"));
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(accountingApi.deleteExpense).not.toHaveBeenCalled();
+    expect(screen.getByText("市民会館 第2練習室")).toBeInTheDocument();
+  });
+
+  it("支出の削除に失敗した場合は確認ダイアログの中にエラーを表示する", async () => {
     vi.mocked(accountingApi.summary).mockResolvedValue(makeSummary());
     vi.mocked(accountingApi.listExpenses).mockResolvedValue([makeExpense()]);
     vi.mocked(accountingApi.listCollections).mockResolvedValue([]);
@@ -344,8 +365,10 @@ describe("AccountingPage（追加・編集操作）", () => {
     await screen.findByText("¥18,000");
     await user.click(screen.getByText("支出"));
     await user.click(await screen.findByLabelText("市民会館 第2練習室を削除"));
+    await user.click(screen.getByRole("button", { name: "削除する" }));
 
-    expect(await screen.findByText("削除に失敗しました")).toBeInTheDocument();
+    const dialog = screen.getByRole("alertdialog");
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("削除に失敗しました");
     expect(screen.getByText("市民会館 第2練習室")).toBeInTheDocument();
   });
 });

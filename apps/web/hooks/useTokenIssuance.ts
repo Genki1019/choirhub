@@ -20,18 +20,27 @@ export function useTokenIssuance(
     enabled: options.enabled,
   });
 
-  const handleRegenerate = async () => {
+  const handleRegenerate = async (): Promise<boolean> => {
     setRegenerating(true);
     setError(null);
     try {
       const updated = await regenerateToken();
       queryClient.setQueryData(queryKey, updated);
+      return true;
     } catch {
       setError("トークンの発行に失敗しました。もう一度お試しください。");
+      return false;
     } finally {
       setRegenerating(false);
     }
   };
 
-  return { data, isLoading, regenerating, error, handleRegenerate };
+  return {
+    data,
+    isLoading,
+    regenerating,
+    error,
+    handleRegenerate,
+    clearError: () => setError(null),
+  };
 }

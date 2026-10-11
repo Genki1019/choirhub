@@ -6,7 +6,8 @@ import { DndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { DragHandle, SortableItem, useListDndSensors } from "@/components/SortableRow";
 import { settingsApi } from "@/lib/settings-api";
-import { ApiClientError } from "@/lib/api-client";
+import { userErrorMessage } from "@/lib/api-client";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { createSortDragEndHandler } from "@/lib/sort-order";
 import type { PartSummary } from "@/lib/members-api";
 
@@ -32,6 +33,9 @@ export function PartCard({
   onToast,
 }: PartCardProps) {
   const [busy, setBusy] = useState(false);
+  const [confirmTarget, setConfirmTarget] = useState<PartSummary | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -61,19 +65,17 @@ export function PartCard({
     }
   };
 
-  const deletePart = async (part: PartSummary) => {
-    setBusy(true);
+  const handleConfirmDelete = async (part: PartSummary) => {
+    setDeleting(true);
+    setDeleteError(null);
     try {
       await settingsApi.deletePart(org, part.id);
       onDeleted(part.id);
+      setConfirmTarget(null);
     } catch (err) {
-      const msg =
-        err instanceof ApiClientError && err.status === 409
-          ? "在団メンバーが所属しているため削除できません"
-          : "削除に失敗しました";
-      onToast(msg);
+      setDeleteError(userErrorMessage(err, "削除に失敗しました。もう一度お試しください。"));
     } finally {
-      setBusy(false);
+      setDeleting(false);
     }
   };
 
@@ -180,7 +182,10 @@ export function PartCard({
                               <Pencil size={13} />
                             </button>
                             <button
-                              onClick={() => deletePart(part)}
+                              onClick={() => {
+                                setDeleteError(null);
+                                setConfirmTarget(part);
+                              }}
                               disabled={busy}
                               aria-label={`${part.name}を削除`}
                               className="p-1.5 text-gray-300 transition-colors hover:text-red-500 disabled:opacity-40"
@@ -232,6 +237,17 @@ export function PartCard({
             <X size={15} />
           </button>
         </div>
+      )}
+      {confirmTarget && (
+        <ConfirmDialog
+          title="パートを削除しますか？"
+          description={`「${confirmTarget.name}」を削除します。この操作は取り消せません。`}
+          confirmLabel="削除する"
+          busy={deleting}
+          error={deleteError}
+          onCancel={() => setConfirmTarget(null)}
+          onConfirm={() => handleConfirmDelete(confirmTarget)}
+        />
       )}
     </div>
   );

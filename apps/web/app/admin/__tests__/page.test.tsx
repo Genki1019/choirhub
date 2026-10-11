@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AdminPage from "../page";
@@ -192,6 +192,10 @@ describe("AdminPage（承認・却下）", () => {
 
     await screen.findByText("○○混声合唱団");
     await user.click(screen.getByLabelText("却下"));
+    expect(orgApplicationsApi.reject).not.toHaveBeenCalled();
+    const dialog = screen.getByRole("alertdialog", { name: "団体作成の申請を却下しますか？" });
+    expect(dialog).toHaveTextContent("「○○混声合唱団」の申請を却下します");
+    await user.click(within(dialog).getByRole("button", { name: "却下する" }));
 
     await waitFor(() => {
       expect(orgApplicationsApi.reject).toHaveBeenCalledWith("app-1");
@@ -199,6 +203,32 @@ describe("AdminPage（承認・却下）", () => {
     await waitFor(() => {
       expect(screen.queryByText("○○混声合唱団")).not.toBeInTheDocument();
     });
+  });
+
+  it("却下を確認でキャンセルするとrejectを呼ばない", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("○○混声合唱団");
+    await user.click(screen.getByLabelText("却下"));
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(orgApplicationsApi.reject).not.toHaveBeenCalled();
+    expect(screen.getByText("○○混声合唱団")).toBeInTheDocument();
+  });
+
+  it("却下に失敗したら確認ダイアログの中にエラーを表示する", async () => {
+    vi.mocked(orgApplicationsApi.reject).mockRejectedValue(new Error("network error"));
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("○○混声合唱団");
+    await user.click(screen.getByLabelText("却下"));
+    await user.click(screen.getByRole("button", { name: "却下する" }));
+
+    expect(await within(screen.getByRole("alertdialog")).findByRole("alert")).toHaveTextContent(
+      "操作に失敗しました。もう一度お試しください。",
+    );
   });
 
   it("操作失敗時はエラーメッセージを表示する", async () => {

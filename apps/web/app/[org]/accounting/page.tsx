@@ -2,19 +2,19 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ChevronRight, ChevronLeft, AlertCircle, Check } from "lucide-react";
+import { ChevronRight, ChevronLeft, AlertCircle } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { accountingApi } from "@/lib/accounting-api";
 import type { ExpenseItem } from "@/lib/accounting-api";
 import { settingsApi } from "@/lib/settings-api";
-import { ApiClientError } from "@/lib/api-client";
+import { ApiClientError, userErrorMessage } from "@/lib/api-client";
 import { accountingKeys, memberKeys, settingsKeys } from "@/lib/query-keys";
 import { ExpenseModal } from "./_components/ExpenseModal";
 import { CollectionModal } from "./_components/CollectionModal";
 import { CollectionsTab } from "./_components/CollectionsTab";
 import { ExpensesTab } from "./_components/ExpensesTab";
 import { PageWithHeader } from "@/components/PageWithHeader";
-import { useToast } from "@/hooks/useToast";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { jstParts } from "@/lib/date";
 
 function yen(n: number) {
@@ -50,8 +50,9 @@ export default function AccountingPage() {
     editing: null,
   });
   const [collectionModal, setCollectionModal] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const { toast, showToast } = useToast();
+  const [confirmExpense, setConfirmExpense] = useState<ExpenseItem | null>(null);
+  const [deletingExpense, setDeletingExpense] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const {
     data: summary,
@@ -114,17 +115,19 @@ export default function AccountingPage() {
   };
 
   const handleDeleteExpense = async (id: string) => {
-    setDeletingId(id);
+    setDeletingExpense(true);
+    setDeleteError(null);
     try {
       await accountingApi.deleteExpense(org, id);
       queryClient.setQueryData<ExpenseItem[]>(accountingKeys.expenses(org, year), (prev) =>
         prev ? prev.filter((e) => e.id !== id) : prev,
       );
       queryClient.invalidateQueries({ queryKey: accountingKeys.summary(org, year) });
-    } catch {
-      showToast("削除に失敗しました");
+      setConfirmExpense(null);
+    } catch (err) {
+      setDeleteError(userErrorMessage(err, "削除に失敗しました。もう一度お試しください。"));
     } finally {
-      setDeletingId(null);
+      setDeletingExpense(false);
     }
   };
 
@@ -242,11 +245,14 @@ export default function AccountingPage() {
               ) : (
                 <ExpensesTab
                   expenses={expenses}
-                  deletingId={deletingId}
+                  deletingId={deletingExpense ? (confirmExpense?.id ?? null) : null}
                   onExport={() => accountingApi.exportExpenses(org, year)}
                   onAddClick={() => setExpenseModal({ open: true, editing: null })}
                   onEditClick={(exp) => setExpenseModal({ open: true, editing: exp })}
-                  onDeleteClick={handleDeleteExpense}
+                  onDeleteClick={(id) => {
+                    setDeleteError(null);
+                    setConfirmExpense(expenses.find((e) => e.id === id) ?? null);
+                  }}
                 />
               ))}
           </>
@@ -263,6 +269,18 @@ export default function AccountingPage() {
         />
       )}
 
+      {confirmExpense && (
+        <ConfirmDialog
+          title="支出を削除しますか？"
+          description={`「${confirmExpense.title}」を削除します。この操作は取り消せません。`}
+          confirmLabel="削除する"
+          busy={deletingExpense}
+          error={deleteError}
+          onCancel={() => setConfirmExpense(null)}
+          onConfirm={() => handleDeleteExpense(confirmExpense.id)}
+        />
+      )}
+
       {collectionModal && (
         <CollectionModal
           org={org}
@@ -273,13 +291,6 @@ export default function AccountingPage() {
             queryClient.invalidateQueries({ queryKey: accountingKeys.all(org) });
           }}
         />
-      )}
-
-      {toast && (
-        <div className="fixed right-6 bottom-6 z-50 flex items-center gap-2 rounded-lg bg-gray-800 px-4 py-2.5 text-xs text-white shadow-lg">
-          <Check size={13} className="text-teal-400" />
-          {toast}
-        </div>
       )}
     </>
   );

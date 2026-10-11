@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CategoryList } from "../CategoryList";
 import { settingsApi, type EventCategory } from "@/lib/settings-api";
@@ -85,9 +85,29 @@ describe("CategoryList（canEdit: true）", () => {
     renderList(true, { onDeleted });
 
     await user.click(screen.getByLabelText("合宿を削除"));
+    expect(settingsApi.deleteEventCategory).not.toHaveBeenCalled();
+    await user.click(
+      within(screen.getByRole("alertdialog", { name: "予定の区分を削除しますか？" })).getByRole(
+        "button",
+        {
+          name: "削除する",
+        },
+      ),
+    );
 
     expect(settingsApi.deleteEventCategory).toHaveBeenCalledWith("o", "cat-2");
     expect(onDeleted).toHaveBeenCalledWith("cat-2");
+  });
+
+  it("削除を確認でキャンセルするとdeleteEventCategoryを呼ばない", async () => {
+    const user = userEvent.setup();
+    renderList(true);
+
+    await user.click(screen.getByLabelText("合宿を削除"));
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(settingsApi.deleteEventCategory).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 });
 

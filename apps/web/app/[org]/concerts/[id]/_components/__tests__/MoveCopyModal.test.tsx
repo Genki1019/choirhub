@@ -71,13 +71,33 @@ describe("MoveCopyModal（表示）", () => {
 });
 
 describe("MoveCopyModal（演奏会未定への移動）", () => {
+  it("開いた直後は移動先が未選択で、実行できない", async () => {
+    renderModal();
+
+    const select = await screen.findByLabelText("移動先 / コピー先");
+    expect(select).toHaveValue("");
+    expect(screen.getByRole("button", { name: "移動する" })).toBeDisabled();
+    expect(concertsApi.deleteProgram).not.toHaveBeenCalled();
+  });
+
+  it("「演奏会未定」を選ぶと実行ボタンが赤の「演奏会から削除」になる", async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.selectOptions(await screen.findByLabelText("移動先 / コピー先"), "unassigned");
+
+    const button = screen.getByRole("button", { name: "演奏会から削除" });
+    expect(button).toBeEnabled();
+    expect(button).toHaveClass("bg-red-600");
+  });
+
   it("「演奏会未定」を選択して実行するとdeleteProgramのみ呼ばれonCompleteされる", async () => {
     vi.mocked(concertsApi.deleteProgram).mockResolvedValue(undefined);
     const onComplete = vi.fn();
     const user = userEvent.setup();
     renderModal({ onComplete });
 
-    await screen.findByText("読み込み中...", { exact: false }).catch(() => {});
+    await user.selectOptions(await screen.findByLabelText("移動先 / コピー先"), "unassigned");
     await user.click(screen.getByText("演奏会から削除"));
 
     expect(concertsApi.deleteProgram).toHaveBeenCalledWith("o", "concert-1", "program-1");
@@ -156,7 +176,7 @@ describe("MoveCopyModal（失敗の表示）", () => {
     vi.mocked(concertsApi.getStructure).mockReturnValue(new Promise(() => {}));
     renderModal();
 
-    expect(screen.getByRole("button", { name: "演奏会から削除" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "移動する" })).toBeDisabled();
   });
 
   it("移動先の読み込みに失敗したらエラーを表示し、実行ボタンを押せない", async () => {
@@ -166,7 +186,7 @@ describe("MoveCopyModal（失敗の表示）", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "移動先の読み込みに失敗しました。閉じてからもう一度開いてください。",
     );
-    expect(screen.getByRole("button", { name: "演奏会から削除" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "移動する" })).toBeDisabled();
     expect(screen.queryByLabelText("移動先 / コピー先")).not.toBeInTheDocument();
   });
 
@@ -234,7 +254,7 @@ describe("MoveCopyModal（閉じる）", () => {
     const user = userEvent.setup();
     renderModal({ onClose });
 
-    await screen.findByLabelText("移動先 / コピー先");
+    await user.selectOptions(await screen.findByLabelText("移動先 / コピー先"), "unassigned");
     await user.click(screen.getByText("演奏会から削除"));
     await user.keyboard("{Escape}");
 

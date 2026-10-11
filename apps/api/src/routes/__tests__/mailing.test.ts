@@ -19,7 +19,7 @@ vi.mock("../../lib/prisma.js", () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
-    member: { findMany: vi.fn() },
+    member: { findMany: vi.fn(), count: vi.fn() },
     notification: { createMany: vi.fn() },
   },
 }));
@@ -778,5 +778,120 @@ describe("POST /mailing/send", () => {
         recipientMemberIds: ["member-2"],
       },
     });
+  });
+});
+
+describe("POST /mailing/recipient-count", () => {
+  function request(app: ReturnType<typeof createTestApp>, payload: unknown) {
+    return app.request("/mailing/recipient-count", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  it("正常（recipientType: all）: 自団体のアクティブ団員からguest/visitorを除いた人数を返す", async () => {
+    vi.mocked(prisma.member.count).mockResolvedValue(32);
+
+    const res = await request(createTestApp(makeMember(["member"])), { recipientType: "all" });
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.count).toBe(32);
+    expect(prisma.member.count).toHaveBeenCalledWith({
+      where: {
+        orgId: testOrg.id,
+        status: "active",
+        NOT: { roles: { hasSome: ["guest", "visitor"] } },
+      },
+    });
+  });
+
+  it("正常（recipientType: part）: partIdsで絞り込みguest/visitorを除く", async () => {
+    vi.mocked(prisma.member.count).mockResolvedValue(8);
+
+    const res = await request(createTestApp(makeMember(["member"])), {
+      recipientType: "part",
+      recipientFilter: { partIds: ["part-1"] },
+    });
+
+    expect(res.status).toBe(200);
+    expect(prisma.member.count).toHaveBeenCalledWith({
+      where: {
+        orgId: testOrg.id,
+        status: "active",
+        partId: { in: ["part-1"] },
+        NOT: { roles: { hasSome: ["guest", "visitor"] } },
+      },
+    });
+  });
+
+  it("正常（recipientType: role）: 指定ロールで絞り込みguest/visitorも除かない", async () => {
+    vi.mocked(prisma.member.count).mockResolvedValue(2);
+
+    await request(createTestApp(makeMember(["member"])), {
+      recipientType: "role",
+      recipientFilter: { roles: ["guest"] },
+    });
+
+    expect(prisma.member.count).toHaveBeenCalledWith({
+      where: { orgId: testOrg.id, status: "active", roles: { hasSome: ["guest"] } },
+    });
+  });
+
+  it("正常（recipientType: custom）: 別団体の団員IDを指定しても自団体の団員だけを数える", async () => {
+    vi.mocked(prisma.member.count).mockResolvedValue(1);
+
+    await request(createTestApp(makeMember(["member"])), {
+      recipientType: "custom",
+      recipientFilter: { memberIds: ["member-2", "other-org-member"] },
+    });
+
+    expect(prisma.member.count).toHaveBeenCalledWith({
+      where: {
+        orgId: testOrg.id,
+        status: "active",
+        id: { in: ["member-2", "other-org-member"] },
+      },
+    });
+  });
+
+  it("一般団員未満（guest）: 403を返す", async () => {
+    const res = await request(createTestApp(makeMember(["guest"])), { recipientType: "all" });
+
+    expect(res.status).toBe(403);
+    const body = await json(res);
+    expect(body.error.code).toBe("FORBIDDEN");
+    expect(prisma.member.count).not.toHaveBeenCalled();
+  });
+
+  it("recipientType: partでpartIdsが空: 400を返し全員を数えない", async () => {
+    const res = await request(createTestApp(makeMember(["member"])), {
+      recipientType: "part",
+      recipientFilter: { partIds: [] },
+    });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error).toEqual({ code: "VALIDATION_ERROR", message: "パートを選択してください" });
+    expect(prisma.member.count).not.toHaveBeenCalled();
+  });
+
+  it("partIdsが上限（100件）を超える: 400を返し数えない", async () => {
+    const res = await request(createTestApp(makeMember(["member"])), {
+      recipientType: "part",
+      recipientFilter: { partIds: Array.from({ length: 101 }, (_, i) => `part-${i}`) },
+    });
+
+    expect(res.status).toBe(400);
+    expect(prisma.member.count).not.toHaveBeenCalled();
+  });
+
+  it("recipientTypeが不正: 400を返す", async () => {
+    const res = await request(createTestApp(makeMember(["member"])), { recipientType: "everyone" });
+
+    expect(res.status).toBe(400);
+    const body = await json(res);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 });

@@ -11,6 +11,54 @@ import type { TenantEnv } from "../middleware/tenant.js";
 
 const BODY_PREVIEW_LEN = 200;
 
+const recipientSchema = z.object({
+  recipientType: z.enum(["all", "part", "role", "custom"]),
+  recipientFilter: z
+    .object({
+      partIds: z.array(z.string()).max(100).optional(),
+      roles: z.array(z.string()).max(20).optional(),
+      memberIds: z.array(z.string()).max(500).optional(),
+    })
+    .nullable()
+    .optional(),
+});
+
+type RecipientInput = z.infer<typeof recipientSchema>;
+
+// recipientType が絞り込み指定なのにフィルタが空だと「全員」にフォールバックしてしまうため、
+// 意図しない全員送信を防ぐために明示的に拒否する（"all" のみフィルタ不要）
+function recipientFilterError({ recipientType, recipientFilter }: RecipientInput): string | null {
+  if (recipientType === "part" && !recipientFilter?.partIds?.length) {
+    return "パートを選択してください";
+  }
+  if (recipientType === "role" && !recipientFilter?.roles?.length) {
+    return "ロールを選択してください";
+  }
+  if (recipientType === "custom" && !recipientFilter?.memberIds?.length) {
+    return "送信先を選択してください";
+  }
+  return null;
+}
+
+// all/part は guest・visitor を除外する。role/custom は明示的な指定なので除外しない
+function recipientWhere(
+  orgId: string,
+  { recipientType, recipientFilter }: RecipientInput,
+): Prisma.MemberWhereInput {
+  const where: Prisma.MemberWhereInput = { orgId, status: "active" };
+  if (recipientType === "part" && recipientFilter?.partIds?.length) {
+    where.partId = { in: recipientFilter.partIds };
+    Object.assign(where, EXCLUDE_HIDDEN_ROLES);
+  } else if (recipientType === "role" && recipientFilter?.roles?.length) {
+    where.roles = { hasSome: recipientFilter.roles };
+  } else if (recipientType === "custom" && recipientFilter?.memberIds?.length) {
+    where.id = { in: recipientFilter.memberIds };
+  } else {
+    Object.assign(where, EXCLUDE_HIDDEN_ROLES);
+  }
+  return where;
+}
+
 export const mailingRouter = new Hono<TenantEnv>()
 
   // ── GET /mailing ── メール一覧
@@ -249,23 +297,44 @@ export const mailingRouter = new Hono<TenantEnv>()
     });
   })
 
+  // ── POST /mailing/recipient-count ── 送信前に宛先の人数を数える（送信と同じ絞り込み）
+  .post(
+    "/mailing/recipient-count",
+    zValidator("json", recipientSchema, (result, c) => {
+      if (!result.success) {
+        return c.json({ error: { code: "VALIDATION_ERROR", message: "入力値が不正です" } }, 400);
+      }
+    }),
+    async (c) => {
+      const actingMember = c.get("member");
+      const org = c.get("org");
+
+      if (!isMemberPlus(actingMember)) {
+        return c.json(
+          { error: { code: "FORBIDDEN", message: "メール送信は一般団員以上のみ可能です" } },
+          403,
+        );
+      }
+
+      const input = c.req.valid("json");
+      const filterError = recipientFilterError(input);
+      if (filterError) {
+        return c.json({ error: { code: "VALIDATION_ERROR", message: filterError } }, 400);
+      }
+
+      const count = await prisma.member.count({ where: recipientWhere(org.id, input) });
+      return c.json({ data: { count } });
+    },
+  )
+
   // ── POST /mailing/send ── メール送信
   .post(
     "/mailing/send",
     zValidator(
       "json",
-      z.object({
+      recipientSchema.extend({
         subject: z.string().min(1, "件名を入力してください"),
         body: z.string().min(1, "本文を入力してください"),
-        recipientType: z.enum(["all", "part", "role", "custom"]),
-        recipientFilter: z
-          .object({
-            partIds: z.array(z.string()).optional(),
-            roles: z.array(z.string()).optional(),
-            memberIds: z.array(z.string()).max(500).optional(),
-          })
-          .nullable()
-          .optional(),
       }),
       (result, c) => {
         if (!result.success) {
@@ -284,44 +353,16 @@ export const mailingRouter = new Hono<TenantEnv>()
         );
       }
 
-      const { subject, body, recipientType, recipientFilter } = c.req.valid("json");
+      const input = c.req.valid("json");
+      const { subject, body } = input;
 
-      // recipientType が絞り込み指定なのにフィルタが空だと「全員」にフォールバックしてしまうため、
-      // 意図しない全員送信を防ぐために明示的に拒否する（"all" のみフィルタ不要）
-      if (recipientType === "part" && !recipientFilter?.partIds?.length) {
-        return c.json(
-          { error: { code: "VALIDATION_ERROR", message: "パートを選択してください" } },
-          400,
-        );
-      }
-      if (recipientType === "role" && !recipientFilter?.roles?.length) {
-        return c.json(
-          { error: { code: "VALIDATION_ERROR", message: "ロールを選択してください" } },
-          400,
-        );
-      }
-      if (recipientType === "custom" && !recipientFilter?.memberIds?.length) {
-        return c.json(
-          { error: { code: "VALIDATION_ERROR", message: "送信先を選択してください" } },
-          400,
-        );
-      }
-
-      const baseWhere: Prisma.MemberWhereInput = { orgId: org.id, status: "active" };
-      // all/part は guest・visitor を除外する。role/custom は明示的な指定なので除外しない
-      if (recipientType === "part" && recipientFilter?.partIds?.length) {
-        baseWhere.partId = { in: recipientFilter.partIds };
-        Object.assign(baseWhere, EXCLUDE_HIDDEN_ROLES);
-      } else if (recipientType === "role" && recipientFilter?.roles?.length) {
-        baseWhere.roles = { hasSome: recipientFilter.roles };
-      } else if (recipientType === "custom" && recipientFilter?.memberIds?.length) {
-        baseWhere.id = { in: recipientFilter.memberIds };
-      } else {
-        Object.assign(baseWhere, EXCLUDE_HIDDEN_ROLES);
+      const filterError = recipientFilterError(input);
+      if (filterError) {
+        return c.json({ error: { code: "VALIDATION_ERROR", message: filterError } }, 400);
       }
 
       const members = await prisma.member.findMany({
-        where: baseWhere,
+        where: recipientWhere(org.id, input),
         include: { userRef: { select: { email: true } } },
       });
 

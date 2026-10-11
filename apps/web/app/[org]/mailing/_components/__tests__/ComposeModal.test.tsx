@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ComposeModal } from "../ComposeModal";
 import { mailingApi } from "@/lib/mailing-api";
@@ -10,6 +10,7 @@ vi.mock("@/lib/mailing-api", async () => {
   return {
     ...actual,
     mailingApi: {
+      recipientCount: vi.fn(),
       send: vi.fn(),
       templates: { list: vi.fn().mockResolvedValue([]) },
     },
@@ -60,7 +61,13 @@ function renderModal(overrides: Partial<Parameters<typeof ComposeModal>[0]> = {}
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(mailingApi.templates.list).mockResolvedValue([]);
+  vi.mocked(mailingApi.recipientCount).mockResolvedValue({ count: 5 });
 });
+
+async function confirmSend(user: ReturnType<typeof userEvent.setup>) {
+  const dialog = await screen.findByRole("alertdialog");
+  await user.click(within(dialog).getByRole("button", { name: "送信する" }));
+}
 
 describe("ComposeModal（バリデーション）", () => {
   it("件名未入力で送信するとエラーメッセージを表示する", async () => {
@@ -121,6 +128,7 @@ describe("ComposeModal（送信先タブ）", () => {
     await user.click(screen.getByText("パート"));
     await user.click(screen.getByText("テノール1"));
     await user.click(screen.getByText("送信する"));
+    await confirmSend(user);
 
     expect(mailingApi.send).toHaveBeenCalledWith(
       "o",
@@ -162,6 +170,7 @@ describe("ComposeModal（送信先タブ）", () => {
     await user.click(screen.getByText("ロール"));
     await user.click(screen.getByText("最高管理者"));
     await user.click(screen.getByText("送信する"));
+    await confirmSend(user);
 
     expect(mailingApi.send).toHaveBeenCalledWith(
       "o",
@@ -212,6 +221,7 @@ describe("ComposeModal（送信先タブ）", () => {
     await user.click(screen.getByText("個別"));
     await user.click(await screen.findByText("山田太郎"));
     await user.click(screen.getByText("送信する"));
+    await confirmSend(user);
 
     expect(mailingApi.send).toHaveBeenCalledWith(
       "o",
@@ -236,6 +246,7 @@ describe("ComposeModal（全員送信・送信失敗）", () => {
     await user.type(screen.getByPlaceholderText("例: 6月練習のご案内"), "件名");
     await user.type(screen.getByPlaceholderText("メール本文を入力..."), "本文");
     await user.click(screen.getByText("送信する"));
+    await confirmSend(user);
 
     expect(mailingApi.send).toHaveBeenCalledWith(
       "o",
@@ -243,16 +254,161 @@ describe("ComposeModal（全員送信・送信失敗）", () => {
     );
   });
 
-  it("送信失敗時はエラーメッセージを表示する", async () => {
-    vi.mocked(mailingApi.send).mockRejectedValue(new Error("送信に失敗しました"));
+  it("送信失敗時は確認ダイアログの中にエラーメッセージを表示する", async () => {
+    vi.mocked(mailingApi.send).mockRejectedValue(new Error("network error"));
     const user = userEvent.setup();
     renderModal();
 
     await user.type(screen.getByPlaceholderText("例: 6月練習のご案内"), "件名");
     await user.type(screen.getByPlaceholderText("メール本文を入力..."), "本文");
     await user.click(screen.getByText("送信する"));
+    await confirmSend(user);
 
-    expect(await screen.findByText("送信に失敗しました")).toBeInTheDocument();
+    expect(await within(screen.getByRole("alertdialog")).findByRole("alert")).toHaveTextContent(
+      "送信に失敗しました。もう一度お試しください。",
+    );
+  });
+});
+
+describe("ComposeModal（送信前の確認）", () => {
+  async function fillAndSend(user: ReturnType<typeof userEvent.setup>) {
+    await user.type(screen.getByPlaceholderText("例: 6月練習のご案内"), "7月練習のご案内");
+    await user.type(screen.getByPlaceholderText("メール本文を入力..."), "本文");
+    await user.click(screen.getByText("送信する"));
+  }
+
+  it("送信するとサーバーで数えた宛先人数つきの確認を出し、確定するまで送信しない", async () => {
+    vi.mocked(mailingApi.recipientCount).mockResolvedValue({ count: 32 });
+    const user = userEvent.setup();
+    renderModal();
+
+    await fillAndSend(user);
+
+    expect(mailingApi.recipientCount).toHaveBeenCalledWith("o", {
+      recipientType: "all",
+      recipientFilter: null,
+    });
+    const dialog = await screen.findByRole("alertdialog", { name: "32名にメールを送信しますか？" });
+    expect(dialog).toHaveTextContent("件名「7月練習のご案内」のメールを送信します");
+    expect(mailingApi.send).not.toHaveBeenCalled();
+  });
+
+  it("人数を数えている間に宛先を変えても、確認した宛先に送る", async () => {
+    let resolveCount: (v: { count: number }) => void = () => {};
+    vi.mocked(mailingApi.recipientCount).mockReturnValue(
+      new Promise((resolve) => (resolveCount = resolve)),
+    );
+    vi.mocked(mailingApi.send).mockResolvedValue({
+      mailLogId: "m1",
+      recipientCount: 3,
+      sentAt: "2026-06-01T00:00:00+09:00",
+    });
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.type(screen.getByPlaceholderText("例: 6月練習のご案内"), "件名");
+    await user.type(screen.getByPlaceholderText("メール本文を入力..."), "本文");
+    await user.click(screen.getByText("パート"));
+    await user.click(screen.getByText("テノール1"));
+    await user.click(screen.getByText("送信する"));
+    await user.click(screen.getByText("ベース"));
+    resolveCount({ count: 3 });
+    await confirmSend(user);
+
+    expect(mailingApi.send).toHaveBeenCalledWith(
+      "o",
+      expect.objectContaining({
+        recipientType: "part",
+        recipientFilter: { partIds: ["part-1"] },
+      }),
+    );
+  });
+
+  it("確認でキャンセルすると送信せず、入力内容は残る", async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderModal({ onClose });
+
+    await fillAndSend(user);
+    await screen.findByRole("alertdialog");
+    await user.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", { name: "キャンセル" }),
+    );
+
+    expect(mailingApi.send).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByDisplayValue("7月練習のご案内")).toBeInTheDocument();
+  });
+
+  it("確認をキャンセルすると、送信ボタンにフォーカスが戻る", async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.type(screen.getByPlaceholderText("例: 6月練習のご案内"), "件名");
+    await user.type(screen.getByPlaceholderText("メール本文を入力..."), "本文");
+    const sendButton = screen.getByRole("button", { name: "送信する" });
+    sendButton.focus();
+    await user.keyboard("{Enter}");
+    await user.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "キャンセル" }),
+    );
+
+    await waitFor(() => expect(sendButton).toHaveFocus());
+  });
+
+  it("宛先人数の取得中にもう一度押しても、数え直さない", async () => {
+    vi.mocked(mailingApi.recipientCount).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.type(screen.getByPlaceholderText("例: 6月練習のご案内"), "件名");
+    await user.type(screen.getByPlaceholderText("メール本文を入力..."), "本文");
+    await user.click(screen.getByText("送信する"));
+    await user.click(screen.getByText("送信する"));
+
+    expect(mailingApi.recipientCount).toHaveBeenCalledTimes(1);
+  });
+
+  it("確認でEscを押すと確認だけが閉じ、作成中のメールは閉じない", async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderModal({ onClose });
+
+    await fillAndSend(user);
+    await screen.findByRole("alertdialog");
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByDisplayValue("7月練習のご案内")).toBeInTheDocument();
+  });
+
+  it("宛先が0名なら確認を出さずに送信できないことを伝える", async () => {
+    vi.mocked(mailingApi.recipientCount).mockResolvedValue({ count: 0 });
+    const user = userEvent.setup();
+    renderModal();
+
+    await fillAndSend(user);
+
+    expect(
+      await screen.findByText("宛先に該当する団員がいません。宛先を選び直してください。"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(mailingApi.send).not.toHaveBeenCalled();
+  });
+
+  it("宛先人数の取得に失敗したらエラーを表示し、送信しない", async () => {
+    vi.mocked(mailingApi.recipientCount).mockRejectedValue(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    renderModal();
+
+    await fillAndSend(user);
+
+    expect(
+      await screen.findByText("宛先の確認に失敗しました。もう一度お試しください。"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(mailingApi.send).not.toHaveBeenCalled();
   });
 });
 

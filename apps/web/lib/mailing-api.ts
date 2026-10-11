@@ -99,6 +99,10 @@ export const mailingApi = {
 
   get: (orgSlug: string, id: string) => apiClient.get<MailDetail>(`/${orgSlug}/mailing/${id}`),
 
+  recipientCount: (
+    orgSlug: string,
+    data: Pick<SendMailInput, "recipientType" | "recipientFilter">,
+  ) => apiClient.post<{ count: number }>(`/${orgSlug}/mailing/recipient-count`, data),
   send: (orgSlug: string, data: SendMailInput) =>
     apiClient.post<SendMailResult>(`/${orgSlug}/mailing/send`, data),
 

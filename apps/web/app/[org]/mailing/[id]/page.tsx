@@ -5,10 +5,11 @@ import { useParams, useRouter } from "next/navigation";
 import { Users, Loader2, AlertCircle, Reply, Send, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { mailingApi, LAST_EVENT_LABEL } from "@/lib/mailing-api";
-import { ApiClientError } from "@/lib/api-client";
+import { ApiClientError, userErrorMessage } from "@/lib/api-client";
 import { mailingKeys } from "@/lib/query-keys";
 import { formatJaDateTime } from "@/lib/date";
 import { PageHeader } from "@/components/PageHeader";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 type ReplyTarget = "sender" | "all";
 
@@ -34,6 +35,11 @@ function ReplyModal({
   const [replyTarget, setReplyTarget] = useState<ReplyTarget>("sender");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [counting, setCounting] = useState(false);
+  const [pendingSend, setPendingSend] = useState<{ count: number; memberIds: string[] } | null>(
+    null,
+  );
+  const [sendError, setSendError] = useState<string | null>(null);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -46,6 +52,7 @@ function ReplyModal({
   const recipientCount = replyTarget === "sender" ? 1 : allMemberIds.length;
 
   const handleSend = async () => {
+    if (counting) return;
     if (!subject.trim()) {
       setError("件名を入力してください");
       return;
@@ -54,20 +61,42 @@ function ReplyModal({
       setError("本文を入力してください");
       return;
     }
-    setSending(true);
+    setCounting(true);
     setError(null);
+    const memberIds = replyTarget === "sender" ? [senderMemberId] : allMemberIds;
     try {
-      const memberIds = replyTarget === "sender" ? [senderMemberId] : allMemberIds;
+      const { count } = await mailingApi.recipientCount(orgSlug, {
+        recipientType: "custom",
+        recipientFilter: { memberIds },
+      });
+      if (count === 0) {
+        setError("宛先に該当する団員がいません。");
+        return;
+      }
+      setSendError(null);
+      setPendingSend({ count, memberIds });
+    } catch (err) {
+      setError(userErrorMessage(err, "宛先の確認に失敗しました。もう一度お試しください。"));
+    } finally {
+      setCounting(false);
+    }
+  };
+
+  const handleConfirmSend = async () => {
+    if (!pendingSend) return;
+    setSending(true);
+    setSendError(null);
+    try {
       await mailingApi.send(orgSlug, {
         subject: subject.trim(),
         body: body.trim(),
         recipientType: "custom",
-        recipientFilter: { memberIds },
+        recipientFilter: { memberIds: pendingSend.memberIds },
       });
       onSent();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "送信に失敗しました");
+      setSendError(userErrorMessage(err, "送信に失敗しました。もう一度お試しください。"));
     } finally {
       setSending(false);
     }
@@ -162,14 +191,27 @@ function ReplyModal({
           </button>
           <button
             onClick={handleSend}
-            disabled={sending}
+            aria-busy={counting}
             className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
           >
-            {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+            {counting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
             {recipientCount}名に送信
           </button>
         </div>
       </div>
+
+      {pendingSend && (
+        <ConfirmDialog
+          title={`${pendingSend.count}名に返信しますか？`}
+          description={`件名「${subject.trim()}」のメールを送信します。送信したメールは取り消せません。`}
+          confirmLabel="送信する"
+          tone="primary"
+          busy={sending}
+          error={sendError}
+          onCancel={() => setPendingSend(null)}
+          onConfirm={handleConfirmSend}
+        />
+      )}
     </div>
   );
 }

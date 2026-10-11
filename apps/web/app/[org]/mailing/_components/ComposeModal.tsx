@@ -2,9 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { X, Loader2, Send, BookMarked, Trash2 } from "lucide-react";
-import { mailingApi, type RecipientType, type MailTemplate } from "@/lib/mailing-api";
+import {
+  mailingApi,
+  type RecipientType,
+  type MailTemplate,
+  type SendMailInput,
+} from "@/lib/mailing-api";
 import { membersApi, type MemberProfile, type PartSummary } from "@/lib/members-api";
 import { ROLES } from "@/lib/roles";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { userErrorMessage } from "@/lib/api-client";
 
 const RECIPIENT_TABS: { key: RecipientType; label: string }[] = [
   { key: "all", label: "全員" },
@@ -244,6 +251,12 @@ export function ComposeModal({
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [counting, setCounting] = useState(false);
+  const [pendingSend, setPendingSend] = useState<{
+    count: number;
+    recipients: Pick<SendMailInput, "recipientType" | "recipientFilter">;
+  } | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [showTemplatePanel, setShowTemplatePanel] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
 
@@ -283,6 +296,7 @@ export function ComposeModal({
   };
 
   const handleSend = async () => {
+    if (counting) return;
     if (!subject.trim()) {
       setError("件名を入力してください");
       return;
@@ -304,19 +318,38 @@ export function ComposeModal({
       return;
     }
 
-    setSending(true);
+    setCounting(true);
     setError(null);
+    const recipients = { recipientType, recipientFilter: buildFilter() };
+    try {
+      const { count } = await mailingApi.recipientCount(orgSlug, recipients);
+      if (count === 0) {
+        setError("宛先に該当する団員がいません。宛先を選び直してください。");
+        return;
+      }
+      setSendError(null);
+      setPendingSend({ count, recipients });
+    } catch (err) {
+      setError(userErrorMessage(err, "宛先の確認に失敗しました。もう一度お試しください。"));
+    } finally {
+      setCounting(false);
+    }
+  };
+
+  const handleConfirmSend = async () => {
+    if (!pendingSend) return;
+    setSending(true);
+    setSendError(null);
     try {
       await mailingApi.send(orgSlug, {
         subject: subject.trim(),
         body: body.trim(),
-        recipientType,
-        recipientFilter: buildFilter(),
+        ...pendingSend.recipients,
       });
       onSent();
       onClose();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "送信に失敗しました");
+    } catch (err) {
+      setSendError(userErrorMessage(err, "送信に失敗しました。もう一度お試しください。"));
     } finally {
       setSending(false);
     }
@@ -492,16 +525,29 @@ export function ComposeModal({
               </button>
               <button
                 onClick={handleSend}
-                disabled={sending}
+                aria-busy={counting}
                 className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
               >
-                {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                {counting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                 送信する
               </button>
             </div>
           </div>
         </div>
       </div>
+
+      {pendingSend && (
+        <ConfirmDialog
+          title={`${pendingSend.count}名にメールを送信しますか？`}
+          description={`件名「${subject.trim()}」のメールを送信します。送信したメールは取り消せません。`}
+          confirmLabel="送信する"
+          tone="primary"
+          busy={sending}
+          error={sendError}
+          onCancel={() => setPendingSend(null)}
+          onConfirm={handleConfirmSend}
+        />
+      )}
 
       {showSaveModal && (
         <SaveTemplateModal

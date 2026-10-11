@@ -152,15 +152,16 @@
 
 ### メール
 
-| API名                                         | Method | Path                              | 権限             |
-| --------------------------------------------- | ------ | --------------------------------- | ---------------- |
-| [メール一覧取得](#mailing-list)               | GET    | `/:orgSlug/mailing`               | 送信者 or 受信者 |
-| [メール詳細取得](#mailing-id-get)             | GET    | `/:orgSlug/mailing/:id`           | 送信者 or 受信者 |
-| [メール送信](#mailing-send)                   | POST   | `/:orgSlug/mailing/send`          | member+          |
-| [テンプレート一覧](#mailing-templates-list)   | GET    | `/:orgSlug/mailing/templates`     | member+          |
-| [テンプレート保存](#mailing-templates-save)   | POST   | `/:orgSlug/mailing/templates`     | member+          |
-| [テンプレート更新](#mailing-templates-update) | PATCH  | `/:orgSlug/mailing/templates/:id` | 作成者 or admin  |
-| [テンプレート削除](#mailing-templates-delete) | DELETE | `/:orgSlug/mailing/templates/:id` | 作成者 or admin  |
+| API名                                         | Method | Path                                | 権限             |
+| --------------------------------------------- | ------ | ----------------------------------- | ---------------- |
+| [メール一覧取得](#mailing-list)               | GET    | `/:orgSlug/mailing`                 | 送信者 or 受信者 |
+| [メール詳細取得](#mailing-id-get)             | GET    | `/:orgSlug/mailing/:id`             | 送信者 or 受信者 |
+| [宛先人数の取得](#mailing-recipient-count)    | POST   | `/:orgSlug/mailing/recipient-count` | member+          |
+| [メール送信](#mailing-send)                   | POST   | `/:orgSlug/mailing/send`            | member+          |
+| [テンプレート一覧](#mailing-templates-list)   | GET    | `/:orgSlug/mailing/templates`       | member+          |
+| [テンプレート保存](#mailing-templates-save)   | POST   | `/:orgSlug/mailing/templates`       | member+          |
+| [テンプレート更新](#mailing-templates-update) | PATCH  | `/:orgSlug/mailing/templates/:id`   | 作成者 or admin  |
+| [テンプレート削除](#mailing-templates-delete) | DELETE | `/:orgSlug/mailing/templates/:id`   | 作成者 or admin  |
 
 ### チケット管理
 
@@ -3391,6 +3392,38 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 
 ---
 
+<a id="mailing-recipient-count"></a>
+
+### POST `/api/v1/:orgSlug/mailing/recipient-count`
+
+送信前の確認に使う。指定した宛先に送ると何名に届くかを返す。宛先の絞り込みは[メール送信](#mailing-send)と同じ。
+
+**権限**: `member+`（全アクティブ団員）
+
+**Request Body:**
+
+```json
+{
+  "recipientType": "part",
+  "recipientFilter": { "partIds": ["cuid", "cuid"] }
+}
+```
+
+> - `recipientType`・`recipientFilter`の形と、空のフィルタを`400`にする扱い、`guest`/`visitor`の除外の規則は[メール送信](#mailing-send)と同じ。
+> - 数えるのは自団体の在籍中（`status: active`）の団員だけ。`custom`で別団体の団員IDを指定しても数えない。
+
+**Response** `200`
+
+```json
+{
+  "data": { "count": 12 }
+}
+```
+
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `400` `VALIDATION_ERROR` `part`/`role`/`custom`指定時、対応するフィルタが空・未指定 / `403` `FORBIDDEN` guest/visitorが数えようとした
+
+---
+
 <a id="mailing-send"></a>
 
 ### POST `/api/v1/:orgSlug/mailing/send`
@@ -3412,12 +3445,12 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 
 `recipientType` と `recipientFilter` の対応:
 
-| recipientType | recipientFilter                          |
-| ------------- | ---------------------------------------- |
-| `all`         | null                                     |
-| `part`        | `{ "partIds": ["..."] }`                 |
-| `role`        | `{ "roles": ["tech", "score"] }`         |
-| `custom`      | `{ "memberIds": ["..."] }` （最大500件） |
+| recipientType | recipientFilter                               |
+| ------------- | --------------------------------------------- |
+| `all`         | null                                          |
+| `part`        | `{ "partIds": ["..."] }` （最大100件）        |
+| `role`        | `{ "roles": ["tech", "score"] }` （最大20件） |
+| `custom`      | `{ "memberIds": ["..."] }` （最大500件）      |
 
 > - `part`/`role`/`custom`を指定した場合、対応するフィルタ配列が空・未指定だと意図しない全員送信を防ぐため`400 VALIDATION_ERROR`を返す（フォールバックしない）。
 > - `all`・`part`は`guest`/`visitor`ロールの団員を自動で除外する。`role`・`custom`は明示的な指定のため除外しない（`role`で`guest`/`visitor`自体を指定した場合や、`custom`で個別に選んだ場合はそのまま送信対象になる）。

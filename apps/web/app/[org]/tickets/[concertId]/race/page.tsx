@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { PageErrorState } from "@/components/PageErrorState";
 import { userErrorMessage } from "@/lib/api-client";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { formatShortDate } from "@/lib/date";
 
 export default function RacePage() {
@@ -24,6 +25,7 @@ export default function RacePage() {
   const [tab, setTab] = useState<"parts" | "individuals">("parts");
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [confirmingPublish, setConfirmingPublish] = useState(false);
   const [showScoringModal, setShowScoringModal] = useState(false);
 
   const {
@@ -107,24 +109,13 @@ export default function RacePage() {
       </button>
     ) : (
       <button
-        onClick={async () => {
-          setPublishing(true);
+        onClick={() => {
           setPublishError(null);
-          try {
-            const result = await ticketsApi.publishRace(org, concertId);
-            queryClient.setQueryData<RaceData>(ticketKeys.race(org, concertId), (prev) =>
-              prev ? { ...prev, racePublishedAt: result.racePublishedAt } : prev,
-            );
-          } catch (err) {
-            setPublishError(userErrorMessage(err, "公開に失敗しました。もう一度お試しください。"));
-          } finally {
-            setPublishing(false);
-          }
+          setConfirmingPublish(true);
         }}
-        disabled={publishing}
-        className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-amber-600 disabled:opacity-60"
+        className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-amber-600"
       >
-        {publishing ? <Loader2 size={13} className="animate-spin" /> : <Globe size={13} />}
+        <Globe size={13} />
         全体に公開
       </button>
     )
@@ -199,7 +190,7 @@ export default function RacePage() {
               "最新のレース結果の読み込みに失敗しました。ページを再読み込みしてください。",
             )}
         </ErrorMessage>
-        <ErrorMessage>{publishError}</ErrorMessage>
+        <ErrorMessage>{!confirmingPublish && publishError}</ErrorMessage>
         <ScoringRules scoring={data.scoring} />
 
         {tab === "parts" ? (
@@ -232,6 +223,37 @@ export default function RacePage() {
         )}
       </main>
 
+      {confirmingPublish && (
+        <ConfirmDialog
+          title="チケットレースを全団員に公開しますか？"
+          description="パート順位・個人順位が、すべての団員に表示されます。公開後は採点設定を変更できません。"
+          confirmLabel="公開する"
+          tone="primary"
+          busy={publishing}
+          error={publishError}
+          onCancel={() => {
+            setConfirmingPublish(false);
+            setPublishError(null);
+          }}
+          onConfirm={async () => {
+            setPublishing(true);
+            setPublishError(null);
+            try {
+              const result = await ticketsApi.publishRace(org, concertId);
+              queryClient.setQueryData<RaceData>(ticketKeys.race(org, concertId), (prev) =>
+                prev ? { ...prev, racePublishedAt: result.racePublishedAt } : prev,
+              );
+              setConfirmingPublish(false);
+            } catch (err) {
+              setPublishError(
+                userErrorMessage(err, "公開に失敗しました。もう一度お試しください。"),
+              );
+            } finally {
+              setPublishing(false);
+            }
+          }}
+        />
+      )}
       {showScoringModal && (
         <ScoringSettingsModal
           initialScoring={data.scoring}

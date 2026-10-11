@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AdminPanel } from "../AdminPanel";
 import type { MemberProfile, PartSummary } from "@/lib/api-types";
@@ -285,7 +285,33 @@ describe("AdminPanel（操作）", () => {
     );
 
     await user.click(screen.getByText("退団処理"));
+    expect(onDelete).not.toHaveBeenCalled();
+    await user.click(
+      within(
+        screen.getByRole("alertdialog", { name: "山田太郎さんを退団処理しますか？" }),
+      ).getByRole("button", { name: "退団処理する" }),
+    );
     expect(onDelete).toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+  });
+
+  it("退団処理の確認でキャンセルするとonDeleteを呼ばない", async () => {
+    const onDelete = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <AdminPanel
+        member={makeMember()}
+        parts={parts}
+        memberTypes={memberTypes}
+        onUpdate={vi.fn()}
+        onDelete={onDelete}
+      />,
+    );
+
+    await user.click(screen.getByText("退団処理"));
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(onDelete).not.toHaveBeenCalled();
   });
 
   it("退団処理中は保存・退団処理ボタンが両方disabledになる", async () => {
@@ -308,9 +334,15 @@ describe("AdminPanel（操作）", () => {
     );
 
     await user.click(screen.getByText("退団処理"));
+    await user.click(
+      within(
+        screen.getByRole("alertdialog", { name: "山田太郎さんを退団処理しますか？" }),
+      ).getByRole("button", { name: "退団処理する" }),
+    );
 
     expect(screen.getByText("変更を保存").closest("button")).toBeDisabled();
     expect(screen.getByText("退団処理").closest("button")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "退団処理する" })).toBeDisabled();
 
     resolveDelete!();
     await waitFor(() => {
@@ -337,7 +369,7 @@ describe("AdminPanel（操作）", () => {
     expect(screen.getByText("変更を保存").closest("button")).toBeEnabled();
   });
 
-  it("退団処理が失敗した場合、エラーメッセージを表示する", async () => {
+  it("退団処理が失敗した場合、確認ダイアログの中にエラーメッセージを表示する", async () => {
     const onDelete = vi.fn().mockRejectedValue(new Error("退団処理に失敗しました"));
     const user = userEvent.setup();
     render(
@@ -351,8 +383,15 @@ describe("AdminPanel（操作）", () => {
     );
 
     await user.click(screen.getByText("退団処理"));
+    await user.click(
+      within(
+        screen.getByRole("alertdialog", { name: "山田太郎さんを退団処理しますか？" }),
+      ).getByRole("button", { name: "退団処理する" }),
+    );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("退団処理に失敗しました");
-    expect(screen.getByText("退団処理").closest("button")).toBeEnabled();
+    expect(await within(screen.getByRole("alertdialog")).findByRole("alert")).toHaveTextContent(
+      "退団処理に失敗しました。もう一度お試しください。",
+    );
+    expect(screen.getByRole("button", { name: "退団処理する" })).toBeEnabled();
   });
 });

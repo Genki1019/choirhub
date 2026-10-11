@@ -162,11 +162,12 @@ describe("EditBatchModal", () => {
     );
 
     await user.click(screen.getByText("この席種を削除"));
-    const confirm = screen.getByRole("dialog", { name: "「一般」を削除しますか？" });
+    const confirm = screen.getByRole("alertdialog", { name: "席種を削除しますか？" });
+    expect(confirm).toHaveTextContent("「一般」と、配布登録データ");
     expect(within(confirm).getByRole("button", { name: "キャンセル" })).toHaveFocus();
 
     await user.click(within(confirm).getByRole("button", { name: "キャンセル" }));
-    expect(screen.queryByText("「一般」を削除しますか？")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(screen.getByDisplayValue("一般")).toBeInTheDocument();
   });
 
@@ -207,11 +208,12 @@ describe("EditBatchModal", () => {
     );
 
     await user.click(screen.getByText("この席種を削除"));
-    expect(screen.getAllByRole("dialog", { hidden: true })).toHaveLength(2);
+    expect(screen.getByRole("alertdialog", { name: "席種を削除しますか？" })).toBeInTheDocument();
+    expect(screen.getAllByRole("dialog", { hidden: true })).toHaveLength(1);
     await user.keyboard("{Escape}");
 
     expect(
-      screen.queryByRole("dialog", { name: "「一般」を削除しますか？" }),
+      screen.queryByRole("alertdialog", { name: "席種を削除しますか？" }),
     ).not.toBeInTheDocument();
     expect(screen.getByRole("dialog", { name: "席種を編集" })).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
@@ -306,7 +308,8 @@ describe("EditBatchModal（削除の失敗）", () => {
     await user.click(screen.getByText("この席種を削除"));
     await user.click(screen.getByText("削除する"));
 
-    const confirm = screen.getByRole("dialog", { name: "「一般」を削除しますか？" });
+    const confirm = screen.getByRole("alertdialog", { name: "席種を削除しますか？" });
+    expect(confirm).toHaveTextContent("「一般」と、配布登録データ");
     expect(await within(confirm).findByRole("alert")).toHaveTextContent(
       "席種の削除に失敗しました。もう一度お試しください。",
     );

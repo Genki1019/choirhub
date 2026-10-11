@@ -123,8 +123,9 @@ interface TemplatePanelProps {
 function TemplatePanel({ orgSlug, onApply, onClose }: TemplatePanelProps) {
   const [templates, setTemplates] = useState<MailTemplate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmTarget, setConfirmTarget] = useState<MailTemplate | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     mailingApi.templates
@@ -135,14 +136,18 @@ function TemplatePanel({ orgSlug, onApply, onClose }: TemplatePanelProps) {
   }, [orgSlug]);
 
   const handleDelete = async (id: string) => {
-    setDeleting(id);
-    setConfirmDeleteId(null);
+    setDeleting(true);
+    setDeleteError(null);
     try {
       await mailingApi.templates.delete(orgSlug, id);
       setTemplates((prev) => prev.filter((t) => t.id !== id));
-    } catch {
+      setConfirmTarget(null);
+    } catch (err) {
+      setDeleteError(
+        userErrorMessage(err, "テンプレートの削除に失敗しました。もう一度お試しください。"),
+      );
     } finally {
-      setDeleting(null);
+      setDeleting(false);
     }
   };
 
@@ -170,54 +175,43 @@ function TemplatePanel({ orgSlug, onApply, onClose }: TemplatePanelProps) {
         )}
         {templates.map((t) => (
           <div key={t.id} className="border-b border-gray-100 last:border-0">
-            {confirmDeleteId === t.id ? (
-              <div className="flex items-center justify-between bg-red-50 px-4 py-2.5">
-                <p className="text-xs text-red-600">削除しますか？</p>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleDelete(t.id)}
-                    disabled={deleting === t.id}
-                    className="rounded bg-red-500 px-2 py-0.5 text-xs text-white hover:bg-red-600 disabled:opacity-50"
-                  >
-                    {deleting === t.id ? (
-                      <Loader2 size={11} className="inline animate-spin" />
-                    ) : (
-                      "削除"
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setConfirmDeleteId(null)}
-                    className="text-xs text-gray-500 hover:text-gray-700"
-                  >
-                    キャンセル
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="group flex items-center justify-between px-4 py-2.5 hover:bg-white">
-                <button
-                  className="min-w-0 flex-1 text-left"
-                  onClick={() => {
-                    onApply(t);
-                    onClose();
-                  }}
-                >
-                  <p className="truncate text-sm font-medium text-gray-700">{t.name}</p>
-                  <p className="truncate text-xs text-gray-400">{t.subject}</p>
-                </button>
-                <button
-                  onClick={() => setConfirmDeleteId(t.id)}
-                  disabled={deleting === t.id}
-                  className="ml-2 shrink-0 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-500 disabled:opacity-50"
-                  aria-label="テンプレートを削除"
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            )}
+            <div className="group flex items-center justify-between px-4 py-2.5 hover:bg-white">
+              <button
+                className="min-w-0 flex-1 text-left"
+                onClick={() => {
+                  onApply(t);
+                  onClose();
+                }}
+              >
+                <p className="truncate text-sm font-medium text-gray-700">{t.name}</p>
+                <p className="truncate text-xs text-gray-400">{t.subject}</p>
+              </button>
+              <button
+                onClick={() => {
+                  setDeleteError(null);
+                  setConfirmTarget(t);
+                }}
+                className="ml-2 shrink-0 text-gray-300 transition-colors hover:text-red-500"
+                aria-label={`テンプレート「${t.name}」を削除`}
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
           </div>
         ))}
       </div>
+
+      {confirmTarget && (
+        <ConfirmDialog
+          title="テンプレートを削除しますか？"
+          description={`「${confirmTarget.name}」を削除します。この操作は取り消せません。`}
+          confirmLabel="削除する"
+          busy={deleting}
+          error={deleteError}
+          onCancel={() => setConfirmTarget(null)}
+          onConfirm={() => handleDelete(confirmTarget.id)}
+        />
+      )}
     </div>
   );
 }

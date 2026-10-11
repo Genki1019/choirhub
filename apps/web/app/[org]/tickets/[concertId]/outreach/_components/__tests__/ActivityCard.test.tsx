@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ActivityCard } from "../ActivityCard";
 import { ticketsApi, type OutreachActivityRow } from "@/lib/tickets-api";
@@ -142,7 +142,6 @@ describe("ActivityCard（展開）", () => {
 
 describe("ActivityCard（削除操作）", () => {
   it("確認ダイアログでキャンセルすると削除されない", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(false);
     const user = userEvent.setup();
     render(
       <ActivityCard
@@ -157,11 +156,12 @@ describe("ActivityCard（削除操作）", () => {
     );
 
     await user.click(screen.getByLabelText("渋谷駅前を削除"));
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
     expect(ticketsApi.deleteOutreachActivity).not.toHaveBeenCalled();
+    expect(screen.queryByText("申請者: 田中太郎")).not.toBeInTheDocument();
   });
 
   it("確認ダイアログで同意すると削除されonDeletedが呼ばれる", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     vi.mocked(ticketsApi.deleteOutreachActivity).mockResolvedValue(undefined);
     const onDeleted = vi.fn();
     const user = userEvent.setup();
@@ -178,13 +178,18 @@ describe("ActivityCard（削除操作）", () => {
     );
 
     await user.click(screen.getByLabelText("渋谷駅前を削除"));
+    await user.click(
+      within(screen.getByRole("alertdialog", { name: "情宣活動を削除しますか？" })).getByRole(
+        "button",
+        { name: "削除する" },
+      ),
+    );
 
     expect(ticketsApi.deleteOutreachActivity).toHaveBeenCalledWith("o", "concert-1", "activity-1");
     await waitFor(() => expect(onDeleted).toHaveBeenCalledWith("activity-1"));
   });
 
   it("通信エラーで削除に失敗した場合、代わりの文言をalertで表示する", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     vi.mocked(ticketsApi.deleteOutreachActivity).mockRejectedValue(
       new TypeError("Failed to fetch"),
     );
@@ -202,13 +207,18 @@ describe("ActivityCard（削除操作）", () => {
     );
 
     await user.click(screen.getByLabelText("渋谷駅前を削除"));
+    await user.click(
+      within(screen.getByRole("alertdialog", { name: "情宣活動を削除しますか？" })).getByRole(
+        "button",
+        { name: "削除する" },
+      ),
+    );
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "情宣活動の削除に失敗しました。もう一度お試しください。",
     );
   });
 
   it("削除に失敗した場合、エラーメッセージを表示する", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     vi.mocked(ticketsApi.deleteOutreachActivity).mockRejectedValue(
       new ApiClientError("BAD_REQUEST", "削除できません", 400),
     );
@@ -226,6 +236,12 @@ describe("ActivityCard（削除操作）", () => {
     );
 
     await user.click(screen.getByLabelText("渋谷駅前を削除"));
+    await user.click(
+      within(screen.getByRole("alertdialog", { name: "情宣活動を削除しますか？" })).getByRole(
+        "button",
+        { name: "削除する" },
+      ),
+    );
     expect(await screen.findByText("削除できません")).toBeInTheDocument();
   });
 });

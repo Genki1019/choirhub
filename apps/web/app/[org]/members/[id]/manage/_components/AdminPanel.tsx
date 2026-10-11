@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { ShieldCheck, Check, Loader2, UserMinus } from "lucide-react";
 import type { MemberProfile, PartSummary } from "@/lib/members-api";
+import { userErrorMessage } from "@/lib/api-client";
 import type { MemberType } from "@/lib/settings-api";
 import { MEMBER_STATUS_OPTIONS } from "@/lib/api-types";
 import type { MemberStatus } from "@/lib/api-types";
 import { MANAGEABLE_ROLES } from "@/lib/roles";
 import { RolePermissionPopover } from "./RolePermissionPopover";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 interface AdminPanelProps {
   member: MemberProfile;
@@ -26,7 +28,9 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
   const [localMemo, setLocalMemo] = useState(member.adminMemo ?? "");
   const [localEmail, setLocalEmail] = useState(member.email ?? "");
   const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const toggleRole = (role: string) =>
@@ -56,11 +60,12 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
 
   const handleDelete = async () => {
     setDeleting(true);
-    setError(null);
+    setDeleteError(null);
     try {
       await onDelete();
+      setConfirmingDelete(false);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "退団処理に失敗しました");
+      setDeleteError(userErrorMessage(err, "退団処理に失敗しました。もう一度お試しください。"));
     } finally {
       setDeleting(false);
     }
@@ -199,14 +204,30 @@ export function AdminPanel({ member, parts, memberTypes, onUpdate, onDelete }: A
         </button>
         <button
           type="button"
-          onClick={handleDelete}
+          onClick={() => {
+            setError(null);
+            setDeleteError(null);
+            setConfirmingDelete(true);
+          }}
           disabled={saving || deleting}
           className="flex items-center gap-1.5 rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
         >
-          {deleting ? <Loader2 size={14} className="animate-spin" /> : <UserMinus size={14} />}
+          <UserMinus size={14} />
           退団処理
         </button>
       </div>
+
+      {confirmingDelete && (
+        <ConfirmDialog
+          title={`${member.nameJa}さんを退団処理しますか？`}
+          description="メンバー一覧から外れ、この団体を利用できなくなります。この操作は取り消せません。"
+          confirmLabel="退団処理する"
+          busy={deleting}
+          error={deleteError}
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={handleDelete}
+        />
+      )}
     </div>
   );
 }

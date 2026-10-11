@@ -4,6 +4,8 @@ import { useState, useRef } from "react";
 import { FileText, Music2, FolderOpen, Upload, Trash2, Loader2 } from "lucide-react";
 import { Modal } from "@/components/Modal";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { userErrorMessage } from "@/lib/api-client";
 import { scoresApi, type ScoreDetail, type ScoreFile } from "@/lib/scores-api";
 import { type PartSummary } from "@/lib/members-api";
 
@@ -183,10 +185,14 @@ export function FileManageModal({
   const midiFiles = files.filter((f) => f.fileType === "midi");
   const otherFiles = files.filter((f) => f.fileType !== "full_score" && f.fileType !== "midi");
 
+  const openDeleteConfirm = (file: ScoreFile) => {
+    setDeleteError(null);
+    setConfirmTarget(file);
+  };
+
   const handleDeleteConfirmed = async () => {
     if (!confirmTarget) return;
     const { id: fileId, fileType } = confirmTarget;
-    setConfirmTarget(null);
     setDeleting(fileId);
     setDeleteError(null);
     try {
@@ -195,8 +201,9 @@ export function FileManageModal({
       if (fileType === "full_score" && canManagePdf && uploadType !== "full_score") {
         setUploadType("full_score");
       }
-    } catch {
-      setDeleteError("削除に失敗しました");
+      setConfirmTarget(null);
+    } catch (err) {
+      setDeleteError(userErrorMessage(err, "削除に失敗しました。もう一度お試しください。"));
     } finally {
       setDeleting(null);
     }
@@ -315,14 +322,13 @@ export function FileManageModal({
         )
       }
     >
-      <ErrorMessage>{deleteError}</ErrorMessage>
       <FileSection
         label="楽譜 (PDF)"
         fileList={fullScores}
         canDelete={canManagePdf}
         partMap={partMap}
         deleting={deleting}
-        onDeleteClick={setConfirmTarget}
+        onDeleteClick={openDeleteConfirm}
       />
       <FileSection
         label="MIDI"
@@ -331,7 +337,7 @@ export function FileManageModal({
         grouped
         partMap={partMap}
         deleting={deleting}
-        onDeleteClick={setConfirmTarget}
+        onDeleteClick={openDeleteConfirm}
       />
       <FileSection
         label="その他"
@@ -339,35 +345,19 @@ export function FileManageModal({
         canDelete={canManagePdf}
         partMap={partMap}
         deleting={deleting}
-        onDeleteClick={setConfirmTarget}
+        onDeleteClick={openDeleteConfirm}
       />
 
       {confirmTarget && (
-        <Modal
+        <ConfirmDialog
           title="ファイルを削除しますか？"
-          size="sm"
-          onClose={() => setConfirmTarget(null)}
-          footer={
-            <>
-              <button
-                type="button"
-                onClick={() => setConfirmTarget(null)}
-                className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50"
-              >
-                キャンセル
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteConfirmed}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
-              >
-                削除する
-              </button>
-            </>
-          }
-        >
-          <p className="text-sm break-all text-gray-500">{confirmTarget.fileName}</p>
-        </Modal>
+          description={`「${confirmTarget.fileName}」を削除します。この操作は取り消せません。`}
+          confirmLabel="削除する"
+          busy={deleting !== null}
+          error={deleteError}
+          onCancel={() => setConfirmTarget(null)}
+          onConfirm={handleDeleteConfirmed}
+        />
       )}
     </Modal>
   );

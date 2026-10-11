@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Trash2, Loader2 } from "lucide-react";
-import { Modal } from "@/components/Modal";
+import { Trash2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ticketsApi, type BatchDetail, type UpdateBatchInput } from "@/lib/tickets-api";
 import { BatchFormModal } from "./BatchFormModal";
-import { ErrorMessage } from "@/components/ErrorMessage";
 import { userErrorMessage } from "@/lib/api-client";
 
 interface EditBatchModalProps {
@@ -82,39 +81,15 @@ export function EditBatchModal({
       />
 
       {confirmDelete && (
-        <Modal
-          title={`「${batch.name}」を削除しますか？`}
-          size="sm"
-          onClose={closeConfirm}
+        <ConfirmDialog
+          title="席種を削除しますか？"
+          description={`「${batch.name}」と、配布登録データ（${batch.allocations.length}件）がすべて削除されます。この操作は取り消せません。`}
+          confirmLabel="削除する"
           busy={deleting}
-          footer={
-            <>
-              <button
-                type="button"
-                onClick={closeConfirm}
-                disabled={deleting}
-                className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50"
-              >
-                キャンセル
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60"
-              >
-                {deleting && <Loader2 size={13} className="animate-spin" />}
-                削除する
-              </button>
-            </>
-          }
-        >
-          <p className="text-sm text-gray-500">
-            配布登録データ（{batch.allocations.length}
-            件）もすべて削除されます。この操作は元に戻せません。
-          </p>
-          <ErrorMessage>{deleteError}</ErrorMessage>
-        </Modal>
+          error={deleteError}
+          onCancel={closeConfirm}
+          onConfirm={handleDelete}
+        />
       )}
     </>
   );

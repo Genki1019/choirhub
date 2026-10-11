@@ -144,7 +144,7 @@ describe("ConcertDetailPage（編集・削除ボタンの権限）", () => {
     renderPage(["admin"]);
 
     await user.click(await screen.findByText("削除"));
-    const dialog = screen.getByRole("dialog", { name: "演奏会を削除しますか？" });
+    const dialog = screen.getByRole("alertdialog", { name: "演奏会を削除しますか？" });
     expect(within(dialog).getByRole("button", { name: "キャンセル" })).toHaveFocus();
 
     await user.click(within(dialog).getByRole("button", { name: "キャンセル" }));
@@ -176,7 +176,7 @@ describe("ConcertDetailPage（編集・削除ボタンの権限）", () => {
     await user.click(screen.getByText("削除する"));
     await user.keyboard("{Escape}");
 
-    const dialog = screen.getByRole("dialog", { name: "演奏会を削除しますか？" });
+    const dialog = screen.getByRole("alertdialog", { name: "演奏会を削除しますか？" });
     expect(within(dialog).getByRole("button", { name: "キャンセル" })).toBeDisabled();
   });
 });
@@ -191,7 +191,7 @@ describe("ConcertDetailPage（失敗の表示）", () => {
     await user.click(await screen.findByText("削除"));
     await user.click(screen.getByText("削除する"));
 
-    const dialog = screen.getByRole("dialog", { name: "演奏会を削除しますか？" });
+    const dialog = screen.getByRole("alertdialog", { name: "演奏会を削除しますか？" });
     expect(await within(dialog).findByRole("alert")).toHaveTextContent(
       "演奏会の削除に失敗しました。もう一度お試しください。",
     );

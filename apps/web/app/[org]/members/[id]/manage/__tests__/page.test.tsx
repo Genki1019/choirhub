@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import MemberManagePage from "../page";
@@ -122,24 +122,26 @@ describe("MemberManagePage（管理者操作）", () => {
     expect(pushMock).toHaveBeenCalledWith("/tokyo-men-choir/members/member-2");
   });
 
-  it("退団処理: confirmでキャンセルした場合はAPIを呼ばない", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(false);
+  it("退団処理: 確認でキャンセルした場合はAPIを呼ばない", async () => {
     const user = userEvent.setup();
     renderPage({ roles: ["admin"] });
 
     await user.click(await screen.findByText("退団処理"));
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
 
     expect(membersApi.delete).not.toHaveBeenCalled();
     expect(pushMock).not.toHaveBeenCalled();
   });
 
-  it("退団処理: confirmでOKした場合は削除後にメンバー一覧へ遷移する", async () => {
+  it("退団処理: 確認で確定した場合は削除後にメンバー一覧へ遷移する", async () => {
     vi.mocked(membersApi.delete).mockResolvedValue(undefined);
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
     const { invalidateSpy } = renderPage({ roles: ["admin"] });
 
     await user.click(await screen.findByText("退団処理"));
+    await user.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", { name: "退団処理する" }),
+    );
 
     await waitFor(() => {
       expect(membersApi.delete).toHaveBeenCalledWith("tokyo-men-choir", "member-2");

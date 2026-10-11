@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import LibraryPage from "../page";
@@ -171,6 +171,23 @@ describe("LibraryPage（削除）", () => {
 
     expect(documentsApi.delete).toHaveBeenCalledWith("tokyo-men-choir", "doc-1");
     expect(await screen.findByText("登録されている資料はありません")).toBeInTheDocument();
+  });
+
+  it("削除に失敗したら確認ダイアログの中にエラーを表示し、資料は一覧に残る", async () => {
+    vi.mocked(documentsApi.list).mockResolvedValue([sampleDoc]);
+    vi.mocked(documentsApi.delete).mockRejectedValue(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    renderPage(["admin"]);
+
+    await screen.findByText("団則");
+    await user.click(screen.getByRole("button", { name: "団則を削除" }));
+    await user.click(screen.getByRole("button", { name: "削除する" }));
+
+    const dialog = screen.getByRole("alertdialog", { name: "資料を削除しますか？" });
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "削除に失敗しました。もう一度お試しください。",
+    );
+    expect(screen.getByText("団則")).toBeInTheDocument();
   });
 });
 

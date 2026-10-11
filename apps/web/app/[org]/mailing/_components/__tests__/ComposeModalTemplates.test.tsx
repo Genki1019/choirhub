@@ -90,13 +90,16 @@ describe("ComposeModal（テンプレートパネル）", () => {
     renderModal();
 
     await user.click(screen.getByText("テンプレート"));
-    await user.click(await screen.findByLabelText("テンプレートを削除"));
-    const confirmRow = screen.getByText("削除しますか？").closest("div") as HTMLElement;
-    expect(confirmRow).toBeInTheDocument();
+    await user.click(
+      await screen.findByRole("button", { name: "テンプレート「練習案内テンプレート」を削除" }),
+    );
+    const dialog = screen.getByRole("alertdialog", { name: "テンプレートを削除しますか？" });
+    expect(dialog).toHaveTextContent("「練習案内テンプレート」を削除します");
 
-    await user.click(within(confirmRow).getByText("キャンセル"));
-    expect(screen.queryByText("削除しますか？")).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "キャンセル" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(screen.getByText("練習案内テンプレート")).toBeInTheDocument();
+    expect(mailingApi.templates.delete).not.toHaveBeenCalled();
   });
 
   it("削除を確定するとtemplates.deleteが呼ばれ一覧から消える", async () => {
@@ -106,11 +109,47 @@ describe("ComposeModal（テンプレートパネル）", () => {
     renderModal();
 
     await user.click(screen.getByText("テンプレート"));
-    await user.click(await screen.findByLabelText("テンプレートを削除"));
-    await user.click(screen.getByText("削除"));
+    await user.click(
+      await screen.findByRole("button", { name: "テンプレート「練習案内テンプレート」を削除" }),
+    );
+    await user.click(screen.getByRole("button", { name: "削除する" }));
 
     expect(mailingApi.templates.delete).toHaveBeenCalledWith("o", "template-1");
     expect(await screen.findByText("保存済みテンプレートがありません")).toBeInTheDocument();
+  });
+
+  it("削除に失敗したら確認ダイアログの中にエラーを表示し、一覧に残す", async () => {
+    vi.mocked(mailingApi.templates.list).mockResolvedValue([makeTemplate()]);
+    vi.mocked(mailingApi.templates.delete).mockRejectedValue(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.click(screen.getByText("テンプレート"));
+    await user.click(
+      await screen.findByRole("button", { name: "テンプレート「練習案内テンプレート」を削除" }),
+    );
+    await user.click(screen.getByRole("button", { name: "削除する" }));
+
+    expect(await within(screen.getByRole("alertdialog")).findByRole("alert")).toHaveTextContent(
+      "テンプレートの削除に失敗しました。もう一度お試しください。",
+    );
+    expect(screen.getByText("練習案内テンプレート")).toBeInTheDocument();
+  });
+
+  it("削除の確認でEscを押すと確認だけが閉じ、作成中のメールは閉じない", async () => {
+    vi.mocked(mailingApi.templates.list).mockResolvedValue([makeTemplate()]);
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<ComposeModal orgSlug="o" parts={[]} onClose={onClose} onSent={vi.fn()} />);
+
+    await user.click(screen.getByText("テンプレート"));
+    await user.click(
+      await screen.findByRole("button", { name: "テンプレート「練習案内テンプレート」を削除" }),
+    );
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });
 

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { FileAttachmentSection } from "../FileAttachmentSection";
@@ -218,8 +218,18 @@ describe("FileAttachmentSection（削除）", () => {
     await user.click(screen.getByTitle("削除"));
     await user.click(screen.getByRole("button", { name: "削除する" }));
 
-    expect(await screen.findByText("削除に失敗しました")).toBeInTheDocument();
-    expect(screen.getByText("ファイルを削除しますか？")).toBeInTheDocument();
+    const dialog = screen.getByRole("alertdialog", { name: "ファイルを削除しますか？" });
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "削除に失敗しました。もう一度お試しください。",
+    );
+    expect(screen.getByText("flyer.pdf")).toBeInTheDocument();
+  });
+
+  it("削除ボタンはホバーしなくても見え、ファイル名つきで読み上げられる", async () => {
+    renderSection({ files: [makeFile()] });
+
+    const button = await screen.findByRole("button", { name: "flyer.pdfを削除" });
+    expect(button).not.toHaveClass("opacity-0");
   });
 
   it("削除処理中はキャンセル・削除するボタンが無効化される（二重送信防止）", async () => {

@@ -51,7 +51,6 @@ export default function MemberManagePage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm(`${member?.nameJa} を退団処理しますか？この操作は取り消せません。`)) return;
     await membersApi.delete(org, id);
     queryClient.invalidateQueries({ queryKey: memberKeys.list(org) });
     router.push(`/${org}/members`);

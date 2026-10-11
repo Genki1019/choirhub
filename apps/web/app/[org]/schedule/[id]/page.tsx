@@ -12,7 +12,8 @@ import { comparePartOrder } from "@/lib/voice-order";
 import { canManageSchedule, canManageAttachments } from "@/lib/roles";
 import { eventKeys, memberKeys } from "@/lib/query-keys";
 import { AttendanceTable, type LocalAttendance } from "./_components/AttendanceTable";
-import { DeleteConfirmModal } from "./_components/DeleteConfirmModal";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { userErrorMessage } from "@/lib/api-client";
 import { ScheduleNotesDisplay } from "../../_components/ScheduleNotesSection";
 import { PageMain } from "@/components/PageMain";
 import { PageHeader } from "@/components/PageHeader";
@@ -152,7 +153,7 @@ export default function ScheduleDetailPage() {
       await eventsApi.delete(org, id);
       router.push(`/${org}/schedule`);
     } catch (err: unknown) {
-      setDeleteError(err instanceof Error ? err.message : "削除に失敗しました");
+      setDeleteError(userErrorMessage(err, "削除に失敗しました。もう一度お試しください。"));
       setDeleting(false);
     }
   };
@@ -260,9 +261,11 @@ export default function ScheduleDetailPage() {
       />
 
       {showDeleteConfirm && (
-        <DeleteConfirmModal
-          title={event.title}
-          deleting={deleting}
+        <ConfirmDialog
+          title="イベントを削除しますか？"
+          description={`「${event.title}」と出欠の回答がすべて削除されます。この操作は取り消せません。`}
+          confirmLabel="削除する"
+          busy={deleting}
           error={deleteError}
           onCancel={() => setShowDeleteConfirm(false)}
           onConfirm={handleDelete}

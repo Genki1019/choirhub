@@ -12,6 +12,7 @@ import {
 } from "@/lib/concerts-api";
 import { CreateSurveyModal } from "./CreateSurveyModal";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { userErrorMessage } from "@/lib/api-client";
 import { formatJaDate } from "@/lib/date";
 
@@ -90,6 +91,8 @@ export function SurveyTab({
   const [savingMemo, setSavingMemo] = useState<string | null>(null);
   const [toggling, setToggling] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [confirmApply, setConfirmApply] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<{ surveyId: string; message: string } | null>(
@@ -256,15 +259,14 @@ export function SurveyTab({
   const handleApplyToFormation = async () => {
     if (!selectedSurveyId || applying) return;
     setApplying(true);
-    setActionError(null);
+    setApplyError(null);
     try {
       await concertsApi.applySurveyToFormation(org, concert.id, selectedSurveyId);
       onAssignmentsMayChange();
+      setConfirmApply(false);
     } catch (err) {
-      showActionError(
-        selectedSurveyId,
-        err,
-        "フォーメーションへの反映に失敗しました。もう一度お試しください。",
+      setApplyError(
+        userErrorMessage(err, "フォーメーションへの反映に失敗しました。もう一度お試しください。"),
       );
     } finally {
       setApplying(false);
@@ -387,7 +389,10 @@ export function SurveyTab({
                   </span>
                   {canManageStage && surveys.length > 1 && (
                     <button
-                      onClick={handleApplyToFormation}
+                      onClick={() => {
+                        setApplyError(null);
+                        setConfirmApply(true);
+                      }}
                       disabled={applying}
                       className={[
                         "rounded-lg px-3 py-1.5 text-xs transition-colors disabled:opacity-60",
@@ -574,6 +579,19 @@ export function SurveyTab({
             </>
           );
         })()}
+
+      {confirmApply && activeSurveyDetail && (
+        <ConfirmDialog
+          title="調査の回答をフォーメーションに反映しますか？"
+          description={`「${activeSurveyDetail.title}」の回答で、オンステ確定を上書きします。出演しない回答の団員は、フォーメーションの立ち位置から外れます。`}
+          confirmLabel="反映する"
+          tone="primary"
+          busy={applying}
+          error={applyError}
+          onCancel={() => setConfirmApply(false)}
+          onConfirm={handleApplyToFormation}
+        />
+      )}
 
       {showCreateModal && (
         <CreateSurveyModal

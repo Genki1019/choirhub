@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CalendarFeedModal } from "../CalendarFeedModal";
@@ -89,10 +89,29 @@ describe("CalendarFeedModal", () => {
 
     await screen.findByDisplayValue(/feed\.ics\?token=old-token/);
     await user.click(screen.getByText("再発行する"));
+    expect(eventsApi.regenerateCalendarFeedToken).not.toHaveBeenCalled();
+    const dialog = screen.getByRole("alertdialog", { name: "フィードURLを再発行しますか？" });
+    await user.click(within(dialog).getByRole("button", { name: "再発行する" }));
 
     await waitFor(() => {
       expect(screen.getByDisplayValue(/feed\.ics\?token=regenerated-token/)).toBeInTheDocument();
     });
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("再発行の確認でEscを押すと確認だけが閉じ、連携モーダルは開いたまま", async () => {
+    vi.mocked(eventsApi.getCalendarFeedToken).mockResolvedValue({ token: "old-token" });
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderModal(onClose);
+
+    await screen.findByDisplayValue(/feed\.ics\?token=old-token/);
+    await user.click(screen.getByText("再発行する"));
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(eventsApi.regenerateCalendarFeedToken).not.toHaveBeenCalled();
   });
 
   it("発行に失敗した場合はエラーメッセージを表示する", async () => {
@@ -107,5 +126,6 @@ describe("CalendarFeedModal", () => {
     expect(
       await screen.findByText("トークンの発行に失敗しました。もう一度お試しください。"),
     ).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 });

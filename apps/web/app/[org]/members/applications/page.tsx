@@ -15,6 +15,7 @@ import { ComposeModal } from "../../mailing/_components/ComposeModal";
 import { ApprovalDraftBanner } from "./_components/ApprovalDraftBanner";
 import { ApplicationRow } from "./_components/ApplicationRow";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 const ERROR_MESSAGE = "操作に失敗しました。もう一度お試しください。";
 
@@ -47,6 +48,8 @@ export default function VisitorApplicationsPage() {
   const [draft, setDraft] = useState<VisitorApplicationDraft | null>(() => loadStoredDraft(org));
   const [showCompose, setShowCompose] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmReject, setConfirmReject] = useState<VisitorApplication | null>(null);
+  const [rejectError, setRejectError] = useState<string | null>(null);
   const { copiedKey, copy, reset: resetCopied } = useClipboardCopy();
 
   useEffect(() => {
@@ -104,12 +107,13 @@ export default function VisitorApplicationsPage() {
 
   const handleReject = async (id: string) => {
     setProcessing(id);
-    setError(null);
+    setRejectError(null);
     try {
       await visitorApplicationsApi.reject(org, id);
       removeFromList([id]);
+      setConfirmReject(null);
     } catch {
-      setError(ERROR_MESSAGE);
+      setRejectError(ERROR_MESSAGE);
     } finally {
       setProcessing(null);
     }
@@ -187,10 +191,26 @@ export default function VisitorApplicationsPage() {
               disabled={processing !== null}
               onToggleSelect={toggleSelect}
               onApprove={handleApprove}
-              onReject={handleReject}
+              onReject={(id) => {
+                setError(null);
+                setRejectError(null);
+                setConfirmReject(applications.find((app) => app.id === id) ?? null);
+              }}
             />
           ))}
         </div>
+      )}
+
+      {confirmReject && (
+        <ConfirmDialog
+          title="見学申込を却下しますか？"
+          description={`${confirmReject.name}さんの申込を却下します。却下した申込は元に戻せません。`}
+          confirmLabel="却下する"
+          busy={processing === confirmReject.id}
+          error={rejectError}
+          onCancel={() => setConfirmReject(null)}
+          onConfirm={() => handleReject(confirmReject.id)}
+        />
       )}
 
       {showCompose && draft && (

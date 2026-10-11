@@ -39,7 +39,7 @@ import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
 import { PageHeader } from "@/components/PageHeader";
 import { FileAttachmentSection } from "@/components/FileAttachmentSection";
-import { Modal } from "@/components/Modal";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PageErrorState } from "@/components/PageErrorState";
 import { ErrorMessage } from "@/components/ErrorMessage";
 
@@ -508,39 +508,15 @@ export default function ConcertDetailPage() {
       )}
 
       {showDeleteConfirm && (
-        <Modal
+        <ConfirmDialog
           title="演奏会を削除しますか？"
-          size="sm"
-          onClose={closeDeleteConfirm}
+          description={`「${concert.title}」を削除します。ステージ・曲目・スケジュール連携も全て削除されます。この操作は取り消せません。`}
+          confirmLabel="削除する"
           busy={deleting}
-          footer={
-            <>
-              <button
-                type="button"
-                onClick={closeDeleteConfirm}
-                disabled={deleting}
-                className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50"
-              >
-                キャンセル
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60"
-              >
-                {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                削除する
-              </button>
-            </>
-          }
-        >
-          <p className="text-sm text-gray-500">
-            「{concert.title}
-            」を削除します。ステージ・曲目・スケジュール連携も全て削除されます。この操作は取り消せません。
-          </p>
-          <ErrorMessage>{deleteError}</ErrorMessage>
-        </Modal>
+          error={deleteError}
+          onCancel={closeDeleteConfirm}
+          onConfirm={handleDelete}
+        />
       )}
     </div>
   );

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import VisitorWebhookPage from "../page";
@@ -83,6 +83,72 @@ describe("VisitorWebhookPage", () => {
     await waitFor(() => {
       expect(screen.getByDisplayValue("new-token")).toBeInTheDocument();
     });
+  });
+
+  it("発行済みで「再発行する」を押すと確認を出し、確定で新しいtokenに切り替わる", async () => {
+    vi.mocked(settingsApi.getVisitorWebhookToken).mockResolvedValue({ token: "old-token" });
+    vi.mocked(settingsApi.regenerateVisitorWebhookToken).mockResolvedValue({ token: "new-token" });
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByDisplayValue("old-token");
+    await user.click(screen.getByText("再発行する"));
+    expect(settingsApi.regenerateVisitorWebhookToken).not.toHaveBeenCalled();
+    const dialog = screen.getByRole("alertdialog", { name: "トークンを再発行しますか？" });
+    await user.click(within(dialog).getByRole("button", { name: "再発行する" }));
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("new-token")).toBeInTheDocument();
+    });
+  });
+
+  it("再発行の確認でキャンセルするとtokenは変わらない", async () => {
+    vi.mocked(settingsApi.getVisitorWebhookToken).mockResolvedValue({ token: "old-token" });
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByDisplayValue("old-token");
+    await user.click(screen.getByText("再発行する"));
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(settingsApi.regenerateVisitorWebhookToken).not.toHaveBeenCalled();
+    expect(screen.getByDisplayValue("old-token")).toBeInTheDocument();
+  });
+
+  it("再発行に失敗したら確認ダイアログの中にエラーを表示する", async () => {
+    vi.mocked(settingsApi.getVisitorWebhookToken).mockResolvedValue({ token: "old-token" });
+    vi.mocked(settingsApi.regenerateVisitorWebhookToken).mockRejectedValue(
+      new Error("network error"),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByDisplayValue("old-token");
+    await user.click(screen.getByText("再発行する"));
+    await user.click(screen.getByRole("button", { name: "再発行する" }));
+
+    expect(await within(screen.getByRole("alertdialog")).findByRole("alert")).toHaveTextContent(
+      "トークンの発行に失敗しました。もう一度お試しください。",
+    );
+  });
+
+  it("再発行に失敗したあと確認をキャンセルすると、エラーは画面に残らない", async () => {
+    vi.mocked(settingsApi.getVisitorWebhookToken).mockResolvedValue({ token: "old-token" });
+    vi.mocked(settingsApi.regenerateVisitorWebhookToken).mockRejectedValue(
+      new Error("network error"),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByDisplayValue("old-token");
+    await user.click(screen.getByText("再発行する"));
+    await user.click(screen.getByRole("button", { name: "再発行する" }));
+    await within(screen.getByRole("alertdialog")).findByRole("alert");
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(
+      screen.queryByText("トークンの発行に失敗しました。もう一度お試しください。"),
+    ).not.toBeInTheDocument();
   });
 
   it("発行に失敗した場合はエラーメッセージを表示する", async () => {

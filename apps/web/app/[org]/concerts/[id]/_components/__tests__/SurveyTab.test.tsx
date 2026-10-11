@@ -338,6 +338,11 @@ describe("SurveyTab（複数調査・フォーメーション反映）", () => {
     );
 
     await user.click(await screen.findByText("フォーメーションに反映"));
+    expect(concertsApi.applySurveyToFormation).not.toHaveBeenCalled();
+    const dialog = screen.getByRole("alertdialog", {
+      name: "調査の回答をフォーメーションに反映しますか？",
+    });
+    await user.click(within(dialog).getByRole("button", { name: "反映する" }));
 
     expect(concertsApi.applySurveyToFormation).toHaveBeenCalledWith(
       "tokyo-men-choir",
@@ -345,6 +350,22 @@ describe("SurveyTab（複数調査・フォーメーション反映）", () => {
       "survey-1",
     );
     expect(onAssignmentsMayChange).toHaveBeenCalled();
+  });
+
+  it("反映を確認でキャンセルするとapplySurveyToFormationを呼ばない", async () => {
+    const user = userEvent.setup();
+    render(
+      <SurveyTab
+        concert={makeConcert({ surveys: [survey1, survey2] })}
+        {...defaultProps({ canManageStage: true })}
+      />,
+    );
+
+    await user.click(await screen.findByText("フォーメーションに反映"));
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(concertsApi.applySurveyToFormation).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 
   it("appliedSurveyIdと一致する調査は「反映済み」と表示される", async () => {
@@ -450,7 +471,7 @@ describe("SurveyTab（失敗の表示）", () => {
     );
   });
 
-  it("フォーメーションへの反映に失敗したらエラーを表示する", async () => {
+  it("フォーメーションへの反映に失敗したら確認ダイアログの中にエラーを表示する", async () => {
     vi.mocked(concertsApi.applySurveyToFormation).mockRejectedValue(
       new TypeError("Failed to fetch"),
     );
@@ -463,8 +484,9 @@ describe("SurveyTab（失敗の表示）", () => {
     );
 
     await user.click(await screen.findByRole("button", { name: "フォーメーションに反映" }));
+    await user.click(screen.getByRole("button", { name: "反映する" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    expect(await within(screen.getByRole("alertdialog")).findByRole("alert")).toHaveTextContent(
       "フォーメーションへの反映に失敗しました。もう一度お試しください。",
     );
   });

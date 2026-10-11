@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, type FormEvent } from "react";
-import { Loader2, Check } from "lucide-react";
+import { Loader2, Check, Trash2 } from "lucide-react";
 import { Modal } from "@/components/Modal";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { concertsApi, type ConcertStructure, type ProgramDetail } from "@/lib/concerts-api";
@@ -34,12 +34,13 @@ export function MoveCopyModal({
 }: MoveCopyModalProps) {
   const [structure, setStructure] = useState<ConcertStructure[]>([]);
   const [loadingStructure, setLoadingStructure] = useState(true);
-  const [targetValue, setTargetValue] = useState<string>("unassigned");
+  const [targetValue, setTargetValue] = useState("");
   const [action, setAction] = useState<"move" | "copy">("move");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const hasTarget = targetValue !== "";
   const isUnassigned = targetValue === "unassigned";
 
   useEffect(() => {
@@ -59,6 +60,7 @@ export function MoveCopyModal({
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!hasTarget) return;
     setSaving(true);
     setError(null);
     try {
@@ -124,10 +126,18 @@ export function MoveCopyModal({
           </button>
           <button
             type="submit"
-            disabled={saving || loadingStructure || !!loadError}
-            className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
+            disabled={saving || loadingStructure || !!loadError || !hasTarget}
+            className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60 ${
+              isUnassigned ? "bg-red-600 hover:bg-red-700" : "bg-brand-600 hover:bg-brand-700"
+            }`}
           >
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+            {saving ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : isUnassigned ? (
+              <Trash2 size={14} />
+            ) : (
+              <Check size={14} />
+            )}
             {isUnassigned ? "演奏会から削除" : action === "move" ? "移動する" : "コピーする"}
           </button>
         </>
@@ -155,6 +165,9 @@ export function MoveCopyModal({
             className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:ring-2 focus:outline-none"
             autoFocus
           >
+            <option value="" disabled>
+              選択してください
+            </option>
             <option value="unassigned">演奏会未定（この演奏会から削除）</option>
             {structure.map((concert) => (
               <optgroup key={concert.id} label={concert.title}>

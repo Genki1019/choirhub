@@ -41,10 +41,12 @@ describe("useTokenIssuance", () => {
     );
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
+    let succeeded: boolean | undefined;
     await act(async () => {
-      await result.current.handleRegenerate();
+      succeeded = await result.current.handleRegenerate();
     });
 
+    expect(succeeded).toBe(true);
     expect(result.current.data).toEqual({ token: "new-token" });
     expect(result.current.regenerating).toBe(false);
     expect(result.current.error).toBeNull();
@@ -62,10 +64,12 @@ describe("useTokenIssuance", () => {
     );
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
+    let succeeded: boolean | undefined;
     await act(async () => {
-      await result.current.handleRegenerate();
+      succeeded = await result.current.handleRegenerate();
     });
 
+    expect(succeeded).toBe(false);
     expect(result.current.error).toBe("トークンの発行に失敗しました。もう一度お試しください。");
     expect(result.current.regenerating).toBe(false);
   });

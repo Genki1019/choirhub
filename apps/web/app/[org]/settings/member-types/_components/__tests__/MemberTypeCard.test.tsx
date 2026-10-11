@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemberTypeCard } from "../MemberTypeCard";
 import { settingsApi, type MemberType } from "@/lib/settings-api";
@@ -95,16 +95,26 @@ describe("MemberTypeCard（canEdit: true）", () => {
     });
   });
 
-  it("🗑️で削除し409エラー時はAPIのメッセージをトーストする", async () => {
+  it("🗑️で削除し409エラー時はAPIのメッセージを確認ダイアログの中に表示する", async () => {
     vi.mocked(settingsApi.deleteMemberType).mockRejectedValue(
-      new ApiClientError("CONFLICT", "団員が使用中です", 409),
+      new ApiClientError("CONFLICT", "3名が使用中のため削除できません", 409),
     );
-    const onToast = vi.fn();
     const user = userEvent.setup();
-    renderCard(true, { onToast });
+    renderCard(true);
 
     await user.click(screen.getByLabelText("社会人を削除"));
-    expect(onToast).toHaveBeenCalledWith("団員が使用中です");
+    await user.click(
+      within(screen.getByRole("alertdialog", { name: "団員種別を削除しますか？" })).getByRole(
+        "button",
+        {
+          name: "削除する",
+        },
+      ),
+    );
+
+    expect(await within(screen.getByRole("alertdialog")).findByRole("alert")).toHaveTextContent(
+      "3名が使用中のため削除できません",
+    );
   });
 
   it("「追加」で区分名・会費を入力するとcreateMemberTypeが呼ばれる", async () => {

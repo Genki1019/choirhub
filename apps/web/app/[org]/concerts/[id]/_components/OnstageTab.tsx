@@ -14,6 +14,7 @@ import { FormationEditor } from "./onstage/FormationEditor";
 import { ReadOnlyFormation } from "./onstage/ReadOnlyFormation";
 import { StatusPillList } from "./onstage/StatusPillList";
 import { buildPartColorMap } from "./onstage/formation-model";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 interface OnstageTabProps {
   concert: ConcertDetail;
@@ -67,6 +68,9 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
   const [editingPatternId, setEditingPatternId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"edit" | "preview">("edit");
   const [error, setError] = useState<string | null>(null);
+  const [confirmPattern, setConfirmPattern] = useState<{ id: string; name: string } | null>(null);
+  const [deletingPattern, setDeletingPattern] = useState(false);
+  const [deletePatternError, setDeletePatternError] = useState<string | null>(null);
   const renamingIdRef = useRef<string | null>(null);
 
   if (concert.assignments.length === 0) {
@@ -187,12 +191,17 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
   };
 
   const handleDeletePattern = async (id: string) => {
+    setDeletingPattern(true);
+    setDeletePatternError(null);
     try {
       await concertsApi.deleteFormationPattern(org, concert.id, stageId, id);
       updateStagePatterns((prev) => prev.filter((p) => p.id !== id));
       if (selectedPatternId === id) setSelectedPatternId(null);
+      setConfirmPattern(null);
     } catch {
-      setError("パターンの削除に失敗しました。もう一度お試しください。");
+      setDeletePatternError("パターンの削除に失敗しました。もう一度お試しください。");
+    } finally {
+      setDeletingPattern(false);
     }
   };
 
@@ -294,8 +303,12 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
                       <Pencil size={11} />
                     </button>
                     <button
-                      onClick={() => handleDeletePattern(p.id)}
+                      onClick={() => {
+                        setDeletePatternError(null);
+                        setConfirmPattern({ id: p.id, name: p.name });
+                      }}
                       className="p-1 text-gray-400 hover:text-red-500"
+                      aria-label={`${p.name}を削除`}
                       title="削除"
                     >
                       <Trash2 size={11} />
@@ -358,6 +371,18 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
 
       <StatusPillList title="オフステ" members={offMembers} partColorMap={partColorMap} />
       <StatusPillList title="回答なし" members={undecidedMembers} partColorMap={partColorMap} />
+
+      {confirmPattern && (
+        <ConfirmDialog
+          title="パターンを削除しますか？"
+          description={`「${confirmPattern.name}」と、その立ち位置の配置を削除します。この操作は取り消せません。`}
+          confirmLabel="削除する"
+          busy={deletingPattern}
+          error={deletePatternError}
+          onCancel={() => setConfirmPattern(null)}
+          onConfirm={() => handleDeletePattern(confirmPattern.id)}
+        />
+      )}
     </div>
   );
 }

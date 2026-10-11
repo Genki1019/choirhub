@@ -14,6 +14,7 @@ import { OrgApplicationForm } from "@/components/OrgApplicationForm";
 import { SLUG_REGEX, sanitizeSlug } from "@/lib/slug";
 import { DeletedOrgsSection } from "./_components/DeletedOrgsSection";
 import { InquiriesSection } from "./_components/InquiriesSection";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export default function AdminPage() {
   const queryClient = useQueryClient();
@@ -32,6 +33,8 @@ export default function AdminPage() {
   const [processing, setProcessing] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showDirectCreate, setShowDirectCreate] = useState(false);
+  const [confirmReject, setConfirmReject] = useState<OrgApplication | null>(null);
+  const [rejectError, setRejectError] = useState<string | null>(null);
 
   function slugFor(a: OrgApplication): string {
     return slugEdits[a.id] ?? a.slug;
@@ -69,12 +72,13 @@ export default function AdminPage() {
 
   async function handleReject(id: string) {
     setProcessing(id);
-    setActionError(null);
+    setRejectError(null);
     try {
       await orgApplicationsApi.reject(id);
       removeFromList(id);
+      setConfirmReject(null);
     } catch {
-      setActionError("操作に失敗しました。もう一度お試しください。");
+      setRejectError("操作に失敗しました。もう一度お試しください。");
     } finally {
       setProcessing(null);
     }
@@ -187,7 +191,11 @@ export default function AdminPage() {
                   承認
                 </button>
                 <button
-                  onClick={() => handleReject(a.id)}
+                  onClick={() => {
+                    setActionError(null);
+                    setRejectError(null);
+                    setConfirmReject(a);
+                  }}
                   disabled={processing !== null}
                   aria-label="却下"
                   className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-60"
@@ -203,6 +211,18 @@ export default function AdminPage() {
 
       <InquiriesSection />
       <DeletedOrgsSection />
+
+      {confirmReject && (
+        <ConfirmDialog
+          title="団体作成の申請を却下しますか？"
+          description={`「${confirmReject.orgName}」の申請を却下します。却下した申請は元に戻せません。`}
+          confirmLabel="却下する"
+          busy={processing === confirmReject.id}
+          error={rejectError}
+          onCancel={() => setConfirmReject(null)}
+          onConfirm={() => handleReject(confirmReject.id)}
+        />
+      )}
     </div>
   );
 }

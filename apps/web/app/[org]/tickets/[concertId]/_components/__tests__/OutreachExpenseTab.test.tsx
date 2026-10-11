@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import { OutreachExpenseTab } from "../OutreachExpenseTab";
@@ -213,7 +213,6 @@ describe("OutreachExpenseTab（支払い・取り消し操作）", () => {
 
 describe("OutreachExpenseTab（削除操作）", () => {
   it("確認ダイアログでキャンセルすると削除されない", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(false);
     vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue(listOf([makeActivity()]));
     const user = userEvent.setup();
     renderTab();
@@ -223,13 +222,13 @@ describe("OutreachExpenseTab（削除操作）", () => {
       .getAllByRole("button")
       .find((b) => b.querySelector("svg.lucide-trash-2"))!;
     await user.click(deleteButton);
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
 
     expect(ticketsApi.deleteOutreachActivity).not.toHaveBeenCalled();
     expect(screen.getByText("渋谷駅前")).toBeInTheDocument();
   });
 
   it("確認ダイアログで同意すると削除される", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue(listOf([makeActivity()]));
     vi.mocked(ticketsApi.deleteOutreachActivity).mockResolvedValue(undefined);
     const user = userEvent.setup();
@@ -240,13 +239,18 @@ describe("OutreachExpenseTab（削除操作）", () => {
       .getAllByRole("button")
       .find((b) => b.querySelector("svg.lucide-trash-2"))!;
     await user.click(deleteButton);
+    await user.click(
+      within(screen.getByRole("alertdialog", { name: "情宣活動を削除しますか？" })).getByRole(
+        "button",
+        { name: "削除する" },
+      ),
+    );
 
     expect(ticketsApi.deleteOutreachActivity).toHaveBeenCalledWith("o", "concert-1", "activity-1");
     await waitFor(() => expect(screen.queryByText("渋谷駅前")).not.toBeInTheDocument());
   });
 
   it("削除に失敗した場合、エラーメッセージを表示する", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue(listOf([makeActivity()]));
     vi.mocked(ticketsApi.deleteOutreachActivity).mockRejectedValue(
       new ApiClientError("BAD_REQUEST", "削除できません", 400),
@@ -259,6 +263,12 @@ describe("OutreachExpenseTab（削除操作）", () => {
       .getAllByRole("button")
       .find((b) => b.querySelector("svg.lucide-trash-2"))!;
     await user.click(deleteButton);
+    await user.click(
+      within(screen.getByRole("alertdialog", { name: "情宣活動を削除しますか？" })).getByRole(
+        "button",
+        { name: "削除する" },
+      ),
+    );
 
     expect(await screen.findByText("削除できません")).toBeInTheDocument();
   });
@@ -278,8 +288,7 @@ describe("OutreachExpenseTab（取得の失敗・削除中）", () => {
     expect(screen.queryByText("申請件数")).not.toBeInTheDocument();
   });
 
-  it("削除中は削除ボタンを押せない", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
+  it("削除中は確認ダイアログのボタンを押せない", async () => {
     vi.mocked(ticketsApi.listOutreachActivities).mockResolvedValue(listOf([makeActivity()]));
     vi.mocked(ticketsApi.deleteOutreachActivity).mockReturnValue(new Promise(() => {}));
     const user = userEvent.setup();
@@ -287,8 +296,16 @@ describe("OutreachExpenseTab（取得の失敗・削除中）", () => {
 
     const del = await screen.findByRole("button", { name: /を削除$/ });
     await user.click(del);
+    await user.click(
+      within(screen.getByRole("alertdialog", { name: "情宣活動を削除しますか？" })).getByRole(
+        "button",
+        { name: "削除する" },
+      ),
+    );
 
-    expect(del).toBeDisabled();
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getByRole("button", { name: "削除する" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "キャンセル" })).toBeDisabled();
   });
 });
 

@@ -4,6 +4,8 @@ import { useRef, useState, type ReactNode } from "react";
 import { FileText, Loader2, Paperclip, Trash2, Upload } from "lucide-react";
 import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import type { AttachmentFile } from "@/lib/file-attachment-api";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { userErrorMessage } from "@/lib/api-client";
 
 const LABEL_OPTIONS = ["フライヤー", "しおり", "行程表", "資料", "その他"] as const;
 const OTHER_LABEL = "その他";
@@ -77,8 +79,8 @@ export function FileAttachmentSection({
       setConfirmTarget(null);
       setDeleteError(null);
     },
-    onError: () => {
-      setDeleteError("削除に失敗しました");
+    onError: (err) => {
+      setDeleteError(userErrorMessage(err, "削除に失敗しました。もう一度お試しください。"));
     },
   });
 
@@ -127,14 +129,11 @@ export function FileAttachmentSection({
                     setConfirmTarget(f);
                   }}
                   disabled={deleteMutation.isPending}
+                  aria-label={`${f.fileName}を削除`}
                   title="削除"
-                  className="shrink-0 text-gray-400 opacity-0 transition-all group-hover:opacity-100 hover:text-red-500 disabled:opacity-40"
+                  className="shrink-0 text-gray-400 transition-colors hover:text-red-500 disabled:opacity-40"
                 >
-                  {deleteMutation.isPending && confirmTarget?.id === f.id ? (
-                    <Loader2 size={12} className="animate-spin" />
-                  ) : (
-                    <Trash2 size={12} />
-                  )}
+                  <Trash2 size={12} />
                 </button>
               )}
             </div>
@@ -203,30 +202,15 @@ export function FileAttachmentSection({
       )}
 
       {confirmTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-6">
-          <div className="w-full max-w-xs rounded-xl bg-white p-5 shadow-lg">
-            <p className="mb-1 text-sm font-semibold text-gray-800">ファイルを削除しますか？</p>
-            <p className="mb-4 text-xs break-all text-gray-500">{confirmTarget.fileName}</p>
-            {deleteError && <p className="mb-3 text-xs text-red-600">{deleteError}</p>}
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => setConfirmTarget(null)}
-                disabled={deleteMutation.isPending}
-                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700 disabled:opacity-40"
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={() => deleteMutation.mutate(confirmTarget.id)}
-                disabled={deleteMutation.isPending}
-                className="flex items-center gap-1.5 rounded-lg bg-red-500 px-3 py-1.5 text-xs text-white transition-colors hover:bg-red-600 disabled:opacity-60"
-              >
-                {deleteMutation.isPending && <Loader2 size={12} className="animate-spin" />}
-                削除する
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="ファイルを削除しますか？"
+          description={`「${confirmTarget.fileName}」を削除します。この操作は取り消せません。`}
+          confirmLabel="削除する"
+          busy={deleteMutation.isPending}
+          error={deleteError}
+          onCancel={() => setConfirmTarget(null)}
+          onConfirm={() => deleteMutation.mutate(confirmTarget.id)}
+        />
       )}
     </div>
   );

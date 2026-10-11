@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import VisitorApplicationsPage from "../page";
@@ -143,10 +143,29 @@ describe("VisitorApplicationsPage", () => {
 
     await screen.findByText("見学 太郎");
     await user.click(screen.getAllByText("却下")[0]);
+    expect(visitorApplicationsApi.reject).not.toHaveBeenCalled();
+    const dialog = screen.getByRole("alertdialog", { name: "見学申込を却下しますか？" });
+    expect(dialog).toHaveTextContent("見学 太郎さんの申込を却下します");
+    await user.click(within(dialog).getByRole("button", { name: "却下する" }));
 
+    expect(visitorApplicationsApi.reject).toHaveBeenCalledWith("tokyo-men-choir", "app-1");
     await waitFor(() => {
       expect(screen.queryByText("見学 太郎")).not.toBeInTheDocument();
     });
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("却下を確認でキャンセルするとrejectを呼ばない", async () => {
+    vi.mocked(visitorApplicationsApi.listPending).mockResolvedValue(makeApplications());
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("見学 太郎");
+    await user.click(screen.getAllByText("却下")[0]);
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(visitorApplicationsApi.reject).not.toHaveBeenCalled();
+    expect(screen.getByText("見学 太郎")).toBeInTheDocument();
   });
 
   it("承認に失敗した場合はエラーメッセージを表示する", async () => {
@@ -172,8 +191,9 @@ describe("VisitorApplicationsPage", () => {
 
     await screen.findByText("見学 太郎");
     await user.click(screen.getAllByText("却下")[0]);
+    await user.click(screen.getByRole("button", { name: "却下する" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    expect(await within(screen.getByRole("alertdialog")).findByRole("alert")).toHaveTextContent(
       "操作に失敗しました。もう一度お試しください。",
     );
   });

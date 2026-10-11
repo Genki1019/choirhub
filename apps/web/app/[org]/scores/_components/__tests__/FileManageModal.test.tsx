@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FileManageModal } from "../FileManageModal";
 import { scoresApi, type ScoreDetail, type ScoreFile } from "@/lib/scores-api";
@@ -308,7 +308,9 @@ describe("FileManageModal（削除）", () => {
     await user.click(screen.getByTitle("削除"));
     await user.click(screen.getByText("削除する"));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("削除に失敗しました");
+    expect(await within(screen.getByRole("alertdialog")).findByRole("alert")).toHaveTextContent(
+      "削除に失敗しました。もう一度お試しください。",
+    );
   });
 });
 
@@ -364,12 +366,14 @@ describe("FileManageModal（モーダルの操作）", () => {
     const { onClose } = renderModal();
 
     await user.click(screen.getByTitle("削除"));
-    expect(screen.getByRole("dialog", { name: "ファイルを削除しますか？" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("alertdialog", { name: "ファイルを削除しますか？" }),
+    ).toBeInTheDocument();
 
     await user.keyboard("{Escape}");
 
     expect(
-      screen.queryByRole("dialog", { name: "ファイルを削除しますか？" }),
+      screen.queryByRole("alertdialog", { name: "ファイルを削除しますか？" }),
     ).not.toBeInTheDocument();
     expect(screen.getByRole("dialog", { name: "ファイル管理" })).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();

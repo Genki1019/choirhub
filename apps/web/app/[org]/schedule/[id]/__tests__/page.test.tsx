@@ -524,10 +524,12 @@ describe("ScheduleDetailPage（削除フロー）", () => {
     renderPage(["admin"]);
 
     await user.click(await screen.findByText("削除"));
-    expect(screen.getByText("イベントを削除しますか？")).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog", { name: "イベントを削除しますか？" })).toHaveTextContent(
+      "「第12回定期練習」と出欠の回答がすべて削除されます",
+    );
 
     await user.click(screen.getByText("キャンセル"));
-    expect(screen.queryByText("イベントを削除しますか？")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(eventsApi.delete).not.toHaveBeenCalled();
   });
 
@@ -548,15 +550,16 @@ describe("ScheduleDetailPage（削除フロー）", () => {
 
   it("削除失敗時はエラーメッセージを表示し、モーダルは開いたままになる", async () => {
     vi.mocked(eventsApi.get).mockResolvedValue(makeEvent());
-    vi.mocked(eventsApi.delete).mockRejectedValue(new Error("削除に失敗しました"));
+    vi.mocked(eventsApi.delete).mockRejectedValue(new TypeError("Failed to fetch"));
     const user = userEvent.setup();
     renderPage(["admin"]);
 
     await user.click(await screen.findByText("削除"));
     await user.click(screen.getByText("削除する"));
 
-    expect(await screen.findByText("削除に失敗しました")).toBeInTheDocument();
-    expect(screen.getByText("イベントを削除しますか？")).toBeInTheDocument();
+    expect(await within(screen.getByRole("alertdialog")).findByRole("alert")).toHaveTextContent(
+      "削除に失敗しました。もう一度お試しください。",
+    );
     expect(pushMock).not.toHaveBeenCalled();
   });
 });

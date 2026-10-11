@@ -19,6 +19,7 @@ import {
   type OutreachParticipantRow,
 } from "@/lib/tickets-api";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { userErrorMessage } from "@/lib/api-client";
 import { jstParts } from "@/lib/date";
 
@@ -50,7 +51,9 @@ export function ActivityCard({
   onStatusChanged,
 }: ActivityCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,14 +62,16 @@ export function ActivityCard({
   const totalSold = activity.participants.reduce((s, p) => s + p.ticketsSold, 0);
 
   const handleDelete = async () => {
-    if (!confirm("この情宣活動を削除しますか？")) return;
     setDeleting(true);
-    setError(null);
+    setDeleteError(null);
     try {
       await ticketsApi.deleteOutreachActivity(orgSlug, concertId, activity.id);
+      setConfirmingDelete(false);
       onDeleted(activity.id);
     } catch (err: unknown) {
-      setError(userErrorMessage(err, "情宣活動の削除に失敗しました。もう一度お試しください。"));
+      setDeleteError(
+        userErrorMessage(err, "情宣活動の削除に失敗しました。もう一度お試しください。"),
+      );
     } finally {
       setDeleting(false);
     }
@@ -165,7 +170,9 @@ export function ActivityCard({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                handleDelete();
+                setError(null);
+                setDeleteError(null);
+                setConfirmingDelete(true);
               }}
               disabled={deleting || updating}
               aria-label={`${activity.destination}を削除`}
@@ -225,6 +232,18 @@ export function ActivityCard({
           </table>
           <p className="mt-2 text-[10px] text-gray-400">申請者: {activity.creatorName}</p>
         </div>
+      )}
+
+      {confirmingDelete && (
+        <ConfirmDialog
+          title="情宣活動を削除しますか？"
+          description={`${dateLabel(activity.activityDate)}「${activity.destination}」の情宣活動を削除します。この操作は取り消せません。`}
+          confirmLabel="削除する"
+          busy={deleting}
+          error={deleteError}
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={handleDelete}
+        />
       )}
     </div>
   );

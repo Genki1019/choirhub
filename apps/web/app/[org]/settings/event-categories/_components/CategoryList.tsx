@@ -6,7 +6,8 @@ import { DndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { DragHandle, SortableItem, useListDndSensors } from "@/components/SortableRow";
 import { settingsApi, type EventCategory } from "@/lib/settings-api";
-import { ApiClientError } from "@/lib/api-client";
+import { userErrorMessage } from "@/lib/api-client";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { createSortDragEndHandler } from "@/lib/sort-order";
 
 interface CategoryListProps {
@@ -32,6 +33,9 @@ export function CategoryList({
   const [editName, setEditName] = useState("");
   const [editColor, setEditColor] = useState("#6B7280");
   const [busy, setBusy] = useState(false);
+  const [confirmTarget, setConfirmTarget] = useState<EventCategory | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const startEdit = (cat: EventCategory) => {
     setEditId(cat.id);
@@ -58,15 +62,17 @@ export function CategoryList({
     }
   };
 
-  const handleDelete = async (id: string) => {
-    setBusy(true);
+  const handleConfirmDelete = async (cat: EventCategory) => {
+    setDeleting(true);
+    setDeleteError(null);
     try {
-      await settingsApi.deleteEventCategory(org, id);
-      onDeleted(id);
+      await settingsApi.deleteEventCategory(org, cat.id);
+      onDeleted(cat.id);
+      setConfirmTarget(null);
     } catch (err) {
-      onError(err instanceof ApiClientError ? err.message : "削除に失敗しました");
+      setDeleteError(userErrorMessage(err, "削除に失敗しました。もう一度お試しください。"));
     } finally {
-      setBusy(false);
+      setDeleting(false);
     }
   };
 
@@ -156,7 +162,10 @@ export function CategoryList({
                       )}
                       {canEdit && !cat.slug && (
                         <button
-                          onClick={() => handleDelete(cat.id)}
+                          onClick={() => {
+                            setDeleteError(null);
+                            setConfirmTarget(cat);
+                          }}
                           disabled={busy}
                           aria-label={`${cat.name}を削除`}
                           className="text-gray-400 hover:text-red-500 disabled:opacity-40"
@@ -172,6 +181,17 @@ export function CategoryList({
           ))}
         </div>
       </SortableContext>
+      {confirmTarget && (
+        <ConfirmDialog
+          title="予定の区分を削除しますか？"
+          description={`「${confirmTarget.name}」を削除します。この操作は取り消せません。`}
+          confirmLabel="削除する"
+          busy={deleting}
+          error={deleteError}
+          onCancel={() => setConfirmTarget(null)}
+          onConfirm={() => handleConfirmDelete(confirmTarget)}
+        />
+      )}
     </DndContext>
   );
 }

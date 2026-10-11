@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import RacePage from "../page";
@@ -187,9 +187,28 @@ describe("RacePage（公開操作）", () => {
     renderPage();
 
     await user.click(await screen.findByText("全体に公開"));
+    expect(ticketsApi.publishRace).not.toHaveBeenCalled();
+    const dialog = screen.getByRole("alertdialog", {
+      name: "チケットレースを全団員に公開しますか？",
+    });
+    await user.click(within(dialog).getByRole("button", { name: "公開する" }));
 
     expect(ticketsApi.publishRace).toHaveBeenCalledWith("tokyo-men-choir", "concert-1");
     expect(await screen.findByText("公開取消")).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("確認でキャンセルするとpublishRaceを呼ばず未公開のまま", async () => {
+    vi.mocked(ticketsApi.race).mockResolvedValue(makeRaceData());
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("全体に公開"));
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(ticketsApi.publishRace).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getByText("全体に公開")).toBeInTheDocument();
   });
 
   it("「公開取消」クリックでunpublishRaceが呼ばれ未公開状態になる", async () => {
@@ -215,11 +234,31 @@ describe("RacePage（公開操作の失敗）", () => {
     renderPage();
 
     await user.click(await screen.findByText("全体に公開"));
+    await user.click(screen.getByRole("button", { name: "公開する" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    const dialog = screen.getByRole("alertdialog");
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
       "公開に失敗しました。もう一度お試しください。",
     );
+    expect(within(dialog).getByRole("button", { name: "公開する" })).toBeEnabled();
     expect(screen.getByText("全体に公開")).toBeInTheDocument();
+  });
+
+  it("公開に失敗したあと確認をキャンセルすると、エラーは画面に残らない", async () => {
+    vi.mocked(ticketsApi.race).mockResolvedValue(makeRaceData());
+    vi.mocked(ticketsApi.publishRace).mockRejectedValue(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("全体に公開"));
+    await user.click(screen.getByRole("button", { name: "公開する" }));
+    await within(screen.getByRole("alertdialog")).findByRole("alert");
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("公開に失敗しました。もう一度お試しください。"),
+    ).not.toBeInTheDocument();
   });
 
   it("公開の取り消しに失敗したらエラーを表示し、公開中のままにする", async () => {

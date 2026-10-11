@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { Check, Undo2, Trash2, Loader2, Bus } from "lucide-react";
-import { ticketsApi } from "@/lib/tickets-api";
+import { ticketsApi, type OutreachActivityRow } from "@/lib/tickets-api";
 import { useOutreachActivities } from "@/hooks/useOutreachActivities";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { userErrorMessage } from "@/lib/api-client";
 import { formatShortDate } from "@/lib/date";
 
@@ -20,6 +21,9 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
   );
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<OutreachActivityRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handlePay = async (activityId: string) => {
     setUpdatingId(activityId);
@@ -50,18 +54,18 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
   };
 
   const handleDelete = async (activityId: string) => {
-    if (!confirm("この情宣活動を削除しますか？")) return;
-    setUpdatingId(activityId);
-    setActivitiesError(null);
+    setDeleting(true);
+    setDeleteError(null);
     try {
       await ticketsApi.deleteOutreachActivity(orgSlug, concertId, activityId);
       removeActivity(activityId);
+      setConfirmTarget(null);
     } catch (err: unknown) {
-      setActivitiesError(
+      setDeleteError(
         userErrorMessage(err, "情宣活動の削除に失敗しました。もう一度お試しください。"),
       );
     } finally {
-      setUpdatingId(null);
+      setDeleting(false);
     }
   };
 
@@ -199,7 +203,11 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
                     )}
                     <button
                       type="button"
-                      onClick={() => handleDelete(a.id)}
+                      onClick={() => {
+                        setActivitiesError(null);
+                        setDeleteError(null);
+                        setConfirmTarget(a);
+                      }}
                       disabled={updatingId === a.id}
                       aria-label={`${a.destination}を削除`}
                       className="p-1 text-gray-300 transition-colors hover:text-red-400 disabled:opacity-40"
@@ -227,6 +235,18 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
             );
           })}
         </div>
+      )}
+
+      {confirmTarget && (
+        <ConfirmDialog
+          title="情宣活動を削除しますか？"
+          description={`${formatShortDate(confirmTarget.activityDate)}「${confirmTarget.destination}」の情宣活動を削除します。この操作は取り消せません。`}
+          confirmLabel="削除する"
+          busy={deleting}
+          error={deleteError}
+          onCancel={() => setConfirmTarget(null)}
+          onConfirm={() => handleDelete(confirmTarget.id)}
+        />
       )}
     </div>
   );

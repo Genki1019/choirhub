@@ -50,7 +50,7 @@ function ChipBody({
   colorClass?: PartColor;
   disabled?: boolean;
   onTapRemove?: () => void;
-  onEdit?: (e: React.MouseEvent) => void;
+  onEdit?: (e: React.MouseEvent<HTMLElement>) => void;
   onRemove?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, style } = dragProps;
@@ -122,7 +122,7 @@ export function SeatChip({
   colorClass?: PartColor;
   disabled?: boolean;
   onTapRemove?: () => void;
-  onEdit?: (e: React.MouseEvent) => void;
+  onEdit?: (e: React.MouseEvent<HTMLElement>) => void;
   onRemove?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -213,7 +213,7 @@ export function GridChip({
   fullName: string;
   colorClass?: PartColor;
   onTapRemove?: () => void;
-  onEdit?: (e: React.MouseEvent) => void;
+  onEdit?: (e: React.MouseEvent<HTMLElement>) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id });
   const style = { transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.3 : 1 };
@@ -242,7 +242,7 @@ export function GridCell({
   item: SlotItem | undefined;
   partColorMap?: Map<string, PartColor>;
   onTapRemove?: (item: SlotItem) => void;
-  onEdit?: (item: SlotItem, e: React.MouseEvent) => void;
+  onEdit?: (item: SlotItem, e: React.MouseEvent<HTMLElement>) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: cellId(row, col) });
 

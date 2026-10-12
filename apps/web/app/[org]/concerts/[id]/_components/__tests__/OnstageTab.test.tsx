@@ -214,7 +214,7 @@ describe("OnstageTab（パターンCRUD）", () => {
     expect(onStagesChanged).toHaveBeenCalled();
   });
 
-  it("✏️クリックで名称編集入力に切り替わりEnterで保存する", async () => {
+  it("鉛筆でパターン名の入力欄に切り替わり、Enter で保存して表示を更新する", async () => {
     vi.mocked(concertsApi.updateFormationPattern).mockResolvedValue({
       id: "pattern-1",
       name: "改称パターン",
@@ -222,6 +222,35 @@ describe("OnstageTab（パターンCRUD）", () => {
       isStaggered: false,
       pianoPosition: "center",
     });
+    const onStagesChanged = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <OnstageTab
+        concert={makeConcert()}
+        org="o"
+        canManageStage={true}
+        onStagesChanged={onStagesChanged}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "パターン1を編集" }));
+    const input = screen.getByRole("textbox", { name: "パターン名" });
+    expect(input).toHaveFocus();
+    await user.clear(input);
+    await user.type(input, " 改称パターン {Enter}");
+
+    expect(concertsApi.updateFormationPattern).toHaveBeenCalledWith(
+      "o",
+      "concert-1",
+      "stage-1",
+      "pattern-1",
+      { name: "改称パターン" },
+    );
+    expect(onStagesChanged.mock.calls[0][0][0].formationPatterns[0].name).toBe("改称パターン");
+    expect(screen.queryByRole("textbox", { name: "パターン名" })).not.toBeInTheDocument();
+  });
+
+  it("パターン名は入力欄から離れても保存せず、Esc で取り消せる", async () => {
     const user = userEvent.setup();
     render(
       <OnstageTab
@@ -232,20 +261,70 @@ describe("OnstageTab（パターンCRUD）", () => {
       />,
     );
 
-    await user.click(screen.getByTitle("名称変更"));
-    const input = screen.getByDisplayValue("パターン1");
-    await user.clear(input);
-    await user.type(input, "改称パターン{Enter}");
+    await user.click(screen.getByRole("button", { name: "パターン1を編集" }));
+    await user.type(screen.getByRole("textbox", { name: "パターン名" }), "X");
+    await user.tab();
+    expect(concertsApi.updateFormationPattern).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox", { name: "パターン名" })).toBeInTheDocument();
 
-    expect(concertsApi.updateFormationPattern).toHaveBeenCalledWith(
-      "o",
-      "concert-1",
-      "stage-1",
-      "pattern-1",
-      {
-        name: "改称パターン",
-      },
+    await user.click(screen.getByRole("textbox", { name: "パターン名" }));
+    await user.keyboard("{Escape}");
+    expect(concertsApi.updateFormationPattern).not.toHaveBeenCalled();
+    expect(screen.queryByRole("textbox", { name: "パターン名" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "パターン1を編集" })).toHaveFocus();
+  });
+
+  it("パターン名が空なら保存せず理由を出す", async () => {
+    const user = userEvent.setup();
+    render(
+      <OnstageTab
+        concert={makeConcert()}
+        org="o"
+        canManageStage={true}
+        onStagesChanged={vi.fn()}
+      />,
     );
+
+    await user.click(screen.getByRole("button", { name: "パターン1を編集" }));
+    await user.clear(screen.getByRole("textbox", { name: "パターン名" }));
+    await user.click(screen.getByRole("button", { name: "パターン名を保存" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("パターン名を入力してください");
+    expect(concertsApi.updateFormationPattern).not.toHaveBeenCalled();
+  });
+
+  it("パターン名の保存に失敗したら、入力欄の下に理由を出して入力を残す", async () => {
+    vi.mocked(concertsApi.updateFormationPattern).mockRejectedValue(new Error("network"));
+    const user = userEvent.setup();
+    render(
+      <OnstageTab
+        concert={makeConcert()}
+        org="o"
+        canManageStage={true}
+        onStagesChanged={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "パターン1を編集" }));
+    await user.type(screen.getByRole("textbox", { name: "パターン名" }), "X{Enter}");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "パターン名の変更に失敗しました。もう一度お試しください。",
+    );
+    expect(screen.getByRole("textbox", { name: "パターン名" })).toHaveValue("パターン1X");
+  });
+
+  it("管理できないときはパターン名の鉛筆を出さない", () => {
+    render(
+      <OnstageTab
+        concert={makeConcert()}
+        org="o"
+        canManageStage={false}
+        onStagesChanged={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "パターン1を編集" })).not.toBeInTheDocument();
   });
 
   it("削除クリックでdeleteFormationPatternが呼ばれる", async () => {

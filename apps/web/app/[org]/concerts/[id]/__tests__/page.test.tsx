@@ -207,8 +207,7 @@ describe("ConcertDetailPage（失敗の表示）", () => {
     const user = userEvent.setup();
     renderPage(["admin"]);
 
-    const header = (await screen.findByText("第1ステージ")).closest("div") as HTMLElement;
-    await user.click(within(header).getByTitle("名前を編集"));
+    await user.click(await screen.findByRole("button", { name: "第1ステージの名前を編集" }));
     const input = screen.getByDisplayValue("第1ステージ");
     await user.clear(input);
     await user.type(input, "改称ステージ{Enter}");
@@ -223,8 +222,7 @@ describe("ConcertDetailPage（失敗の表示）", () => {
     const user = userEvent.setup();
     renderPage(["admin"]);
 
-    const header = (await screen.findByText("第1ステージ")).closest("div") as HTMLElement;
-    await user.click(within(header).getByTitle("名前を編集"));
+    await user.click(await screen.findByRole("button", { name: "第1ステージの名前を編集" }));
     await user.type(screen.getByDisplayValue("第1ステージ"), "改{Enter}");
     await screen.findByRole("alert");
     await user.keyboard("{Escape}");
@@ -232,29 +230,19 @@ describe("ConcertDetailPage（失敗の表示）", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("ステージ構成のエラーは、そのあとステージの追加に成功すると消える", async () => {
+  it("ステージ名の保存の失敗は、そのステージの入力欄の下に出る", async () => {
     vi.mocked(concertsApi.get).mockResolvedValue(makeConcert());
     vi.mocked(concertsApi.updateStage).mockRejectedValue(new TypeError("Failed to fetch"));
-    vi.mocked(concertsApi.addStage).mockResolvedValue({
-      id: "stage-3",
-      name: "第3ステージ",
-      sortOrder: 2,
-      programs: [],
-    });
     const user = userEvent.setup();
     renderPage(["admin"]);
 
-    const header = (await screen.findByText("第1ステージ")).closest("div") as HTMLElement;
-    await user.click(within(header).getByTitle("名前を編集"));
-    await user.type(screen.getByDisplayValue("第1ステージ"), "改{Enter}");
-    await screen.findByRole("alert");
-    await user.click(screen.getByText("ステージを追加"));
-    await user.click(
-      within(screen.getByRole("dialog", { name: "ステージを追加" })).getByText("追加する"),
-    );
+    await user.click(await screen.findByRole("button", { name: "第1ステージの名前を編集" }));
+    const input = screen.getByRole("textbox", { name: "ステージ名" });
+    await user.type(input, "改{Enter}");
 
-    expect(await screen.findByText("第3ステージ")).toBeInTheDocument();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("ステージ名の保存に失敗しました。もう一度お試しください。");
+    expect(input.closest("div.space-y-1")).toContainElement(alert);
   });
 
   it("移動で元の曲目の削除に失敗したら、移動先に追加した状態にして警告を表示する", async () => {

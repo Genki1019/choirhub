@@ -1,4 +1,4 @@
-import type { Ref } from "react";
+import type { MouseEvent, Ref } from "react";
 import { Check, Loader2, Pencil, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -8,7 +8,7 @@ const ACTION_SIZE = { md: 14, sm: 11 } as const;
 interface InlineEditButtonProps {
   label: string;
   size?: keyof typeof ICON_SIZE;
-  onClick: () => void;
+  onClick: (e: MouseEvent<HTMLButtonElement>) => void;
   ref?: Ref<HTMLButtonElement>;
   disabled?: boolean;
   className?: string;

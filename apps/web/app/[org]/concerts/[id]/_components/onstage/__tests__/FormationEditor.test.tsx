@@ -131,24 +131,56 @@ describe("FormationEditor（枠の追加・編集・削除）", () => {
     expect(screen.getByText("ソロ")).toBeInTheDocument();
   });
 
-  it("カスタム枠の✏️クリックで枠名を編集できる", async () => {
-    const pattern = makePattern({
+  const soloPattern = () =>
+    makePattern({
       boxes: [
         { id: "box-c", kind: "conductor", title: null, sortOrder: 0 },
         { id: "box-p", kind: "piano", title: null, sortOrder: 1 },
         { id: "box-solo", kind: "custom", title: "ソロ", sortOrder: 2 },
       ],
     });
-    const user = userEvent.setup();
-    render(<FormationEditor {...defaultProps({ pattern })} />);
 
-    await user.click(screen.getByTitle("枠名を編集"));
-    const input = screen.getByDisplayValue("ソロ");
+  it("カスタム枠の鉛筆で枠名を編集し、Enter で保存して鉛筆にフォーカスを戻す", async () => {
+    const user = userEvent.setup();
+    render(<FormationEditor {...defaultProps({ pattern: soloPattern() })} />);
+
+    await user.click(screen.getByRole("button", { name: "ソロの枠名を編集" }));
+    const input = screen.getByRole("textbox", { name: "枠名" });
+    expect(input).toHaveFocus();
     await user.clear(input);
     await user.type(input, "独唱{Enter}");
 
     expect(concertsApi.saveFormationSlots).toHaveBeenCalled();
     expect(screen.getByText("独唱")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "枠名" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "独唱の枠名を編集" })).toHaveFocus();
+  });
+
+  it("枠名が空なら保存せず理由を出し、Esc で取り消せる", async () => {
+    const user = userEvent.setup();
+    render(<FormationEditor {...defaultProps({ pattern: soloPattern() })} />);
+
+    await user.click(screen.getByRole("button", { name: "ソロの枠名を編集" }));
+    await user.clear(screen.getByRole("textbox", { name: "枠名" }));
+    await user.click(screen.getByRole("button", { name: "枠名を保存" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("枠名を入力してください");
+
+    await user.click(screen.getByRole("textbox", { name: "枠名" }));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("textbox", { name: "枠名" })).not.toBeInTheDocument();
+    expect(screen.getByText("ソロ")).toBeInTheDocument();
+    expect(concertsApi.saveFormationSlots).not.toHaveBeenCalled();
+  });
+
+  it("枠名を変えずに保存すると、保存せずに閉じる", async () => {
+    const user = userEvent.setup();
+    render(<FormationEditor {...defaultProps({ pattern: soloPattern() })} />);
+
+    await user.click(screen.getByRole("button", { name: "ソロの枠名を編集" }));
+    await user.keyboard("{Enter}");
+
+    expect(screen.queryByRole("textbox", { name: "枠名" })).not.toBeInTheDocument();
+    expect(concertsApi.saveFormationSlots).not.toHaveBeenCalled();
   });
 
   it("カスタム枠の✕クリックで枠を削除できる", async () => {
@@ -211,32 +243,62 @@ describe("FormationEditor（段の増減・トグル）", () => {
 });
 
 describe("FormationEditor（名前編集・削除）", () => {
-  it("配置済みメンバーの鉛筆アイコンから表示名を編集できる", async () => {
-    const pattern = makePattern({
+  const placedPattern = (memberId: string | null, nameJa: string) =>
+    makePattern({
       slots: [
         {
           id: "slot-1",
-          memberId: "m1",
-          nameJa: "山田太郎",
-          partName: "テノール1",
-          label: null,
+          memberId,
+          nameJa,
+          partName: memberId ? "テノール1" : null,
+          label: memberId ? null : nameJa,
           boxId: "box-c",
           rowNum: null,
           positionOrder: 1,
         },
       ],
     });
+
+  it("配置済みメンバーの鉛筆から表示名を編集し、✓ で保存する", async () => {
+    const user = userEvent.setup();
+    render(<FormationEditor {...defaultProps({ pattern: placedPattern("m1", "山田太郎") })} />);
+
+    await user.click(screen.getByRole("button", { name: "山田太郎の表示名を編集" }));
+    const input = screen.getByRole("textbox", { name: "表示名" });
+    expect(input).toHaveValue("山田");
+    await user.clear(input);
+    await user.type(input, "ヤマ");
+    await user.click(screen.getByRole("button", { name: "表示名を保存" }));
+
+    expect(concertsApi.saveFormationSlots).toHaveBeenCalled();
+    expect(screen.queryByRole("textbox", { name: "表示名" })).not.toBeInTheDocument();
+  });
+
+  it("団員の表示名は空で保存でき、ラベルを外して自動の表示に戻す", async () => {
+    const pattern = placedPattern("m1", "山田太郎");
+    pattern.slots[0].label = "ヤマ";
     const user = userEvent.setup();
     render(<FormationEditor {...defaultProps({ pattern })} />);
 
-    await user.click(screen.getByTitle("表示名を編集"));
+    await user.click(screen.getByRole("button", { name: "山田太郎の表示名を編集" }));
+    await user.clear(screen.getByRole("textbox", { name: "表示名" }));
+    await user.keyboard("{Enter}");
 
-    const input = screen.getByDisplayValue("山田");
-    await user.clear(input);
-    await user.type(input, "ヤマ");
-    await user.click(screen.getByText("保存"));
-
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(concertsApi.saveFormationSlots).toHaveBeenCalled();
+    expect(screen.getByText("山田")).toBeInTheDocument();
+  });
+
+  it("客演の名前は空では保存せず、理由を出す", async () => {
+    const user = userEvent.setup();
+    render(<FormationEditor {...defaultProps({ pattern: placedPattern(null, "客演太郎") })} />);
+
+    await user.click(screen.getByRole("button", { name: "客演太郎の表示名を編集" }));
+    await user.clear(screen.getByRole("textbox", { name: "表示名" }));
+    await user.keyboard("{Enter}");
+
+    expect(screen.getByRole("alert")).toHaveTextContent("名前を入力してください");
+    expect(concertsApi.saveFormationSlots).not.toHaveBeenCalled();
   });
 
   it("配置済みメンバーの✕クリックで削除でき、未配置プールに戻る", async () => {

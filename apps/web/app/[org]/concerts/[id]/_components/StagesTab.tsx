@@ -1,12 +1,71 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Loader2, Check, X, Pencil, ArrowRightLeft, Plus } from "lucide-react";
+import type { ReactNode } from "react";
+import { Pencil, ArrowRightLeft, Plus } from "lucide-react";
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { DragHandle, SortableItem, useListDndSensors } from "@/components/SortableRow";
 import { reorderByDragEvent } from "@/lib/sort-order";
 import { type ConcertDetail, type ProgramDetail, type StageDetail } from "@/lib/concerts-api";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { InlineEditActions, InlineEditButton } from "@/components/InlineEdit";
+import { useInlineEdit } from "@/hooks/useInlineEdit";
+
+function StageTitle({
+  stage,
+  isAdmin,
+  dragHandle,
+  onRename,
+}: {
+  stage: StageDetail;
+  isAdmin: boolean;
+  dragHandle: ReactNode;
+  onRename: (name: string) => Promise<void>;
+}) {
+  const { registerTrigger, ...edit } = useInlineEdit({
+    initial: () => stage.name,
+    validate: (name) => (name.trim() ? null : "ステージ名を入力してください"),
+    onSave: (name) => onRename(name.trim()),
+    errorFallback: "ステージ名の保存に失敗しました。もう一度お試しください。",
+  });
+
+  return (
+    <div className="mb-3 space-y-1">
+      <div className="flex items-center gap-2">
+        {isAdmin && !edit.editing && dragHandle}
+        {edit.editing ? (
+          <input
+            aria-label="ステージ名"
+            value={edit.value}
+            onChange={(e) => edit.setValue(e.target.value)}
+            onKeyDown={edit.handleKeyDown}
+            className="border-brand-400 min-w-0 flex-1 border-b bg-transparent py-0.5 text-sm font-semibold text-gray-700 focus:outline-none"
+            autoFocus
+          />
+        ) : (
+          <h3 className="shrink-0 text-sm font-semibold text-gray-700">{stage.name}</h3>
+        )}
+        <div className="h-px flex-1 bg-gray-200" />
+        {isAdmin &&
+          (edit.editing ? (
+            <InlineEditActions
+              label="ステージ名"
+              saving={edit.saving}
+              onSave={edit.save}
+              onCancel={edit.cancel}
+            />
+          ) : (
+            <InlineEditButton
+              ref={registerTrigger}
+              label={`${stage.name}の名前`}
+              onClick={edit.start}
+            />
+          ))}
+      </div>
+      <ErrorMessage>{edit.error}</ErrorMessage>
+    </div>
+  );
+}
 
 interface StagesTabProps {
   concert: ConcertDetail;
@@ -15,8 +74,7 @@ interface StagesTabProps {
   onAddStage: () => void;
   onReorderStages: (orderedIds: string[]) => void;
   onReorderPrograms: (stageId: string, orderedIds: string[]) => void;
-  onEditStageName: (stageId: string, name: string) => Promise<boolean>;
-  onCancelEditStageName: () => void;
+  onEditStageName: (stageId: string, name: string) => Promise<void>;
   onMoveCopyClick: (stageId: string, program: ProgramDetail) => void;
   onEditProgramClick: (stageId: string, program: ProgramDetail) => void;
 }
@@ -29,14 +87,9 @@ export function StagesTab({
   onReorderStages,
   onReorderPrograms,
   onEditStageName,
-  onCancelEditStageName,
   onMoveCopyClick,
   onEditProgramClick,
 }: StagesTabProps) {
-  const [editingStageId, setEditingStageId] = useState<string | null>(null);
-  const [editStageName, setEditStageName] = useState("");
-  const [savingStageId, setSavingStageId] = useState<string | null>(null);
-  const savingRef = useRef(false);
   const sensors = useListDndSensors();
 
   const handleStageDragEnd = (event: DragEndEvent) => {
@@ -55,32 +108,6 @@ export function StagesTab({
       );
   };
 
-  const startEdit = (stage: StageDetail) => {
-    setEditingStageId(stage.id);
-    setEditStageName(stage.name);
-  };
-
-  const cancelEdit = () => {
-    if (savingStageId && savingStageId === editingStageId) return;
-    setEditingStageId(null);
-    onCancelEditStageName();
-  };
-
-  const saveEdit = async (stageId: string) => {
-    if (savingRef.current) return;
-    const trimmed = editStageName.trim();
-    if (!trimmed) {
-      cancelEdit();
-      return;
-    }
-    savingRef.current = true;
-    setSavingStageId(stageId);
-    const saved = await onEditStageName(stageId, trimmed);
-    savingRef.current = false;
-    setSavingStageId(null);
-    if (saved) setEditingStageId((prev) => (prev === stageId ? null : prev));
-  };
-
   return (
     <div className="space-y-6">
       <DndContext sensors={sensors} onDragEnd={handleStageDragEnd}>
@@ -93,70 +120,18 @@ export function StagesTab({
               <SortableItem key={stage.id} id={stage.id}>
                 {(stageRow) => (
                   <section ref={stageRow.setNodeRef} style={stageRow.style} data-dnd-row="">
-                    <div className="mb-3 flex items-center gap-2">
-                      {isAdmin && editingStageId !== stage.id && (
+                    <StageTitle
+                      stage={stage}
+                      isAdmin={isAdmin}
+                      onRename={(name) => onEditStageName(stage.id, name)}
+                      dragHandle={
                         <DragHandle
                           label={stage.name}
                           attributes={stageRow.attributes}
                           listeners={stageRow.listeners}
                         />
-                      )}
-                      {editingStageId === stage.id ? (
-                        <input
-                          value={editStageName}
-                          onChange={(e) => setEditStageName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") saveEdit(stage.id);
-                            if (e.key === "Escape") cancelEdit();
-                          }}
-                          className="border-brand-400 min-w-0 flex-1 border-b bg-transparent py-0.5 text-sm font-semibold text-gray-700 focus:outline-none"
-                          autoFocus
-                        />
-                      ) : (
-                        <h3 className="shrink-0 text-sm font-semibold text-gray-700">
-                          {stage.name}
-                        </h3>
-                      )}
-                      <div className="h-px flex-1 bg-gray-200" />
-                      {isAdmin && editingStageId === stage.id && (
-                        <div className="flex shrink-0 items-center gap-1">
-                          {savingStageId === stage.id ? (
-                            <Loader2 size={13} className="text-brand-400 animate-spin" />
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => saveEdit(stage.id)}
-                                aria-label="保存"
-                                className="rounded p-1 text-green-600 transition-colors hover:text-green-700"
-                              >
-                                <Check size={13} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={cancelEdit}
-                                aria-label="キャンセル"
-                                className="rounded p-1 text-gray-400 transition-colors hover:text-gray-600"
-                              >
-                                <X size={13} />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
-                      {isAdmin && editingStageId !== stage.id && (
-                        <div className="flex shrink-0 items-center gap-0.5">
-                          <button
-                            type="button"
-                            onClick={() => startEdit(stage)}
-                            className="hover:text-brand-500 rounded p-1 text-gray-400 transition-colors"
-                            title="名前を編集"
-                          >
-                            <Pencil size={12} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                      }
+                    />
 
                     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
                       <DndContext

@@ -44,6 +44,7 @@ export function ApplicationRow({
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <button
+          type="button"
           onClick={() => onApprove(a.id)}
           disabled={disabled}
           aria-label="承認"
@@ -53,6 +54,7 @@ export function ApplicationRow({
           承認
         </button>
         <button
+          type="button"
           onClick={() => onReject(a.id)}
           disabled={disabled}
           aria-label="却下"

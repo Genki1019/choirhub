@@ -167,6 +167,7 @@ export function IntroTemplateCard({ org }: { org: string }) {
 
       <div className="flex items-center gap-2">
         <button
+          type="button"
           onClick={handleSave}
           disabled={saving}
           className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-60"
@@ -175,6 +176,7 @@ export function IntroTemplateCard({ org }: { org: string }) {
           保存
         </button>
         <button
+          type="button"
           onClick={() => update(DEFAULT_TEMPLATE)}
           className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
         >

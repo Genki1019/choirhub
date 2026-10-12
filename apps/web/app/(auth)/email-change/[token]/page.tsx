@@ -77,6 +77,7 @@ export default function EmailChangeConfirmPage() {
               安全のため既存のログインは無効化されました。新しいメールアドレスで再度ログインしてください。
             </p>
             <button
+              type="button"
               onClick={() => router.push("/login")}
               className="bg-brand-600 hover:bg-brand-700 w-full rounded-lg py-2.5 text-sm font-medium text-white transition"
             >
@@ -104,6 +105,7 @@ export default function EmailChangeConfirmPage() {
             )}
 
             <button
+              type="button"
               onClick={handleConfirm}
               disabled={confirming}
               className="bg-brand-600 hover:bg-brand-700 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 font-medium text-white transition disabled:opacity-60"

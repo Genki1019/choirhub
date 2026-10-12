@@ -57,6 +57,7 @@ export default function VisitorWebhookPage() {
               className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600"
             />
             <button
+              type="button"
               onClick={() => copy(webhookUrl, "url")}
               className="shrink-0 rounded-lg border border-gray-200 p-2 text-gray-500 transition-colors hover:bg-gray-50"
               aria-label="Webhook URLをコピー"
@@ -76,6 +77,7 @@ export default function VisitorWebhookPage() {
             />
             {data?.token && (
               <button
+                type="button"
                 onClick={() => copy(data.token as string, "token")}
                 className="shrink-0 rounded-lg border border-gray-200 p-2 text-gray-500 transition-colors hover:bg-gray-50"
                 aria-label="トークンをコピー"
@@ -88,6 +90,7 @@ export default function VisitorWebhookPage() {
         </div>
 
         <button
+          type="button"
           onClick={() => (data?.token ? setConfirmRegenerate(true) : handleRegenerate())}
           disabled={regenerating}
           className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-60"

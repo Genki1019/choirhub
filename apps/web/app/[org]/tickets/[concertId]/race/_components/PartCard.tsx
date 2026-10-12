@@ -171,6 +171,7 @@ function OrganizerPeriodRow({
           {period ? `${formatMonth(period.fromMonth)}〜${formatMonth(period.toMonth)}` : "未設定"}
         </span>
         <button
+          type="button"
           onClick={() => setEditing(true)}
           aria-label="幹事期間を編集"
           className="text-gray-300 transition-colors hover:text-gray-500"
@@ -188,6 +189,7 @@ function OrganizerPeriodRow({
         <span className="text-xs text-gray-400">〜</span>
         <MonthSelect label="終了月" value={toMonth} onChange={setToMonth} />
         <button
+          type="button"
           onClick={handleSave}
           disabled={saving || isRangeInvalid}
           aria-label="保存"
@@ -196,6 +198,7 @@ function OrganizerPeriodRow({
           {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
         </button>
         <button
+          type="button"
           onClick={handleCancel}
           aria-label="キャンセル"
           className="text-gray-400 hover:text-gray-600"

@@ -66,6 +66,7 @@ export default function ScoresPage() {
         actions={
           roles.includes("admin") ? (
             <button
+              type="button"
               onClick={() => setShowAddModal(true)}
               className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
             >

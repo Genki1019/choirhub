@@ -152,6 +152,7 @@ export default function LibraryPage() {
           mainTab === "documents" ? (
             isAdmin ? (
               <button
+                type="button"
                 onClick={() => setShowUploadModal(true)}
                 className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors"
               >
@@ -161,6 +162,7 @@ export default function LibraryPage() {
             ) : undefined
           ) : canManageFiles ? (
             <button
+              type="button"
               onClick={() => setPickerKind(mainTab)}
               className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors"
             >
@@ -173,6 +175,7 @@ export default function LibraryPage() {
         <PageBleedRow className="flex pt-1">
           {MAIN_TABS.map((tab) => (
             <button
+              type="button"
               key={tab.id}
               onClick={() => setTab(tab.id)}
               className={[
@@ -191,6 +194,7 @@ export default function LibraryPage() {
           <PageBleedRow className="flex border-t border-gray-100 pt-1">
             {CATEGORY_TABS.map((tab) => (
               <button
+                type="button"
                 key={tab.id}
                 onClick={() => setCategory(tab.id)}
                 className={[
@@ -246,6 +250,7 @@ export default function LibraryPage() {
                   </span>
                   {isAdmin && (
                     <button
+                      type="button"
                       onClick={() => {
                         setDeleteError(null);
                         setConfirmTarget(doc);

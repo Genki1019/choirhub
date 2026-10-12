@@ -34,6 +34,7 @@ function ClosableOverlay({
     >
       <div className="relative rounded-2xl bg-white px-8 py-6 shadow-xl">
         <button
+          type="button"
           onClick={onClose}
           aria-label="閉じる"
           className="absolute top-3 right-3 text-gray-400 transition-colors hover:text-gray-600"

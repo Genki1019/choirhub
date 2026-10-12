@@ -38,7 +38,7 @@ describe("PageWithHeader", () => {
         title="メンバー"
         badge={<span>公開中</span>}
         backHref="/tokyo-men-choir"
-        actions={<button>招待</button>}
+        actions={<button type="button">招待</button>}
       >
         <div>本文</div>
       </PageWithHeader>,
@@ -71,7 +71,7 @@ describe("PageWithHeader", () => {
 
   it("toolbarを指定した場合はloading中もヘッダーの下に表示する", () => {
     render(
-      <PageWithHeader title="本番" loading toolbar={<button>すべて</button>}>
+      <PageWithHeader title="本番" loading toolbar={<button type="button">すべて</button>}>
         <div>本文</div>
       </PageWithHeader>,
     );

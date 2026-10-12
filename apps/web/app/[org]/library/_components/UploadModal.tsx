@@ -69,6 +69,7 @@ export function UploadModal({ org, defaultCategory, onClose, onSuccess }: Upload
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
           <h2 className="text-base font-semibold text-gray-800">資料を追加</h2>
           <button
+            type="button"
             onClick={onClose}
             aria-label="閉じる"
             className="text-gray-400 transition-colors hover:text-gray-600"

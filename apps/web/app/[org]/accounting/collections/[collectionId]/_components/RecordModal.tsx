@@ -87,6 +87,7 @@ export function RecordModal({
             <p className="mt-0.5 text-xs text-gray-400">{payment.member.nameJa}</p>
           </div>
           <button
+            type="button"
             aria-label="閉じる"
             onClick={onClose}
             className="text-gray-400 transition-colors hover:text-gray-600"
@@ -206,6 +207,7 @@ export function RecordModal({
               キャンセル
             </button>
             <button
+              type="button"
               onClick={handleSave}
               disabled={saving}
               className="bg-brand-600 hover:bg-brand-700 flex flex-1 items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"

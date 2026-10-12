@@ -19,6 +19,7 @@ export default function NotFound() {
         </p>
         <div className="flex items-center justify-center gap-4">
           <button
+            type="button"
             onClick={() => router.back()}
             className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
           >

@@ -14,10 +14,14 @@ function TestHost() {
   return (
     <div>
       <div ref={containerRef} {...popover.containerProps}>
-        <button {...popover.triggerProps}>トリガー</button>
+        <button type="button" {...popover.triggerProps}>
+          トリガー
+        </button>
         {popover.isOpen && <div>ポップオーバー本体</div>}
       </div>
-      <button onClick={popover.close}>外部クローズボタン</button>
+      <button type="button" onClick={popover.close}>
+        外部クローズボタン
+      </button>
       <div>外側</div>
     </div>
   );

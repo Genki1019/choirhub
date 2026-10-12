@@ -112,6 +112,7 @@ function ReplyModal({
             <h2 className="text-sm font-semibold text-gray-800">返信</h2>
           </div>
           <button
+            type="button"
             aria-label="閉じる"
             onClick={onClose}
             className="text-gray-400 transition-colors hover:text-gray-600"
@@ -125,6 +126,7 @@ function ReplyModal({
             <label className="mb-1.5 block text-xs font-medium text-gray-600">返信先</label>
             <div className="flex overflow-hidden rounded-lg border border-gray-200">
               <button
+                type="button"
                 onClick={() => setReplyTarget("sender")}
                 className={`flex-1 border-r border-gray-200 py-2 text-xs font-medium transition-colors ${
                   replyTarget === "sender"
@@ -135,6 +137,7 @@ function ReplyModal({
                 送信者のみ（{senderName}）
               </button>
               <button
+                type="button"
                 onClick={() => setReplyTarget("all")}
                 className={`flex-1 py-2 text-xs font-medium transition-colors ${
                   replyTarget === "all"
@@ -184,12 +187,14 @@ function ReplyModal({
 
         <div className="flex shrink-0 items-center justify-end gap-2 border-t border-gray-100 px-6 py-4">
           <button
+            type="button"
             onClick={onClose}
             className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50"
           >
             キャンセル
           </button>
           <button
+            type="button"
             onClick={handleSend}
             aria-busy={counting}
             className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
@@ -281,6 +286,7 @@ export default function MailDetailPage() {
           backHref={`/${org}/mailing`}
           actions={
             <button
+              type="button"
               onClick={() => setShowReply(true)}
               className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
             >

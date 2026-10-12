@@ -15,6 +15,7 @@ export function NotFoundPage({ message = "ページが見つかりません" }: 
         <p className="text-8xl font-bold tracking-tight text-gray-200 select-none">404</p>
         <p className="font-medium text-gray-600">{message}</p>
         <button
+          type="button"
           onClick={() => router.back()}
           className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50"
         >

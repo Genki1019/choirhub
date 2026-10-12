@@ -71,6 +71,7 @@ export function PaymentsList({
           </p>
           {pending > 0 && (
             <button
+              type="button"
               onClick={onSelectAllPending}
               className="text-brand-600 hover:text-brand-700 flex items-center gap-1 text-xs transition-colors"
             >
@@ -135,6 +136,7 @@ export function PaymentsList({
                   <div className="flex shrink-0 items-center gap-1">
                     {payment.status === "pending" && (
                       <button
+                        type="button"
                         onClick={() => onQuickPaid(payment)}
                         title="現金 支払済みにする"
                         aria-label={`${payment.member.nameJa}を支払済みにする`}
@@ -145,6 +147,7 @@ export function PaymentsList({
                       </button>
                     )}
                     <button
+                      type="button"
                       onClick={() => onEdit(payment)}
                       className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors"
                       title="詳細編集"

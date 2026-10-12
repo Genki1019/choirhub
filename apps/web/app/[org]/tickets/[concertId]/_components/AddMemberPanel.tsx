@@ -57,6 +57,7 @@ export function AddMemberPanel({
   if (!open) {
     return (
       <button
+        type="button"
         onClick={() => setOpen(true)}
         className="text-brand-600 hover:text-brand-700 hover:bg-brand-50 flex w-full items-center gap-1.5 border-t border-gray-100 px-4 py-3 text-xs transition-colors"
       >
@@ -93,6 +94,7 @@ export function AddMemberPanel({
         />
         <span className="text-brand-600 text-xs">枚</span>
         <button
+          type="button"
           onClick={handleAdd}
           disabled={!selectedId || saving}
           className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-60"
@@ -101,6 +103,7 @@ export function AddMemberPanel({
           追加
         </button>
         <button
+          type="button"
           onClick={() => {
             setOpen(false);
             setError(null);

@@ -44,7 +44,7 @@ describe("PageHeader", () => {
   });
 
   it("actionsスロットの内容を表示する", () => {
-    render(<PageHeader title="メンバー" actions={<button>招待</button>} />);
+    render(<PageHeader title="メンバー" actions={<button type="button">招待</button>} />);
     expect(screen.getByRole("button", { name: "招待" })).toBeInTheDocument();
   });
 

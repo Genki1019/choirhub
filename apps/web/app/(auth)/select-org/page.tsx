@@ -106,6 +106,7 @@ export default function SelectOrgPage() {
                 return (
                   <li key={org.orgSlug}>
                     <button
+                      type="button"
                       onClick={() => router.push(`/${org.orgSlug}`)}
                       className="hover:bg-brand-50 group flex w-full items-center gap-4 px-5 py-4 text-left transition-colors"
                     >
@@ -161,6 +162,7 @@ export default function SelectOrgPage() {
           </div>
         ) : (
           <button
+            type="button"
             onClick={() => setShowForm(true)}
             className="hover:text-brand-600 hover:border-brand-300 mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-300 py-3 text-sm text-gray-500 transition-colors hover:bg-white"
           >
@@ -172,6 +174,7 @@ export default function SelectOrgPage() {
         <div className="mt-5 flex flex-col items-center gap-1.5 text-center text-xs text-gray-400">
           {isSystemAdmin && (
             <button
+              type="button"
               onClick={() => router.push("/admin")}
               className="text-brand-500 hover:underline"
             >
@@ -181,6 +184,7 @@ export default function SelectOrgPage() {
           <p>
             別のアカウントでログインする場合は
             <button
+              type="button"
               onClick={async () => {
                 try {
                   await authApi.logout();

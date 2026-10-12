@@ -124,6 +124,7 @@ export function FileAttachmentSection({
               )}
               {canManage && (
                 <button
+                  type="button"
                   onClick={() => {
                     setDeleteError(null);
                     setConfirmTarget(f);
@@ -185,6 +186,7 @@ export function FileAttachmentSection({
               className="file:text-brand-600 file:border-brand-200 hover:file:bg-brand-50 flex-1 cursor-pointer text-xs text-gray-600 file:mr-3 file:rounded-md file:border file:border-0 file:bg-white file:px-2.5 file:py-1 file:text-xs file:font-medium"
             />
             <button
+              type="button"
               onClick={() => uploadMutation.mutate()}
               disabled={uploadMutation.isPending}
               className="bg-brand-600 hover:bg-brand-700 flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-60"

@@ -71,6 +71,7 @@ export default function OutreachPage() {
         backHref={`/${org}/tickets/${concertId}/my`}
         actions={
           <button
+            type="button"
             onClick={() => setShowCreate(true)}
             className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium text-white transition-colors"
           >

@@ -52,6 +52,7 @@ export default function NotificationBell({ org }: Props) {
   return (
     <div ref={ref} className="relative">
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
         className="relative rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100"
         aria-label="通知"
@@ -70,6 +71,7 @@ export default function NotificationBell({ org }: Props) {
             <p className="text-sm font-medium text-gray-800">通知</p>
             {unreadCount > 0 && (
               <button
+                type="button"
                 onClick={handleMarkAllRead}
                 className="text-brand-600 hover:text-brand-700 text-xs font-medium"
               >
@@ -85,6 +87,7 @@ export default function NotificationBell({ org }: Props) {
               {items.map((item) => (
                 <li key={item.id}>
                   <button
+                    type="button"
                     onClick={() => handleItemClick(item)}
                     className={`flex w-full flex-col items-start gap-0.5 px-4 py-2.5 text-left transition-colors hover:bg-gray-50 ${
                       item.readAt ? "" : "bg-blue-50"

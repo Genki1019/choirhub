@@ -69,6 +69,7 @@ export function ExpenseModal({ org, categories, editing, onClose, onSaved }: Exp
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
           <h2 className="font-semibold text-gray-800">{editing ? "支出を編集" : "支出を追加"}</h2>
           <button
+            type="button"
             aria-label="閉じる"
             onClick={onClose}
             className="text-gray-400 transition-colors hover:text-gray-600"

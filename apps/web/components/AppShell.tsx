@@ -63,6 +63,7 @@ export default function AppShell({
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <div className="flex h-11 shrink-0 items-center border-b border-gray-100 bg-white px-4">
             <button
+              type="button"
               className="-ml-1 rounded-md p-1 text-gray-500 transition-colors hover:bg-gray-100"
               onClick={() => setSidebarOpen((v) => !v)}
               aria-label="メニューを開閉する"

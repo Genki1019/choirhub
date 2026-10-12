@@ -163,6 +163,7 @@ export default function ScoreDetailPage() {
         actions={
           isPrivileged ? (
             <button
+              type="button"
               onClick={() => setShowEdit(true)}
               className="hover:text-brand-600 hover:border-brand-300 flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-500 transition-colors"
             >
@@ -208,6 +209,7 @@ export default function ScoreDetailPage() {
               {score.canDownload &&
                 (midiFiles.length > 0 ? (
                   <button
+                    type="button"
                     onClick={() => setShowMidi(true)}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-100"
                   >
@@ -281,6 +283,7 @@ export default function ScoreDetailPage() {
                         </span>
                         {isPrivileged && (
                           <button
+                            type="button"
                             onClick={startEditPrice}
                             className="hover:text-brand-500 rounded p-0.5 text-gray-400 transition-colors"
                             title="価格を変更"
@@ -291,6 +294,7 @@ export default function ScoreDetailPage() {
                       </div>
                     ) : isPrivileged ? (
                       <button
+                        type="button"
                         onClick={startEditPrice}
                         className="hover:text-brand-500 text-xs text-gray-400 transition-colors"
                       >
@@ -314,6 +318,7 @@ export default function ScoreDetailPage() {
                   <dd className="flex items-center gap-2">
                     <span className="text-sm text-gray-700">{score.purchaseCount}名</span>
                     <button
+                      type="button"
                       onClick={() => setShowPurchase(true)}
                       className="text-brand-600 hover:text-brand-700 inline-flex items-center gap-1 text-xs transition-colors hover:underline"
                     >
@@ -343,6 +348,7 @@ export default function ScoreDetailPage() {
             </h2>
             <div className="flex flex-wrap gap-2">
               <button
+                type="button"
                 onClick={() => setShowFileManage(true)}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
               >
@@ -357,6 +363,7 @@ export default function ScoreDetailPage() {
                   </span>
                 ) : score.distributionPrice !== null ? (
                   <button
+                    type="button"
                     onClick={() => setShowCollection(true)}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
                   >

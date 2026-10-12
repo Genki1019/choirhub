@@ -36,6 +36,7 @@ export default function UserMenu({ nameJa, avatarUrl, org, memberId }: Props) {
   return (
     <div ref={ref} className="relative">
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
         className="bg-brand-100 text-brand-700 hover:ring-brand-300 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full text-sm font-semibold transition-all hover:ring-2"
         title={nameJa}
@@ -69,6 +70,7 @@ export default function UserMenu({ nameJa, avatarUrl, org, memberId }: Props) {
             プロフィール
           </Link>
           <button
+            type="button"
             onClick={handleLogout}
             className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 transition-colors hover:bg-gray-50"
           >

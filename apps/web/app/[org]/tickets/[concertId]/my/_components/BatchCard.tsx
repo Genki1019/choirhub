@@ -162,6 +162,7 @@ export function BatchCard({ batch, orgSlug, concertId, isClosed, onChange }: Bat
               </div>
             </div>
             <button
+              type="button"
               onClick={handleRequestSubmit}
               disabled={isClosed || savingReq || !reqChanged}
               className="bg-brand-600 hover:bg-brand-700 mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-medium text-white transition-colors disabled:opacity-50"
@@ -209,6 +210,7 @@ export function BatchCard({ batch, orgSlug, concertId, isClosed, onChange }: Bat
             )}
           </div>
           <button
+            type="button"
             onClick={handleSalesSubmit}
             disabled={isClosed || savingSales}
             className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-teal-600 py-2.5 text-sm font-medium text-white transition-colors hover:bg-teal-700 disabled:opacity-50"

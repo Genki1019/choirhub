@@ -62,6 +62,7 @@ export function AddCategoryForm({ org, onCreated }: AddCategoryFormProps) {
           <div className="flex flex-wrap gap-1">
             {PRESET_COLORS.map((c) => (
               <button
+                type="button"
                 key={c}
                 onClick={() => setNewColor(c)}
                 className="h-4 w-4 rounded-full border border-white shadow-sm"
@@ -80,6 +81,7 @@ export function AddCategoryForm({ org, onCreated }: AddCategoryFormProps) {
           className="focus:ring-brand-400 flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:ring-1 focus:outline-none"
         />
         <button
+          type="button"
           onClick={handleAdd}
           disabled={adding}
           className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-60"

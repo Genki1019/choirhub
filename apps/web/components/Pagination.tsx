@@ -19,6 +19,7 @@ export function Pagination({ meta, onPageChange }: PaginationProps) {
       </span>
       <div className="flex items-center gap-1">
         <button
+          type="button"
           onClick={() => onPageChange(meta.page - 1)}
           disabled={meta.page <= 1}
           aria-label="前のページ"
@@ -30,6 +31,7 @@ export function Pagination({ meta, onPageChange }: PaginationProps) {
           {meta.page} / {totalPages}
         </span>
         <button
+          type="button"
           onClick={() => onPageChange(meta.page + 1)}
           disabled={meta.page >= totalPages}
           aria-label="次のページ"

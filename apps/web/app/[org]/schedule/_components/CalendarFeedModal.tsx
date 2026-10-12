@@ -51,6 +51,7 @@ export function CalendarFeedModal({ orgSlug, onClose }: CalendarFeedModalProps) 
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
           <h2 className="text-sm font-semibold text-gray-800">外部カレンダーに連携</h2>
           <button
+            type="button"
             aria-label="閉じる"
             onClick={onClose}
             className="text-gray-400 transition-colors hover:text-gray-600"
@@ -87,6 +88,7 @@ export function CalendarFeedModal({ orgSlug, onClose }: CalendarFeedModalProps) 
                         className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600"
                       />
                       <button
+                        type="button"
                         onClick={() => copy(feedUrl, "url")}
                         className="shrink-0 rounded-lg border border-gray-200 p-2 text-gray-500 transition-colors hover:bg-gray-50"
                         aria-label="URLをコピー"
@@ -112,6 +114,7 @@ export function CalendarFeedModal({ orgSlug, onClose }: CalendarFeedModalProps) 
               )}
 
               <button
+                type="button"
                 onClick={() => (data?.token ? setConfirmRegenerate(true) : handleRegenerate())}
                 disabled={regenerating}
                 className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-60"

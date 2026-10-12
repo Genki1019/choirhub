@@ -66,7 +66,7 @@ describe("UserMenu（開閉）", () => {
     render(
       <div>
         <UserMenu nameJa="山田太郎" avatarUrl={null} org="o" memberId="member-1" />
-        <button>外側</button>
+        <button type="button">外側</button>
       </div>,
     );
 

@@ -85,6 +85,7 @@ export default function RacePage() {
   const publishAction = data.isTicketManager ? (
     data.racePublishedAt ? (
       <button
+        type="button"
         onClick={async () => {
           setPublishing(true);
           setPublishError(null);
@@ -109,6 +110,7 @@ export default function RacePage() {
       </button>
     ) : (
       <button
+        type="button"
         onClick={() => {
           setPublishError(null);
           setConfirmingPublish(true);
@@ -123,6 +125,7 @@ export default function RacePage() {
 
   const scoringSettingsButton = data.isTicketManager && (
     <button
+      type="button"
       onClick={() => setShowScoringModal(true)}
       disabled={!!data.racePublishedAt}
       title={data.racePublishedAt ? "レース公開後は変更できません" : undefined}
@@ -149,6 +152,7 @@ export default function RacePage() {
         { key: "individuals" as const, label: "個人順位", icon: User },
       ].map(({ key, label, icon: Icon }) => (
         <button
+          type="button"
           key={key}
           onClick={() => setTab(key)}
           className={[

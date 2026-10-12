@@ -108,6 +108,7 @@ function MemoRow({ memberId, attendance, saving, onSave }: MemoRowProps) {
         />
       </div>
       <button
+        type="button"
         onClick={() =>
           onSave({ arriveTime: arrive || null, leaveTime: leave || null, dayMemo: memo || null })
         }
@@ -222,6 +223,7 @@ export function AttendanceTable({
                       <div className="mt-0.5 sm:hidden">
                         {att.status === "maybe" && isSelf && !isLocked ? (
                           <button
+                            type="button"
                             onClick={() => onSetExpandedId(isExpanded ? null : member.id)}
                             className="flex items-center gap-1 text-xs text-orange-500 transition-colors hover:text-orange-700"
                           >
@@ -247,6 +249,7 @@ export function AttendanceTable({
 
                     <div className="flex justify-center">
                       <button
+                        type="button"
                         onClick={() => onCycleStatus(member.id)}
                         disabled={isLocked || !isSelf}
                         className={[
@@ -264,6 +267,7 @@ export function AttendanceTable({
                     <div className="hidden min-w-0 items-center gap-1 pl-3 sm:flex">
                       {att.status === "maybe" && isSelf && !isLocked ? (
                         <button
+                          type="button"
                           onClick={() => onSetExpandedId(isExpanded ? null : member.id)}
                           className="flex items-center gap-1 text-xs text-orange-500 transition-colors hover:text-orange-700"
                         >

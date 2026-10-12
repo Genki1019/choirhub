@@ -186,6 +186,7 @@ function MembersContent() {
                 )}
                 {canAddVisitor && (
                   <button
+                    type="button"
                     onClick={() => setShowAddVisitor(true)}
                     className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
                   >
@@ -195,6 +196,7 @@ function MembersContent() {
                 )}
                 {isAdmin && (
                   <button
+                    type="button"
                     onClick={() => setShowInvite(true)}
                     className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
                   >
@@ -255,12 +257,14 @@ function MembersContent() {
 
               <div className="hidden overflow-hidden rounded-lg border border-gray-200 sm:flex">
                 <button
+                  type="button"
                   onClick={() => setViewMode("card")}
                   className={`p-1.5 transition-colors ${viewMode === "card" ? "bg-brand-600 text-white" : "text-gray-400 hover:bg-gray-50"}`}
                 >
                   <LayoutGrid size={15} />
                 </button>
                 <button
+                  type="button"
                   onClick={() => setViewMode("list")}
                   className={`p-1.5 transition-colors ${viewMode === "list" ? "bg-brand-600 text-white" : "text-gray-400 hover:bg-gray-50"}`}
                 >

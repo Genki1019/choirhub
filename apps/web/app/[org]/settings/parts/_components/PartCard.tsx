@@ -100,6 +100,7 @@ export function PartCard({
         <p className="text-sm font-semibold text-gray-700">パート一覧</p>
         {canEdit && (
           <button
+            type="button"
             onClick={() => {
               setShowAdd(true);
               setEditId(null);
@@ -149,6 +150,7 @@ export function PartCard({
                             className="border-brand-300 focus:ring-brand-400 flex-1 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
                           />
                           <button
+                            type="button"
                             onClick={confirmEdit}
                             disabled={busy}
                             aria-label="保存"
@@ -157,6 +159,7 @@ export function PartCard({
                             <Check size={15} />
                           </button>
                           <button
+                            type="button"
                             onClick={() => setEditId(null)}
                             aria-label="キャンセル"
                             className="text-gray-400 hover:text-gray-600"
@@ -171,6 +174,7 @@ export function PartCard({
                         {canEdit && (
                           <div className="flex shrink-0 items-center gap-0.5">
                             <button
+                              type="button"
                               onClick={() => {
                                 setEditId(part.id);
                                 setEditName(part.name);
@@ -182,6 +186,7 @@ export function PartCard({
                               <Pencil size={13} />
                             </button>
                             <button
+                              type="button"
                               onClick={() => {
                                 setDeleteError(null);
                                 setConfirmTarget(part);
@@ -221,6 +226,7 @@ export function PartCard({
             className="focus:ring-brand-400 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm placeholder-gray-300 focus:ring-1 focus:outline-none"
           />
           <button
+            type="button"
             onClick={addPart}
             disabled={busy}
             className="bg-brand-600 hover:bg-brand-700 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-60"
@@ -228,6 +234,7 @@ export function PartCard({
             {busy ? <Loader2 size={12} className="animate-spin" /> : "追加"}
           </button>
           <button
+            type="button"
             onClick={() => {
               setShowAdd(false);
               setNewName("");

@@ -65,6 +65,7 @@ export default function ConcertsPage() {
         <PageBleedRow className="flex gap-1 py-3">
           {FILTERS.map(({ value, label }) => (
             <button
+              type="button"
               key={value}
               onClick={() => setFilter(value)}
               className={[

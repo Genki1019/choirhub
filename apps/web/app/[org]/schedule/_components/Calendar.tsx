@@ -70,6 +70,7 @@ export function Calendar({
       {/* 月ナビ */}
       <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
         <button
+          type="button"
           onClick={onPrevMonth}
           aria-label="前の月"
           className="rounded-lg p-1.5 transition-colors hover:bg-gray-100"
@@ -80,6 +81,7 @@ export function Calendar({
           {year}年 {month}月
         </p>
         <button
+          type="button"
           onClick={onNextMonth}
           aria-label="次の月"
           className="rounded-lg p-1.5 transition-colors hover:bg-gray-100"

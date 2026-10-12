@@ -109,6 +109,7 @@ choirhub/
 - **権限チェック**: ロール判定は `services/access.ts` のヘルパー（`isAdmin`・`hasRole` 等）で行い、ロール文字列の直接比較や判定ロジックの重複をしない
 - **楽譜アクセス**: visitor（共有）→ access_level 問わず全楽譜の全体譜PDF（`full_score`）のみ閲覧可（パート譜・MIDI・音源・その他は不可）; 一般団員 → 購入記録があるもののみDL可（public含む）; secret → 特権ユーザー（admin/score/tech/conductor）のみ（visitor は例外として secret PDF も閲覧可）
 - **コンポーネント再利用**: 既存の共通コンポーネント（`apps/web/components/`）を優先し、画面ごとの重複実装を避ける。モーダルは`Modal`、エラー表示は`ErrorMessage`、取り消せない操作・団員全体に影響する操作の確認は`ConfirmDialog`（基準は`docs/screens.md`の「確認ダイアログ」）を使い、`fixed inset-0`の手書きモーダル、`bg-red-50`の手書きエラー、`window.confirm`を新たに作らない
+- **ボタン**: `<button>` には `type` を必ず書く（フォームの送信は `submit`、それ以外は `button`。`reset` は使わない）。書かないとフォームの中で送信ボタンになり、押しただけ・Enter だけで送信される（ESLint の `react/button-has-type` で検出）
 - **テスト**: 新規・変更したモジュール（routes・services・lib・middleware・コンポーネント・ページ・hooks）には、同階層の`__tests__/`にテストを追加する
 
 ## コミット・PR運用

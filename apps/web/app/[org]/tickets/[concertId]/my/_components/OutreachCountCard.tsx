@@ -81,6 +81,7 @@ export function OutreachCountCard({
           </div>
         </div>
         <button
+          type="button"
           onClick={handleSave}
           disabled={isClosed || saving || count === initialCount}
           className="bg-brand-600 hover:bg-brand-700 flex w-full items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-medium text-white transition-colors disabled:opacity-50"

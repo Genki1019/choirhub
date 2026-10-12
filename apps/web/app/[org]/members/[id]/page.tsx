@@ -74,6 +74,7 @@ export default function MemberDetailPage() {
             <>
               {isSelf && !isEditing && (
                 <button
+                  type="button"
                   onClick={() => setIsEditing(true)}
                   className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
                 >

@@ -20,6 +20,7 @@ export const UnassignedSection = memo(function UnassignedSection({
   return (
     <section className="overflow-hidden rounded-xl border border-gray-200 bg-white">
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-gray-50"
       >

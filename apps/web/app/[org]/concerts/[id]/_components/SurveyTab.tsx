@@ -288,6 +288,7 @@ export function SurveyTab({
           <p className="text-sm">オンステ調査はまだ開設されていません</p>
           {canManageStage && (
             <button
+              type="button"
               onClick={() => setShowCreateModal(true)}
               className="bg-brand-600 hover:bg-brand-700 mx-auto mt-4 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors"
             >
@@ -316,6 +317,7 @@ export function SurveyTab({
       <div className="flex flex-wrap items-center gap-2">
         {surveys.map((s) => (
           <button
+            type="button"
             key={s.id}
             onClick={() => selectSurvey(s.id)}
             className={[
@@ -344,6 +346,7 @@ export function SurveyTab({
         ))}
         {canManageStage && (
           <button
+            type="button"
             onClick={() => setShowCreateModal(true)}
             className="hover:border-brand-300 hover:text-brand-500 flex items-center gap-1.5 rounded-lg border border-dashed border-gray-200 px-3 py-1.5 text-xs text-gray-400 transition-colors"
           >
@@ -389,6 +392,7 @@ export function SurveyTab({
                   </span>
                   {canManageStage && surveys.length > 1 && (
                     <button
+                      type="button"
                       onClick={() => {
                         setApplyError(null);
                         setConfirmApply(true);
@@ -413,6 +417,7 @@ export function SurveyTab({
                   )}
                   {canManageStage && (
                     <button
+                      type="button"
                       onClick={handleToggle}
                       disabled={toggling}
                       className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-60"
@@ -521,6 +526,7 @@ export function SurveyTab({
                           return (
                             <div key={s.id} className="flex justify-center">
                               <button
+                                type="button"
                                 onClick={() => handleCellClick(row.memberId, s.id)}
                                 disabled={!editable || isSav}
                                 className={[

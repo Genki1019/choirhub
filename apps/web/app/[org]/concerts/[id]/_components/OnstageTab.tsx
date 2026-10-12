@@ -240,6 +240,7 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
         <div className="flex flex-wrap items-center gap-2">
           {stages.map((s) => (
             <button
+              type="button"
               key={s.id}
               onClick={() => {
                 setSelectedStageId(s.id);
@@ -271,6 +272,7 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
                   />
                 ) : (
                   <button
+                    type="button"
                     onClick={() => setSelectedPatternId(p.id)}
                     className={pillButtonClass(patternId === p.id)}
                   >
@@ -280,6 +282,7 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
                 {canManageStage && editingPatternId !== p.id && (
                   <>
                     <button
+                      type="button"
                       onClick={() => handleMovePattern(p.id, -1)}
                       disabled={idx === 0}
                       className={iconButtonClass}
@@ -288,6 +291,7 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
                       <ChevronLeft size={11} />
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleMovePattern(p.id, 1)}
                       disabled={idx === patterns.length - 1}
                       className={iconButtonClass}
@@ -296,6 +300,7 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
                       <ChevronRight size={11} />
                     </button>
                     <button
+                      type="button"
                       onClick={() => setEditingPatternId(p.id)}
                       className={iconButtonClass}
                       title="名称変更"
@@ -303,6 +308,7 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
                       <Pencil size={11} />
                     </button>
                     <button
+                      type="button"
                       onClick={() => {
                         setDeletePatternError(null);
                         setConfirmPattern({ id: p.id, name: p.name });
@@ -319,6 +325,7 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
             ))}
             {canManageStage && (
               <button
+                type="button"
                 onClick={handleCreatePattern}
                 className="hover:border-brand-300 hover:text-brand-500 flex items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-500 transition-colors"
               >

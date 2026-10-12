@@ -124,6 +124,7 @@ export function MemberTypeCard({
         </div>
         {canEdit && (
           <button
+            type="button"
             onClick={() => {
               setShowAdd(true);
               setEditId(null);
@@ -180,6 +181,7 @@ export function MemberTypeCard({
                             className="border-brand-300 focus:ring-brand-400 w-28 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
                           />
                           <button
+                            type="button"
                             onClick={confirmEdit}
                             disabled={busy}
                             aria-label="保存"
@@ -188,6 +190,7 @@ export function MemberTypeCard({
                             <Check size={15} />
                           </button>
                           <button
+                            type="button"
                             onClick={() => setEditId(null)}
                             aria-label="キャンセル"
                             className="text-gray-400 hover:text-gray-600"
@@ -213,6 +216,7 @@ export function MemberTypeCard({
                         {canEdit && (
                           <div className="flex w-14 shrink-0 items-center justify-end gap-0.5">
                             <button
+                              type="button"
                               onClick={() => startEdit(t)}
                               disabled={busy}
                               aria-label={`${t.name}を編集`}
@@ -221,6 +225,7 @@ export function MemberTypeCard({
                               <Pencil size={13} />
                             </button>
                             <button
+                              type="button"
                               onClick={() => {
                                 setDeleteError(null);
                                 setConfirmTarget(t);
@@ -273,6 +278,7 @@ export function MemberTypeCard({
             className="focus:ring-brand-400 w-28 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm placeholder-gray-300 focus:ring-1 focus:outline-none"
           />
           <button
+            type="button"
             onClick={addType}
             disabled={busy}
             className="bg-brand-600 hover:bg-brand-700 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-60"
@@ -280,6 +286,7 @@ export function MemberTypeCard({
             {busy ? <Loader2 size={12} className="animate-spin" /> : "追加"}
           </button>
           <button
+            type="button"
             onClick={() => {
               setShowAdd(false);
               setNewName("");

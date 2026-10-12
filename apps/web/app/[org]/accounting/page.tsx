@@ -206,6 +206,7 @@ export default function AccountingPage() {
                 ] as [Tab, string][]
               ).map(([key, label]) => (
                 <button
+                  type="button"
                   key={key}
                   onClick={() => setTab(key)}
                   className={[

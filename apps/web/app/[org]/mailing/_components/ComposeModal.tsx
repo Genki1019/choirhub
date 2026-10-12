@@ -70,6 +70,7 @@ function SaveTemplateModal({ orgSlug, subject, body, onClose, onSaved }: SaveTem
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-800">テンプレートとして保存</h3>
           <button
+            type="button"
             aria-label="閉じる"
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"
@@ -96,12 +97,14 @@ function SaveTemplateModal({ orgSlug, subject, body, onClose, onSaved }: SaveTem
         )}
         <div className="flex justify-end gap-2">
           <button
+            type="button"
             onClick={onClose}
             className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-50"
           >
             キャンセル
           </button>
           <button
+            type="button"
             onClick={handleSave}
             disabled={saving}
             className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
@@ -156,6 +159,7 @@ function TemplatePanel({ orgSlug, onApply, onClose }: TemplatePanelProps) {
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2">
         <span className="text-xs font-medium text-gray-600">テンプレート</span>
         <button
+          type="button"
           aria-label="テンプレートパネルを閉じる"
           onClick={onClose}
           className="text-gray-400 hover:text-gray-600"
@@ -177,6 +181,7 @@ function TemplatePanel({ orgSlug, onApply, onClose }: TemplatePanelProps) {
           <div key={t.id} className="border-b border-gray-100 last:border-0">
             <div className="group flex items-center justify-between px-4 py-2.5 hover:bg-white">
               <button
+                type="button"
                 className="min-w-0 flex-1 text-left"
                 onClick={() => {
                   onApply(t);
@@ -187,6 +192,7 @@ function TemplatePanel({ orgSlug, onApply, onClose }: TemplatePanelProps) {
                 <p className="truncate text-xs text-gray-400">{t.subject}</p>
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setDeleteError(null);
                   setConfirmTarget(t);
@@ -357,6 +363,7 @@ export function ComposeModal({
           <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4">
             <h2 className="text-sm font-semibold text-gray-800">新規メール</h2>
             <button
+              type="button"
               aria-label="閉じる"
               onClick={onClose}
               className="text-gray-400 transition-colors hover:text-gray-600"
@@ -397,6 +404,7 @@ export function ComposeModal({
               <div className="flex overflow-hidden rounded-lg border border-gray-200">
                 {RECIPIENT_TABS.map(({ key, label }) => (
                   <button
+                    type="button"
                     key={key}
                     onClick={() => handleRecipientTypeChange(key)}
                     className={`flex-1 border-r border-gray-200 py-2 text-xs font-medium transition-colors last:border-0 ${
@@ -497,6 +505,7 @@ export function ComposeModal({
           <div className="flex shrink-0 items-center justify-between gap-2 border-t border-gray-100 px-6 py-4">
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={() => setShowTemplatePanel((v) => !v)}
                 className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors ${showTemplatePanel ? "border-brand-300 text-brand-600 bg-brand-50" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}
               >
@@ -504,6 +513,7 @@ export function ComposeModal({
                 テンプレート
               </button>
               <button
+                type="button"
                 onClick={() => setShowSaveModal(true)}
                 className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-50"
               >
@@ -512,12 +522,14 @@ export function ComposeModal({
             </div>
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={onClose}
                 className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50"
               >
                 キャンセル
               </button>
               <button
+                type="button"
                 onClick={handleSend}
                 aria-busy={counting}
                 className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"

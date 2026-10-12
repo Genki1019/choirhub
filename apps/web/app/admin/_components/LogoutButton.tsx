@@ -8,6 +8,7 @@ export function LogoutButton() {
 
   return (
     <button
+      type="button"
       onClick={async () => {
         try {
           await authApi.logout();

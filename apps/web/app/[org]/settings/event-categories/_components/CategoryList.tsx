@@ -115,6 +115,7 @@ export function CategoryList({
                         autoFocus
                       />
                       <button
+                        type="button"
                         onClick={saveEdit}
                         disabled={busy}
                         aria-label="保存"
@@ -123,6 +124,7 @@ export function CategoryList({
                         <Check size={15} />
                       </button>
                       <button
+                        type="button"
                         onClick={cancelEdit}
                         aria-label="キャンセル"
                         className="text-gray-400 hover:text-gray-600"
@@ -152,6 +154,7 @@ export function CategoryList({
                       )}
                       {canEdit && (
                         <button
+                          type="button"
                           onClick={() => startEdit(cat)}
                           disabled={busy}
                           aria-label={`${cat.name}を編集`}
@@ -162,6 +165,7 @@ export function CategoryList({
                       )}
                       {canEdit && !cat.slug && (
                         <button
+                          type="button"
                           onClick={() => {
                             setDeleteError(null);
                             setConfirmTarget(cat);

@@ -18,6 +18,7 @@ export function ApprovalDraftBanner({
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-medium text-teal-700">承認しました。団員へ共有しますか？</p>
         <button
+          type="button"
           onClick={onClose}
           aria-label="閉じる"
           className="shrink-0 text-teal-500 transition-colors hover:text-teal-700"
@@ -30,6 +31,7 @@ export function ApprovalDraftBanner({
       </p>
       <div className="flex gap-2">
         <button
+          type="button"
           onClick={onCompose}
           className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
         >
@@ -37,6 +39,7 @@ export function ApprovalDraftBanner({
           今すぐ紹介メールを送る
         </button>
         <button
+          type="button"
           onClick={onCopy}
           className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
         >

@@ -38,6 +38,7 @@ export function ExpensesTab({
       <div className="flex flex-wrap justify-end gap-2">
         <CsvExportButton onDownload={onExport} label="支出CSV" />
         <button
+          type="button"
           onClick={onAddClick}
           className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
         >
@@ -75,6 +76,7 @@ export function ExpensesTab({
                 </div>
                 <div className="flex shrink-0 items-center gap-0.5">
                   <button
+                    type="button"
                     onClick={() => onEditClick(exp)}
                     aria-label={`${exp.title}を編集`}
                     className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors"
@@ -82,6 +84,7 @@ export function ExpensesTab({
                     <Pencil size={13} />
                   </button>
                   <button
+                    type="button"
                     onClick={() => onDeleteClick(exp.id)}
                     disabled={deletingId === exp.id}
                     aria-label={`${exp.title}を削除`}

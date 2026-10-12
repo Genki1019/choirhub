@@ -128,6 +128,7 @@ export default function TicketDetailPage() {
     <>
       {detail.concert.ticketInputClosedAt ? (
         <button
+          type="button"
           onClick={async () => {
             setClosingInput(true);
             setInputToggleError(null);
@@ -153,6 +154,7 @@ export default function TicketDetailPage() {
         </button>
       ) : (
         <button
+          type="button"
           onClick={async () => {
             setClosingInput(true);
             setInputToggleError(null);
@@ -182,6 +184,7 @@ export default function TicketDetailPage() {
       )}
       <CsvExportButton onDownload={() => ticketsApi.exportCsv(org, concertId)} />
       <button
+        type="button"
         ref={addBatchButtonRef}
         onClick={() => setShowCreateBatch(true)}
         aria-label="席種を追加"
@@ -217,6 +220,7 @@ export default function TicketDetailPage() {
         {detail.batches.map((batch, idx) => (
           <div key={batch.id} className="relative shrink-0">
             <button
+              type="button"
               onClick={() => setActiveBatchIdx(idx)}
               className={[
                 "-mb-px border-b-2 px-4 py-2.5 text-xs font-medium whitespace-nowrap transition-colors",
@@ -232,6 +236,7 @@ export default function TicketDetailPage() {
               </span>
             </button>
             <button
+              type="button"
               onClick={() => setEditingBatch(batch)}
               aria-label={`席種「${batch.name}」を編集`}
               className="hover:text-brand-500 absolute top-1 right-0 p-1 text-gray-400 transition-colors"
@@ -242,6 +247,7 @@ export default function TicketDetailPage() {
           </div>
         ))}
         <button
+          type="button"
           onClick={() => setActiveBatchIdx("outreach")}
           className={[
             "-mb-px ml-2 flex shrink-0 items-center gap-1 border-b-2 px-4 py-2.5 text-xs font-medium whitespace-nowrap transition-colors",
@@ -282,6 +288,7 @@ export default function TicketDetailPage() {
           <div className="py-12 text-center">
             <p className="mb-4 text-sm text-gray-400">席種が登録されていません</p>
             <button
+              type="button"
               onClick={() => setShowCreateBatch(true)}
               className="bg-brand-600 hover:bg-brand-700 mx-auto flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors"
             >

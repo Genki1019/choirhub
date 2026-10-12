@@ -177,7 +177,7 @@ describe("NotificationBell（開閉・一覧）", () => {
       >
         <div>
           <NotificationBell org="tokyo-men-choir" />
-          <button>外側</button>
+          <button type="button">外側</button>
         </div>
       </QueryClientProvider>,
     );

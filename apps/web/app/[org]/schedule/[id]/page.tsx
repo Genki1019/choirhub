@@ -238,6 +238,7 @@ export default function ScheduleDetailPage() {
         編集
       </Link>
       <button
+        type="button"
         onClick={() => {
           setShowDeleteConfirm(true);
           setDeleteError(null);

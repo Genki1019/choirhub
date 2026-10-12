@@ -88,6 +88,7 @@ export default function PasswordResetConfirmPage() {
             <p className="text-base font-semibold text-gray-800">パスワードを変更しました</p>
             <p className="text-sm text-gray-500">新しいパスワードでログインしてください。</p>
             <button
+              type="button"
               onClick={() => router.push("/login")}
               className="bg-brand-600 hover:bg-brand-700 w-full rounded-lg py-2.5 text-sm font-medium text-white transition"
             >

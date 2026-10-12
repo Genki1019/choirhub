@@ -219,6 +219,7 @@ export default function CollectionDetailPage() {
         <div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-2xl bg-gray-900 px-5 py-3 text-white shadow-xl">
           <span className="text-sm font-medium">{checkedIds.size}名選択中</span>
           <button
+            type="button"
             onClick={handleBulkPaid}
             disabled={bulking}
             className="flex items-center gap-1.5 rounded-lg bg-teal-500 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-teal-400 disabled:opacity-60"
@@ -227,6 +228,7 @@ export default function CollectionDetailPage() {
             一括現金支払済み
           </button>
           <button
+            type="button"
             onClick={clearChecked}
             className="p-1 text-gray-400 transition-colors hover:text-white"
             title="選択解除"

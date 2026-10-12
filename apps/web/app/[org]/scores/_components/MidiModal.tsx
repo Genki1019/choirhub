@@ -21,6 +21,7 @@ function MidiFileRow({ file, splitLabel }: { file: ScoreFile; splitLabel?: strin
           {splitLabel && <p className="text-xs text-gray-400">{splitLabel}</p>}
         </div>
         <button
+          type="button"
           onClick={() => setOpen((v) => !v)}
           title={open ? "閉じる" : "再生"}
           className="text-purple-400 transition-colors hover:text-purple-600"

@@ -109,6 +109,7 @@ export default function Sidebar({
         ].join(" ")}
       >
         <button
+          type="button"
           className="absolute top-3 right-3 rounded-md p-1 text-gray-400 hover:bg-gray-100 lg:hidden"
           onClick={onClose}
           aria-label="メニューを閉じる"
@@ -154,6 +155,7 @@ export default function Sidebar({
           {showSettings && (
             <>
               <button
+                type="button"
                 aria-expanded={settingsOpen}
                 onClick={() => setSettingsOpen((v) => !v)}
                 className={[

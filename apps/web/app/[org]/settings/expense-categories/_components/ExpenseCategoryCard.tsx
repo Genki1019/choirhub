@@ -99,6 +99,7 @@ export function ExpenseCategoryCard({
       <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
         <p className="text-sm font-semibold text-gray-700">支出カテゴリ</p>
         <button
+          type="button"
           onClick={() => {
             setShowAdd(true);
             setEditId(null);
@@ -138,6 +139,7 @@ export function ExpenseCategoryCard({
                             className="border-brand-300 focus:ring-brand-400 flex-1 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
                           />
                           <button
+                            type="button"
                             onClick={confirmEdit}
                             disabled={busy}
                             aria-label="保存"
@@ -146,6 +148,7 @@ export function ExpenseCategoryCard({
                             <Check size={15} />
                           </button>
                           <button
+                            type="button"
                             onClick={() => setEditId(null)}
                             aria-label="キャンセル"
                             className="text-gray-400 hover:text-gray-600"
@@ -165,6 +168,7 @@ export function ExpenseCategoryCard({
                         <span className="flex-1 text-sm text-gray-800">{cat.name}</span>
                         <div className="flex shrink-0 items-center gap-0.5">
                           <button
+                            type="button"
                             onClick={() => {
                               setEditId(cat.id);
                               setEditName(cat.name);
@@ -176,6 +180,7 @@ export function ExpenseCategoryCard({
                             <Pencil size={13} />
                           </button>
                           <button
+                            type="button"
                             onClick={() => {
                               setDeleteError(null);
                               setConfirmTarget(cat);
@@ -218,6 +223,7 @@ export function ExpenseCategoryCard({
             className="focus:ring-brand-400 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm placeholder-gray-300 focus:ring-1 focus:outline-none"
           />
           <button
+            type="button"
             onClick={addCategory}
             disabled={busy}
             className="bg-brand-600 hover:bg-brand-700 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-60"
@@ -225,6 +231,7 @@ export function ExpenseCategoryCard({
             {busy ? <Loader2 size={12} className="animate-spin" /> : "追加"}
           </button>
           <button
+            type="button"
             onClick={() => {
               setShowAdd(false);
               setNewName("");

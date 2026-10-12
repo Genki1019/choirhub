@@ -115,6 +115,7 @@ export default function AdminPage() {
         </div>
       ) : (
         <button
+          type="button"
           onClick={() => setShowDirectCreate(true)}
           className="hover:text-brand-600 hover:border-brand-300 mb-6 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 py-3 text-sm text-gray-500 transition-colors hover:bg-white"
         >
@@ -178,6 +179,7 @@ export default function AdminPage() {
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <button
+                  type="button"
                   onClick={() => handleApprove(a.id, slugFor(a))}
                   disabled={processing !== null || !SLUG_REGEX.test(slugFor(a))}
                   aria-label="承認"
@@ -191,6 +193,7 @@ export default function AdminPage() {
                   承認
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     setActionError(null);
                     setRejectError(null);

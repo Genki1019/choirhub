@@ -58,6 +58,7 @@ export default function NotificationsPage() {
       <div className="flex w-fit overflow-hidden rounded-lg border border-gray-200">
         {STATUS_TABS.map(({ key, label }) => (
           <button
+            type="button"
             key={key}
             onClick={() => handleStatusChange(key)}
             className={`border-r border-gray-200 px-4 py-1.5 text-xs font-medium transition-colors last:border-0 ${
@@ -87,6 +88,7 @@ export default function NotificationsPage() {
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
           {notifications.map((item) => (
             <button
+              type="button"
               key={item.id}
               onClick={() => handleClick(item)}
               className={`flex w-full items-start gap-3 border-b border-gray-100 px-6 py-4 text-left transition-colors last:border-0 hover:bg-gray-50 ${

@@ -96,6 +96,7 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
                 autoFocus
               />
               <button
+                type="button"
                 onClick={handleSaveAlloc}
                 disabled={savingAlloc}
                 aria-label="配布数を保存"
@@ -104,6 +105,7 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
                 {savingAlloc ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setAllocCount(row.allocatedCount);
                   setEditingAlloc(false);
@@ -125,6 +127,7 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
                 </span>
               )}
               <button
+                type="button"
                 onClick={() => {
                   setAllocCount(row.allocatedCount);
                   setEditingAlloc(true);
@@ -207,6 +210,7 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
         <div className="ml-auto flex shrink-0 items-center gap-1">
           {!editing && (
             <button
+              type="button"
               onClick={() => {
                 setForm({
                   soldAdult: row.soldAdult,
@@ -226,6 +230,7 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
           {editing && (
             <>
               <button
+                type="button"
                 onClick={handleSave}
                 disabled={saving}
                 className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-60"
@@ -234,6 +239,7 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
                 保存
               </button>
               <button
+                type="button"
                 onClick={handleCancel}
                 disabled={saving}
                 aria-label="編集をキャンセル"

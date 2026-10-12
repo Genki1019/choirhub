@@ -35,6 +35,7 @@ export function CollectionsTab({
         <CsvExportButton onDownload={onExportCollections} label="徴収一覧CSV" />
         <CsvExportButton onDownload={onExportPayments} label="支払い状況CSV" />
         <button
+          type="button"
           onClick={onAddClick}
           className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
         >

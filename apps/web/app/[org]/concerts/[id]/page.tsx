@@ -375,6 +375,7 @@ export default function ConcertDetailPage() {
           isAdmin ? (
             <>
               <button
+                type="button"
                 onClick={() => setShowEditModal(true)}
                 className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
               >
@@ -382,6 +383,7 @@ export default function ConcertDetailPage() {
                 編集
               </button>
               <button
+                type="button"
                 onClick={() => setShowDeleteConfirm(true)}
                 className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
               >
@@ -402,6 +404,7 @@ export default function ConcertDetailPage() {
         <PageBleedRow className="flex pt-1">
           {TABS.map((tab) => (
             <button
+              type="button"
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={[

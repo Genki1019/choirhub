@@ -125,6 +125,7 @@ export function StagesTab({
                           ) : (
                             <>
                               <button
+                                type="button"
                                 onClick={() => saveEdit(stage.id)}
                                 aria-label="保存"
                                 className="rounded p-1 text-green-600 transition-colors hover:text-green-700"
@@ -132,6 +133,7 @@ export function StagesTab({
                                 <Check size={13} />
                               </button>
                               <button
+                                type="button"
                                 onClick={cancelEdit}
                                 aria-label="キャンセル"
                                 className="rounded p-1 text-gray-400 transition-colors hover:text-gray-600"
@@ -145,6 +147,7 @@ export function StagesTab({
                       {isAdmin && editingStageId !== stage.id && (
                         <div className="flex shrink-0 items-center gap-0.5">
                           <button
+                            type="button"
                             onClick={() => startEdit(stage)}
                             className="hover:text-brand-500 rounded p-1 text-gray-400 transition-colors"
                             title="名前を編集"
@@ -205,6 +208,7 @@ export function StagesTab({
                                   {isAdmin && (
                                     <div className="flex shrink-0 items-center gap-0.5">
                                       <button
+                                        type="button"
                                         onClick={() => onEditProgramClick(stage.id, program)}
                                         className="hover:text-brand-500 rounded p-1 text-gray-300 transition-colors"
                                         title="編集"
@@ -212,6 +216,7 @@ export function StagesTab({
                                         <Pencil size={13} />
                                       </button>
                                       <button
+                                        type="button"
                                         onClick={() => onMoveCopyClick(stage.id, program)}
                                         className="hover:text-brand-500 rounded p-1 text-gray-300 transition-colors"
                                         title="移動 / コピー"
@@ -228,6 +233,7 @@ export function StagesTab({
                       </DndContext>
                       {isAdmin && (
                         <button
+                          type="button"
                           onClick={() => onAddClick(stage.id)}
                           className="hover:text-brand-500 hover:bg-brand-50 flex w-full items-center gap-2 px-5 py-3 text-xs text-gray-400 transition-colors"
                         >
@@ -250,6 +256,7 @@ export function StagesTab({
 
       {isAdmin && (
         <button
+          type="button"
           onClick={onAddStage}
           className="hover:text-brand-500 hover:border-brand-300 hover:bg-brand-50 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 py-3 text-xs text-gray-400 transition-colors"
         >

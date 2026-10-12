@@ -89,10 +89,38 @@ describe("PartCard（canEdit: true）", () => {
     const input = screen.getByDisplayValue("テノール1");
     await user.clear(input);
     await user.type(input, "テノール1改");
-    await user.click(screen.getByLabelText("保存"));
+    await user.click(screen.getByRole("button", { name: "パート名を保存" }));
 
     expect(settingsApi.updatePart).toHaveBeenCalledWith("o", "part-1", { name: "テノール1改" });
     expect(onUpdated).toHaveBeenCalledWith(updated);
+  });
+
+  it("パート名を空にして保存すると、理由を出して編集を続ける", async () => {
+    const user = userEvent.setup();
+    renderCard(true);
+
+    await user.click(screen.getByLabelText("テノール1を編集"));
+    await user.clear(screen.getByRole("textbox", { name: "パート名" }));
+    await user.keyboard("{Enter}");
+
+    expect(screen.getByRole("alert")).toHaveTextContent("パート名を入力してください");
+    expect(settingsApi.updatePart).not.toHaveBeenCalled();
+  });
+
+  it("保存に失敗したら入力欄の下に理由を出し、入力を残す（トーストは出さない）", async () => {
+    vi.mocked(settingsApi.updatePart).mockRejectedValue(
+      new ApiClientError("CONFLICT", "同じ名前のパートがあります", 409),
+    );
+    const onToast = vi.fn();
+    const user = userEvent.setup();
+    renderCard(true, { onToast });
+
+    await user.click(screen.getByLabelText("テノール1を編集"));
+    await user.type(screen.getByRole("textbox", { name: "パート名" }), "改{Enter}");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("同じ名前のパートがあります");
+    expect(screen.getByRole("textbox", { name: "パート名" })).toHaveValue("テノール1改");
+    expect(onToast).not.toHaveBeenCalled();
   });
 
   it.each(["在団メンバーが所属しているため削除できません", "デフォルトパートは削除できません"])(
@@ -119,6 +147,40 @@ describe("PartCard（canEdit: true）", () => {
       );
     },
   );
+
+  it("名前の保存中は、並び替え・削除・追加・ほかの行の編集を止める", async () => {
+    let resolve: (p: PartSummary) => void = () => {};
+    vi.mocked(settingsApi.updatePart).mockReturnValue(new Promise((r) => (resolve = r)));
+    const user = userEvent.setup();
+    renderCard(true);
+
+    await user.click(screen.getByRole("button", { name: "テノール1を編集" }));
+    await user.type(screen.getByRole("textbox", { name: "パート名" }), "A{Enter}");
+
+    expect(screen.getByLabelText("ベースをドラッグして並び替え")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "ベースを編集" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "ベースを削除" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "追加" })).toBeDisabled();
+
+    resolve({ ...makeParts()[0], name: "テノール1A" });
+    await vi.waitFor(() =>
+      expect(screen.getByLabelText("ベースをドラッグして並び替え")).toBeEnabled(),
+    );
+  });
+
+  it("名前の保存中は、開いている追加欄で Enter を押しても追加しない", async () => {
+    vi.mocked(settingsApi.updatePart).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderCard(true);
+
+    await user.click(screen.getByText("追加"));
+    await user.type(screen.getByPlaceholderText("パート名を入力"), "バリトン");
+    await user.click(screen.getByRole("button", { name: "テノール1を編集" }));
+    await user.type(screen.getByRole("textbox", { name: "パート名" }), "A{Enter}");
+
+    await user.type(screen.getByPlaceholderText("パート名を入力"), "{Enter}");
+    expect(settingsApi.createPart).not.toHaveBeenCalled();
+  });
 
   it("🗑️クリックで削除に成功するとonDeletedが呼ばれる", async () => {
     vi.mocked(settingsApi.deletePart).mockResolvedValue(undefined);
@@ -190,5 +252,25 @@ describe("PartCard（並び替え）", () => {
       expect(onToast).toHaveBeenCalledWith("並び替えに失敗しました");
     });
     expect(onReordered).toHaveBeenLastCalledWith(makeParts());
+  });
+
+  it("並び替えの保存中は、開いている名前の編集を保存できない", async () => {
+    vi.mocked(settingsApi.updatePart).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderCard(true);
+
+    await user.click(screen.getByRole("button", { name: "テノール1を編集" }));
+    await user.type(screen.getByRole("textbox", { name: "パート名" }), "A");
+    dragAndDrop(
+      screen.getByLabelText("ベースをドラッグして並び替え"),
+      screen.getByLabelText("テノール1をドラッグして並び替え"),
+    );
+    expect(settingsApi.updatePart).toHaveBeenCalledTimes(2);
+
+    expect(screen.getByRole("button", { name: "パート名を保存" })).toBeDisabled();
+    screen.getByRole("textbox", { name: "パート名" }).focus();
+    await user.keyboard("{Enter}");
+    expect(settingsApi.updatePart).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("textbox", { name: "パート名" })).toHaveValue("テノール1A");
   });
 });

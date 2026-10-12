@@ -87,12 +87,39 @@ describe("ExpenseCategoryCard（編集・削除）", () => {
     const input = screen.getByDisplayValue("会場費");
     await user.clear(input);
     await user.type(input, "会場費改");
-    await user.click(screen.getByLabelText("保存"));
+    await user.click(screen.getByRole("button", { name: "カテゴリ名を保存" }));
 
     expect(settingsApi.updateExpenseCategory).toHaveBeenCalledWith("o", "cat-1", {
       name: "会場費改",
     });
     expect(onUpdated).toHaveBeenCalledWith({ id: "cat-1", name: "会場費改", sortOrder: 1 });
+  });
+
+  it("名前の保存に失敗したら入力欄の下に理由を出し、トーストは出さない", async () => {
+    vi.mocked(settingsApi.updateExpenseCategory).mockRejectedValue(
+      new TypeError("Failed to fetch"),
+    );
+    const onToast = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ExpenseCategoryCard
+        cats={makeCats()}
+        org="o"
+        onUpdated={vi.fn()}
+        onDeleted={vi.fn()}
+        onCreated={vi.fn()}
+        onReordered={vi.fn()}
+        onToast={onToast}
+      />,
+    );
+
+    await user.click(screen.getByLabelText("会場費を編集"));
+    await user.type(screen.getByRole("textbox", { name: "カテゴリ名" }), "改{Enter}");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "カテゴリ名の保存に失敗しました。もう一度お試しください。",
+    );
+    expect(onToast).not.toHaveBeenCalled();
   });
 
   it("削除して409エラー時はAPIの理由を確認ダイアログの中に表示する", async () => {

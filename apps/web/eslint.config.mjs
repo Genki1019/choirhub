@@ -8,6 +8,11 @@ const eslintConfig = defineConfig([
   ...nextTs,
   prettier,
   {
+    rules: {
+      "react/button-has-type": ["error", { reset: false }],
+    },
+  },
+  {
     files: ["**/*.{ts,tsx}"],
     ignores: ["**/__tests__/**", "**/*.test.{ts,tsx}"],
     rules: {

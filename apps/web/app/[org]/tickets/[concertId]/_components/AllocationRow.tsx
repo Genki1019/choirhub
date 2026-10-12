@@ -1,10 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { Check, X, Pencil, Loader2 } from "lucide-react";
+import { Check, X, Loader2 } from "lucide-react";
 import { ticketsApi, type AllocationRow } from "@/lib/tickets-api";
 import { ErrorMessage } from "@/components/ErrorMessage";
-import { userErrorMessage } from "@/lib/api-client";
+import { InlineEditActions, InlineEditButton } from "@/components/InlineEdit";
+import { useInlineEdit } from "@/hooks/useInlineEdit";
+
+const isCount = (value: string) => /^\d+$/.test(value.trim());
+const COUNT_FIELDS = ["soldAdult", "soldStudent", "soldOther", "returnedCount"] as const;
+type SalesForm = Record<(typeof COUNT_FIELDS)[number], string> & { isCollected: boolean };
+
+const toSales = (form: SalesForm) => ({
+  soldAdult: Number(form.soldAdult),
+  soldStudent: Number(form.soldStudent),
+  soldOther: Number(form.soldOther),
+  returnedCount: Number(form.returnedCount),
+  isCollected: form.isCollected,
+});
 
 interface AllocationRowProps {
   row: AllocationRow;
@@ -13,67 +25,43 @@ interface AllocationRowProps {
 }
 
 export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRowProps) {
-  const [editing, setEditing] = useState(false);
-  const [editingAlloc, setEditingAlloc] = useState(false);
-  const [form, setForm] = useState({
-    soldAdult: row.soldAdult,
-    soldStudent: row.soldStudent,
-    soldOther: row.soldOther,
-    returnedCount: row.returnedCount,
-    isCollected: row.isCollected,
+  const { registerTrigger: registerAllocTrigger, ...alloc } = useInlineEdit({
+    initial: () => String(row.allocatedCount),
+    validate: (count) => (isCount(count) ? null : "配布数は0以上の整数で入力してください"),
+    isEqual: (a, b) => Number(a) === Number(b),
+    onSave: async (count) => {
+      const allocatedCount = Number(count);
+      await ticketsApi.updateAllocation(orgSlug, row.id, { allocatedCount });
+      onUpdated({ allocatedCount, requestedCount: null });
+    },
+    errorFallback: "配布枚数の保存に失敗しました。もう一度お試しください。",
   });
-  const [allocCount, setAllocCount] = useState(row.allocatedCount);
-  const [saving, setSaving] = useState(false);
-  const [savingAlloc, setSavingAlloc] = useState(false);
-  const [salesError, setSalesError] = useState<string | null>(null);
-  const [allocError, setAllocError] = useState<string | null>(null);
+  const { registerTrigger: registerSalesTrigger, ...sales } = useInlineEdit({
+    initial: (): SalesForm => ({
+      soldAdult: String(row.soldAdult),
+      soldStudent: String(row.soldStudent),
+      soldOther: String(row.soldOther),
+      returnedCount: String(row.returnedCount),
+      isCollected: row.isCollected,
+    }),
+    validate: (form) =>
+      COUNT_FIELDS.every((key) => isCount(form[key]))
+        ? null
+        : "枚数は0以上の整数で入力してください",
+    isEqual: (a, b) => JSON.stringify(toSales(a)) === JSON.stringify(toSales(b)),
+    onSave: async (form) => {
+      const sales = toSales(form);
+      await ticketsApi.updateAllocation(orgSlug, row.id, sales);
+      onUpdated(sales);
+    },
+    errorFallback: "販売状況の保存に失敗しました。もう一度お試しください。",
+  });
+  const editing = sales.editing;
+  const form = sales.value;
+  const setForm = sales.setValue;
 
   const totalSold = row.soldAdult + row.soldStudent + row.soldOther;
   const remaining = row.allocatedCount - totalSold - row.returnedCount;
-
-  const handleSave = async () => {
-    setSaving(true);
-    setSalesError(null);
-    try {
-      await ticketsApi.updateAllocation(orgSlug, row.id, form);
-      onUpdated(form);
-      setEditing(false);
-    } catch (err) {
-      setSalesError(
-        userErrorMessage(err, "販売状況の保存に失敗しました。もう一度お試しください。"),
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSaveAlloc = async () => {
-    setSavingAlloc(true);
-    setAllocError(null);
-    try {
-      await ticketsApi.updateAllocation(orgSlug, row.id, { allocatedCount: allocCount });
-      onUpdated({ allocatedCount: allocCount, requestedCount: null });
-      setEditingAlloc(false);
-    } catch (err) {
-      setAllocError(
-        userErrorMessage(err, "配布枚数の保存に失敗しました。もう一度お試しください。"),
-      );
-    } finally {
-      setSavingAlloc(false);
-    }
-  };
-
-  const handleCancel = () => {
-    setForm({
-      soldAdult: row.soldAdult,
-      soldStudent: row.soldStudent,
-      soldOther: row.soldOther,
-      returnedCount: row.returnedCount,
-      isCollected: row.isCollected,
-    });
-    setEditing(false);
-    setSalesError(null);
-  };
 
   return (
     <div className={`${editing ? "bg-brand-50" : "hover:bg-gray-50"} transition-colors`}>
@@ -84,39 +72,25 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
         </div>
 
         <div className="w-16 shrink-0">
-          {editingAlloc ? (
+          {alloc.editing ? (
             <div className="flex items-center gap-1">
               <input
-                type="number"
-                min={0}
+                type="text"
+                inputMode="numeric"
                 aria-label={`${row.nameJa}の配布数`}
-                value={allocCount}
-                onChange={(e) => setAllocCount(Number(e.target.value))}
+                value={alloc.value}
+                onChange={(e) => alloc.setValue(e.target.value)}
+                onKeyDown={alloc.handleKeyDown}
                 className="border-brand-300 focus:ring-brand-400 w-10 rounded border px-1 py-0.5 text-center text-sm focus:ring-1 focus:outline-none"
                 autoFocus
               />
-              <button
-                type="button"
-                onClick={handleSaveAlloc}
-                disabled={savingAlloc}
-                aria-label="配布数を保存"
-                className="text-brand-600 hover:text-brand-700 p-0.5 disabled:opacity-60"
-              >
-                {savingAlloc ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAllocCount(row.allocatedCount);
-                  setEditingAlloc(false);
-                  setAllocError(null);
-                }}
-                disabled={savingAlloc}
-                aria-label="配布数の編集をキャンセル"
-                className="p-0.5 text-gray-400 hover:text-gray-600"
-              >
-                <X size={11} />
-              </button>
+              <InlineEditActions
+                label={`${row.nameJa}の配布数`}
+                size="sm"
+                saving={alloc.saving}
+                onSave={alloc.save}
+                onCancel={alloc.cancel}
+              />
             </div>
           ) : (
             <div className="flex items-center gap-1">
@@ -126,17 +100,12 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
                   申請{row.requestedCount}
                 </span>
               )}
-              <button
-                type="button"
-                onClick={() => {
-                  setAllocCount(row.allocatedCount);
-                  setEditingAlloc(true);
-                }}
-                aria-label={`${row.nameJa}の配布数を編集`}
-                className="hover:text-brand-500 p-0.5 text-gray-400 transition-colors"
-              >
-                <Pencil size={10} />
-              </button>
+              <InlineEditButton
+                ref={registerAllocTrigger}
+                label={`${row.nameJa}の配布数`}
+                size="sm"
+                onClick={alloc.start}
+              />
             </div>
           )}
         </div>
@@ -144,35 +113,40 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
         {editing ? (
           <>
             <input
-              type="number"
-              min={0}
+              type="text"
+              inputMode="numeric"
               aria-label={`${row.nameJa}の大人販売数`}
+              autoFocus
+              onKeyDown={sales.handleKeyDown}
               value={form.soldAdult}
-              onChange={(e) => setForm({ ...form, soldAdult: Number(e.target.value) })}
+              onChange={(e) => setForm({ ...form, soldAdult: e.target.value })}
               className="border-brand-300 focus:ring-brand-400 w-12 rounded border px-1 py-0.5 text-center text-sm focus:ring-1 focus:outline-none"
             />
             <input
-              type="number"
-              min={0}
+              type="text"
+              inputMode="numeric"
               aria-label={`${row.nameJa}の学生販売数`}
+              onKeyDown={sales.handleKeyDown}
               value={form.soldStudent}
-              onChange={(e) => setForm({ ...form, soldStudent: Number(e.target.value) })}
+              onChange={(e) => setForm({ ...form, soldStudent: e.target.value })}
               className="border-brand-300 focus:ring-brand-400 w-12 rounded border px-1 py-0.5 text-center text-sm focus:ring-1 focus:outline-none"
             />
             <input
-              type="number"
-              min={0}
+              type="text"
+              inputMode="numeric"
               aria-label={`${row.nameJa}の他販売数`}
+              onKeyDown={sales.handleKeyDown}
               value={form.soldOther}
-              onChange={(e) => setForm({ ...form, soldOther: Number(e.target.value) })}
+              onChange={(e) => setForm({ ...form, soldOther: e.target.value })}
               className="border-brand-300 focus:ring-brand-400 w-12 rounded border px-1 py-0.5 text-center text-sm focus:ring-1 focus:outline-none"
             />
             <input
-              type="number"
-              min={0}
+              type="text"
+              inputMode="numeric"
               aria-label={`${row.nameJa}の返却数`}
+              onKeyDown={sales.handleKeyDown}
               value={form.returnedCount}
-              onChange={(e) => setForm({ ...form, returnedCount: Number(e.target.value) })}
+              onChange={(e) => setForm({ ...form, returnedCount: e.target.value })}
               className="border-brand-300 focus:ring-brand-400 w-12 rounded border px-1 py-0.5 text-center text-sm focus:ring-1 focus:outline-none"
             />
           </>
@@ -208,51 +182,43 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-1">
-          {!editing && (
-            <button
-              type="button"
-              onClick={() => {
-                setForm({
-                  soldAdult: row.soldAdult,
-                  soldStudent: row.soldStudent,
-                  soldOther: row.soldOther,
-                  returnedCount: row.returnedCount,
-                  isCollected: row.isCollected,
-                });
-                setEditing(true);
-              }}
-              aria-label={`${row.nameJa}の販売状況を編集`}
-              className="hover:text-brand-500 hover:bg-brand-50 rounded-lg p-1.5 text-gray-400 transition-colors"
-            >
-              <Pencil size={13} />
-            </button>
-          )}
-          {editing && (
+          {editing ? (
             <>
               <button
                 type="button"
-                onClick={handleSave}
-                disabled={saving}
+                onClick={sales.save}
+                disabled={sales.saving}
+                aria-label={`${row.nameJa}の販売状況を保存`}
                 className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-60"
               >
-                {saving ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+                {sales.saving ? (
+                  <Loader2 size={11} className="animate-spin" />
+                ) : (
+                  <Check size={11} />
+                )}
                 保存
               </button>
               <button
                 type="button"
-                onClick={handleCancel}
-                disabled={saving}
-                aria-label="編集をキャンセル"
-                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                onClick={sales.cancel}
+                disabled={sales.saving}
+                aria-label={`${row.nameJa}の販売状況の編集をキャンセル`}
+                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-40"
               >
                 <X size={13} />
               </button>
             </>
+          ) : (
+            <InlineEditButton
+              ref={registerSalesTrigger}
+              label={`${row.nameJa}の販売状況`}
+              onClick={sales.start}
+            />
           )}
         </div>
       </div>
-      <ErrorMessage className="mx-4 mb-3">{allocError}</ErrorMessage>
-      <ErrorMessage className="mx-4 mb-3">{salesError}</ErrorMessage>
+      <ErrorMessage className="mx-4 mb-3">{alloc.error}</ErrorMessage>
+      <ErrorMessage className="mx-4 mb-3">{sales.error}</ErrorMessage>
     </div>
   );
 }

@@ -428,7 +428,8 @@ describe("TicketDetailPage（席種の削除・団員の追加のあと）", () 
     await waitFor(() => expect(ticketsApi.get).toHaveBeenCalledTimes(2));
 
     await user.click(screen.getByLabelText(/の販売状況を編集$/));
-    await user.click(screen.getByRole("button", { name: "保存" }));
+    await user.type(screen.getByLabelText(/の返却数$/), "1");
+    await user.click(screen.getByRole("button", { name: /の販売状況を保存$/ }));
 
     await waitFor(() => expect(ticketsApi.get).toHaveBeenCalledTimes(3));
     resolveSecond(detail);

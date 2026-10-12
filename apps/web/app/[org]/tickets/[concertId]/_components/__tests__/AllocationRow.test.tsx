@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AllocationRowComponent } from "../AllocationRow";
 import { ticketsApi, type AllocationRow } from "@/lib/tickets-api";
@@ -86,7 +86,7 @@ describe("AllocationRowComponent（配布数の単独編集）", () => {
     const input = screen.getByLabelText("山田太郎の配布数");
     await user.clear(input);
     await user.type(input, "12");
-    await user.click(screen.getByLabelText("配布数を保存"));
+    await user.click(screen.getByLabelText(/の配布数を保存$/));
 
     expect(ticketsApi.updateAllocation).toHaveBeenCalledWith("o", "alloc-1", {
       allocatedCount: 12,
@@ -99,7 +99,7 @@ describe("AllocationRowComponent（配布数の単独編集）", () => {
     renderRow();
 
     await user.click(screen.getByLabelText("山田太郎の配布数を編集"));
-    await user.click(screen.getByLabelText("配布数の編集をキャンセル"));
+    await user.click(screen.getByLabelText(/の配布数の編集をキャンセル$/));
 
     expect(screen.queryByLabelText("山田太郎の配布数")).not.toBeInTheDocument();
     expect(screen.getByText("10")).toBeInTheDocument();
@@ -114,10 +114,12 @@ describe("AllocationRowComponent（販売状況の編集）", () => {
     renderRow({ onUpdated });
 
     await user.click(screen.getByLabelText("山田太郎の販売状況を編集"));
-    await user.click(screen.getByText("保存"));
+    await user.clear(screen.getByLabelText("山田太郎の大人販売数"));
+    await user.type(screen.getByLabelText("山田太郎の大人販売数"), "7");
+    await user.click(screen.getByRole("button", { name: "山田太郎の販売状況を保存" }));
 
     expect(ticketsApi.updateAllocation).toHaveBeenCalledWith("o", "alloc-1", {
-      soldAdult: 6,
+      soldAdult: 7,
       soldStudent: 1,
       soldOther: 0,
       returnedCount: 3,
@@ -134,7 +136,7 @@ describe("AllocationRowComponent（販売状況の編集）", () => {
     const adultInput = screen.getByLabelText("山田太郎の大人販売数");
     await user.clear(adultInput);
     await user.type(adultInput, "99");
-    await user.click(screen.getByLabelText("編集をキャンセル"));
+    await user.click(screen.getByLabelText(/の販売状況の編集をキャンセル$/));
 
     expect(screen.queryByText("保存")).not.toBeInTheDocument();
     expect(screen.getByText("6")).toBeInTheDocument();
@@ -166,6 +168,8 @@ describe("AllocationRowComponent（保存の失敗）", () => {
     renderRow({ onUpdated });
 
     await user.click(screen.getByLabelText("山田太郎の販売状況を編集"));
+    await user.clear(screen.getByLabelText("山田太郎の大人販売数"));
+    await user.type(screen.getByLabelText("山田太郎の大人販売数"), "7");
     await user.click(screen.getByText("保存"));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -183,12 +187,111 @@ describe("AllocationRowComponent（保存の失敗）", () => {
     renderRow();
 
     await user.click(screen.getByLabelText("山田太郎の配布数を編集"));
-    await user.click(screen.getByLabelText("配布数を保存"));
+    await user.type(screen.getByLabelText("山田太郎の配布数"), "1");
+    await user.click(screen.getByLabelText(/の配布数を保存$/));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "配布枚数の変更はチケット担当者のみ可能です",
     );
     expect(screen.getByLabelText("山田太郎の配布数")).toBeInTheDocument();
+  });
+});
+
+describe("AllocationRowComponent（共通の編集の標準）", () => {
+  it("値を変えずに保存すると、API を呼ばずに閉じる", async () => {
+    const user = userEvent.setup();
+    renderRow();
+
+    await user.click(screen.getByLabelText("山田太郎の配布数を編集"));
+    await user.keyboard("{Enter}");
+    await user.click(screen.getByLabelText("山田太郎の販売状況を編集"));
+    await user.keyboard("{Enter}");
+
+    expect(ticketsApi.updateAllocation).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("山田太郎の配布数")).not.toBeInTheDocument();
+    expect(screen.queryByText("保存")).not.toBeInTheDocument();
+  });
+
+  it("販売状況の入力欄で Enter を押すと保存し、Esc で取り消して鉛筆にフォーカスを戻す", async () => {
+    vi.mocked(ticketsApi.updateAllocation).mockResolvedValue(makeRow());
+    const user = userEvent.setup();
+    renderRow();
+
+    await user.click(screen.getByLabelText("山田太郎の販売状況を編集"));
+    await user.type(screen.getByLabelText("山田太郎の返却数"), "{Escape}");
+    expect(screen.getByLabelText("山田太郎の販売状況を編集")).toHaveFocus();
+
+    await user.click(screen.getByLabelText("山田太郎の販売状況を編集"));
+    await user.clear(screen.getByLabelText("山田太郎の返却数"));
+    await user.type(screen.getByLabelText("山田太郎の返却数"), "4{Enter}");
+    expect(ticketsApi.updateAllocation).toHaveBeenCalledWith(
+      "o",
+      "alloc-1",
+      expect.objectContaining({ returnedCount: 4 }),
+    );
+  });
+
+  it("配布数にマイナスを入れると理由を出して保存しない", async () => {
+    const user = userEvent.setup();
+    renderRow();
+
+    await user.click(screen.getByLabelText("山田太郎の配布数を編集"));
+    fireEvent.change(screen.getByLabelText("山田太郎の配布数"), { target: { value: "-1" } });
+    await user.keyboard("{Enter}");
+
+    expect(screen.getByRole("alert")).toHaveTextContent("配布数は0以上の整数で入力してください");
+    expect(ticketsApi.updateAllocation).not.toHaveBeenCalled();
+  });
+
+  it.each(["-", "", "1e3", "3枚"])(
+    "配布数「%s」は保存せず理由を出し、入力を残す",
+    async (input) => {
+      const user = userEvent.setup();
+      renderRow();
+
+      await user.click(screen.getByLabelText("山田太郎の配布数を編集"));
+      await user.clear(screen.getByLabelText("山田太郎の配布数"));
+      await user.type(screen.getByLabelText("山田太郎の配布数"), `${input}{Enter}`);
+
+      expect(screen.getByRole("alert")).toHaveTextContent("配布数は0以上の整数で入力してください");
+      expect(screen.getByLabelText("山田太郎の配布数")).toHaveValue(input);
+      expect(ticketsApi.updateAllocation).not.toHaveBeenCalled();
+    },
+  );
+
+  it("販売数に整数以外を入れると理由を出して保存しない", async () => {
+    const user = userEvent.setup();
+    renderRow();
+
+    await user.click(screen.getByLabelText("山田太郎の販売状況を編集"));
+    await user.clear(screen.getByLabelText("山田太郎の学生販売数"));
+    await user.type(screen.getByLabelText("山田太郎の学生販売数"), "-{Enter}");
+
+    expect(screen.getByRole("alert")).toHaveTextContent("枚数は0以上の整数で入力してください");
+    expect(ticketsApi.updateAllocation).not.toHaveBeenCalled();
+  });
+
+  it("配布数を 010 のように同じ数で書き直しただけなら、保存せずに閉じる", async () => {
+    const user = userEvent.setup();
+    renderRow();
+
+    await user.click(screen.getByLabelText("山田太郎の配布数を編集"));
+    await user.clear(screen.getByLabelText("山田太郎の配布数"));
+    await user.type(screen.getByLabelText("山田太郎の配布数"), "010{Enter}");
+
+    expect(ticketsApi.updateAllocation).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("山田太郎の配布数")).not.toBeInTheDocument();
+  });
+
+  it("数の入力欄は、スマホで数字のキーボードを出す", async () => {
+    const user = userEvent.setup();
+    renderRow();
+
+    await user.click(screen.getByLabelText("山田太郎の販売状況を編集"));
+
+    for (const label of ["大人販売数", "学生販売数", "他販売数", "返却数"]) {
+      expect(screen.getByLabelText(`山田太郎の${label}`)).toHaveAttribute("inputmode", "numeric");
+    }
   });
 });
 
@@ -199,9 +302,10 @@ describe("AllocationRowComponent（エラーの後始末）", () => {
     renderRow();
 
     await user.click(screen.getByLabelText("山田太郎の配布数を編集"));
-    await user.click(screen.getByLabelText("配布数を保存"));
+    await user.type(screen.getByLabelText("山田太郎の配布数"), "1");
+    await user.click(screen.getByLabelText(/の配布数を保存$/));
     await screen.findByRole("alert");
-    await user.click(screen.getByLabelText("配布数の編集をキャンセル"));
+    await user.click(screen.getByLabelText(/の配布数の編集をキャンセル$/));
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
@@ -212,9 +316,11 @@ describe("AllocationRowComponent（エラーの後始末）", () => {
     renderRow();
 
     await user.click(screen.getByLabelText("山田太郎の販売状況を編集"));
+    await user.clear(screen.getByLabelText("山田太郎の大人販売数"));
+    await user.type(screen.getByLabelText("山田太郎の大人販売数"), "7");
     await user.click(screen.getByText("保存"));
 
-    expect(screen.getByLabelText("編集をキャンセル")).toBeDisabled();
+    expect(screen.getByLabelText(/の販売状況の編集をキャンセル$/)).toBeDisabled();
   });
 
   it("販売状況のエラーは、配布数の編集を取り消しても消えない", async () => {
@@ -223,10 +329,12 @@ describe("AllocationRowComponent（エラーの後始末）", () => {
     renderRow();
 
     await user.click(screen.getByLabelText("山田太郎の販売状況を編集"));
+    await user.clear(screen.getByLabelText("山田太郎の大人販売数"));
+    await user.type(screen.getByLabelText("山田太郎の大人販売数"), "7");
     await user.click(screen.getByText("保存"));
     await screen.findByRole("alert");
     await user.click(screen.getByLabelText("山田太郎の配布数を編集"));
-    await user.click(screen.getByLabelText("配布数の編集をキャンセル"));
+    await user.click(screen.getByLabelText(/の配布数の編集をキャンセル$/));
 
     expect(screen.getByRole("alert")).toHaveTextContent("販売状況の保存に失敗しました。");
   });
@@ -242,6 +350,7 @@ describe("AllocationRowComponent（編集の開始）", () => {
       <AllocationRowComponent row={makeRow({ soldAdult: 9 })} orgSlug="o" onUpdated={vi.fn()} />,
     );
     await user.click(screen.getByLabelText("山田太郎の販売状況を編集"));
+    await user.type(screen.getByLabelText("山田太郎の返却数"), "0");
     await user.click(screen.getByText("保存"));
 
     expect(ticketsApi.updateAllocation).toHaveBeenCalledWith(

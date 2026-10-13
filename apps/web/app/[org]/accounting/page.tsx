@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ChevronRight, ChevronLeft, AlertCircle } from "lucide-react";
+import { ChevronRight, ChevronLeft } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { accountingApi } from "@/lib/accounting-api";
 import type { ExpenseItem } from "@/lib/accounting-api";
@@ -15,6 +15,7 @@ import { CollectionsTab } from "./_components/CollectionsTab";
 import { ExpensesTab } from "./_components/ExpensesTab";
 import { PageWithHeader } from "@/components/PageWithHeader";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ErrorMessage } from "@/components/ErrorMessage";
 import { jstParts } from "@/lib/date";
 
 function yen(n: number) {
@@ -160,10 +161,12 @@ export default function AccountingPage() {
         }
       >
         {summaryError && (
-          <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-            <AlertCircle size={16} />
-            <span className="text-sm">{summaryError.message}</span>
-          </div>
+          <ErrorMessage variant="section" autoScroll={false}>
+            {userErrorMessage(
+              summaryError,
+              "収支の読み込みに失敗しました。ページを再読み込みしてください。",
+            )}
+          </ErrorMessage>
         )}
 
         {!summaryError && summary && (
@@ -223,10 +226,12 @@ export default function AccountingPage() {
 
             {tab === "collections" &&
               (collectionsError ? (
-                <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-                  <AlertCircle size={16} />
-                  <span className="text-sm">{collectionsError.message}</span>
-                </div>
+                <ErrorMessage variant="section" autoScroll={false}>
+                  {userErrorMessage(
+                    collectionsError,
+                    "徴収一覧の読み込みに失敗しました。ページを再読み込みしてください。",
+                  )}
+                </ErrorMessage>
               ) : (
                 <CollectionsTab
                   collections={collections}
@@ -239,10 +244,12 @@ export default function AccountingPage() {
 
             {tab === "expenses" &&
               (expensesError ? (
-                <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-                  <AlertCircle size={16} />
-                  <span className="text-sm">{expensesError.message}</span>
-                </div>
+                <ErrorMessage variant="section" autoScroll={false}>
+                  {userErrorMessage(
+                    expensesError,
+                    "支出一覧の読み込みに失敗しました。ページを再読み込みしてください。",
+                  )}
+                </ErrorMessage>
               ) : (
                 <ExpensesTab
                   expenses={expenses}

@@ -12,7 +12,7 @@ type Mode = "flat" | "per_type";
 
 interface CollectionModalProps {
   org: string;
-  memberTypes: MemberType[];
+  memberTypes: MemberType[] | undefined;
   initialTitle?: string;
   initialAmount?: number;
   scoreId?: string;
@@ -22,7 +22,7 @@ interface CollectionModalProps {
 
 export function CollectionModal({
   org,
-  memberTypes,
+  memberTypes: loadedMemberTypes,
   initialTitle,
   initialAmount,
   scoreId,
@@ -34,9 +34,15 @@ export function CollectionModal({
   const [note, setNote] = useState("");
   const [mode, setMode] = useState<Mode>("flat");
   const [baseAmount, setBaseAmount] = useState(initialAmount != null ? String(initialAmount) : "");
-  const [typeAmounts, setTypeAmounts] = useState<Record<string, string>>(() =>
-    Object.fromEntries(memberTypes.map((t) => [t.id, t.defaultFeeAmount?.toString() ?? ""])),
-  );
+  const memberTypes = loadedMemberTypes ?? [];
+  const perTypeUnavailableReason =
+    loadedMemberTypes === undefined
+      ? "メンバー区分を読み込めていないため、区分ごとには指定できません"
+      : loadedMemberTypes.length === 0
+        ? "メンバー区分が登録されていないため、区分ごとには指定できません"
+        : null;
+  const [typeAmounts, setTypeAmounts] = useState<Record<string, string>>({});
+  const typeAmountOf = (t: MemberType) => typeAmounts[t.id] ?? t.defaultFeeAmount?.toString() ?? "";
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,7 +64,7 @@ export function CollectionModal({
     if (mode === "per_type" && memberTypes.length > 0) {
       memberTypeAmounts = {};
       for (const t of memberTypes) {
-        const val = parseInt(typeAmounts[t.id] ?? "", 10);
+        const val = parseInt(typeAmountOf(t), 10);
         if (isNaN(val) || val <= 0) {
           setError(`「${t.name}」の金額を正の整数で入力してください`);
           return;
@@ -139,20 +145,33 @@ export function CollectionModal({
               ["flat", "全員共通"],
               ["per_type", "区分ごとに指定"],
             ] as [Mode, string][]
-          ).map(([m, label]) => (
-            <label key={m} className="flex cursor-pointer items-center gap-1.5">
-              <input
-                type="radio"
-                name="mode"
-                value={m}
-                checked={mode === m}
-                onChange={() => setMode(m)}
-                className="text-brand-600 h-3.5 w-3.5 cursor-pointer"
-              />
-              <span className="text-sm text-gray-700">{label}</span>
-            </label>
-          ))}
+          ).map(([m, label]) => {
+            const unavailable = m === "per_type" && perTypeUnavailableReason !== null;
+            return (
+              <label
+                key={m}
+                className={`flex items-center gap-1.5 ${unavailable ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+              >
+                <input
+                  type="radio"
+                  name="mode"
+                  value={m}
+                  checked={mode === m}
+                  disabled={unavailable}
+                  aria-describedby={unavailable ? "collection-per-type-note" : undefined}
+                  onChange={() => setMode(m)}
+                  className="text-brand-600 h-3.5 w-3.5 cursor-pointer disabled:cursor-not-allowed"
+                />
+                <span className="text-sm text-gray-700">{label}</span>
+              </label>
+            );
+          })}
         </div>
+        {perTypeUnavailableReason && (
+          <p id="collection-per-type-note" className="-mt-2 mb-3 text-xs text-gray-400">
+            {perTypeUnavailableReason}
+          </p>
+        )}
 
         {mode === "flat" ? (
           <div className="flex items-center gap-2">
@@ -175,7 +194,7 @@ export function CollectionModal({
                 <span className="w-28 shrink-0 truncate text-sm text-gray-700">{t.name}</span>
                 <input
                   type="number"
-                  value={typeAmounts[t.id] ?? ""}
+                  value={typeAmountOf(t)}
                   onChange={(e) => setTypeAmounts((prev) => ({ ...prev, [t.id]: e.target.value }))}
                   required
                   min={1}

@@ -64,12 +64,17 @@ export function RecordModal({
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const parsedAmount = Number(amount.trim());
+    if (status === "paid" && !(/^\d+$/.test(amount.trim()) && parsedAmount > 0)) {
+      setError("金額を正の整数で入力してください");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
       const updated = await accountingApi.recordPayment(org, collectionId, payment.member.id, {
         status,
-        amount: status === "paid" ? parseInt(amount, 10) || defaultAmount : null,
+        amount: status === "paid" ? parsedAmount : null,
         paidAt: status === "paid" ? paidAt || null : null,
         method: status === "paid" ? ((method || null) as PaymentMethod | null) : null,
         note: note.trim() || null,

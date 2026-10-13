@@ -234,3 +234,57 @@ describe("CollectionModal（共通モーダル）", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("会計以上の権限が必要です");
   });
 });
+
+describe("CollectionModal（区分の読み込みが後から終わる）", () => {
+  it("開いた後に区分が届いても、区分ごとの金額に既定の会費が入る", async () => {
+    const user = userEvent.setup();
+    const props = { org: "o", onClose: vi.fn(), onSaved: vi.fn() };
+    const { rerender } = render(<CollectionModal {...props} memberTypes={[]} />);
+    rerender(<CollectionModal {...props} memberTypes={makeMemberTypes()} />);
+
+    await user.click(screen.getByLabelText("区分ごとに指定"));
+
+    expect(screen.getByLabelText("社会人の金額")).toHaveValue(3000);
+    expect(screen.getByLabelText("学生の金額")).toHaveValue(1500);
+  });
+});
+
+describe("CollectionModal（メンバー区分がないとき）", () => {
+  it("区分がないあいだは「区分ごとに指定」を選べず、理由が読み上げられる", () => {
+    render(<CollectionModal org="o" memberTypes={[]} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    const perType = screen.getByLabelText("区分ごとに指定");
+    expect(perType).toBeDisabled();
+    expect(perType).toHaveAccessibleDescription(
+      "メンバー区分が登録されていないため、区分ごとには指定できません",
+    );
+  });
+
+  it("区分があれば選べ、理由は出さない", () => {
+    render(
+      <CollectionModal
+        org="o"
+        memberTypes={makeMemberTypes()}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("区分ごとに指定")).toBeEnabled();
+    expect(
+      screen.queryByText("メンバー区分が登録されていないため、区分ごとには指定できません"),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("CollectionModal（メンバー区分を読み込めていないとき）", () => {
+  it("読み込み中・取得失敗のあいだは「区分ごとに指定」を選べず、その理由を出す", () => {
+    render(<CollectionModal org="o" memberTypes={undefined} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    const perType = screen.getByLabelText("区分ごとに指定");
+    expect(perType).toBeDisabled();
+    expect(perType).toHaveAccessibleDescription(
+      "メンバー区分を読み込めていないため、区分ごとには指定できません",
+    );
+  });
+});

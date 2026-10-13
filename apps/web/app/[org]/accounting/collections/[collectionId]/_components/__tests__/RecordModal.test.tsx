@@ -297,3 +297,25 @@ describe("RecordModal（共通モーダル）", () => {
     expect(screen.getByRole("button", { name: "キャンセル" })).toBeDisabled();
   });
 });
+
+describe("RecordModal（金額の検査）", () => {
+  it("支払済で金額を空にすると、既定額で保存せずに理由を出す", async () => {
+    const user = userEvent.setup();
+    render(
+      <RecordModal
+        payment={makePayment({ status: "paid", amount: 500 })}
+        defaultAmount={300}
+        org="o"
+        collectionId="col-1"
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    await user.clear(screen.getByLabelText("金額（円）"));
+    await user.click(screen.getByRole("button", { name: "保存する" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("金額を正の整数で入力してください");
+    expect(accountingApi.recordPayment).not.toHaveBeenCalled();
+  });
+});

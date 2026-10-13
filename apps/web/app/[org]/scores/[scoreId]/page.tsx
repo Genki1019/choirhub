@@ -68,7 +68,7 @@ export default function ScoreDetailPage() {
     enabled: showFileManage,
   });
 
-  const { data: memberTypes = [] } = useQuery({
+  const { data: memberTypes } = useQuery({
     queryKey: memberKeys.types(org),
     queryFn: () => settingsApi.listMemberTypes(org),
     enabled: showCollection,

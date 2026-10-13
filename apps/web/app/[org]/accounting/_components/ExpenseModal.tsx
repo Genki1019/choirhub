@@ -22,7 +22,8 @@ interface ExpenseModalProps {
 }
 
 export function ExpenseModal({ org, categories, editing, onClose, onSaved }: ExpenseModalProps) {
-  const [categoryId, setCategoryId] = useState(editing?.category.id ?? categories[0]?.id ?? "");
+  const [pickedCategoryId, setCategoryId] = useState(editing?.category.id ?? "");
+  const categoryId = pickedCategoryId || categories[0]?.id || "";
   const [title, setTitle] = useState(editing?.title ?? "");
   const [amount, setAmount] = useState(editing ? String(editing.amount) : "");
   const [method, setMethod] = useState<PaymentMethod | "">(editing?.paymentMethod ?? "");

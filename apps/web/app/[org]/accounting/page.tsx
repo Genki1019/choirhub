@@ -91,7 +91,7 @@ export default function AccountingPage() {
     queryFn: () => settingsApi.listExpenseCategories(org),
     enabled: expenseModal.open,
   });
-  const { data: memberTypes = [] } = useQuery({
+  const { data: memberTypes } = useQuery({
     queryKey: memberKeys.types(org),
     queryFn: () => settingsApi.listMemberTypes(org),
     enabled: collectionModal,

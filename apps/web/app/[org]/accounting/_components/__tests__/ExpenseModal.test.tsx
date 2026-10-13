@@ -254,3 +254,23 @@ describe("ExpenseModal（共通モーダル）", () => {
     expect(screen.getByLabelText("件名")).toHaveValue("テスト");
   });
 });
+
+describe("ExpenseModal（カテゴリの読み込みが後から終わる）", () => {
+  it("開いた後にカテゴリが届いても、表示中の先頭のカテゴリで保存できる", async () => {
+    vi.mocked(accountingApi.createExpense).mockResolvedValue(makeExpense());
+    const user = userEvent.setup();
+    const props = { org: "o", editing: null, onClose: vi.fn(), onSaved: vi.fn() };
+    const { rerender } = render(<ExpenseModal {...props} categories={[]} />);
+    rerender(<ExpenseModal {...props} categories={makeCategories()} />);
+
+    expect(screen.getByLabelText("カテゴリ")).toHaveValue("cat-1");
+    await user.type(screen.getByLabelText("件名"), "練習室");
+    await user.type(screen.getByLabelText("金額（円）"), "800{Enter}");
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(accountingApi.createExpense).toHaveBeenCalledWith(
+      "o",
+      expect.objectContaining({ categoryId: "cat-1" }),
+    );
+  });
+});

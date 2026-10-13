@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { MapPin, Clock, Lock, Pencil, Trash2, Loader2 } from "lucide-react";
+import { MapPin, Clock, Lock, Pencil, Trash2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { eventsApi } from "@/lib/events-api";
 import { membersApi } from "@/lib/members-api";
@@ -14,6 +14,7 @@ import { eventKeys, memberKeys } from "@/lib/query-keys";
 import { AttendanceTable, type LocalAttendance } from "./_components/AttendanceTable";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { userErrorMessage } from "@/lib/api-client";
+import { PageWithHeader } from "@/components/PageWithHeader";
 import { ScheduleNotesDisplay } from "../../_components/ScheduleNotesSection";
 import { PageMain } from "@/components/PageMain";
 import { PageHeader } from "@/components/PageHeader";
@@ -170,10 +171,9 @@ export default function ScheduleDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center gap-2 text-gray-400">
-        <Loader2 size={18} className="animate-spin" />
-        <span className="text-sm">読み込み中...</span>
-      </div>
+      <PageWithHeader title="イベント詳細" backHref={`/${org}/schedule`} loading>
+        {null}
+      </PageWithHeader>
     );
   }
 
@@ -182,7 +182,14 @@ export default function ScheduleDetailPage() {
       <PageErrorState
         title="イベント詳細"
         backHref={`/${org}/schedule`}
-        message={eventError?.message ?? "イベントが見つかりません"}
+        message={
+          eventError
+            ? userErrorMessage(
+                eventError,
+                "予定の読み込みに失敗しました。ページを再読み込みしてください。",
+              )
+            : "イベントが見つかりません"
+        }
       />
     );
   }

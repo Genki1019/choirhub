@@ -88,8 +88,10 @@ describe("ScheduleDetailPage（表示状態）", () => {
     vi.mocked(eventsApi.get).mockRejectedValue(new Error("取得に失敗しました"));
     renderPage();
 
-    expect(await screen.findByText("イベント詳細")).toBeInTheDocument();
-    expect(screen.getByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "予定の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+    expect(screen.getByRole("heading", { name: "イベント詳細" })).toBeInTheDocument();
   });
 
   it("タイトル・日時・場所を表示する", async () => {

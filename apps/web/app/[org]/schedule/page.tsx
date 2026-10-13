@@ -3,16 +3,17 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Plus, Loader2, AlertCircle, CalendarPlus } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { Plus, CalendarPlus } from "lucide-react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { eventsApi } from "@/lib/events-api";
 import { jstParts, monthEnd, monthStart } from "@/lib/date";
 import { eventKeys } from "@/lib/query-keys";
 import { Calendar } from "./_components/Calendar";
 import { EventList } from "./_components/EventList";
 import { CalendarFeedModal } from "./_components/CalendarFeedModal";
-import { PageMain } from "@/components/PageMain";
-import { PageHeader } from "@/components/PageHeader";
+import { PageWithHeader } from "@/components/PageWithHeader";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 import { useMember } from "@/contexts/MemberContext";
 import { canManageSchedule } from "@/lib/roles";
 
@@ -29,13 +30,16 @@ export default function SchedulePage() {
   const to = monthEnd(year, month);
 
   const {
-    data: events = [],
+    data,
     isLoading: loading,
+    isPlaceholderData,
     error: eventsError,
   } = useQuery({
     queryKey: eventKeys.list(org, year, month),
     queryFn: () => eventsApi.list(org, { from, to }),
+    placeholderData: keepPreviousData,
   });
+  const events = isPlaceholderData ? [] : (data ?? []);
 
   const canCreateEvent = canManageSchedule(roles);
 
@@ -53,11 +57,11 @@ export default function SchedulePage() {
   };
 
   return (
-    // h-full前提のカレンダーレイアウトでローディング/エラーをPageMain外に配置するため、
-    // PageMainまで内包するPageWithHeaderではなくPageHeader単体を使う
-    <div className="flex h-full flex-col">
-      <PageHeader
+    <>
+      <PageWithHeader
         title="スケジュール"
+        loading={loading}
+        mainClassName="flex flex-col gap-6"
         actions={
           <div className="flex items-center gap-2">
             <button
@@ -78,40 +82,33 @@ export default function SchedulePage() {
             )}
           </div>
         }
-      />
+      >
+        <Calendar
+          year={year}
+          month={month}
+          today={today}
+          events={events}
+          org={org}
+          onPrevMonth={prevMonth}
+          onNextMonth={nextMonth}
+        />
+        {eventsError ? (
+          <ErrorMessage variant="section" autoScroll={false}>
+            {userErrorMessage(
+              eventsError,
+              "予定の読み込みに失敗しました。ページを再読み込みしてください。",
+            )}
+          </ErrorMessage>
+        ) : isPlaceholderData ? (
+          <p className="py-6 text-center text-sm text-gray-400">読み込み中...</p>
+        ) : (
+          <EventList events={events} year={year} month={month} org={org} />
+        )}
+      </PageWithHeader>
 
       {showCalendarFeedModal && (
         <CalendarFeedModal orgSlug={org} onClose={() => setShowCalendarFeedModal(false)} />
       )}
-
-      {loading && (
-        <div className="flex flex-1 items-center justify-center gap-2 text-gray-400">
-          <Loader2 size={18} className="animate-spin" />
-          <span className="text-sm">読み込み中...</span>
-        </div>
-      )}
-
-      {!loading && eventsError && (
-        <div className="m-8 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-          <AlertCircle size={16} />
-          <span className="text-sm">{eventsError.message}</span>
-        </div>
-      )}
-
-      {!loading && !eventsError && (
-        <PageMain className="flex flex-col gap-6">
-          <Calendar
-            year={year}
-            month={month}
-            today={today}
-            events={events}
-            org={org}
-            onPrevMonth={prevMonth}
-            onNextMonth={nextMonth}
-          />
-          <EventList events={events} year={year} month={month} org={org} />
-        </PageMain>
-      )}
-    </div>
+    </>
   );
 }

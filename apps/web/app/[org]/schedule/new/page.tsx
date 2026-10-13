@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Calendar, MapPin, AlertCircle, Loader2 } from "lucide-react";
+import { Calendar, MapPin, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { eventsApi } from "@/lib/events-api";
 import { membersApi } from "@/lib/members-api";
@@ -23,6 +23,9 @@ import {
 } from "../../_components/ScheduleNotesSection";
 import { PageMain } from "@/components/PageMain";
 import { PageHeader } from "@/components/PageHeader";
+import { PageWithHeader } from "@/components/PageWithHeader";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 import { PageErrorState } from "@/components/PageErrorState";
 
 function ToggleChip({
@@ -101,20 +104,26 @@ export default function NewSchedulePage() {
   const categoryId = selectedCategoryId ?? categories[0]?.id ?? "";
 
   const loading = canCreate && (partsLoading || categoriesLoading);
-  const initError = partsError?.message ?? categoriesError?.message ?? null;
+  const initError = partsError ?? categoriesError ?? null;
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center gap-2 text-gray-400">
-        <Loader2 size={18} className="animate-spin" />
-        <span className="text-sm">読み込み中...</span>
-      </div>
+      <PageWithHeader title="イベントを追加" backHref={`/${org}/schedule`} loading>
+        {null}
+      </PageWithHeader>
     );
   }
 
   if (initError) {
     return (
-      <PageErrorState title="イベントを追加" backHref={`/${org}/schedule`} message={initError} />
+      <PageErrorState
+        title="イベントを追加"
+        backHref={`/${org}/schedule`}
+        message={userErrorMessage(
+          initError,
+          "予定の入力に必要な情報の読み込みに失敗しました。ページを再読み込みしてください。",
+        )}
+      />
     );
   }
 
@@ -171,7 +180,7 @@ export default function NewSchedulePage() {
       });
       router.push(`/${org}/schedule`);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "作成に失敗しました。");
+      setError(userErrorMessage(err, "予定の作成に失敗しました。もう一度お試しください。"));
       setSaving(false);
     }
   };
@@ -182,12 +191,7 @@ export default function NewSchedulePage() {
 
       <PageMain>
         <form onSubmit={handleSubmit} className="mx-auto max-w-xl space-y-4">
-          {error && (
-            <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-              <AlertCircle size={14} className="shrink-0" />
-              {error}
-            </div>
-          )}
+          <ErrorMessage>{error}</ErrorMessage>
 
           {/* タイトル + 種別 */}
           <div className="space-y-4 rounded-xl border border-gray-200 bg-white px-5 py-4">
@@ -198,6 +202,7 @@ export default function NewSchedulePage() {
                 setTitle(e.target.value);
                 setError("");
               }}
+              aria-label="タイトル"
               placeholder="タイトルを追加 *"
               className="focus:border-brand-400 w-full border-b border-gray-200 pb-2 text-base font-medium text-gray-800 placeholder-gray-300 transition-colors focus:outline-none"
               autoFocus

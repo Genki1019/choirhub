@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import SchedulePage from "../page";
@@ -48,7 +48,9 @@ describe("SchedulePage（表示状態）", () => {
     vi.mocked(eventsApi.list).mockRejectedValue(new Error("取得に失敗しました"));
     renderPage();
 
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "予定の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
   });
 
   it("取得成功時はカレンダーの見出し年月を表示する", async () => {
@@ -120,5 +122,37 @@ describe("SchedulePage（月ナビゲーション）", () => {
 
     await user.click(screen.getByLabelText("前の月"));
     expect(await screen.findByText("2025年 12月")).toBeInTheDocument();
+  });
+});
+
+describe("SchedulePage（月の切り替え）", () => {
+  it("次の月を読み込む間も、カレンダーと月の切り替えを残す", async () => {
+    vi.mocked(eventsApi.list)
+      .mockResolvedValueOnce([])
+      .mockReturnValueOnce(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "次の月" }));
+
+    expect(screen.getByText("2026年 8月")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "前の月" })).toBeInTheDocument();
+    expect(screen.getByText("読み込み中...")).toBeInTheDocument();
+  });
+
+  it("取得に失敗しても、月の切り替えはできる", async () => {
+    vi.mocked(eventsApi.list)
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "予定の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+    await user.click(screen.getByRole("button", { name: "次の月" }));
+
+    expect(await screen.findByText("2026年 8月")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
   });
 });

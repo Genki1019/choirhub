@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { ApiClientError } from "@/lib/api-client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import NewSchedulePage from "../page";
 import { MemberProvider } from "@/contexts/MemberContext";
@@ -73,7 +74,9 @@ describe("NewSchedulePage（権限・表示状態）", () => {
   it("初期化エラー時はエラーメッセージを表示する", async () => {
     vi.mocked(settingsApi.listEventCategories).mockRejectedValue(new Error("取得に失敗しました"));
     renderPage(["admin"]);
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "予定の入力に必要な情報の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
   });
 });
 
@@ -192,7 +195,23 @@ describe("NewSchedulePage（送信）", () => {
     await user.type(screen.getByPlaceholderText("タイトルを追加 *"), "第12回定期練習");
     await user.click(screen.getByText("作成する"));
 
-    expect(await screen.findByText("作成に失敗しました。")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "予定の作成に失敗しました。もう一度お試しください。",
+    );
     expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it("4xx の作成失敗は API の理由を出す", async () => {
+    vi.mocked(eventsApi.create).mockRejectedValue(
+      new ApiClientError("VALIDATION_ERROR", "入力値が不正です", 400),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(await screen.findByRole("textbox", { name: "タイトル" }), "合宿");
+    await user.click(screen.getByText("作成する"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("入力値が不正です");
+    expect(screen.getByRole("textbox", { name: "タイトル" })).toHaveValue("合宿");
   });
 });

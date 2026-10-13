@@ -317,3 +317,46 @@ describe("AttendanceTable（メモ保存）", () => {
     expect(screen.getByText("保存").closest("button")).toBeDisabled();
   });
 });
+
+describe("AttendanceTable（読み上げとキーボード）", () => {
+  it("出欠のボタンは氏名と状態で読み上げられ、自分の行は変更できることも伝える", () => {
+    render(
+      <AttendanceTable
+        {...baseProps}
+        partGroups={[{ part: partTenor, members: [selfMember, otherMember] }]}
+        unassigned={[]}
+        attendances={{ "member-self": att("attending"), "member-other": att("absent") }}
+        selfId="member-self"
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "自分の出欠: 参加（クリックで変更）" }),
+    ).toBeEnabled();
+    expect(screen.getByRole("button", { name: "他人の出欠: 欠席" })).toBeDisabled();
+  });
+
+  it("△の詳細は入力欄で Enter を押すと保存する", async () => {
+    const onSaveMemo = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <AttendanceTable
+        {...baseProps}
+        onSaveMemo={onSaveMemo}
+        expandedId="member-self"
+        partGroups={[{ part: partTenor, members: [selfMember] }]}
+        unassigned={[]}
+        attendances={{ "member-self": att("maybe") }}
+        selfId="member-self"
+      />,
+    );
+
+    await user.type(screen.getByLabelText("メモ"), "少し遅れます{Enter}");
+
+    expect(onSaveMemo).toHaveBeenCalledWith("member-self", {
+      arriveTime: null,
+      leaveTime: null,
+      dayMemo: "少し遅れます",
+    });
+  });
+});

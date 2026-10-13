@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isTechOrConductor, isVisitorOnlyAccount } from "../access.js";
+import { canManageScores, isTechOrConductor, isVisitorOnlyAccount } from "../access.js";
 import type { Member } from "../../generated/prisma/index.js";
 
 function makeMember(roles: string[]): Member {
@@ -49,6 +49,19 @@ describe("isTechOrConductor", () => {
     "%s は管理できない（同じ階層値でも score は含まない）",
     (roles) => {
       expect(isTechOrConductor(makeMember(roles))).toBe(false);
+    },
+  );
+});
+
+describe("canManageScores", () => {
+  it.each([[["admin"]], [["score"]], [["member", "score"]]])("%s は楽譜を管理できる", (roles) => {
+    expect(canManageScores(makeMember(roles))).toBe(true);
+  });
+
+  it.each([[["tech"]], [["conductor"]], [["finance"]], [["member"]]])(
+    "%s は楽譜を管理できない（同じ階層値でも tech・conductor は含まない）",
+    (roles) => {
+      expect(canManageScores(makeMember(roles))).toBe(false);
     },
   );
 });

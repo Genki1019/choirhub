@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { isFinancePlus, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
+import { isFinancePlus, canManageScores, EXCLUDE_HIDDEN_ROLES } from "../services/access.js";
 import { toDateString, toJstDateString, toJstDateTimeString } from "../lib/date.js";
 import { toCsv, csvResponse, csvFilename } from "../lib/csv.js";
 import { diffChanges, mergeChanges, memberActor, recordAudit } from "../services/audit.js";
@@ -527,12 +527,12 @@ export const accountingRouter = new Hono<TenantEnv>()
     async (c) => {
       const org = c.get("org");
       const member = c.get("member");
+      const body = c.req.valid("json");
 
-      if (!isFinancePlus(member)) {
+      const isScoreFee = !!body.scoreId && !body.eventId && !body.memberIds;
+      if (!isFinancePlus(member) && !(isScoreFee && canManageScores(member))) {
         return c.json({ error: { code: "FORBIDDEN", message: "会計以上の権限が必要です" } }, 403);
       }
-
-      const body = c.req.valid("json");
 
       if (body.eventId) {
         const ev = await prisma.event.findUnique({ where: { id: body.eventId } });
@@ -565,6 +565,14 @@ export const accountingRouter = new Hono<TenantEnv>()
 
       const actor = memberActor(c);
       const col = await prisma.$transaction(async (tx) => {
+        if (body.scoreId) {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${body.scoreId}))`;
+          const existing = await tx.collection.findFirst({
+            where: { orgId: org.id, scoreId: body.scoreId },
+            select: { id: true },
+          });
+          if (existing) return null;
+        }
         const created = await tx.collection.create({
           data: {
             orgId: org.id,
@@ -599,6 +607,12 @@ export const accountingRouter = new Hono<TenantEnv>()
         return created;
       });
 
+      if (!col) {
+        return c.json(
+          { error: { code: "CONFLICT", message: "この楽譜の徴収は作成済みです" } },
+          409,
+        );
+      }
       return c.json({ data: { id: col.id, title: col.title, amount: col.amount } }, 201);
     },
   )

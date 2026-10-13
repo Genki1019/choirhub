@@ -8,6 +8,7 @@ import { ApiClientError } from "@/lib/api-client";
 import { scoresApi, type ScoreDetail, type ScoreFile } from "@/lib/scores-api";
 import { membersApi } from "@/lib/members-api";
 import { settingsApi } from "@/lib/settings-api";
+import { accountingApi } from "@/lib/accounting-api";
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ org: "tokyo-men-choir", scoreId: "score-1" }),
@@ -24,6 +25,12 @@ vi.mock("@/lib/scores-api", async () => {
       putPurchases: vi.fn(),
     },
   };
+});
+
+vi.mock("@/lib/accounting-api", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/accounting-api")>("@/lib/accounting-api");
+  return { ...actual, accountingApi: { createCollection: vi.fn() } };
 });
 
 vi.mock("@/lib/members-api", async () => {
@@ -385,6 +392,25 @@ describe("ScoreDetailPage（管理セクション）", () => {
     renderPage(["score"]);
 
     expect(await screen.findByText("+ 徴収を作成")).toBeInTheDocument();
+  });
+
+  it("ほかの人が先に作っていて 409 が返ったら、理由を出し、閉じると「徴収作成済み」に変わる", async () => {
+    vi.mocked(scoresApi.getDetail)
+      .mockResolvedValueOnce(makeScore({ distributionPrice: 500, hasCollection: false }))
+      .mockResolvedValue(makeScore({ distributionPrice: 500, hasCollection: true }));
+    vi.mocked(accountingApi.createCollection).mockRejectedValue(
+      new ApiClientError("CONFLICT", "この楽譜の徴収は作成済みです", 409),
+    );
+    const user = userEvent.setup();
+    renderPage(["score"]);
+
+    await user.click(await screen.findByText("+ 徴収を作成"));
+    await user.click(screen.getByRole("button", { name: "作成する" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("この楽譜の徴収は作成済みです");
+
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+    expect(await screen.findByText("徴収作成済み")).toBeInTheDocument();
+    expect(screen.queryByText("+ 徴収を作成")).not.toBeInTheDocument();
   });
 
   it("hasCollection: true の場合は「徴収作成済み」バッジを表示する", async () => {

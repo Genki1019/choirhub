@@ -13,6 +13,7 @@ vi.mock("../../lib/prisma.js", () => ({
   prisma: {
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
+    $executeRaw: vi.fn(),
     expense: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
@@ -756,6 +757,106 @@ describe("POST /finance/collections", () => {
     const body = await json(res);
     expect(body.error.code).toBe("NOT_FOUND");
     expect(prisma.collection.create).not.toHaveBeenCalled();
+  });
+
+  describe("楽譜代の徴収（scoreId あり）", () => {
+    const scoreBody = { ...validBody, scoreId: "score-1" };
+    const post = (roles: string[], body: object) =>
+      createTestApp(makeMember(roles)).request("/finance/collections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+    beforeEach(() => {
+      vi.mocked(prisma.score.findUnique).mockResolvedValue({
+        id: "score-1",
+        orgId: testOrg.id,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+      vi.mocked(prisma.collection.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.collection.create).mockResolvedValue({
+        id: "collection-1",
+        title: "6月合宿費",
+        amount: 15000,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      vi.mocked(prisma.member.findMany).mockResolvedValue([] as any);
+      vi.mocked(prisma.collectionPayment.createMany).mockResolvedValue({ count: 0 });
+    });
+
+    it("楽譜がかりは楽譜代の徴収を作成できる", async () => {
+      const res = await post(["member", "score"], scoreBody);
+
+      expect(res.status).toBe(201);
+      expect(prisma.collection.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ orgId: testOrg.id, scoreId: "score-1" }),
+      });
+    });
+
+    it.each([
+      ["scoreId がない", validBody],
+      ["eventId もある", { ...scoreBody, eventId: "event-1" }],
+      ["memberIds を指定した", { ...scoreBody, memberIds: ["member-1"] }],
+    ])("楽譜がかりでも、%s徴収は 403", async (_label, body) => {
+      const res = await post(["member", "score"], body);
+
+      expect(res.status).toBe(403);
+      expect(prisma.collection.create).not.toHaveBeenCalled();
+    });
+
+    it.each([[["member"]], [["tech"]], [["conductor"]]])(
+      "%s は楽譜代の徴収も作成できない（403）",
+      async (roles) => {
+        const res = await post(roles, scoreBody);
+
+        expect(res.status).toBe(403);
+        expect(prisma.collection.create).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([[["finance"]], [["member", "score"]]])(
+      "同じ楽譜の徴収がすでにあれば、%s でも 409",
+      async (roles) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        vi.mocked(prisma.collection.findFirst).mockResolvedValue({ id: "collection-0" } as any);
+
+        const res = await post(roles, scoreBody);
+
+        expect(res.status).toBe(409);
+        const body = await json(res);
+        expect(body.error).toEqual({ code: "CONFLICT", message: "この楽譜の徴収は作成済みです" });
+        expect(prisma.collection.findFirst).toHaveBeenCalledWith(
+          expect.objectContaining({ where: { orgId: testOrg.id, scoreId: "score-1" } }),
+        );
+        expect(prisma.collection.create).not.toHaveBeenCalled();
+      },
+    );
+
+    it("同時に作成されても重複しないよう、楽譜ごとのロックを取ってから作成済みかを調べる", async () => {
+      await post(["member", "score"], scoreBody);
+
+      expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+      expect(
+        (vi.mocked(prisma.$executeRaw).mock.calls[0][0] as TemplateStringsArray).join("?"),
+      ).toContain("pg_advisory_xact_lock(hashtext(?))");
+      expect(vi.mocked(prisma.$executeRaw).mock.calls[0][1]).toBe("score-1");
+      expect(vi.mocked(prisma.$executeRaw).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(prisma.collection.findFirst).mock.invocationCallOrder[0],
+      );
+      expect(vi.mocked(prisma.collection.findFirst).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(prisma.collection.create).mock.invocationCallOrder[0],
+      );
+    });
+
+    it("楽譜に紐づかない徴収では、ロックも作成済みの確認もしない", async () => {
+      await post(["finance"], validBody);
+
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
+      expect(prisma.collection.findFirst).not.toHaveBeenCalled();
+      expect(prisma.collection.create).toHaveBeenCalled();
+    });
   });
 
   it("正常（memberIds未指定）: アクティブかつguest/visitor除くメンバー全員にpendingが作成される", async () => {

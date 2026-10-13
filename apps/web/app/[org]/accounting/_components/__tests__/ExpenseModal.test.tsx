@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ExpenseModal } from "../ExpenseModal";
 import { accountingApi, type ExpenseCategory, type ExpenseItem } from "@/lib/accounting-api";
+import { ApiClientError } from "@/lib/api-client";
 
 vi.mock("@/lib/accounting-api", async () => {
   const actual =
@@ -58,7 +59,7 @@ describe("ExpenseModal（新規追加）", () => {
 
   it("金額が0以下の場合はエラーを表示する", async () => {
     const user = userEvent.setup();
-    const { container } = render(
+    render(
       <ExpenseModal
         org="o"
         categories={makeCategories()}
@@ -71,7 +72,7 @@ describe("ExpenseModal（新規追加）", () => {
     await user.type(screen.getByPlaceholderText("例: 市民会館 第2練習室 6/14"), "テスト");
     await user.type(screen.getByPlaceholderText("8000"), "0");
     // 数値入力欄はmin=1のHTML5制約でクリック送信がブロックされるため、submitイベントを直接発火してJS側のバリデーションを検証する
-    fireEvent.submit(container.querySelector("form")!);
+    fireEvent.submit(document.querySelector("form")!);
 
     expect(await screen.findByText("金額を正の整数で入力してください")).toBeInTheDocument();
   });
@@ -125,7 +126,9 @@ describe("ExpenseModal（新規追加）", () => {
     await user.type(screen.getByPlaceholderText("8000"), "1000");
     await user.click(screen.getByText("追加する"));
 
-    expect(await screen.findByText("保存に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "支出の保存に失敗しました。もう一度お試しください。",
+    );
   });
 
   it("キャンセル・×ボタンでonCloseが呼ばれる", async () => {
@@ -190,5 +193,64 @@ describe("ExpenseModal（編集）", () => {
       expect.objectContaining({ title: "楽譜「風と光」", paidAt: "2026-05-28" }),
     );
     expect(onSaved).toHaveBeenCalledWith(updated, false);
+  });
+});
+
+describe("ExpenseModal（共通モーダル）", () => {
+  const renderAdd = (onClose = vi.fn()) =>
+    render(
+      <ExpenseModal
+        org="o"
+        categories={makeCategories()}
+        editing={null}
+        onClose={onClose}
+        onSaved={vi.fn()}
+      />,
+    );
+
+  it("見出しを名前に持つダイアログで開き、カテゴリ欄にフォーカスが入る", () => {
+    renderAdd();
+
+    expect(screen.getByRole("dialog", { name: "支出を追加" })).toBeInTheDocument();
+    expect(screen.getByLabelText("カテゴリ")).toHaveFocus();
+  });
+
+  it("Esc で閉じる", async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderAdd(onClose);
+
+    await user.keyboard("{Escape}");
+
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("保存中は Esc・キャンセルで閉じない", async () => {
+    vi.mocked(accountingApi.createExpense).mockReturnValue(new Promise(() => {}));
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderAdd(onClose);
+
+    await user.type(screen.getByLabelText("件名"), "テスト");
+    await user.type(screen.getByLabelText("金額（円）"), "500{Enter}");
+    await user.keyboard("{Escape}");
+
+    expect(accountingApi.createExpense).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "キャンセル" })).toBeDisabled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("4xx の失敗は API の理由を出し、入力を残す", async () => {
+    vi.mocked(accountingApi.createExpense).mockRejectedValue(
+      new ApiClientError("NOT_FOUND", "カテゴリが見つかりません", 404),
+    );
+    const user = userEvent.setup();
+    renderAdd();
+
+    await user.type(screen.getByLabelText("件名"), "テスト");
+    await user.type(screen.getByLabelText("金額（円）"), "500{Enter}");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("カテゴリが見つかりません");
+    expect(screen.getByLabelText("件名")).toHaveValue("テスト");
   });
 });

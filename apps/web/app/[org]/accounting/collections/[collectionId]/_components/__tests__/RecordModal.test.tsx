@@ -208,7 +208,9 @@ describe("RecordModal（保存）", () => {
     );
 
     await user.click(screen.getByText("保存する"));
-    expect(await screen.findByText("保存に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "支払い記録の保存に失敗しました。もう一度お試しください。",
+    );
   });
 
   it("キャンセル・×ボタンでonCloseが呼ばれる", async () => {
@@ -230,5 +232,68 @@ describe("RecordModal（保存）", () => {
 
     await user.click(screen.getByLabelText("閉じる"));
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("RecordModal（共通モーダル）", () => {
+  const renderModal = (payment = makePayment(), onClose = vi.fn()) =>
+    render(
+      <RecordModal
+        payment={payment}
+        defaultAmount={300}
+        org="o"
+        collectionId="col-1"
+        onClose={onClose}
+        onSaved={vi.fn()}
+      />,
+    );
+
+  it("団員名を説明に持つダイアログで開き、選択中の状態ボタンにフォーカスが入る", () => {
+    renderModal(makePayment({ status: "waived" }));
+
+    const dialog = screen.getByRole("dialog", { name: "支払い記録" });
+    expect(dialog).toHaveAccessibleDescription("山田太郎");
+    expect(screen.getByRole("button", { name: "免除" })).toHaveFocus();
+  });
+
+  it("状態は押されているかどうかが読み上げられる", async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    expect(screen.getByRole("group", { name: "ステータス" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "未払い" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "支払済" }));
+    expect(screen.getByRole("button", { name: "支払済" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "未払い" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("入力欄で Enter を押すと保存する", async () => {
+    vi.mocked(accountingApi.recordPayment).mockResolvedValue(makePayment({ note: "後日" }));
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.type(screen.getByLabelText("メモ"), "後日{Enter}");
+
+    expect(accountingApi.recordPayment).toHaveBeenCalledWith(
+      "o",
+      "col-1",
+      "member-1",
+      expect.objectContaining({ status: "pending", note: "後日" }),
+    );
+  });
+
+  it("Esc で閉じ、保存中は閉じない", async () => {
+    vi.mocked(accountingApi.recordPayment).mockReturnValue(new Promise(() => {}));
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderModal(makePayment(), onClose);
+
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    await user.type(screen.getByLabelText("メモ"), "x{Enter}");
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "キャンセル" })).toBeDisabled();
   });
 });

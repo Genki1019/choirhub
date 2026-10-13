@@ -426,6 +426,7 @@ erDiagram
         string                  memberId FK
         CollectionPaymentStatus status
         int                     amount
+        int                     expectedAmount
         date                    paidAt
         PaymentMethod           method
         string                  note
@@ -1070,7 +1071,14 @@ draft → survey_open → confirmed → past
 
 **制約**: `(orgId, name)` UNIQUE
 
-**利用場面**: Collection 作成時に各 Member の `memberType.defaultFeeAmount` を参照し、Collection.amount と異なる場合は `CollectionPayment.amount` に個別金額を設定する。
+**利用場面**: Collection 作成時に各 Member の `memberType.defaultFeeAmount` を参照し、Collection.amount と異なる場合は `CollectionPayment.expectedAmount`（請求額の個別指定）に設定する。
+
+`CollectionPayment` の金額は2つの列に分けて持つ。
+
+| 列               | 意味                                                             | null のとき                    |
+| ---------------- | ---------------------------------------------------------------- | ------------------------------ |
+| `expectedAmount` | 請求額の個別指定（区分ごとの金額など）。支払い状況を変えても保つ | `Collection.amount` を請求する |
+| `amount`         | 実際の支払額。支払済のときだけ持ち、未払い・免除にすると消す     | 請求額どおりに払ったとみなす   |
 
 ---
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RecordModal } from "../RecordModal";
 import { accountingApi, type CollectionPaymentItem } from "@/lib/accounting-api";
@@ -22,10 +22,10 @@ function makePayment(overrides: Partial<CollectionPaymentItem> = {}): Collection
       id: "member-1",
       nameJa: "山田太郎",
       part: { id: "part-1", name: "テノール1", voiceType: "tenor1", sortOrder: 1 },
-      memberTypeFee: null,
     },
     status: "pending",
     amount: null,
+    expectedAmount: null,
     paidAt: null,
     method: null,
     note: null,
@@ -83,14 +83,10 @@ describe("RecordModal（表示）", () => {
     expect(screen.getByLabelText("金額（円）")).toBeInTheDocument();
   });
 
-  it("金額の初期値はmemberTypeFeeがdefaultAmountより優先される", () => {
+  it("支払額の初期値は、区分ごとの請求額が徴収の基本額より優先される", () => {
     render(
       <RecordModal
-        payment={makePayment({
-          status: "paid",
-          amount: null,
-          member: { ...makePayment().member, memberTypeFee: 1500 },
-        })}
+        payment={makePayment({ status: "pending", amount: null, expectedAmount: 1500 })}
         defaultAmount={300}
         org="o"
         collectionId="col-1"
@@ -98,7 +94,23 @@ describe("RecordModal（表示）", () => {
         onSaved={vi.fn()}
       />,
     );
+    fireEvent.click(screen.getByRole("button", { name: "支払済" }));
     expect(screen.getByLabelText("金額（円）")).toHaveValue(1500);
+  });
+
+  it("請求額の個別指定がない団員は、区分の既定会費ではなく徴収の基本額で始まる", () => {
+    render(
+      <RecordModal
+        payment={makePayment({ status: "pending", amount: null, expectedAmount: null })}
+        defaultAmount={300}
+        org="o"
+        collectionId="col-1"
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "支払済" }));
+    expect(screen.getByLabelText("金額（円）")).toHaveValue(300);
   });
 });
 

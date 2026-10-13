@@ -54,7 +54,7 @@ export function RecordModal({
 }: RecordModalProps) {
   const [status, setStatus] = useState<CollectionPaymentStatus>(payment.status);
   const [amount, setAmount] = useState(
-    String(payment.amount ?? payment.member.memberTypeFee ?? defaultAmount),
+    String(payment.amount ?? payment.expectedAmount ?? defaultAmount),
   );
   const [paidAt, setPaidAt] = useState(payment.paidAt ? payment.paidAt.slice(0, 10) : todayStr());
   const [method, setMethod] = useState<PaymentMethod | "">(payment.method ?? "cash");

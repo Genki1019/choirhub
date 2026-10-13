@@ -11,10 +11,10 @@ function makePayment(overrides: Partial<CollectionPaymentItem> = {}): Collection
       id: "member-1",
       nameJa: "山田太郎",
       part: { id: "part-1", name: "テノール1", voiceType: "tenor1", sortOrder: 1 },
-      memberTypeFee: null,
     },
     status: "pending",
     amount: null,
+    expectedAmount: null,
     paidAt: null,
     method: null,
     note: null,
@@ -152,5 +152,31 @@ describe("PaymentsList（「支払済」の記録中と記録後）", () => {
     await vi.waitFor(() =>
       expect(screen.getByRole("button", { name: "山田太郎を支払済みにする" })).toHaveFocus(),
     );
+  });
+});
+
+describe("PaymentsList（金額の表示）", () => {
+  it("未払いは請求額、支払済は支払額を出す", () => {
+    renderList([
+      makePayment({ id: "a", status: "pending", amount: null, expectedAmount: 150 }),
+      makePayment({
+        id: "b",
+        status: "paid",
+        amount: 100,
+        expectedAmount: 150,
+        member: { ...makePayment().member, id: "member-2", nameJa: "鈴木花子" },
+      }),
+      makePayment({
+        id: "c",
+        status: "paid",
+        amount: null,
+        expectedAmount: null,
+        member: { ...makePayment().member, id: "member-3", nameJa: "佐藤次郎" },
+      }),
+    ]);
+
+    expect(screen.getByText("¥150")).toBeInTheDocument();
+    expect(screen.getByText("¥100")).toBeInTheDocument();
+    expect(screen.getByText("¥300")).toBeInTheDocument();
   });
 });

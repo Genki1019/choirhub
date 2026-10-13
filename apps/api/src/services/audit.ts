@@ -138,21 +138,27 @@ export function diffChanges<T extends object>(
   return Object.keys(changes).length > 0 ? changes : null;
 }
 
-// 一括操作の差分を1件にまとめる。変更前の値は重複を除いて並べ、1種類ならその値にする
+// 一括操作の差分を1件にまとめる。変更前・変更後の値は重複を除いて並べ、1種類ならその値にする
 export function mergeChanges(diffs: AuditChanges[]): AuditChanges | null {
-  const merged: Record<string, { befores: AuditValue[]; after: AuditValue }> = {};
+  const merged: Record<string, { befores: AuditValue[]; afters: AuditValue[] }> = {};
+  const addUnique = (values: AuditValue[], value: AuditValue) => {
+    if (!values.some((v) => isSame(v, value))) values.push(value);
+  };
   for (const diff of diffs) {
     for (const [field, { before, after }] of Object.entries(diff)) {
-      const entry = (merged[field] ??= { befores: [], after });
-      if (!entry.befores.some((b) => isSame(b, before))) entry.befores.push(before);
+      const entry = (merged[field] ??= { befores: [], afters: [] });
+      addUnique(entry.befores, before);
+      addUnique(entry.afters, after);
     }
   }
+  const single = (values: AuditValue[]) =>
+    values.length === 1 ? values[0] : (values as Prisma.InputJsonValue);
   const fields = Object.entries(merged);
   if (fields.length === 0) return null;
   return Object.fromEntries(
-    fields.map(([field, { befores, after }]) => [
+    fields.map(([field, { befores, afters }]) => [
       field,
-      { before: befores.length === 1 ? befores[0] : (befores as Prisma.InputJsonValue), after },
+      { before: single(befores), after: single(afters) },
     ]),
   );
 }

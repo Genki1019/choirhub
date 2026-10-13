@@ -148,6 +148,16 @@ describe("memberActor / systemAdminActor", () => {
 });
 
 describe("mergeChanges", () => {
+  it("変更後の値も団員ごとに違えば、重複を除いて並べる", () => {
+    expect(
+      mergeChanges([
+        { amount: { before: null, after: 1500 } },
+        { amount: { before: null, after: 3000 } },
+        { amount: { before: null, after: 1500 } },
+      ]),
+    ).toEqual({ amount: { before: null, after: [1500, 3000] } });
+  });
+
   it("変更前の値は重複を除いて並べ、1種類ならその値にする", () => {
     expect(
       mergeChanges([

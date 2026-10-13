@@ -505,6 +505,9 @@ describe("POST /events", () => {
       }),
     );
     expect(prisma.collectionPayment.create).toHaveBeenCalledTimes(2);
+    expect(prisma.collectionPayment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ memberId: "member-1", expectedAmount: null }),
+    });
   });
 
   it("正常（rehearsal区分だがdefaultFeeAmount未設定）: 徴収は生成されない", async () => {

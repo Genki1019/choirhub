@@ -866,7 +866,7 @@ async function seedDemo() {
     });
     for (let i = 0; i < members.length; i++) {
       const isPaid = i < def.paidCount;
-      // 学生は会費半額（amount override）
+      // 学生は会費半額（請求額を個別に指定）
       const isMonthlyFee = def.yearMonth !== null && def.title.includes("会費");
       const override = isMonthlyFee && STUDENT_INDICES.has(i) ? 1000 : null;
       await prisma.collectionPayment.create({
@@ -874,7 +874,7 @@ async function seedDemo() {
           collectionId: coll.id,
           memberId: members[i].id,
           status: isPaid ? "paid" : "pending",
-          amount: override,
+          expectedAmount: override,
           paidAt: isPaid ? addDays(today, -20 + i * 2) : null,
           method: isPaid ? "cash" : null,
           recordedById: isPaid ? adminMemberId : null,

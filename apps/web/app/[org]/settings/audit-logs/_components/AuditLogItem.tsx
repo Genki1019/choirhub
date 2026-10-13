@@ -56,7 +56,7 @@ export function AuditLogItem({ log }: { log: AuditLog }) {
             <dl className="divide-y divide-gray-100 rounded-lg bg-gray-50 text-xs">
               {changes.map(([field, { before, after }]) => (
                 <div key={field} className="grid grid-cols-[5.5rem_1fr] gap-2 px-3 py-2">
-                  <dt className="text-gray-500">{auditFieldLabel(field)}</dt>
+                  <dt className="text-gray-500">{auditFieldLabel(log.action, field)}</dt>
                   <dd className="break-all text-gray-700">
                     <span className="text-gray-400">
                       {formatAuditValue(log.action, field, before)}

@@ -45,10 +45,19 @@ function paidAtFilter(range: DateRange) {
   return { OR: [{ paidAt: range }, { paidAt: null }] };
 }
 
-function summarizePayments(
-  payments: { status: keyof typeof PAYMENT_STATUS_LABEL; amount: number | null }[],
-  defaultAmount: number,
-) {
+type PaymentAmounts = {
+  status: keyof typeof PAYMENT_STATUS_LABEL;
+  amount: number | null;
+  expectedAmount: number | null;
+};
+
+const billedAmount = (p: PaymentAmounts, collectionAmount: number) =>
+  p.expectedAmount ?? collectionAmount;
+
+const paidAmountOf = (p: PaymentAmounts, collectionAmount: number) =>
+  p.amount ?? billedAmount(p, collectionAmount);
+
+function summarizePayments(payments: PaymentAmounts[], defaultAmount: number) {
   const count = (status: keyof typeof PAYMENT_STATUS_LABEL) =>
     payments.filter((p) => p.status === status).length;
   return {
@@ -58,7 +67,7 @@ function summarizePayments(
     waived: count("waived"),
     paidAmount: payments
       .filter((p) => p.status === "paid")
-      .reduce((s, p) => s + (p.amount ?? defaultAmount), 0),
+      .reduce((s, p) => s + paidAmountOf(p, defaultAmount), 0),
   };
 }
 
@@ -76,7 +85,7 @@ const EXPENSE_AUDIT_FIELDS = [
 ] as const;
 const COLLECTION_AUDIT_FIELDS = ["title", "amount", "dueDate", "yearMonth", "note"] as const;
 const PAYMENT_AUDIT_FIELDS = ["status", "amount", "paidAt", "method", "note"] as const;
-const BULK_PAYMENT_AUDIT_FIELDS = ["status", "paidAt", "method"] as const;
+const BULK_PAYMENT_AUDIT_FIELDS = ["status", "amount", "paidAt", "method"] as const;
 
 function expenseAuditSnapshot(e: {
   category: { name: string };
@@ -158,7 +167,7 @@ export const accountingRouter = new Hono<TenantEnv>()
       prisma.collection.findMany({
         where: { orgId: org.id, createdAt: range },
         include: {
-          payments: { select: { status: true, amount: true } },
+          payments: { select: { status: true, amount: true, expectedAmount: true } },
         },
         orderBy: { createdAt: "desc" },
       }),
@@ -169,14 +178,14 @@ export const accountingRouter = new Hono<TenantEnv>()
     const totalCollected = collections.reduce((s, col) => {
       const paid = col.payments
         .filter((p) => p.status === "paid")
-        .reduce((a, p) => a + (p.amount ?? col.amount), 0);
+        .reduce((a, p) => a + paidAmountOf(p, col.amount), 0);
       return s + paid;
     }, 0);
 
     const totalPending = collections.reduce((s, col) => {
       const pending = col.payments
         .filter((p) => p.status === "pending")
-        .reduce((a, p) => a + (p.amount ?? col.amount), 0);
+        .reduce((a, p) => a + billedAmount(p, col.amount), 0);
       return s + pending;
     }, 0);
 
@@ -496,7 +505,7 @@ export const accountingRouter = new Hono<TenantEnv>()
     const collections = await prisma.collection.findMany({
       where: { orgId: org.id, ...(from || to ? { createdAt: dateRange(from, to) } : {}) },
       include: {
-        payments: { select: { status: true, amount: true } },
+        payments: { select: { status: true, amount: true, expectedAmount: true } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -591,7 +600,7 @@ export const accountingRouter = new Hono<TenantEnv>()
             collectionId: created.id,
             memberId: m.id,
             status: "pending" as const,
-            amount: individualAmount(m),
+            expectedAmount: individualAmount(m),
           })),
         });
         await recordAudit(tx, org.id, actor, {
@@ -631,7 +640,7 @@ export const accountingRouter = new Hono<TenantEnv>()
 
     const collections = await prisma.collection.findMany({
       where: { orgId: org.id, createdAt: yearRange(year) },
-      include: { payments: { select: { status: true, amount: true } } },
+      include: { payments: { select: { status: true, amount: true, expectedAmount: true } } },
       orderBy: { createdAt: "asc" },
     });
 
@@ -712,7 +721,8 @@ export const accountingRouter = new Hono<TenantEnv>()
         "氏名",
         "パート",
         "状態",
-        "金額",
+        "請求額",
+        "支払額",
         "支払日",
         "支払方法",
         "メモ",
@@ -724,7 +734,8 @@ export const accountingRouter = new Hono<TenantEnv>()
         p.member.userRef.nameJa,
         p.member.part?.name,
         PAYMENT_STATUS_LABEL[p.status],
-        p.amount ?? p.collection.amount,
+        billedAmount(p, p.collection.amount),
+        p.status === "paid" ? paidAmountOf(p, p.collection.amount) : null,
         p.paidAt ? toDateString(p.paidAt) : null,
         p.method ? PAYMENT_METHOD_LABEL[p.method] : null,
         p.note,
@@ -757,7 +768,6 @@ export const accountingRouter = new Hono<TenantEnv>()
               include: {
                 userRef: { select: { nameJa: true } },
                 part: { select: { id: true, name: true, voiceType: true, sortOrder: true } },
-                memberType: { select: { defaultFeeAmount: true } },
               },
             },
           },
@@ -793,10 +803,10 @@ export const accountingRouter = new Hono<TenantEnv>()
                   sortOrder: p.member.part.sortOrder,
                 }
               : null,
-            memberTypeFee: p.member.memberType?.defaultFeeAmount ?? null,
           },
           status: p.status,
           amount: p.amount,
+          expectedAmount: p.expectedAmount,
           paidAt: p.paidAt?.toISOString() ?? null,
           method: p.method,
           note: p.note,
@@ -954,6 +964,7 @@ export const accountingRouter = new Hono<TenantEnv>()
       }
 
       const body = c.req.valid("json");
+      const paidAmount = body.status === "paid" ? (body.amount ?? null) : null;
 
       const actor = memberActor(c);
       const payment = await prisma.$transaction(async (tx) => {
@@ -966,7 +977,7 @@ export const accountingRouter = new Hono<TenantEnv>()
             collectionId,
             memberId,
             status: body.status,
-            amount: body.amount ?? null,
+            amount: paidAmount,
             paidAt: body.paidAt ? new Date(body.paidAt) : null,
             method: body.method ?? null,
             note: body.note ?? null,
@@ -974,7 +985,7 @@ export const accountingRouter = new Hono<TenantEnv>()
           },
           update: {
             status: body.status,
-            amount: body.amount ?? null,
+            amount: paidAmount,
             paidAt: body.paidAt ? new Date(body.paidAt) : null,
             method: body.method ?? null,
             note: body.note ?? null,
@@ -999,6 +1010,7 @@ export const accountingRouter = new Hono<TenantEnv>()
           id: payment.id,
           status: payment.status,
           amount: payment.amount,
+          expectedAmount: payment.expectedAmount,
           paidAt: payment.paidAt?.toISOString() ?? null,
           method: payment.method,
           note: payment.note,
@@ -1068,19 +1080,41 @@ export const accountingRouter = new Hono<TenantEnv>()
       await prisma.$transaction(async (tx) => {
         const existing = await tx.collectionPayment.findMany({
           where: { collectionId, memberId: { in: body.memberIds } },
-          select: { memberId: true, status: true, paidAt: true, method: true },
+          select: {
+            memberId: true,
+            status: true,
+            amount: true,
+            expectedAmount: true,
+            paidAt: true,
+            method: true,
+          },
         });
         const beforeById = new Map(existing.map((p) => [p.memberId, p]));
+        const nextFor = (memberId: string) => {
+          const before = beforeById.get(memberId);
+          const amount =
+            body.status !== "paid"
+              ? null
+              : before?.status === "paid"
+                ? before.amount
+                : (before?.expectedAmount ?? col.amount);
+          return { ...next, amount };
+        };
         const changed = validMembers.flatMap((m) => {
-          const diff = diffChanges(beforeById.get(m.id) ?? null, next, BULK_PAYMENT_AUDIT_FIELDS);
+          const diff = diffChanges(
+            beforeById.get(m.id) ?? null,
+            nextFor(m.id),
+            BULK_PAYMENT_AUDIT_FIELDS,
+          );
           return diff ? [{ name: m.userRef.nameJa, diff }] : [];
         });
 
         for (const mid of body.memberIds) {
+          const data = nextFor(mid);
           await tx.collectionPayment.upsert({
             where: { collectionId_memberId: { collectionId, memberId: mid } },
-            create: { collectionId, memberId: mid, ...next, recordedById: member.id },
-            update: { ...next, recordedById: member.id },
+            create: { collectionId, memberId: mid, ...data, recordedById: member.id },
+            update: { ...data, recordedById: member.id },
           });
         }
 

@@ -43,7 +43,13 @@ describe("formatAuditValue", () => {
 
 describe("auditFieldLabel", () => {
   it("既知のフィールドは日本語名、未知のフィールドはそのまま返す", () => {
-    expect(auditFieldLabel("paidAt")).toBe("支払日");
-    expect(auditFieldLabel("unknown")).toBe("unknown");
+    expect(auditFieldLabel("payment.changed", "paidAt")).toBe("支払日");
+    expect(auditFieldLabel("payment.changed", "unknown")).toBe("unknown");
+  });
+
+  it("支払い記録の金額は「支払額」、それ以外の金額は「金額」と表示する", () => {
+    expect(auditFieldLabel("payment.changed", "amount")).toBe("支払額");
+    expect(auditFieldLabel("expense.updated", "amount")).toBe("金額");
+    expect(auditFieldLabel("collection.updated", "amount")).toBe("金額");
   });
 });

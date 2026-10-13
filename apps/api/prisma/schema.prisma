@@ -988,16 +988,17 @@ model Collection {
 }
 
 model CollectionPayment {
-  id           String                  @id @default(cuid())
-  collectionId String                  @map("collection_id")
-  memberId     String                  @map("member_id")
-  status       CollectionPaymentStatus @default(pending)
-  amount       Int?
-  paidAt       DateTime?               @map("paid_at") @db.Date
-  method       PaymentMethod?
-  note         String?
-  recordedById String?                 @map("recorded_by_id")
-  createdAt    DateTime                @default(now()) @map("created_at")
+  id             String                  @id @default(cuid())
+  collectionId   String                  @map("collection_id")
+  memberId       String                  @map("member_id")
+  status         CollectionPaymentStatus @default(pending)
+  amount         Int?
+  expectedAmount Int?                    @map("expected_amount")
+  paidAt         DateTime?               @map("paid_at") @db.Date
+  method         PaymentMethod?
+  note           String?
+  recordedById   String?                 @map("recorded_by_id")
+  createdAt      DateTime                @default(now()) @map("created_at")
 
   collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   member     Member     @relation(fields: [memberId], references: [id], onDelete: Cascade)

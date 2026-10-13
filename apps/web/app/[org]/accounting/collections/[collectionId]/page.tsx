@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Check, Loader2, X } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { accountingApi } from "@/lib/accounting-api";
+import { accountingApi, billedAmountOf, paidAmountOf } from "@/lib/accounting-api";
 import type {
   CollectionDetail,
   CollectionPaymentItem,
@@ -55,7 +55,7 @@ export default function CollectionDetailPage() {
     try {
       const updated = await accountingApi.recordPayment(org, collectionId, payment.member.id, {
         status: "paid",
-        amount: payment.amount ?? col.amount,
+        amount: billedAmountOf(payment, col.amount),
         paidAt: todayStr(),
         method: "cash",
       });
@@ -148,7 +148,7 @@ export default function CollectionDetailPage() {
                     status: "paid" as CollectionPaymentStatus,
                     paidAt,
                     method: "cash" as PaymentMethod,
-                    amount: p.amount ?? prev.amount,
+                    amount: p.status === "paid" ? p.amount : billedAmountOf(p, prev.amount),
                   }
                 : p,
             ),
@@ -196,7 +196,7 @@ export default function CollectionDetailPage() {
   const pending = col.payments.filter((p) => p.status === "pending").length;
   const paidAmount = col.payments
     .filter((p) => p.status === "paid")
-    .reduce((s, p) => s + (p.amount ?? col.amount), 0);
+    .reduce((s, p) => s + paidAmountOf(p, col.amount), 0);
 
   return (
     <div className="flex flex-col">

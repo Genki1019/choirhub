@@ -77,14 +77,20 @@ export interface CollectionPaymentItem {
     id: string;
     nameJa: string;
     part: { id: string; name: string; voiceType: string; sortOrder: number } | null;
-    memberTypeFee: number | null;
   };
   status: CollectionPaymentStatus;
   amount: number | null;
+  expectedAmount: number | null;
   paidAt: string | null;
   method: PaymentMethod | null;
   note: string | null;
 }
+
+export const billedAmountOf = (payment: CollectionPaymentItem, collectionAmount: number) =>
+  payment.expectedAmount ?? collectionAmount;
+
+export const paidAmountOf = (payment: CollectionPaymentItem, collectionAmount: number) =>
+  payment.amount ?? billedAmountOf(payment, collectionAmount);
 
 export interface CollectionDetail {
   id: string;

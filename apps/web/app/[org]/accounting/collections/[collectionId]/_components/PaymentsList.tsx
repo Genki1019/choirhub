@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Check, CheckSquare } from "lucide-react";
-import { PAYMENT_METHOD_LABEL } from "@/lib/accounting-api";
+import { PAYMENT_METHOD_LABEL, billedAmountOf, paidAmountOf } from "@/lib/accounting-api";
 import type { CollectionPaymentItem } from "@/lib/accounting-api";
 import { comparePartOrder } from "@/lib/voice-order";
 import { StatusBadge } from "./RecordModal";
@@ -115,70 +115,76 @@ export function PaymentsList({
               </span>
             </div>
             <div className="divide-y divide-gray-100">
-              {group.payments.map((payment) => (
-                <div key={payment.id} className="flex items-center gap-3 px-5 py-3">
-                  <input
-                    type="checkbox"
-                    checked={checkedIds.has(payment.member.id)}
-                    onChange={() => onToggleCheck(payment.member.id)}
-                    aria-label={`${payment.member.nameJa}を選択`}
-                    className="text-brand-600 focus:ring-brand-400 h-4 w-4 shrink-0 cursor-pointer rounded border-gray-300"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-800">{payment.member.nameJa}</p>
-                    <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-400">
-                      {payment.status === "paid" && payment.paidAt && (
-                        <span>{formatShortDate(payment.paidAt)}</span>
-                      )}
-                      {payment.status === "paid" && payment.method && (
-                        <span>{PAYMENT_METHOD_LABEL[payment.method]}</span>
-                      )}
-                      <span
-                        className={
-                          payment.amount != null && payment.amount !== amount
-                            ? payment.status === "pending"
-                              ? "font-medium text-amber-500"
-                              : "text-teal-600"
-                            : "text-gray-400"
-                        }
-                      >
-                        ¥{(payment.amount ?? amount).toLocaleString()}
-                      </span>
+              {group.payments.map((payment) => {
+                const shownAmount =
+                  payment.status === "paid"
+                    ? paidAmountOf(payment, amount)
+                    : billedAmountOf(payment, amount);
+                return (
+                  <div key={payment.id} className="flex items-center gap-3 px-5 py-3">
+                    <input
+                      type="checkbox"
+                      checked={checkedIds.has(payment.member.id)}
+                      onChange={() => onToggleCheck(payment.member.id)}
+                      aria-label={`${payment.member.nameJa}を選択`}
+                      className="text-brand-600 focus:ring-brand-400 h-4 w-4 shrink-0 cursor-pointer rounded border-gray-300"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-800">{payment.member.nameJa}</p>
+                      <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-400">
+                        {payment.status === "paid" && payment.paidAt && (
+                          <span>{formatShortDate(payment.paidAt)}</span>
+                        )}
+                        {payment.status === "paid" && payment.method && (
+                          <span>{PAYMENT_METHOD_LABEL[payment.method]}</span>
+                        )}
+                        <span
+                          className={
+                            shownAmount !== amount
+                              ? payment.status === "pending"
+                                ? "font-medium text-amber-500"
+                                : "text-teal-600"
+                              : "text-gray-400"
+                          }
+                        >
+                          ¥{shownAmount.toLocaleString()}
+                        </span>
+                      </div>
                     </div>
-                  </div>
 
-                  <StatusBadge status={payment.status} />
+                    <StatusBadge status={payment.status} />
 
-                  <div className="flex shrink-0 items-center gap-1">
-                    {payment.status === "pending" && (
+                    <div className="flex shrink-0 items-center gap-1">
+                      {payment.status === "pending" && (
+                        <button
+                          type="button"
+                          onClick={() => quickPaid(payment)}
+                          aria-disabled={recordingIds.has(payment.id)}
+                          title="現金 支払済みにする"
+                          aria-label={`${payment.member.nameJa}を支払済みにする`}
+                          className="flex items-center gap-1 rounded-lg border border-teal-200 px-2 py-1 text-xs text-teal-600 transition-colors hover:bg-teal-50 aria-disabled:opacity-60"
+                        >
+                          <Check size={11} />
+                          支払済
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => quickPaid(payment)}
-                        aria-disabled={recordingIds.has(payment.id)}
-                        title="現金 支払済みにする"
-                        aria-label={`${payment.member.nameJa}を支払済みにする`}
-                        className="flex items-center gap-1 rounded-lg border border-teal-200 px-2 py-1 text-xs text-teal-600 transition-colors hover:bg-teal-50 aria-disabled:opacity-60"
+                        ref={(el) => {
+                          if (el) editButtons.current.set(payment.id, el);
+                          else editButtons.current.delete(payment.id);
+                        }}
+                        onClick={() => onEdit(payment)}
+                        className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors"
+                        title="詳細編集"
+                        aria-label={`${payment.member.nameJa}を編集`}
                       >
-                        <Check size={11} />
-                        支払済
+                        <span className="text-xs">編集</span>
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      ref={(el) => {
-                        if (el) editButtons.current.set(payment.id, el);
-                        else editButtons.current.delete(payment.id);
-                      }}
-                      onClick={() => onEdit(payment)}
-                      className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors"
-                      title="詳細編集"
-                      aria-label={`${payment.member.nameJa}を編集`}
-                    >
-                      <span className="text-xs">編集</span>
-                    </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         );

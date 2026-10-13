@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Minus, Pencil, Plus, UserPlus, X } from "lucide-react";
+import { Minus, Plus, UserPlus, X } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -25,7 +25,8 @@ import {
   type PianoPosition,
 } from "@/lib/concerts-api";
 import { GridCell, PartColorLegend, SeatContainer } from "./Chips";
-import { AddBoxPopover, AddMemberPopover } from "./Popovers";
+import { AddBoxPopover, AddMemberPopover, NameEditPopover } from "./Popovers";
+import { InlineEditButton } from "@/components/InlineEdit";
 import { useHoverPinPopover } from "@/lib/useHoverPinPopover";
 import {
   GRID_STAGGER_OFFSET,
@@ -80,6 +81,7 @@ export function FormationEditor({
   const addBoxPopover = useHoverPinPopover(addBoxPopoverRef);
   const [nameEdit, setNameEdit] = useState<{
     target: NameEditTarget;
+    trigger: HTMLElement;
     x: number;
     y: number;
     value: string;
@@ -217,79 +219,77 @@ export function FormationEditor({
     );
   };
 
-  const openNameEdit = (item: SlotItem, e: React.MouseEvent) => {
+  const openNameEdit = (item: SlotItem, e: React.MouseEvent<HTMLElement>) => {
     setNameEdit({
       target: { type: "item", key: item.key },
+      trigger: e.currentTarget,
       x: e.clientX,
       y: e.clientY,
       value: displayLabelOf(item),
     });
   };
 
-  const openBoxRename = (boxKey: string, e: React.MouseEvent) => {
+  const openBoxRename = (boxKey: string, e: React.MouseEvent<HTMLElement>) => {
     const box = boxes.find((b) => b.key === boxKey);
     if (!box) return;
     setNameEdit({
       target: { type: "box", key: boxKey },
+      trigger: e.currentTarget,
       x: e.clientX,
       y: e.clientY,
       value: box.title ?? "",
     });
   };
 
+  const closeNameEdit = () => {
+    nameEdit?.trigger.focus();
+    setNameEdit(null);
+  };
+
+  const nameEditItem = (() => {
+    if (nameEdit?.target.type !== "item") return null;
+    const itemKey = nameEdit.target.key;
+    const rowKeyFound = findContainer(placed, itemKey);
+    const item = rowKeyFound ? placed[rowKeyFound].find((i) => i.key === itemKey) : undefined;
+    return rowKeyFound && item ? { rowKey: rowKeyFound, item } : null;
+  })();
+
   // 団員は label のみ上書き（空なら自動表示に戻す）。客演・指揮者名は label と name を同時更新
   const saveNameEdit = (value: string) => {
     if (!nameEdit) return;
-    const trimmed = value.trim();
 
     if (nameEdit.target.type === "box") {
-      if (!trimmed) {
-        setNameEdit(null);
-        return;
-      }
       const boxKey = nameEdit.target.key;
       commit(
         placed,
-        boxes.map((b) => (b.key === boxKey ? { ...b, title: trimmed } : b)),
+        boxes.map((b) => (b.key === boxKey ? { ...b, title: value } : b)),
       );
-      setNameEdit(null);
-      return;
+    } else if (nameEditItem) {
+      const { rowKey: rowKeyFound, item: target } = nameEditItem;
+      if (target.memberId) {
+        const memberId = target.memberId;
+        setMemberLabels((prev) => {
+          const next = { ...prev };
+          if (value) next[memberId] = value;
+          else delete next[memberId];
+          return next;
+        });
+        commit({
+          ...placed,
+          [rowKeyFound]: placed[rowKeyFound].map((i) =>
+            i.key === target.key ? { ...i, label: value || null } : i,
+          ),
+        });
+      } else {
+        commit({
+          ...placed,
+          [rowKeyFound]: placed[rowKeyFound].map((i) =>
+            i.key === target.key ? { ...i, label: value, name: value } : i,
+          ),
+        });
+      }
     }
-
-    const itemKey = nameEdit.target.key;
-    const rowKeyFound = findContainer(placed, itemKey);
-    const target = rowKeyFound ? placed[rowKeyFound].find((i) => i.key === itemKey) : undefined;
-    if (!rowKeyFound || !target) {
-      setNameEdit(null);
-      return;
-    }
-    if (!target.memberId && !trimmed) {
-      setNameEdit(null);
-      return;
-    }
-    if (target.memberId) {
-      const memberId = target.memberId;
-      setMemberLabels((prev) => {
-        const next = { ...prev };
-        if (trimmed) next[memberId] = trimmed;
-        else delete next[memberId];
-        return next;
-      });
-      commit({
-        ...placed,
-        [rowKeyFound]: placed[rowKeyFound].map((i) =>
-          i.key === itemKey ? { ...i, label: trimmed || null } : i,
-        ),
-      });
-    } else {
-      commit({
-        ...placed,
-        [rowKeyFound]: placed[rowKeyFound].map((i) =>
-          i.key === itemKey ? { ...i, label: trimmed, name: trimmed } : i,
-        ),
-      });
-    }
-    setNameEdit(null);
+    closeNameEdit();
   };
 
   const removeItem = (key: string) => {
@@ -454,14 +454,11 @@ export function FormationEditor({
             <p className="text-xs font-medium text-gray-500">{title}</p>
             {!isFixed && (
               <>
-                <button
-                  type="button"
+                <InlineEditButton
+                  label={`${title}の枠名`}
+                  size="sm"
                   onClick={(e) => openBoxRename(boxKey, e)}
-                  className="p-0.5 text-gray-300 hover:text-gray-500"
-                  title="枠名を編集"
-                >
-                  <Pencil size={10} />
-                </button>
+                />
                 <button
                   type="button"
                   onClick={() => removeBox(boxKey)}
@@ -683,35 +680,21 @@ export function FormationEditor({
         })()}
       </DragOverlay>
       {nameEdit && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setNameEdit(null)} />
-          <div
-            className="fixed z-50 w-56 rounded-xl border border-gray-200 bg-white p-3 shadow-lg"
-            style={{ left: nameEdit.x, top: nameEdit.y }}
-          >
-            <p className="mb-2 text-xs text-gray-500">
-              {nameEdit.target.type === "box" ? "枠名を編集" : "丸の中の表示名を編集（1〜3文字）"}
-            </p>
-            <input
-              autoFocus
-              type="text"
-              value={nameEdit.value}
-              onChange={(e) => setNameEdit({ ...nameEdit, value: e.target.value })}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") saveNameEdit(nameEdit.value);
-                if (e.key === "Escape") setNameEdit(null);
-              }}
-              className="focus:border-brand-300 mb-2 w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => saveNameEdit(nameEdit.value)}
-              className="bg-brand-600 hover:bg-brand-700 w-full rounded-lg py-1.5 text-xs text-white"
-            >
-              保存
-            </button>
-          </div>
-        </>
+        <NameEditPopover
+          heading={
+            nameEdit.target.type === "box" ? "枠名を編集" : "丸の中の表示名を編集（1〜3文字）"
+          }
+          label={nameEdit.target.type === "box" ? "枠名" : "表示名"}
+          initialValue={nameEdit.value}
+          position={nameEdit}
+          validate={(value) => {
+            if (value) return null;
+            if (nameEdit.target.type === "box") return "枠名を入力してください";
+            return nameEditItem?.item.memberId ? null : "名前を入力してください";
+          }}
+          onSave={saveNameEdit}
+          onClose={closeNameEdit}
+        />
       )}
     </DndContext>
   );

@@ -1,15 +1,97 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
+import { Plus, Trash2, X, Loader2 } from "lucide-react";
 import { DndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { DragHandle, SortableItem, useListDndSensors } from "@/components/SortableRow";
 import { settingsApi } from "@/lib/settings-api";
 import { userErrorMessage } from "@/lib/api-client";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { InlineEditActions, InlineEditButton } from "@/components/InlineEdit";
+import { useBusy } from "@/hooks/useBusy";
+import { useInlineEdit } from "@/hooks/useInlineEdit";
 import { createSortDragEndHandler } from "@/lib/sort-order";
 import type { PartSummary } from "@/lib/members-api";
+
+function PartRowName({
+  part,
+  org,
+  canEdit,
+  busy,
+  runBusy,
+  onUpdated,
+  onDeleteClick,
+}: {
+  part: PartSummary;
+  org: string;
+  canEdit: boolean;
+  busy: boolean;
+  runBusy: <T>(task: () => Promise<T>) => Promise<T>;
+  onUpdated: (updated: PartSummary) => void;
+  onDeleteClick: () => void;
+}) {
+  const { registerTrigger, ...edit } = useInlineEdit({
+    initial: () => part.name,
+    validate: (name) => (name.trim() ? null : "パート名を入力してください"),
+    onSave: async (name) => {
+      onUpdated(await runBusy(() => settingsApi.updatePart(org, part.id, { name: name.trim() })));
+    },
+    errorFallback: "パート名の保存に失敗しました。もう一度お試しください。",
+    disabled: busy,
+  });
+
+  if (edit.editing) {
+    return (
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="flex items-center gap-2">
+          <input
+            autoFocus
+            aria-label="パート名"
+            value={edit.value}
+            onChange={(e) => edit.setValue(e.target.value)}
+            onKeyDown={edit.handleKeyDown}
+            className="border-brand-300 focus:ring-brand-400 min-w-0 flex-1 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
+          />
+          <InlineEditActions
+            label="パート名"
+            saving={edit.saving}
+            saveDisabled={busy}
+            onSave={edit.save}
+            onCancel={edit.cancel}
+          />
+        </div>
+        <ErrorMessage>{edit.error}</ErrorMessage>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <span className="flex-1 text-sm text-gray-800">{part.name}</span>
+      {canEdit && (
+        <div className="flex shrink-0 items-center gap-0.5">
+          <InlineEditButton
+            ref={registerTrigger}
+            label={part.name}
+            onClick={edit.start}
+            disabled={busy}
+          />
+          <button
+            type="button"
+            onClick={onDeleteClick}
+            disabled={busy}
+            aria-label={`${part.name}を削除`}
+            className="p-1.5 text-gray-300 transition-colors hover:text-red-500 disabled:opacity-40"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
 
 interface PartCardProps {
   parts: PartSummary[];
@@ -32,12 +114,10 @@ export function PartCard({
   onReordered,
   onToast,
 }: PartCardProps) {
-  const [busy, setBusy] = useState(false);
+  const { busy, setBusy, runBusy } = useBusy();
   const [confirmTarget, setConfirmTarget] = useState<PartSummary | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState("");
 
@@ -50,20 +130,6 @@ export function PartCard({
     onError: onToast,
     setBusy,
   });
-
-  const confirmEdit = async () => {
-    if (!editName.trim() || !editId) return;
-    setBusy(true);
-    try {
-      const updated = await settingsApi.updatePart(org, editId, { name: editName.trim() });
-      onUpdated(updated);
-      setEditId(null);
-    } catch {
-      onToast("更新に失敗しました");
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const handleConfirmDelete = async (part: PartSummary) => {
     setDeleting(true);
@@ -80,17 +146,14 @@ export function PartCard({
   };
 
   const addPart = async () => {
-    if (!newName.trim()) return;
-    setBusy(true);
+    if (busy || !newName.trim()) return;
     try {
-      const created = await settingsApi.createPart(org, { name: newName.trim() });
+      const created = await runBusy(() => settingsApi.createPart(org, { name: newName.trim() }));
       onCreated(created);
       setNewName("");
       setShowAdd(false);
     } catch {
       onToast("追加に失敗しました");
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -101,10 +164,7 @@ export function PartCard({
         {canEdit && (
           <button
             type="button"
-            onClick={() => {
-              setShowAdd(true);
-              setEditId(null);
-            }}
+            onClick={() => setShowAdd(true)}
             disabled={busy}
             className="text-brand-600 hover:text-brand-700 flex items-center gap-1 text-xs font-medium transition-colors disabled:opacity-40"
           >
@@ -135,72 +195,18 @@ export function PartCard({
                       />
                     )}
 
-                    {editId === part.id ? (
-                      <>
-                        {canEdit && <div className="w-7 shrink-0" />}
-                        <div className="flex flex-1 items-center gap-2">
-                          <input
-                            autoFocus
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") confirmEdit();
-                              if (e.key === "Escape") setEditId(null);
-                            }}
-                            className="border-brand-300 focus:ring-brand-400 flex-1 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={confirmEdit}
-                            disabled={busy}
-                            aria-label="保存"
-                            className="text-teal-600 hover:text-teal-700 disabled:opacity-40"
-                          >
-                            <Check size={15} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditId(null)}
-                            aria-label="キャンセル"
-                            className="text-gray-400 hover:text-gray-600"
-                          >
-                            <X size={15} />
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <span className="flex-1 text-sm text-gray-800">{part.name}</span>
-                        {canEdit && (
-                          <div className="flex shrink-0 items-center gap-0.5">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditId(part.id);
-                                setEditName(part.name);
-                              }}
-                              disabled={busy}
-                              aria-label={`${part.name}を編集`}
-                              className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors disabled:opacity-40"
-                            >
-                              <Pencil size={13} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setDeleteError(null);
-                                setConfirmTarget(part);
-                              }}
-                              disabled={busy}
-                              aria-label={`${part.name}を削除`}
-                              className="p-1.5 text-gray-300 transition-colors hover:text-red-500 disabled:opacity-40"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        )}
-                      </>
-                    )}
+                    <PartRowName
+                      part={part}
+                      org={org}
+                      canEdit={canEdit}
+                      busy={busy}
+                      runBusy={runBusy}
+                      onUpdated={onUpdated}
+                      onDeleteClick={() => {
+                        setDeleteError(null);
+                        setConfirmTarget(part);
+                      }}
+                    />
                   </div>
                 )}
               </SortableItem>

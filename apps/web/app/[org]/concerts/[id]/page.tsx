@@ -170,20 +170,11 @@ export default function ConcertDetailPage() {
   };
 
   const handleEditStageName = async (stageId: string, name: string) => {
-    setStagesError(null);
-    try {
-      await concertsApi.updateStage(org, id, stageId, { name });
-    } catch (err) {
-      setStagesError(
-        userErrorMessage(err, "ステージ名の保存に失敗しました。もう一度お試しください。"),
-      );
-      return false;
-    }
+    await concertsApi.updateStage(org, id, stageId, { name });
     queryClient.setQueryData<ConcertDetail>(concertKeys.detail(org, id), (prev) => {
       if (!prev) return prev;
       return { ...prev, stages: prev.stages.map((s) => (s.id === stageId ? { ...s, name } : s)) };
     });
-    return true;
   };
 
   const handleMoveCopyComplete = (
@@ -434,7 +425,6 @@ export default function ConcertDetailPage() {
             onReorderStages={handleReorderStages}
             onReorderPrograms={handleReorderPrograms}
             onEditStageName={handleEditStageName}
-            onCancelEditStageName={() => setStagesError(null)}
             onMoveCopyClick={(stageId, program) => setMoveCopySource({ stageId, program })}
             onEditProgramClick={(stageId, program) => setEditProgramTarget({ stageId, program })}
           />

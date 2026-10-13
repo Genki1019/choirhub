@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import type { AssignmentDetail } from "@/lib/concerts-api";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { InlineEditActions } from "@/components/InlineEdit";
+import { handleInlineEditKeyDown } from "@/hooks/useInlineEdit";
 
 // テキスト入力＋送信ボタン（Enterまたはクリックで送信、空文字は送信しない）。
 // AddBoxPopover の枠名入力と AddMemberPopover の客演者名入力で共用する
@@ -158,5 +161,62 @@ export function AddMemberPopover({
         />
       )}
     </div>
+  );
+}
+
+export function NameEditPopover({
+  heading,
+  label,
+  initialValue,
+  position,
+  validate,
+  onSave,
+  onClose,
+}: {
+  heading: string;
+  label: string;
+  initialValue: string;
+  position: { x: number; y: number };
+  validate?: (value: string) => string | null;
+  onSave: (value: string) => void;
+  onClose: () => void;
+}) {
+  const [value, setValue] = useState(initialValue);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = () => {
+    const trimmed = value.trim();
+    const invalid = validate?.(trimmed) ?? null;
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
+    if (trimmed === initialValue) onClose();
+    else onSave(trimmed);
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div
+        className="fixed z-50 w-56 rounded-xl border border-gray-200 bg-white p-3 shadow-lg"
+        style={{ left: position.x, top: position.y }}
+      >
+        <p className="mb-2 text-xs text-gray-500">{heading}</p>
+        <div className="flex items-center gap-1">
+          <input
+            autoFocus
+            type="text"
+            aria-label={label}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => handleInlineEditKeyDown(e, save, onClose)}
+            className="focus:border-brand-300 min-w-0 flex-1 rounded-lg border border-gray-200 px-2 py-1.5 text-xs focus:outline-none"
+          />
+          <InlineEditActions label={label} saving={false} onSave={save} onCancel={onClose} />
+        </div>
+        <ErrorMessage className="mt-2">{error}</ErrorMessage>
+      </div>
+    </>
   );
 }

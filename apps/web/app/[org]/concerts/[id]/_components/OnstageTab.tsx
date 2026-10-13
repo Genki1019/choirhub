@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Eye, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { useState } from "react";
+import { ChevronLeft, ChevronRight, Eye, Plus, Trash2, Users } from "lucide-react";
 import {
   concertsApi,
   type ConcertDetail,
@@ -15,6 +15,9 @@ import { ReadOnlyFormation } from "./onstage/ReadOnlyFormation";
 import { StatusPillList } from "./onstage/StatusPillList";
 import { buildPartColorMap } from "./onstage/formation-model";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { InlineEditActions, InlineEditButton } from "@/components/InlineEdit";
+import { useInlineEdit } from "@/hooks/useInlineEdit";
 
 interface OnstageTabProps {
   concert: ConcertDetail;
@@ -34,30 +37,100 @@ function pillButtonClass(active: boolean): string {
 
 const iconButtonClass = "text-gray-400 hover:text-gray-600 disabled:opacity-25 p-1";
 
-// 入力中の文字はこのコンポーネント内だけの state にとどめ、1文字打つたびに
-// OnstageTab（延いては配下の FormationEditor 全体）が再レンダリングされるのを避ける
-function PatternRenameInput({
-  initialName,
-  onCommit,
-  onCancel,
+function PatternItem({
+  pattern,
+  active,
+  isFirst,
+  isLast,
+  canManageStage,
+  onSelect,
+  onMove,
+  onDelete,
+  onRename,
 }: {
-  initialName: string;
-  onCommit: (name: string) => void;
-  onCancel: () => void;
+  pattern: FormationPatternDetail;
+  active: boolean;
+  isFirst: boolean;
+  isLast: boolean;
+  canManageStage: boolean;
+  onSelect: () => void;
+  onMove: (dir: -1 | 1) => void;
+  onDelete: () => void;
+  onRename: (name: string) => Promise<void>;
 }) {
-  const [name, setName] = useState(initialName);
+  const { registerTrigger, ...edit } = useInlineEdit({
+    initial: () => pattern.name,
+    validate: (name) => (name.trim() ? null : "パターン名を入力してください"),
+    onSave: (name) => onRename(name.trim()),
+    errorFallback: "パターン名の変更に失敗しました。もう一度お試しください。",
+  });
+
   return (
-    <input
-      autoFocus
-      value={name}
-      onChange={(e) => setName(e.target.value)}
-      onBlur={() => onCommit(name)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") onCommit(name);
-        if (e.key === "Escape") onCancel();
-      }}
-      className="border-brand-300 w-28 rounded-lg border px-2 py-1.5 text-xs"
-    />
+    <div>
+      <div className="flex items-center gap-1">
+        {edit.editing ? (
+          <>
+            <input
+              autoFocus
+              aria-label="パターン名"
+              value={edit.value}
+              onChange={(e) => edit.setValue(e.target.value)}
+              onKeyDown={edit.handleKeyDown}
+              className="border-brand-300 w-28 rounded-lg border px-2 py-1.5 text-xs"
+            />
+            <InlineEditActions
+              label="パターン名"
+              size="sm"
+              saving={edit.saving}
+              onSave={edit.save}
+              onCancel={edit.cancel}
+            />
+          </>
+        ) : (
+          <button type="button" onClick={onSelect} className={pillButtonClass(active)}>
+            {pattern.name}
+          </button>
+        )}
+        {canManageStage && !edit.editing && (
+          <>
+            <button
+              type="button"
+              onClick={() => onMove(-1)}
+              disabled={isFirst}
+              className={iconButtonClass}
+              title="前へ"
+            >
+              <ChevronLeft size={11} />
+            </button>
+            <button
+              type="button"
+              onClick={() => onMove(1)}
+              disabled={isLast}
+              className={iconButtonClass}
+              title="後へ"
+            >
+              <ChevronRight size={11} />
+            </button>
+            <InlineEditButton
+              ref={registerTrigger}
+              label={pattern.name}
+              size="sm"
+              onClick={edit.start}
+            />
+            <button
+              type="button"
+              onClick={onDelete}
+              className="p-1 text-gray-400 hover:text-red-500"
+              aria-label={`${pattern.name}を削除`}
+              title="削除"
+            >
+              <Trash2 size={11} />
+            </button>
+          </>
+        )}
+      </div>
+      <ErrorMessage className="mt-1">{edit.error}</ErrorMessage>
+    </div>
   );
 }
 
@@ -65,13 +138,11 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
   const stages = concert.stages;
   const [selectedStageId, setSelectedStageId] = useState<string | null>(stages[0]?.id ?? null);
   const [selectedPatternId, setSelectedPatternId] = useState<string | null>(null);
-  const [editingPatternId, setEditingPatternId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"edit" | "preview">("edit");
   const [error, setError] = useState<string | null>(null);
   const [confirmPattern, setConfirmPattern] = useState<{ id: string; name: string } | null>(null);
   const [deletingPattern, setDeletingPattern] = useState(false);
   const [deletePatternError, setDeletePatternError] = useState<string | null>(null);
-  const renamingIdRef = useRef<string | null>(null);
 
   if (concert.assignments.length === 0) {
     return (
@@ -151,22 +222,8 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
   };
 
   const handleRenamePattern = async (id: string, name: string) => {
-    const trimmed = name.trim();
-    if (!trimmed) {
-      setEditingPatternId(null);
-      return;
-    }
-    if (renamingIdRef.current === id) return; // Enter → blur の連続発火による二重送信を防ぐ
-    renamingIdRef.current = id;
-    try {
-      await concertsApi.updateFormationPattern(org, concert.id, stageId, id, { name: trimmed });
-      updateStagePatterns((prev) => prev.map((p) => (p.id === id ? { ...p, name: trimmed } : p)));
-      setEditingPatternId(null);
-    } catch {
-      setError("パターン名の変更に失敗しました。もう一度お試しください。");
-    } finally {
-      renamingIdRef.current = null;
-    }
+    await concertsApi.updateFormationPattern(org, concert.id, stageId, id, { name });
+    updateStagePatterns((prev) => prev.map((p) => (p.id === id ? { ...p, name } : p)));
   };
 
   const handleMovePattern = (id: string, dir: -1 | 1) => {
@@ -263,65 +320,21 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
         <div className="mb-3 flex items-start justify-between gap-2">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             {patterns.map((p, idx) => (
-              <div key={p.id} className="flex items-center gap-1">
-                {editingPatternId === p.id ? (
-                  <PatternRenameInput
-                    initialName={p.name}
-                    onCommit={(name) => handleRenamePattern(p.id, name)}
-                    onCancel={() => setEditingPatternId(null)}
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPatternId(p.id)}
-                    className={pillButtonClass(patternId === p.id)}
-                  >
-                    {p.name}
-                  </button>
-                )}
-                {canManageStage && editingPatternId !== p.id && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleMovePattern(p.id, -1)}
-                      disabled={idx === 0}
-                      className={iconButtonClass}
-                      title="前へ"
-                    >
-                      <ChevronLeft size={11} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleMovePattern(p.id, 1)}
-                      disabled={idx === patterns.length - 1}
-                      className={iconButtonClass}
-                      title="後へ"
-                    >
-                      <ChevronRight size={11} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditingPatternId(p.id)}
-                      className={iconButtonClass}
-                      title="名称変更"
-                    >
-                      <Pencil size={11} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDeletePatternError(null);
-                        setConfirmPattern({ id: p.id, name: p.name });
-                      }}
-                      className="p-1 text-gray-400 hover:text-red-500"
-                      aria-label={`${p.name}を削除`}
-                      title="削除"
-                    >
-                      <Trash2 size={11} />
-                    </button>
-                  </>
-                )}
-              </div>
+              <PatternItem
+                key={p.id}
+                pattern={p}
+                active={patternId === p.id}
+                isFirst={idx === 0}
+                isLast={idx === patterns.length - 1}
+                canManageStage={canManageStage}
+                onSelect={() => setSelectedPatternId(p.id)}
+                onMove={(dir) => handleMovePattern(p.id, dir)}
+                onDelete={() => {
+                  setDeletePatternError(null);
+                  setConfirmPattern({ id: p.id, name: p.name });
+                }}
+                onRename={(name) => handleRenamePattern(p.id, name)}
+              />
             ))}
             {canManageStage && (
               <button

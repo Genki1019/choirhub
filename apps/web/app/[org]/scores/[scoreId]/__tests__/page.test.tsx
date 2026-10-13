@@ -264,32 +264,82 @@ describe("ScoreDetailPage（詳細情報セクション）", () => {
 });
 
 describe("ScoreDetailPage（配布価格インライン編集）", () => {
-  it("✏️クリックで入力欄に切り替わり、Enterで保存する", async () => {
+  it("鉛筆で入力欄に切り替わり、Enter で保存して鉛筆にフォーカスを戻す", async () => {
     vi.mocked(scoresApi.getDetail).mockResolvedValue(makeScore({ distributionPrice: 500 }));
     vi.mocked(scoresApi.setPrice).mockResolvedValue({ id: "score-1", distributionPrice: 800 });
     const user = userEvent.setup();
     renderPage(["score"]);
 
-    await user.click(await screen.findByTitle("価格を変更"));
-    const input = screen.getByPlaceholderText("例: 300");
+    await user.click(await screen.findByRole("button", { name: "配布価格を編集" }));
+    const input = screen.getByRole("textbox", { name: "配布価格" });
+    expect(input).toHaveFocus();
     await user.clear(input);
     await user.type(input, "800{Enter}");
 
     expect(scoresApi.setPrice).toHaveBeenCalledWith("tokyo-men-choir", "score-1", 800);
     expect(await screen.findByText("¥800")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "配布価格を編集" })).toHaveFocus();
   });
 
-  it("Escapeキーで編集をキャンセルする", async () => {
+  it("Escapeキーで編集をキャンセルし、入力欄から離れても保存しない", async () => {
     vi.mocked(scoresApi.getDetail).mockResolvedValue(makeScore({ distributionPrice: 500 }));
     const user = userEvent.setup();
     renderPage(["score"]);
 
-    await user.click(await screen.findByTitle("価格を変更"));
-    const input = screen.getByPlaceholderText("例: 300");
-    await user.type(input, "999{Escape}");
+    await user.click(await screen.findByRole("button", { name: "配布価格を編集" }));
+    await user.type(screen.getByRole("textbox", { name: "配布価格" }), "999");
+    await user.tab();
+    expect(screen.getByRole("textbox", { name: "配布価格" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("textbox", { name: "配布価格" }));
+    await user.keyboard("{Escape}");
 
     expect(scoresApi.setPrice).not.toHaveBeenCalled();
     expect(await screen.findByText("¥500")).toBeInTheDocument();
+  });
+
+  it("空にして保存すると未設定に戻す", async () => {
+    vi.mocked(scoresApi.getDetail).mockResolvedValue(makeScore({ distributionPrice: 500 }));
+    vi.mocked(scoresApi.setPrice).mockResolvedValue({ id: "score-1", distributionPrice: null });
+    const user = userEvent.setup();
+    renderPage(["score"]);
+
+    await user.click(await screen.findByRole("button", { name: "配布価格を編集" }));
+    await user.clear(screen.getByRole("textbox", { name: "配布価格" }));
+    await user.click(screen.getByRole("button", { name: "配布価格を保存" }));
+
+    expect(scoresApi.setPrice).toHaveBeenCalledWith("tokyo-men-choir", "score-1", null);
+    expect(await screen.findByText("+ 価格を設定")).toBeInTheDocument();
+  });
+
+  it("保存に失敗したら、入力欄の下に理由を出して入力を残す", async () => {
+    vi.mocked(scoresApi.getDetail).mockResolvedValue(makeScore({ distributionPrice: 500 }));
+    vi.mocked(scoresApi.setPrice).mockRejectedValue(new Error("network"));
+    const user = userEvent.setup();
+    renderPage(["score"]);
+
+    await user.click(await screen.findByRole("button", { name: "配布価格を編集" }));
+    const input = screen.getByRole("textbox", { name: "配布価格" });
+    await user.clear(input);
+    await user.type(input, "800{Enter}");
+
+    expect(
+      await screen.findByText("配布価格の保存に失敗しました。もう一度お試しください。"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "配布価格" })).toHaveValue("800");
+  });
+
+  it("「+ 価格を設定」から未設定の価格を入れられる", async () => {
+    vi.mocked(scoresApi.getDetail).mockResolvedValue(makeScore({ distributionPrice: null }));
+    vi.mocked(scoresApi.setPrice).mockResolvedValue({ id: "score-1", distributionPrice: 300 });
+    const user = userEvent.setup();
+    renderPage(["admin"]);
+
+    await user.click(await screen.findByText("+ 価格を設定"));
+    await user.type(screen.getByRole("textbox", { name: "配布価格" }), "300{Enter}");
+
+    expect(scoresApi.setPrice).toHaveBeenCalledWith("tokyo-men-choir", "score-1", 300);
+    expect(await screen.findByText("¥300")).toBeInTheDocument();
   });
 
   it("member（非privileged）は価格編集ボタンを表示しない", async () => {
@@ -297,7 +347,7 @@ describe("ScoreDetailPage（配布価格インライン編集）", () => {
     renderPage(["member"]);
 
     await screen.findByText("¥500");
-    expect(screen.queryByTitle("価格を変更")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "配布価格を編集" })).not.toBeInTheDocument();
   });
 });
 

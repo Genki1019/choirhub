@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import {
   FileText,
   Music2,
   EyeOff,
-  Tag,
   Pencil,
   Loader2,
   Users,
@@ -26,6 +25,7 @@ import { PurchaseModal } from "../_components/PurchaseModal";
 import { FileManageModal } from "../_components/FileManageModal";
 import { CollectionModal } from "../../accounting/_components/CollectionModal";
 import { ScoreFormModal } from "../_components/ScoreFormModal";
+import { DistributionPriceField } from "../_components/DistributionPriceField";
 import { PageMain } from "@/components/PageMain";
 import { PageHeader } from "@/components/PageHeader";
 import { ErrorMessage } from "@/components/ErrorMessage";
@@ -46,10 +46,6 @@ export default function ScoreDetailPage() {
   const [showFileManage, setShowFileManage] = useState(false);
   const [showCollection, setShowCollection] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
-  const [editingPrice, setEditingPrice] = useState(false);
-  const [priceInput, setPriceInput] = useState("");
-  const [savingPrice, setSavingPrice] = useState(false);
-  const savingPriceRef = useRef(false);
 
   const isAdmin = myRoles.includes("admin");
   const isPrivileged = canManageScorePdf(myRoles);
@@ -77,38 +73,6 @@ export default function ScoreDetailPage() {
     queryFn: () => settingsApi.listMemberTypes(org),
     enabled: showCollection,
   });
-
-  const startEditPrice = () => {
-    if (!score) return;
-    setPriceInput(score.distributionPrice !== null ? String(score.distributionPrice) : "");
-    setEditingPrice(true);
-  };
-
-  const savePrice = async () => {
-    if (savingPriceRef.current || !score) return;
-    const trimmed = priceInput.trim();
-    const parsed = trimmed === "" ? null : parseInt(trimmed, 10);
-    if (parsed !== null && (isNaN(parsed) || parsed < 0)) {
-      setEditingPrice(false);
-      return;
-    }
-    if (parsed === score.distributionPrice) {
-      setEditingPrice(false);
-      return;
-    }
-    savingPriceRef.current = true;
-    setSavingPrice(true);
-    try {
-      await scoresApi.setPrice(org, score.id, parsed);
-      patchScore({ distributionPrice: parsed });
-      setEditingPrice(false);
-    } catch {
-      setEditingPrice(false);
-    } finally {
-      savingPriceRef.current = false;
-      setSavingPrice(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -255,54 +219,14 @@ export default function ScoreDetailPage() {
                 <div className="flex items-center gap-3">
                   <dt className="w-24 shrink-0 text-xs text-gray-400">配布価格</dt>
                   <dd>
-                    {editingPrice ? (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-gray-500">¥</span>
-                        <input
-                          type="number"
-                          min="0"
-                          value={priceInput}
-                          onChange={(e) => setPriceInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") savePrice();
-                            if (e.key === "Escape") setEditingPrice(false);
-                          }}
-                          onBlur={savePrice}
-                          className="focus:ring-brand-400 w-24 rounded border border-gray-200 px-1.5 py-0.5 text-xs focus:ring-1 focus:outline-none"
-                          autoFocus
-                          placeholder="例: 300"
-                        />
-                        {savingPrice && (
-                          <Loader2 size={11} className="animate-spin text-gray-400" />
-                        )}
-                      </div>
-                    ) : score.distributionPrice !== null ? (
-                      <div className="flex items-center gap-1.5">
-                        <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
-                          <Tag size={10} />¥{score.distributionPrice.toLocaleString()}
-                        </span>
-                        {isPrivileged && (
-                          <button
-                            type="button"
-                            onClick={startEditPrice}
-                            className="hover:text-brand-500 rounded p-0.5 text-gray-400 transition-colors"
-                            title="価格を変更"
-                          >
-                            <Pencil size={10} />
-                          </button>
-                        )}
-                      </div>
-                    ) : isPrivileged ? (
-                      <button
-                        type="button"
-                        onClick={startEditPrice}
-                        className="hover:text-brand-500 text-xs text-gray-400 transition-colors"
-                      >
-                        + 価格を設定
-                      </button>
-                    ) : (
-                      <span className="text-sm text-gray-400">未設定</span>
-                    )}
+                    <DistributionPriceField
+                      price={score.distributionPrice}
+                      canEdit={isPrivileged}
+                      onSave={async (price) => {
+                        await scoresApi.setPrice(org, score.id, price);
+                        patchScore({ distributionPrice: price });
+                      }}
+                    />
                   </dd>
                 </div>
               )}

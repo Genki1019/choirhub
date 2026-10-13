@@ -87,12 +87,68 @@ describe("MemberTypeCard（canEdit: true）", () => {
     const amountInput = screen.getByDisplayValue("3000");
     await user.clear(amountInput);
     await user.type(amountInput, "3500");
-    await user.click(screen.getByLabelText("保存"));
+    await user.click(screen.getByRole("button", { name: "メンバー区分を保存" }));
 
     expect(settingsApi.updateMemberType).toHaveBeenCalledWith("o", "type-1", {
       name: "社会人",
       defaultFeeAmount: 3500,
     });
+  });
+
+  it("会費欄で Enter を押しても保存する。会費を空にすると未設定（null）で送る", async () => {
+    vi.mocked(settingsApi.updateMemberType).mockResolvedValue({
+      id: "type-1",
+      name: "社会人",
+      defaultFeeAmount: null,
+      sortOrder: 1,
+    });
+    const user = userEvent.setup();
+    renderCard(true);
+
+    await user.click(screen.getByLabelText("社会人を編集"));
+    await user.clear(screen.getByRole("textbox", { name: "デフォルト会費" }));
+    await user.keyboard("{Enter}");
+
+    expect(settingsApi.updateMemberType).toHaveBeenCalledWith("o", "type-1", {
+      name: "社会人",
+      defaultFeeAmount: null,
+    });
+  });
+
+  it("会費が整数でなければ（「-」「1e3」など）理由を出して保存しない", async () => {
+    const user = userEvent.setup();
+    renderCard(true);
+
+    await user.click(screen.getByLabelText("社会人を編集"));
+    await user.clear(screen.getByRole("textbox", { name: "デフォルト会費" }));
+    await user.type(screen.getByRole("textbox", { name: "デフォルト会費" }), "-{Enter}");
+
+    expect(screen.getByRole("alert")).toHaveTextContent("会費は0以上の整数で入力してください");
+    expect(settingsApi.updateMemberType).not.toHaveBeenCalled();
+  });
+
+  it("会費を 03000 のように同じ額で書き直しただけなら、保存せずに閉じる", async () => {
+    const user = userEvent.setup();
+    renderCard(true);
+
+    await user.click(screen.getByLabelText("社会人を編集"));
+    await user.clear(screen.getByRole("textbox", { name: "デフォルト会費" }));
+    await user.type(screen.getByRole("textbox", { name: "デフォルト会費" }), "03000{Enter}");
+
+    expect(settingsApi.updateMemberType).not.toHaveBeenCalled();
+    expect(screen.queryByRole("textbox", { name: "デフォルト会費" })).not.toBeInTheDocument();
+  });
+
+  it("区分名を空にすると理由を出して保存しない", async () => {
+    const user = userEvent.setup();
+    renderCard(true);
+
+    await user.click(screen.getByLabelText("社会人を編集"));
+    await user.clear(screen.getByRole("textbox", { name: "区分名" }));
+    await user.click(screen.getByRole("button", { name: "メンバー区分を保存" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("区分名を入力してください");
+    expect(settingsApi.updateMemberType).not.toHaveBeenCalled();
   });
 
   it("🗑️で削除し409エラー時はAPIのメッセージを確認ダイアログの中に表示する", async () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CategoryList } from "../CategoryList";
 import { settingsApi, type EventCategory } from "@/lib/settings-api";
@@ -69,13 +69,59 @@ describe("CategoryList（canEdit: true）", () => {
     const input = screen.getByDisplayValue("合宿");
     await user.clear(input);
     await user.type(input, "合宿改");
-    await user.click(screen.getByLabelText("保存"));
+    await user.click(screen.getByRole("button", { name: "区分を保存" }));
 
     expect(settingsApi.updateEventCategory).toHaveBeenCalledWith("o", "cat-2", {
       name: "合宿改",
       color: "#F97316",
     });
     expect(onUpdated).toHaveBeenCalled();
+  });
+
+  it("区分名で Enter を押すと保存し、Esc では保存せずに閉じて鉛筆にフォーカスを戻す", async () => {
+    vi.mocked(settingsApi.updateEventCategory).mockResolvedValue({
+      ...makeCats()[1],
+      name: "合宿2",
+    });
+    const user = userEvent.setup();
+    renderList(true);
+
+    await user.click(screen.getByLabelText("合宿を編集"));
+    await user.type(screen.getByRole("textbox", { name: "区分名" }), "X{Escape}");
+    expect(settingsApi.updateEventCategory).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("合宿を編集")).toHaveFocus();
+
+    await user.click(screen.getByLabelText("合宿を編集"));
+    await user.type(screen.getByRole("textbox", { name: "区分名" }), "2{Enter}");
+    expect(settingsApi.updateEventCategory).toHaveBeenCalledWith("o", "cat-2", {
+      name: "合宿2",
+      color: "#F97316",
+    });
+  });
+
+  it("色の入力欄でも Enter で保存し、Esc で閉じる", async () => {
+    vi.mocked(settingsApi.updateEventCategory).mockResolvedValue({
+      ...makeCats()[1],
+      color: "#000000",
+    });
+    const user = userEvent.setup();
+    renderList(true);
+
+    await user.click(screen.getByLabelText("合宿を編集"));
+    fireEvent.input(screen.getByLabelText("区分の色"), { target: { value: "#000000" } });
+    screen.getByLabelText("区分の色").focus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByLabelText("区分の色")).not.toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("合宿を編集"));
+    fireEvent.input(screen.getByLabelText("区分の色"), { target: { value: "#000000" } });
+    screen.getByLabelText("区分の色").focus();
+    await user.keyboard("{Enter}");
+    expect(settingsApi.updateEventCategory).toHaveBeenCalledTimes(1);
+    expect(settingsApi.updateEventCategory).toHaveBeenCalledWith("o", "cat-2", {
+      name: "合宿",
+      color: "#000000",
+    });
   });
 
   it("削除するとdeleteEventCategoryが呼ばれonDeletedが呼ばれる", async () => {

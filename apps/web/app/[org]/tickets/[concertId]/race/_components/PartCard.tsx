@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Pencil, Check, X, Loader2 } from "lucide-react";
+import { useState, type KeyboardEvent } from "react";
 import { SCORING_CRITERIA } from "@/lib/scoring-criteria";
 import {
   ticketsApi,
@@ -9,7 +8,8 @@ import {
 } from "@/lib/tickets-api";
 import { RankBadge } from "./RankBadge";
 import { ErrorMessage } from "@/components/ErrorMessage";
-import { userErrorMessage } from "@/lib/api-client";
+import { InlineEditActions, InlineEditButton } from "@/components/InlineEdit";
+import { useInlineEdit } from "@/hooks/useInlineEdit";
 import { formatShortDate, jstParts } from "@/lib/date";
 
 function fmt(n: number, digits = 1) {
@@ -44,10 +44,14 @@ function MonthSelect({
   label,
   value,
   onChange,
+  onKeyDown,
+  autoFocus,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  onKeyDown: (e: KeyboardEvent<HTMLSelectElement>) => void;
+  autoFocus?: boolean;
 }) {
   const [year, setYear] = useState(() => value.split("-")[0] ?? "");
   const [month, setMonth] = useState(() => value.split("-")[1] ?? "");
@@ -74,8 +78,10 @@ function MonthSelect({
     <span className="inline-flex items-center gap-0.5">
       <select
         aria-label={`${label}（年）`}
+        autoFocus={autoFocus}
         value={year}
         onChange={(e) => commit(e.target.value, month)}
+        onKeyDown={onKeyDown}
         className={selectClass}
       >
         <option value="">年</option>
@@ -92,6 +98,7 @@ function MonthSelect({
         aria-label={`${label}（月）`}
         value={month}
         onChange={(e) => commit(year, e.target.value)}
+        onKeyDown={onKeyDown}
         className={selectClass}
       >
         <option value="">月</option>
@@ -123,11 +130,20 @@ function OrganizerPeriodRow({
   concertId,
   onSaved,
 }: OrganizerPeriodRowProps) {
-  const [editing, setEditing] = useState(false);
-  const [fromMonth, setFromMonth] = useState(period?.fromMonth ?? "");
-  const [toMonth, setToMonth] = useState(period?.toMonth ?? "");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { registerTrigger, ...edit } = useInlineEdit({
+    initial: () => ({ fromMonth: period?.fromMonth ?? "", toMonth: period?.toMonth ?? "" }),
+    validate: ({ fromMonth, toMonth }) => {
+      if (!!fromMonth !== !!toMonth) return "開始月と終了月の両方を選んでください";
+      if (fromMonth && fromMonth > toMonth) return "終了月は開始月以降を選んでください";
+      return null;
+    },
+    onSave: async ({ fromMonth, toMonth }) => {
+      const nextPeriod = fromMonth && toMonth ? { fromMonth, toMonth } : null;
+      await ticketsApi.saveOrganizerPeriod(org, concertId, partId, nextPeriod);
+      onSaved(partId, nextPeriod);
+    },
+    errorFallback: "幹事期間の保存に失敗しました。もう一度お試しください。",
+  });
 
   if (!isTicketManager && !period) return null;
 
@@ -139,45 +155,14 @@ function OrganizerPeriodRow({
     );
   }
 
-  const handleSave = async () => {
-    const nextPeriod = fromMonth && toMonth ? { fromMonth, toMonth } : null;
-    setSaving(true);
-    setError(null);
-    try {
-      await ticketsApi.saveOrganizerPeriod(org, concertId, partId, nextPeriod);
-      onSaved(partId, nextPeriod);
-      setEditing(false);
-    } catch (err) {
-      setError(userErrorMessage(err, "幹事期間の保存に失敗しました。もう一度お試しください。"));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCancel = () => {
-    setFromMonth(period?.fromMonth ?? "");
-    setToMonth(period?.toMonth ?? "");
-    setEditing(false);
-    setError(null);
-  };
-
-  const isRangeInvalid = !!fromMonth !== !!toMonth || (!!fromMonth && fromMonth > toMonth);
-
-  if (!editing) {
+  if (!edit.editing) {
     return (
       <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-400">
         <span>
           幹事期間:{" "}
           {period ? `${formatMonth(period.fromMonth)}〜${formatMonth(period.toMonth)}` : "未設定"}
         </span>
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          aria-label="幹事期間を編集"
-          className="text-gray-300 transition-colors hover:text-gray-500"
-        >
-          <Pencil size={12} />
-        </button>
+        <InlineEditButton ref={registerTrigger} label="幹事期間" size="sm" onClick={edit.start} />
       </div>
     );
   }
@@ -185,28 +170,29 @@ function OrganizerPeriodRow({
   return (
     <div className="mt-2">
       <div className="flex flex-wrap items-center gap-1.5">
-        <MonthSelect label="開始月" value={fromMonth} onChange={setFromMonth} />
+        <MonthSelect
+          label="開始月"
+          autoFocus
+          value={edit.value.fromMonth}
+          onChange={(fromMonth) => edit.setValue({ ...edit.value, fromMonth })}
+          onKeyDown={edit.handleKeyDown}
+        />
         <span className="text-xs text-gray-400">〜</span>
-        <MonthSelect label="終了月" value={toMonth} onChange={setToMonth} />
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving || isRangeInvalid}
-          aria-label="保存"
-          className="text-teal-600 hover:text-teal-800 disabled:opacity-40"
-        >
-          {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
-        </button>
-        <button
-          type="button"
-          onClick={handleCancel}
-          aria-label="キャンセル"
-          className="text-gray-400 hover:text-gray-600"
-        >
-          <X size={13} />
-        </button>
+        <MonthSelect
+          label="終了月"
+          value={edit.value.toMonth}
+          onChange={(toMonth) => edit.setValue({ ...edit.value, toMonth })}
+          onKeyDown={edit.handleKeyDown}
+        />
+        <InlineEditActions
+          label="幹事期間"
+          size="sm"
+          saving={edit.saving}
+          onSave={edit.save}
+          onCancel={edit.cancel}
+        />
       </div>
-      <ErrorMessage className="mt-2">{error}</ErrorMessage>
+      <ErrorMessage className="mt-2">{edit.error}</ErrorMessage>
     </div>
   );
 }

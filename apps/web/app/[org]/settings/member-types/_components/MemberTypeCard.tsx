@@ -1,18 +1,130 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
+import { Plus, Trash2, X, Loader2 } from "lucide-react";
 import { DndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { DragHandle, SortableItem, useListDndSensors } from "@/components/SortableRow";
 import { settingsApi } from "@/lib/settings-api";
 import { userErrorMessage } from "@/lib/api-client";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { InlineEditActions, InlineEditButton } from "@/components/InlineEdit";
+import { useBusy } from "@/hooks/useBusy";
+import { useInlineEdit } from "@/hooks/useInlineEdit";
 import { createSortDragEndHandler } from "@/lib/sort-order";
 import type { MemberType } from "@/lib/settings-api";
 
+const toFee = (amount: string) => (amount.trim() ? Number(amount.trim()) : null);
+
 function yen(n: number | null) {
   return n == null ? "—" : `¥${n.toLocaleString()}`;
+}
+
+function MemberTypeRowFields({
+  type,
+  org,
+  canEdit,
+  busy,
+  runBusy,
+  onUpdated,
+  onDeleteClick,
+}: {
+  type: MemberType;
+  org: string;
+  canEdit: boolean;
+  busy: boolean;
+  runBusy: <T>(task: () => Promise<T>) => Promise<T>;
+  onUpdated: (updated: MemberType) => void;
+  onDeleteClick: () => void;
+}) {
+  const { registerTrigger, ...edit } = useInlineEdit({
+    initial: () => ({
+      name: type.name,
+      amount: type.defaultFeeAmount != null ? String(type.defaultFeeAmount) : "",
+    }),
+    validate: ({ name, amount }) => {
+      if (!name.trim()) return "区分名を入力してください";
+      if (amount.trim() && !/^\d+$/.test(amount.trim()))
+        return "会費は0以上の整数で入力してください";
+      return null;
+    },
+    onSave: async ({ name, amount }) => {
+      onUpdated(
+        await runBusy(() =>
+          settingsApi.updateMemberType(org, type.id, {
+            name: name.trim(),
+            defaultFeeAmount: toFee(amount),
+          }),
+        ),
+      );
+    },
+    isEqual: (a, b) => a.name.trim() === b.name.trim() && toFee(a.amount) === toFee(b.amount),
+    errorFallback: "メンバー区分の保存に失敗しました。もう一度お試しください。",
+    disabled: busy,
+  });
+
+  if (edit.editing) {
+    return (
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="flex items-center gap-2">
+          <input
+            autoFocus
+            aria-label="区分名"
+            value={edit.value.name}
+            onChange={(e) => edit.setValue({ ...edit.value, name: e.target.value })}
+            onKeyDown={edit.handleKeyDown}
+            placeholder="区分名"
+            className="border-brand-300 focus:ring-brand-400 min-w-0 flex-1 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
+          />
+          <input
+            type="text"
+            inputMode="numeric"
+            aria-label="デフォルト会費"
+            value={edit.value.amount}
+            onChange={(e) => edit.setValue({ ...edit.value, amount: e.target.value })}
+            onKeyDown={edit.handleKeyDown}
+            placeholder="会費（円）"
+            className="border-brand-300 focus:ring-brand-400 w-28 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
+          />
+          <InlineEditActions
+            label="メンバー区分"
+            saving={edit.saving}
+            saveDisabled={busy}
+            onSave={edit.save}
+            onCancel={edit.cancel}
+          />
+        </div>
+        <ErrorMessage>{edit.error}</ErrorMessage>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <span className="flex-1 text-sm text-gray-800">{type.name}</span>
+      <span className="w-28 text-right text-sm text-gray-500">{yen(type.defaultFeeAmount)}</span>
+      {canEdit && (
+        <div className="flex w-14 shrink-0 items-center justify-end gap-0.5">
+          <InlineEditButton
+            ref={registerTrigger}
+            label={type.name}
+            onClick={edit.start}
+            disabled={busy}
+          />
+          <button
+            type="button"
+            onClick={onDeleteClick}
+            disabled={busy}
+            aria-label={`${type.name}を削除`}
+            className="p-1.5 text-gray-300 transition-colors hover:text-red-500 disabled:opacity-40"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
+      )}
+    </>
+  );
 }
 
 interface MemberTypeCardProps {
@@ -36,40 +148,13 @@ export function MemberTypeCard({
   onReordered,
   onToast,
 }: MemberTypeCardProps) {
-  const [busy, setBusy] = useState(false);
+  const { busy, setBusy, runBusy } = useBusy();
   const [confirmTarget, setConfirmTarget] = useState<MemberType | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editAmount, setEditAmount] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState("");
   const [newAmount, setNewAmount] = useState("");
-
-  const startEdit = (t: MemberType) => {
-    setEditId(t.id);
-    setEditName(t.name);
-    setEditAmount(t.defaultFeeAmount != null ? String(t.defaultFeeAmount) : "");
-  };
-
-  const confirmEdit = async () => {
-    if (!editName.trim() || !editId) return;
-    setBusy(true);
-    try {
-      const amount = editAmount.trim() ? parseInt(editAmount, 10) : null;
-      const updated = await settingsApi.updateMemberType(org, editId, {
-        name: editName.trim(),
-        defaultFeeAmount: amount != null && !isNaN(amount) ? amount : null,
-      });
-      onUpdated(updated);
-      setEditId(null);
-    } catch {
-      onToast("更新に失敗しました");
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const handleConfirmDelete = async (t: MemberType) => {
     setDeleting(true);
@@ -96,22 +181,21 @@ export function MemberTypeCard({
   });
 
   const addType = async () => {
-    if (!newName.trim()) return;
-    setBusy(true);
+    if (busy || !newName.trim()) return;
     try {
       const amount = newAmount.trim() ? parseInt(newAmount, 10) : null;
-      const created = await settingsApi.createMemberType(org, {
-        name: newName.trim(),
-        defaultFeeAmount: amount != null && !isNaN(amount) ? amount : null,
-      });
+      const created = await runBusy(() =>
+        settingsApi.createMemberType(org, {
+          name: newName.trim(),
+          defaultFeeAmount: amount != null && !isNaN(amount) ? amount : null,
+        }),
+      );
       onCreated(created);
       setNewName("");
       setNewAmount("");
       setShowAdd(false);
     } catch {
       onToast("追加に失敗しました");
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -125,10 +209,7 @@ export function MemberTypeCard({
         {canEdit && (
           <button
             type="button"
-            onClick={() => {
-              setShowAdd(true);
-              setEditId(null);
-            }}
+            onClick={() => setShowAdd(true)}
             disabled={busy}
             className="text-brand-600 hover:text-brand-700 flex items-center gap-1 text-xs font-medium transition-colors disabled:opacity-40"
           >
@@ -157,89 +238,26 @@ export function MemberTypeCard({
                     data-dnd-row=""
                     className="flex items-center gap-3 px-5 py-3"
                   >
-                    {editId === t.id ? (
-                      <>
-                        {canEdit && <div className="w-6 shrink-0" />}
-                        <div className="flex flex-1 items-center gap-2">
-                          <input
-                            autoFocus
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") confirmEdit();
-                              if (e.key === "Escape") setEditId(null);
-                            }}
-                            placeholder="区分名"
-                            className="border-brand-300 focus:ring-brand-400 flex-1 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
-                          />
-                          <input
-                            type="number"
-                            value={editAmount}
-                            onChange={(e) => setEditAmount(e.target.value)}
-                            placeholder="会費（円）"
-                            min={0}
-                            className="border-brand-300 focus:ring-brand-400 w-28 rounded border px-2 py-1 text-sm focus:ring-1 focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={confirmEdit}
-                            disabled={busy}
-                            aria-label="保存"
-                            className="text-teal-600 hover:text-teal-700 disabled:opacity-40"
-                          >
-                            <Check size={15} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditId(null)}
-                            aria-label="キャンセル"
-                            className="text-gray-400 hover:text-gray-600"
-                          >
-                            <X size={15} />
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        {canEdit && (
-                          <DragHandle
-                            label={t.name}
-                            attributes={attributes}
-                            listeners={listeners}
-                            disabled={busy}
-                          />
-                        )}
-                        <span className="flex-1 text-sm text-gray-800">{t.name}</span>
-                        <span className="w-28 text-right text-sm text-gray-500">
-                          {yen(t.defaultFeeAmount)}
-                        </span>
-                        {canEdit && (
-                          <div className="flex w-14 shrink-0 items-center justify-end gap-0.5">
-                            <button
-                              type="button"
-                              onClick={() => startEdit(t)}
-                              disabled={busy}
-                              aria-label={`${t.name}を編集`}
-                              className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors disabled:opacity-40"
-                            >
-                              <Pencil size={13} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setDeleteError(null);
-                                setConfirmTarget(t);
-                              }}
-                              disabled={busy}
-                              aria-label={`${t.name}を削除`}
-                              className="p-1.5 text-gray-300 transition-colors hover:text-red-500 disabled:opacity-40"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        )}
-                      </>
+                    {canEdit && (
+                      <DragHandle
+                        label={t.name}
+                        attributes={attributes}
+                        listeners={listeners}
+                        disabled={busy}
+                      />
                     )}
+                    <MemberTypeRowFields
+                      type={t}
+                      org={org}
+                      canEdit={canEdit}
+                      busy={busy}
+                      runBusy={runBusy}
+                      onUpdated={onUpdated}
+                      onDeleteClick={() => {
+                        setDeleteError(null);
+                        setConfirmTarget(t);
+                      }}
+                    />
                   </div>
                 )}
               </SortableItem>

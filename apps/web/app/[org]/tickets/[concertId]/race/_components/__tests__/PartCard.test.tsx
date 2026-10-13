@@ -162,7 +162,7 @@ describe("PartCard（幹事期間）", () => {
     await user.selectOptions(screen.getByLabelText("開始月（月）"), "04");
     await user.selectOptions(screen.getByLabelText("終了月（年）"), year);
     await user.selectOptions(screen.getByLabelText("終了月（月）"), "06");
-    await user.click(screen.getByLabelText("保存"));
+    await user.click(screen.getByRole("button", { name: "幹事期間を保存" }));
 
     await waitFor(() => {
       expect(ticketsApi.saveOrganizerPeriod).toHaveBeenCalledWith(
@@ -216,10 +216,47 @@ describe("PartCard（幹事期間）", () => {
     await user.click(screen.getByRole("button"));
     await user.selectOptions(screen.getByLabelText("開始月（年）"), year);
     await user.selectOptions(screen.getByLabelText("開始月（月）"), "04");
-    await user.click(screen.getByLabelText("キャンセル"));
+    await user.click(screen.getByRole("button", { name: "幹事期間の編集をキャンセル" }));
 
     expect(screen.getByText("幹事期間: 未設定")).toBeInTheDocument();
     expect(ticketsApi.saveOrganizerPeriod).not.toHaveBeenCalled();
+  });
+
+  it("年・月の選択欄で Enter を押すと保存し、× で Enter を押すと保存せずに閉じる", async () => {
+    vi.mocked(ticketsApi.saveOrganizerPeriod).mockResolvedValue({
+      partId: "part-1",
+      fromMonth: "2026-04",
+      toMonth: "2026-07",
+    });
+    const user = userEvent.setup();
+    render(
+      <PartCard
+        part={makePart({ organizerPeriod: { fromMonth: "2026-04", toMonth: "2026-06" } })}
+        scoring={makeScoring()}
+        isTicketManager={true}
+        org="tokyo-men-choir"
+        concertId="concert-1"
+        onOrganizerPeriodSaved={() => {}}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "幹事期間を編集" }));
+    await user.selectOptions(screen.getByLabelText("終了月（月）"), "07");
+    screen.getByRole("button", { name: "幹事期間の編集をキャンセル" }).focus();
+    await user.keyboard("{Enter}");
+    expect(ticketsApi.saveOrganizerPeriod).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("終了月（月）")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "幹事期間を編集" }));
+    await user.selectOptions(screen.getByLabelText("終了月（月）"), "07");
+    screen.getByLabelText("終了月（月）").focus();
+    await user.keyboard("{Enter}");
+    expect(ticketsApi.saveOrganizerPeriod).toHaveBeenCalledWith(
+      "tokyo-men-choir",
+      "concert-1",
+      "part-1",
+      { fromMonth: "2026-04", toMonth: "2026-07" },
+    );
   });
 
   it("設定済みの期間を両方未選択に戻して保存すると、nullで解除される", async () => {
@@ -246,7 +283,7 @@ describe("PartCard（幹事期間）", () => {
     await user.selectOptions(screen.getByLabelText("開始月（月）"), "");
     await user.selectOptions(screen.getByLabelText("終了月（年）"), "");
     await user.selectOptions(screen.getByLabelText("終了月（月）"), "");
-    await user.click(screen.getByLabelText("保存"));
+    await user.click(screen.getByRole("button", { name: "幹事期間を保存" }));
 
     await waitFor(() => {
       expect(ticketsApi.saveOrganizerPeriod).toHaveBeenCalledWith(
@@ -259,7 +296,7 @@ describe("PartCard（幹事期間）", () => {
     expect(onOrganizerPeriodSaved).toHaveBeenCalledWith("part-1", null);
   });
 
-  it("開始月のみ選択した状態では保存ボタンがdisabledになる", async () => {
+  it("開始月のみ選択して保存すると、理由を出して保存しない", async () => {
     const year = String(new Date().getFullYear());
     const user = userEvent.setup();
     render(
@@ -277,11 +314,13 @@ describe("PartCard（幹事期間）", () => {
     await user.selectOptions(screen.getByLabelText("開始月（年）"), year);
     await user.selectOptions(screen.getByLabelText("開始月（月）"), "04");
 
-    expect(screen.getByLabelText("保存")).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "幹事期間を保存" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("開始月と終了月の両方を選んでください");
     expect(ticketsApi.saveOrganizerPeriod).not.toHaveBeenCalled();
   });
 
-  it("終了月が開始月より前の場合は保存ボタンがdisabledになる", async () => {
+  it("終了月が開始月より前のまま保存すると、理由を出して保存しない", async () => {
     const year = String(new Date().getFullYear());
     const user = userEvent.setup();
     render(
@@ -301,7 +340,40 @@ describe("PartCard（幹事期間）", () => {
     await user.selectOptions(screen.getByLabelText("終了月（年）"), year);
     await user.selectOptions(screen.getByLabelText("終了月（月）"), "04");
 
-    expect(screen.getByLabelText("保存")).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "幹事期間を保存" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("終了月は開始月以降を選んでください");
+    expect(ticketsApi.saveOrganizerPeriod).not.toHaveBeenCalled();
+  });
+});
+
+describe("PartCard（幹事期間の古い値）", () => {
+  it("外から期間が変わったあとに開くと、新しい期間から始まる", async () => {
+    const user = userEvent.setup();
+    const props = {
+      scoring: makeScoring(),
+      isTicketManager: true,
+      org: "tokyo-men-choir",
+      concertId: "concert-1",
+      onOrganizerPeriodSaved: () => {},
+    };
+    const { rerender } = render(
+      <PartCard
+        part={makePart({ organizerPeriod: { fromMonth: "2026-04", toMonth: "2026-06" } })}
+        {...props}
+      />,
+    );
+    rerender(
+      <PartCard
+        part={makePart({ organizerPeriod: { fromMonth: "2026-07", toMonth: "2026-09" } })}
+        {...props}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "幹事期間を編集" }));
+
+    expect(screen.getByLabelText("開始月（月）")).toHaveValue("07");
+    expect(screen.getByLabelText("終了月（月）")).toHaveValue("09");
   });
 });
 
@@ -321,8 +393,13 @@ describe("PartCard（幹事期間の保存の失敗）", () => {
       />,
     );
 
+    const year = String(new Date().getFullYear());
     await user.click(screen.getByRole("button", { name: "幹事期間を編集" }));
-    await user.click(screen.getByLabelText("保存"));
+    await user.selectOptions(screen.getByLabelText("開始月（年）"), year);
+    await user.selectOptions(screen.getByLabelText("開始月（月）"), "04");
+    await user.selectOptions(screen.getByLabelText("終了月（年）"), year);
+    await user.selectOptions(screen.getByLabelText("終了月（月）"), "06");
+    await user.click(screen.getByRole("button", { name: "幹事期間を保存" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "幹事期間の保存に失敗しました。もう一度お試しください。",

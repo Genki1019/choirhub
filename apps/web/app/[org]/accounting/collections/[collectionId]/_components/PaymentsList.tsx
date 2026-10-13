@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import { Check, CheckSquare } from "lucide-react";
 import { PAYMENT_METHOD_LABEL } from "@/lib/accounting-api";
 import type { CollectionPaymentItem } from "@/lib/accounting-api";
@@ -11,7 +12,7 @@ interface PaymentsListProps {
   checkedIds: Set<string>;
   onToggleCheck: (memberId: string) => void;
   onSelectAllPending: () => void;
-  onQuickPaid: (payment: CollectionPaymentItem) => void;
+  onQuickPaid: (payment: CollectionPaymentItem) => Promise<boolean>;
   onEdit: (payment: CollectionPaymentItem) => void;
 }
 
@@ -24,6 +25,21 @@ export function PaymentsList({
   onQuickPaid,
   onEdit,
 }: PaymentsListProps) {
+  const [recordingIds, setRecordingIds] = useState<Set<string>>(new Set());
+  const editButtons = useRef(new Map<string, HTMLButtonElement>());
+
+  const quickPaid = async (payment: CollectionPaymentItem) => {
+    if (recordingIds.has(payment.id)) return;
+    setRecordingIds((prev) => new Set(prev).add(payment.id));
+    const ok = await onQuickPaid(payment);
+    setRecordingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(payment.id);
+      return next;
+    });
+    if (ok) editButtons.current.get(payment.id)?.focus();
+  };
+
   const paid = payments.filter((p) => p.status === "paid").length;
   const pending = payments.filter((p) => p.status === "pending").length;
   const waived = payments.filter((p) => p.status === "waived").length;
@@ -137,10 +153,11 @@ export function PaymentsList({
                     {payment.status === "pending" && (
                       <button
                         type="button"
-                        onClick={() => onQuickPaid(payment)}
+                        onClick={() => quickPaid(payment)}
+                        aria-disabled={recordingIds.has(payment.id)}
                         title="現金 支払済みにする"
                         aria-label={`${payment.member.nameJa}を支払済みにする`}
-                        className="flex items-center gap-1 rounded-lg border border-teal-200 px-2 py-1 text-xs text-teal-600 transition-colors hover:bg-teal-50"
+                        className="flex items-center gap-1 rounded-lg border border-teal-200 px-2 py-1 text-xs text-teal-600 transition-colors hover:bg-teal-50 aria-disabled:opacity-60"
                       >
                         <Check size={11} />
                         支払済
@@ -148,6 +165,10 @@ export function PaymentsList({
                     )}
                     <button
                       type="button"
+                      ref={(el) => {
+                        if (el) editButtons.current.set(payment.id, el);
+                        else editButtons.current.delete(payment.id);
+                      }}
                       onClick={() => onEdit(payment)}
                       className="hover:text-brand-500 p-1.5 text-gray-300 transition-colors"
                       title="詳細編集"

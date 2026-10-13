@@ -50,7 +50,7 @@ export default function CollectionDetailPage() {
   }, [error, org, router]);
 
   const handleQuickPaid = async (payment: CollectionPaymentItem) => {
-    if (!col) return;
+    if (!col) return false;
     setActionError(null);
     try {
       const updated = await accountingApi.recordPayment(org, collectionId, payment.member.id, {
@@ -73,6 +73,7 @@ export default function CollectionDetailPage() {
       );
       queryClient.invalidateQueries({ queryKey: accountingKeys.all(org) });
       showToast(`${payment.member.nameJa} の支払いを記録しました`);
+      return true;
     } catch (err) {
       setActionError(
         userErrorMessage(
@@ -80,6 +81,7 @@ export default function CollectionDetailPage() {
           `${payment.member.nameJa} の支払いの記録に失敗しました。もう一度お試しください。`,
         ),
       );
+      return false;
     }
   };
 

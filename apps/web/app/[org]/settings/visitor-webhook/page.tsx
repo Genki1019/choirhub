@@ -11,6 +11,8 @@ import { useClipboardCopy } from "@/hooks/useClipboardCopy";
 import { useTokenIssuance } from "@/hooks/useTokenIssuance";
 import { PageWithHeader } from "@/components/PageWithHeader";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { NotFoundPage } from "@/components/NotFoundPage";
 import { IntroTemplateCard } from "./_components/IntroTemplateCard";
 
 export default function VisitorWebhookPage() {
@@ -29,12 +31,21 @@ export default function VisitorWebhookPage() {
     resolve();
   }, []);
 
-  const { data, isLoading, regenerating, error, handleRegenerate, clearError } = useTokenIssuance(
-    settingsKeys.visitorWebhook(org),
-    () => settingsApi.getVisitorWebhookToken(org),
-    () => settingsApi.regenerateVisitorWebhookToken(org),
-    { enabled: isAdmin },
-  );
+  const { data, isLoading, loadError, regenerating, error, handleRegenerate, clearError } =
+    useTokenIssuance(
+      settingsKeys.visitorWebhook(org),
+      () => settingsApi.getVisitorWebhookToken(org),
+      () => settingsApi.regenerateVisitorWebhookToken(org),
+      { enabled: isAdmin },
+    );
+
+  if (!isAdmin) {
+    return (
+      <div className="flex h-full flex-col">
+        <NotFoundPage message="このページにアクセスする権限がありません" />
+      </div>
+    );
+  }
 
   return (
     <PageWithHeader
@@ -67,43 +78,55 @@ export default function VisitorWebhookPage() {
           </div>
         </div>
 
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500">トークン</label>
-          <div className="flex items-center gap-2">
-            <input
-              readOnly
-              value={data?.token ?? "未発行"}
-              className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600"
-            />
-            {data?.token && (
-              <button
-                type="button"
-                onClick={() => copy(data.token as string, "token")}
-                className="shrink-0 rounded-lg border border-gray-200 p-2 text-gray-500 transition-colors hover:bg-gray-50"
-                aria-label="トークンをコピー"
-              >
-                <Copy size={14} />
-              </button>
-            )}
-          </div>
-          {copiedKey && <p className="mt-1 text-xs text-teal-600">コピーしました</p>}
-        </div>
+        <ErrorMessage autoScroll={false}>{loadError}</ErrorMessage>
 
-        <button
-          type="button"
-          onClick={() => (data?.token ? setConfirmRegenerate(true) : handleRegenerate())}
-          disabled={regenerating}
-          className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-60"
-        >
-          {regenerating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-          {data?.token ? "再発行する" : "発行する"}
-        </button>
-        {data?.token && (
-          <p className="text-xs text-gray-400">
-            再発行すると、これまでのトークンを使ったWebhookは無効になります。
-          </p>
+        {!loadError && (
+          <>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-500">トークン</label>
+              <div className="flex items-center gap-2">
+                <input
+                  readOnly
+                  value={data?.token ?? "未発行"}
+                  className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600"
+                />
+                {data?.token && (
+                  <button
+                    type="button"
+                    onClick={() => copy(data.token as string, "token")}
+                    className="shrink-0 rounded-lg border border-gray-200 p-2 text-gray-500 transition-colors hover:bg-gray-50"
+                    aria-label="トークンをコピー"
+                  >
+                    <Copy size={14} />
+                  </button>
+                )}
+              </div>
+              <p role="status" className="mt-1 text-xs text-teal-600">
+                {copiedKey ? "コピーしました" : ""}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => (data?.token ? setConfirmRegenerate(true) : handleRegenerate())}
+              disabled={regenerating}
+              className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-60"
+            >
+              {regenerating ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <RefreshCw size={14} />
+              )}
+              {data?.token ? "再発行する" : "発行する"}
+            </button>
+            {data?.token && (
+              <p className="text-xs text-gray-400">
+                再発行すると、これまでのトークンを使ったWebhookは無効になります。
+              </p>
+            )}
+          </>
         )}
-        {!confirmRegenerate && error && <p className="text-xs text-red-500">{error}</p>}
+        {!confirmRegenerate && <ErrorMessage>{error}</ErrorMessage>}
       </div>
 
       <IntroTemplateCard org={org} />

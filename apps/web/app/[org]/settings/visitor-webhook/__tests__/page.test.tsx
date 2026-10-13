@@ -8,6 +8,7 @@ import { settingsApi } from "@/lib/settings-api";
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ org: "tokyo-men-choir" }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
 }));
 
 vi.mock("@/lib/settings-api", async () => {
@@ -178,5 +179,30 @@ describe("VisitorWebhookPage", () => {
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
       expect.stringContaining("/api/v1/public/visitor-applications"),
     );
+  });
+});
+
+describe("VisitorWebhookPage（トークンの取得失敗）", () => {
+  it("取得に失敗したら理由を出し、確認なしで発行できるボタンは出さない", async () => {
+    vi.mocked(settingsApi.getVisitorWebhookToken).mockRejectedValue(
+      new TypeError("Failed to fetch"),
+    );
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "トークンの読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+    expect(screen.queryByRole("button", { name: /発行する/ })).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue("未発行")).not.toBeInTheDocument();
+  });
+});
+
+describe("VisitorWebhookPage（admin 以外）", () => {
+  it("会計担当が直接開いても、トークンを取得せず、発行ボタンも出さない", async () => {
+    renderPage(["finance"]);
+
+    expect(await screen.findByText("このページにアクセスする権限がありません")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /発行する/ })).not.toBeInTheDocument();
+    expect(settingsApi.getVisitorWebhookToken).not.toHaveBeenCalled();
   });
 });

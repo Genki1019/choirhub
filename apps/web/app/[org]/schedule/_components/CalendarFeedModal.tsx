@@ -25,11 +25,12 @@ export function CalendarFeedModal({ orgSlug, onClose }: CalendarFeedModalProps) 
     resolve();
   }, []);
 
-  const { data, isLoading, regenerating, error, handleRegenerate, clearError } = useTokenIssuance(
-    eventKeys.calendarFeedToken(orgSlug),
-    () => eventsApi.getCalendarFeedToken(orgSlug),
-    () => eventsApi.regenerateCalendarFeedToken(orgSlug),
-  );
+  const { data, isLoading, loadError, regenerating, error, handleRegenerate, clearError } =
+    useTokenIssuance(
+      eventKeys.calendarFeedToken(orgSlug),
+      () => eventsApi.getCalendarFeedToken(orgSlug),
+      () => eventsApi.regenerateCalendarFeedToken(orgSlug),
+    );
 
   const feedUrl = data?.token
     ? `${origin}/api/v1/calendar/${orgSlug}/feed.ics?token=${data.token}`
@@ -53,7 +54,9 @@ export function CalendarFeedModal({ orgSlug, onClose }: CalendarFeedModalProps) 
           </div>
         )}
 
-        {!isLoading && (
+        <ErrorMessage autoScroll={false}>{loadError}</ErrorMessage>
+
+        {!isLoading && !loadError && (
           <>
             {feedUrl && (
               <>

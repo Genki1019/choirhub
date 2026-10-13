@@ -155,3 +155,16 @@ describe("CalendarFeedModal（共通モーダル）", () => {
     expect(status).toHaveTextContent("コピーしました");
   });
 });
+
+describe("CalendarFeedModal（トークンの取得失敗）", () => {
+  it("取得に失敗したら理由を出し、確認なしで発行できるボタンは出さない", async () => {
+    vi.mocked(eventsApi.getCalendarFeedToken).mockRejectedValue(new TypeError("Failed to fetch"));
+    renderModal();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "トークンの読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+    expect(screen.queryByRole("button", { name: /発行する/ })).not.toBeInTheDocument();
+    expect(eventsApi.regenerateCalendarFeedToken).not.toHaveBeenCalled();
+  });
+});

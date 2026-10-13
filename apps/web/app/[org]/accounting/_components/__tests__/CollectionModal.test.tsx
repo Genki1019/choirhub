@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CollectionModal } from "../CollectionModal";
 import { accountingApi } from "@/lib/accounting-api";
+import { ApiClientError } from "@/lib/api-client";
 import type { MemberType } from "@/lib/settings-api";
 
 vi.mock("@/lib/accounting-api", async () => {
@@ -30,13 +31,11 @@ beforeEach(() => {
 describe("CollectionModal（全員共通モード）", () => {
   it("金額が0以下の場合はエラーを表示する", async () => {
     const user = userEvent.setup();
-    const { container } = render(
-      <CollectionModal org="o" memberTypes={[]} onClose={vi.fn()} onSaved={vi.fn()} />,
-    );
+    render(<CollectionModal org="o" memberTypes={[]} onClose={vi.fn()} onSaved={vi.fn()} />);
 
     await user.type(screen.getByPlaceholderText("例: 7月合宿費"), "合宿費");
     // 金額欄はrequiredのHTML5制約でクリック送信がブロックされるため、submitイベントを直接発火してJS側のバリデーションを検証する
-    fireEvent.submit(container.querySelector("form")!);
+    fireEvent.submit(document.querySelector("form")!);
 
     expect(await screen.findByText("金額を正の整数で入力してください")).toBeInTheDocument();
   });
@@ -103,7 +102,9 @@ describe("CollectionModal（全員共通モード）", () => {
     await user.type(screen.getByPlaceholderText("3000"), "15000");
     await user.click(screen.getByText("作成する"));
 
-    expect(await screen.findByText("作成に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "徴収の作成に失敗しました。もう一度お試しください。",
+    );
   });
 
   it("キャンセル・×ボタンでonCloseが呼ばれる", async () => {
@@ -140,7 +141,7 @@ describe("CollectionModal（区分ごとに指定モード）", () => {
 
   it("区分の金額が未入力の場合は区分名を含むエラーを表示する", async () => {
     const user = userEvent.setup();
-    const { container } = render(
+    render(
       <CollectionModal
         org="o"
         memberTypes={makeMemberTypes()}
@@ -154,7 +155,7 @@ describe("CollectionModal（区分ごとに指定モード）", () => {
     await user.clear(screen.getByLabelText("社会人の金額"));
     await user.type(screen.getByLabelText("区分未設定の金額"), "3000");
     // 空欄の金額欄がrequiredのHTML5制約でクリック送信をブロックするため、submitイベントを直接発火する
-    fireEvent.submit(container.querySelector("form")!);
+    fireEvent.submit(document.querySelector("form")!);
 
     expect(
       await screen.findByText("「社会人」の金額を正の整数で入力してください"),
@@ -188,6 +189,102 @@ describe("CollectionModal（区分ごとに指定モード）", () => {
         memberTypeAmounts: { "type-1": 3000, "type-2": 1500 },
         amount: 1000,
       }),
+    );
+  });
+});
+
+describe("CollectionModal（共通モーダル）", () => {
+  it("見出しを名前に持つダイアログで開き、件名欄にフォーカスが入る", () => {
+    render(<CollectionModal org="o" memberTypes={[]} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    expect(screen.getByRole("dialog", { name: "徴収を作成" })).toBeInTheDocument();
+    expect(screen.getByLabelText("件名")).toHaveFocus();
+  });
+
+  it("金額設定はグループとして読み上げられ、全員共通の金額欄に名前がある", () => {
+    render(<CollectionModal org="o" memberTypes={[]} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    expect(screen.getByRole("group", { name: "金額設定" })).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "金額（円）" })).toBeInTheDocument();
+  });
+
+  it("Esc で閉じ、作成中は閉じない", async () => {
+    vi.mocked(accountingApi.createCollection).mockReturnValue(new Promise(() => {}));
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<CollectionModal org="o" memberTypes={[]} onClose={onClose} onSaved={vi.fn()} />);
+
+    await user.type(screen.getByLabelText("件名"), "合宿費");
+    await user.type(screen.getByRole("spinbutton", { name: "金額（円）" }), "3000{Enter}");
+    await user.keyboard("{Escape}");
+    expect(accountingApi.createCollection).toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("4xx の失敗は API の理由を出す", async () => {
+    vi.mocked(accountingApi.createCollection).mockRejectedValue(
+      new ApiClientError("FORBIDDEN", "会計以上の権限が必要です", 403),
+    );
+    const user = userEvent.setup();
+    render(<CollectionModal org="o" memberTypes={[]} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await user.type(screen.getByLabelText("件名"), "合宿費");
+    await user.type(screen.getByRole("spinbutton", { name: "金額（円）" }), "3000{Enter}");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("会計以上の権限が必要です");
+  });
+});
+
+describe("CollectionModal（区分の読み込みが後から終わる）", () => {
+  it("開いた後に区分が届いても、区分ごとの金額に既定の会費が入る", async () => {
+    const user = userEvent.setup();
+    const props = { org: "o", onClose: vi.fn(), onSaved: vi.fn() };
+    const { rerender } = render(<CollectionModal {...props} memberTypes={[]} />);
+    rerender(<CollectionModal {...props} memberTypes={makeMemberTypes()} />);
+
+    await user.click(screen.getByLabelText("区分ごとに指定"));
+
+    expect(screen.getByLabelText("社会人の金額")).toHaveValue(3000);
+    expect(screen.getByLabelText("学生の金額")).toHaveValue(1500);
+  });
+});
+
+describe("CollectionModal（メンバー区分がないとき）", () => {
+  it("区分がないあいだは「区分ごとに指定」を選べず、理由が読み上げられる", () => {
+    render(<CollectionModal org="o" memberTypes={[]} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    const perType = screen.getByLabelText("区分ごとに指定");
+    expect(perType).toBeDisabled();
+    expect(perType).toHaveAccessibleDescription(
+      "メンバー区分が登録されていないため、区分ごとには指定できません",
+    );
+  });
+
+  it("区分があれば選べ、理由は出さない", () => {
+    render(
+      <CollectionModal
+        org="o"
+        memberTypes={makeMemberTypes()}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("区分ごとに指定")).toBeEnabled();
+    expect(
+      screen.queryByText("メンバー区分が登録されていないため、区分ごとには指定できません"),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("CollectionModal（メンバー区分を読み込めていないとき）", () => {
+  it("読み込み中・取得失敗のあいだは「区分ごとに指定」を選べず、その理由を出す", () => {
+    render(<CollectionModal org="o" memberTypes={undefined} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    const perType = screen.getByLabelText("区分ごとに指定");
+    expect(perType).toBeDisabled();
+    expect(perType).toHaveAccessibleDescription(
+      "メンバー区分を読み込めていないため、区分ごとには指定できません",
     );
   });
 });

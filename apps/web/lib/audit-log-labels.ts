@@ -65,7 +65,8 @@ const PAYMENT_STATUS_LABEL: Record<string, string> = {
   waived: "免除",
 };
 
-export function auditFieldLabel(field: string): string {
+export function auditFieldLabel(action: string, field: string): string {
+  if (action.startsWith("payment.") && field === "amount") return "支払額";
   return FIELD_LABEL[field] ?? field;
 }
 

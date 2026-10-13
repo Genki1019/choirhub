@@ -70,6 +70,10 @@ export function isFinancePlus(member: Member): boolean {
   return isAdmin(member) || member.roles.includes("finance");
 }
 
+export function canManageScores(member: Member): boolean {
+  return isAdmin(member) || member.roles.includes("score");
+}
+
 // オンステ調査・フォーメーション・予定の管理。同じ階層値の score は含まない
 export function isTechOrConductor(member: Member): boolean {
   return isAdmin(member) || member.roles.includes("tech") || member.roles.includes("conductor");

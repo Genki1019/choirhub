@@ -120,7 +120,9 @@ describe("AccountingPage（表示）", () => {
     vi.mocked(accountingApi.listCollections).mockResolvedValue([]);
     renderPage();
 
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "収支の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
   });
 
   it("4つのサマリーカードを表示する", async () => {
@@ -263,7 +265,9 @@ describe("AccountingPage（エラー表示・403リダイレクト）", () => {
     await screen.findByText("¥18,000");
     await user.click(screen.getByText("支出"));
 
-    expect(await screen.findByText("支出の取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "支出一覧の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
     expect(screen.queryByText("支出が登録されていません")).not.toBeInTheDocument();
   });
 
@@ -275,7 +279,9 @@ describe("AccountingPage（エラー表示・403リダイレクト）", () => {
     );
     renderPage();
 
-    expect(await screen.findByText("徴収の取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "徴収一覧の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
     expect(screen.queryByText("徴収が登録されていません")).not.toBeInTheDocument();
   });
 

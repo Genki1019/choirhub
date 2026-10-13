@@ -68,7 +68,7 @@ export default function ScoreDetailPage() {
     enabled: showFileManage,
   });
 
-  const { data: memberTypes = [] } = useQuery({
+  const { data: memberTypes } = useQuery({
     queryKey: memberKeys.types(org),
     queryFn: () => settingsApi.listMemberTypes(org),
     enabled: showCollection,
@@ -333,7 +333,10 @@ export default function ScoreDetailPage() {
           initialTitle={score.title}
           initialAmount={score.distributionPrice ?? undefined}
           scoreId={score.id}
-          onClose={() => setShowCollection(false)}
+          onClose={() => {
+            setShowCollection(false);
+            queryClient.invalidateQueries({ queryKey: scoresKeys.detail(org, scoreId) });
+          }}
           onSaved={() => {
             setShowCollection(false);
             patchScore({ hasCollection: true });

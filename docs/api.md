@@ -218,23 +218,23 @@
 
 ### 会計
 
-| API名                                           | Method | Path                                                   | 権限     |
-| ----------------------------------------------- | ------ | ------------------------------------------------------ | -------- |
-| [収支サマリー取得](#accounting-summary)         | GET    | `/:orgSlug/finance/summary`                            | finance+ |
-| [徴収一覧取得](#collections-list)               | GET    | `/:orgSlug/finance/collections`                        | finance+ |
-| [徴収一覧CSVエクスポート](#collections-export)  | GET    | `/:orgSlug/finance/collections/export`                 | finance+ |
-| [支払い状況CSVエクスポート](#payments-export)   | GET    | `/:orgSlug/finance/payments/export`                    | finance+ |
-| [徴収作成](#collections-create)                 | POST   | `/:orgSlug/finance/collections`                        | finance+ |
-| [徴収詳細取得](#collections-id-get)             | GET    | `/:orgSlug/finance/collections/:id`                    | finance+ |
-| [徴収更新](#collections-patch)                  | PATCH  | `/:orgSlug/finance/collections/:id`                    | finance+ |
-| [徴収削除](#collections-id-delete)              | DELETE | `/:orgSlug/finance/collections/:id`                    | finance+ |
-| [支払い記録更新](#collection-payment-patch)     | PATCH  | `/:orgSlug/finance/collections/:id/payments/:memberId` | finance+ |
-| [支払い記録一括更新](#collection-payments-bulk) | POST   | `/:orgSlug/finance/collections/:id/payments/bulk`      | finance+ |
-| [支出一覧取得](#expenses-list)                  | GET    | `/:orgSlug/finance/expenses`                           | finance+ |
-| [支出CSVエクスポート](#expenses-export)         | GET    | `/:orgSlug/finance/expenses/export`                    | finance+ |
-| [支出登録](#expenses-create)                    | POST   | `/:orgSlug/finance/expenses`                           | finance+ |
-| [支出更新](#expenses-patch)                     | PATCH  | `/:orgSlug/finance/expenses/:id`                       | finance+ |
-| [支出削除](#expenses-delete)                    | DELETE | `/:orgSlug/finance/expenses/:id`                       | finance+ |
+| API名                                           | Method | Path                                                   | 権限                           |
+| ----------------------------------------------- | ------ | ------------------------------------------------------ | ------------------------------ |
+| [収支サマリー取得](#accounting-summary)         | GET    | `/:orgSlug/finance/summary`                            | finance+                       |
+| [徴収一覧取得](#collections-list)               | GET    | `/:orgSlug/finance/collections`                        | finance+                       |
+| [徴収一覧CSVエクスポート](#collections-export)  | GET    | `/:orgSlug/finance/collections/export`                 | finance+                       |
+| [支払い状況CSVエクスポート](#payments-export)   | GET    | `/:orgSlug/finance/payments/export`                    | finance+                       |
+| [徴収作成](#collections-create)                 | POST   | `/:orgSlug/finance/collections`                        | finance+（score は楽譜代のみ） |
+| [徴収詳細取得](#collections-id-get)             | GET    | `/:orgSlug/finance/collections/:id`                    | finance+                       |
+| [徴収更新](#collections-patch)                  | PATCH  | `/:orgSlug/finance/collections/:id`                    | finance+                       |
+| [徴収削除](#collections-id-delete)              | DELETE | `/:orgSlug/finance/collections/:id`                    | finance+                       |
+| [支払い記録更新](#collection-payment-patch)     | PATCH  | `/:orgSlug/finance/collections/:id/payments/:memberId` | finance+                       |
+| [支払い記録一括更新](#collection-payments-bulk) | POST   | `/:orgSlug/finance/collections/:id/payments/bulk`      | finance+                       |
+| [支出一覧取得](#expenses-list)                  | GET    | `/:orgSlug/finance/expenses`                           | finance+                       |
+| [支出CSVエクスポート](#expenses-export)         | GET    | `/:orgSlug/finance/expenses/export`                    | finance+                       |
+| [支出登録](#expenses-create)                    | POST   | `/:orgSlug/finance/expenses`                           | finance+                       |
+| [支出更新](#expenses-patch)                     | PATCH  | `/:orgSlug/finance/expenses/:id`                       | finance+                       |
+| [支出削除](#expenses-delete)                    | DELETE | `/:orgSlug/finance/expenses/:id`                       | finance+                       |
 
 ### 見学申込
 
@@ -4707,7 +4707,7 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 }
 ```
 
-> `summary.paidAmount`は`paid`ステータスの支払いの合計額（個別金額が未設定の場合は`Collection.amount`を使用）。
+> `summary.paidAmount`は`paid`ステータスの支払いの合計額（支払額 `amount` → 請求額 `expectedAmount` → `Collection.amount` の順に使う）。
 
 **Errors:**: `403` `FORBIDDEN` 権限不足
 
@@ -4761,11 +4761,11 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 **Response** `200` `text/csv`（ファイル名 `collection_payments_<対象年>_YYYYMMDD.csv`）
 
 ```csv
-徴収名,対象年月,締切日,氏名,パート,状態,金額,支払日,支払方法,メモ
-4月団費,2026-04,,山田 太郎,Tenor I,支払済,3000,2026-04-15,PayPay,
+徴収名,対象年月,締切日,氏名,パート,状態,請求額,支払額,支払日,支払方法,メモ
+4月団費,2026-04,,山田 太郎,Tenor I,支払済,3000,3000,2026-04-15,PayPay,
 ```
 
-> - 状態は `未払い` / `支払済` / `免除`（徴収詳細画面の表記と同じ）。`金額`は個別金額が未設定の場合 `Collection.amount` を出力する
+> - 状態は `未払い` / `支払済` / `免除`（徴収詳細画面の表記と同じ）。`請求額`は `expectedAmount`（未設定なら `Collection.amount`）、`支払額`は支払済の行だけ `amount`（未記録なら請求額）を出力する
 > - 徴収作成日→パート順→ふりがな順に並べる
 
 **Errors:**: `400` `VALIDATION_ERROR` yearが4桁の数字でない / `403` `FORBIDDEN` 権限不足
@@ -4778,7 +4778,7 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 
 徴収を作成する。同時に対象団員分の`CollectionPayment`（`pending`）が自動生成される。
 
-**権限**: `finance+`
+**権限**: `finance+`。楽譜がかり（`score`）は、楽譜詳細から作る楽譜代の徴収（`scoreId` あり・`eventId` と `memberIds` なし）に限り作成できる
 
 **Request Body:**
 
@@ -4792,7 +4792,7 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 | yearMonth         | string \| null         |      | `YYYY-MM`形式（月謝等）                                                                                          |
 | note              | string \| null         |      | 備考                                                                                                             |
 | memberIds         | string[]               |      | 対象団員IDを個別指定（省略時はアクティブな全団員。guest/visitorは除く）                                          |
-| memberTypeAmounts | Record<string, number> |      | `memberTypeId`ごとの個別金額（`amount`と異なる場合のみ`CollectionPayment.amount`に設定される）                   |
+| memberTypeAmounts | Record<string, number> |      | `memberTypeId`ごとの個別金額（`amount`と異なる場合のみ`CollectionPayment.expectedAmount`に設定される）           |
 
 ```json
 {
@@ -4812,7 +4812,7 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 { "data": { "id": "cuid", "title": "6月合宿費", "amount": 15000 } }
 ```
 
-**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` `eventId`指定時、イベントが存在しない・別テナント / `404` `NOT_FOUND` `scoreId`指定時、楽譜が存在しない・別テナント
+**Errors:**: `400` `VALIDATION_ERROR` 入力値が不正 / `403` `FORBIDDEN` 権限不足 / `404` `NOT_FOUND` `eventId`指定時、イベントが存在しない・別テナント / `404` `NOT_FOUND` `scoreId`指定時、楽譜が存在しない・別テナント / `409` `CONFLICT` `scoreId`指定時、その楽譜の徴収が作成済み（同時に作成されても1件になるよう、楽譜ごとにロックしてから確かめる）
 
 ---
 
@@ -4843,11 +4843,11 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
         "member": {
           "id": "cuid",
           "nameJa": "山田 太郎",
-          "part": { "id": "cuid", "name": "Tenor I", "voiceType": "tenor", "sortOrder": 1 },
-          "memberTypeFee": null
+          "part": { "id": "cuid", "name": "Tenor I", "voiceType": "tenor", "sortOrder": 1 }
         },
         "status": "paid",
         "amount": 300,
+        "expectedAmount": null,
         "paidAt": "2026-06-14T00:00:00.000Z",
         "method": "paypay",
         "note": null
@@ -4857,11 +4857,11 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
         "member": {
           "id": "cuid",
           "nameJa": "鈴木 花子",
-          "part": { "id": "cuid", "name": "Tenor II", "voiceType": "tenor", "sortOrder": 2 },
-          "memberTypeFee": null
+          "part": { "id": "cuid", "name": "Tenor II", "voiceType": "tenor", "sortOrder": 2 }
         },
         "status": "pending",
         "amount": null,
+        "expectedAmount": 150,
         "paidAt": null,
         "method": null,
         "note": null
@@ -4933,13 +4933,13 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 }
 ```
 
-| フィールド | 型             | 必須 | 説明                                                                          |
-| ---------- | -------------- | ---- | ----------------------------------------------------------------------------- |
-| status     | string         | ✓    | `pending` / `paid` / `waived`                                                 |
-| amount     | number \| null |      | 個別金額。省略・null時は`null`（一覧・集計では`Collection.amount`が使われる） |
-| paidAt     | string \| null |      | 支払日（ISO8601 date）。省略・null時は`null`                                  |
-| method     | string \| null |      | `cash` / `paypay` / `bank_transfer` / `other`                                 |
-| note       | string \| null |      | 備考                                                                          |
+| フィールド | 型             | 必須 | 説明                                                                                                                   |
+| ---------- | -------------- | ---- | ---------------------------------------------------------------------------------------------------------------------- |
+| status     | string         | ✓    | `pending` / `paid` / `waived`                                                                                          |
+| amount     | number \| null |      | 支払額。`status` が `paid` のときだけ保存する（それ以外は送っても `null`）。省略・null時は請求額どおりに払ったとみなす |
+| paidAt     | string \| null |      | 支払日（ISO8601 date）。省略・null時は`null`                                                                           |
+| method     | string \| null |      | `cash` / `paypay` / `bank_transfer` / `other`                                                                          |
+| note       | string \| null |      | 備考                                                                                                                   |
 
 **Response** `200`
 
@@ -4949,6 +4949,7 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
     "id": "cuid",
     "status": "paid",
     "amount": 300,
+    "expectedAmount": null,
     "paidAt": "2026-06-14T00:00:00.000Z",
     "method": "cash",
     "note": null
@@ -4981,7 +4982,7 @@ R2への直接アップロード用に、プレサインドPUT URLを発行す�
 { "memberIds": ["cuid1", "cuid2"], "status": "paid", "paidAt": "2026-06-14" }
 ```
 
-> 個別金額（`amount`）は一括更新の対象外（既存値を保持）。
+> 支払額（`amount`）は、`paid` にするとき、未払い・免除だった団員には請求額（`expectedAmount`、なければ `Collection.amount`）を記録し、すでに支払済の団員は記録済みの値を保つ。`pending`・`waived` にするときは `null` にする。請求額（`expectedAmount`）は変えない。支払額の変化も操作履歴に記録する。
 
 **Response** `200`
 

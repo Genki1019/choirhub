@@ -2,22 +2,25 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Check, Loader2, AlertCircle, X } from "lucide-react";
+import { Check, Loader2, X } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { accountingApi } from "@/lib/accounting-api";
+import { accountingApi, billedAmountOf, paidAmountOf } from "@/lib/accounting-api";
 import type {
   CollectionDetail,
   CollectionPaymentItem,
   CollectionPaymentStatus,
   PaymentMethod,
 } from "@/lib/accounting-api";
-import { ApiClientError } from "@/lib/api-client";
+import { ApiClientError, userErrorMessage } from "@/lib/api-client";
 import { accountingKeys } from "@/lib/query-keys";
 import { todayStr } from "@/lib/date";
 import { RecordModal } from "./_components/RecordModal";
 import { PaymentsList } from "./_components/PaymentsList";
 import { PageMain } from "@/components/PageMain";
 import { PageHeader } from "@/components/PageHeader";
+import { PageWithHeader } from "@/components/PageWithHeader";
+import { PageErrorState } from "@/components/PageErrorState";
+import { ErrorMessage } from "@/components/ErrorMessage";
 import { useToast } from "@/hooks/useToast";
 
 export default function CollectionDetailPage() {
@@ -28,6 +31,7 @@ export default function CollectionDetailPage() {
   const [selected, setSelected] = useState<CollectionPaymentItem | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [bulking, setBulking] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const { toast, showToast } = useToast();
 
   const {
@@ -46,11 +50,12 @@ export default function CollectionDetailPage() {
   }, [error, org, router]);
 
   const handleQuickPaid = async (payment: CollectionPaymentItem) => {
-    if (!col) return;
+    if (!col) return false;
+    setActionError(null);
     try {
       const updated = await accountingApi.recordPayment(org, collectionId, payment.member.id, {
         status: "paid",
-        amount: payment.amount ?? col.amount,
+        amount: billedAmountOf(payment, col.amount),
         paidAt: todayStr(),
         method: "cash",
       });
@@ -68,8 +73,15 @@ export default function CollectionDetailPage() {
       );
       queryClient.invalidateQueries({ queryKey: accountingKeys.all(org) });
       showToast(`${payment.member.nameJa} の支払いを記録しました`);
-    } catch {
-      showToast("記録に失敗しました");
+      return true;
+    } catch (err) {
+      setActionError(
+        userErrorMessage(
+          err,
+          `${payment.member.nameJa} の支払いの記録に失敗しました。もう一度お試しください。`,
+        ),
+      );
+      return false;
     }
   };
 
@@ -112,6 +124,7 @@ export default function CollectionDetailPage() {
   const handleBulkPaid = async () => {
     if (!col || checkedIds.size === 0) return;
     setBulking(true);
+    setActionError(null);
     const memberIds = Array.from(checkedIds);
     const paidAt = todayStr();
     try {
@@ -135,7 +148,7 @@ export default function CollectionDetailPage() {
                     status: "paid" as CollectionPaymentStatus,
                     paidAt,
                     method: "cash" as PaymentMethod,
-                    amount: p.amount ?? prev.amount,
+                    amount: p.status === "paid" ? p.amount : billedAmountOf(p, prev.amount),
                   }
                 : p,
             ),
@@ -145,8 +158,10 @@ export default function CollectionDetailPage() {
       clearChecked();
       queryClient.invalidateQueries({ queryKey: accountingKeys.all(org) });
       showToast(`${memberIds.length}名を現金支払済みにしました`);
-    } catch {
-      showToast("一括処理に失敗しました");
+    } catch (err) {
+      setActionError(
+        userErrorMessage(err, "一括の支払い記録に失敗しました。もう一度お試しください。"),
+      );
     } finally {
       setBulking(false);
     }
@@ -154,18 +169,26 @@ export default function CollectionDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 size={18} className="animate-spin text-gray-400" />
-      </div>
+      <PageWithHeader title="徴収" backHref={`/${org}/accounting`} loading>
+        {null}
+      </PageWithHeader>
     );
   }
 
   if (error || !col) {
     return (
-      <div className="m-8 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-        <AlertCircle size={16} />
-        <span className="text-sm">{error?.message ?? "徴収が見つかりません"}</span>
-      </div>
+      <PageErrorState
+        title="徴収"
+        backHref={`/${org}/accounting`}
+        message={
+          error
+            ? userErrorMessage(
+                error,
+                "徴収の読み込みに失敗しました。ページを再読み込みしてください。",
+              )
+            : "徴収が見つかりません"
+        }
+      />
     );
   }
 
@@ -173,7 +196,7 @@ export default function CollectionDetailPage() {
   const pending = col.payments.filter((p) => p.status === "pending").length;
   const paidAmount = col.payments
     .filter((p) => p.status === "paid")
-    .reduce((s, p) => s + (p.amount ?? col.amount), 0);
+    .reduce((s, p) => s + paidAmountOf(p, col.amount), 0);
 
   return (
     <div className="flex flex-col">
@@ -204,6 +227,8 @@ export default function CollectionDetailPage() {
           ))}
         </div>
 
+        <ErrorMessage>{actionError}</ErrorMessage>
+
         <PaymentsList
           payments={col.payments}
           amount={col.amount}
@@ -211,7 +236,10 @@ export default function CollectionDetailPage() {
           onToggleCheck={toggleCheck}
           onSelectAllPending={selectAllPending}
           onQuickPaid={handleQuickPaid}
-          onEdit={setSelected}
+          onEdit={(payment) => {
+            setActionError(null);
+            setSelected(payment);
+          }}
         />
       </PageMain>
 
@@ -250,12 +278,14 @@ export default function CollectionDetailPage() {
         />
       )}
 
-      {toast && (
-        <div className="fixed right-6 bottom-6 z-50 flex items-center gap-2 rounded-lg bg-gray-800 px-4 py-2.5 text-xs text-white shadow-lg">
-          <Check size={13} className="text-teal-400" />
-          {toast}
-        </div>
-      )}
+      <div role="status">
+        {toast && (
+          <div className="fixed right-6 bottom-6 z-50 flex items-center gap-2 rounded-lg bg-gray-800 px-4 py-2.5 text-xs text-white shadow-lg">
+            <Check size={13} className="text-teal-400" />
+            {toast}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

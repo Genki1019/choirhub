@@ -37,10 +37,10 @@ function makePayment(overrides: Partial<CollectionPaymentItem> = {}): Collection
       id: "member-1",
       nameJa: "山田太郎",
       part: { id: "part-1", name: "テノール1", voiceType: "tenor1", sortOrder: 1 },
-      memberTypeFee: null,
     },
     status: "pending",
     amount: null,
+    expectedAmount: null,
     paidAt: null,
     method: null,
     note: null,
@@ -87,7 +87,10 @@ describe("CollectionDetailPage（表示）", () => {
     vi.mocked(accountingApi.getCollection).mockRejectedValue(new Error("取得に失敗しました"));
     renderPage();
 
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "徴収の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+    expect(screen.getByRole("heading", { name: "徴収" })).toBeInTheDocument();
   });
 
   it("403エラー時は団体トップへリダイレクトする", async () => {
@@ -133,7 +136,6 @@ describe("CollectionDetailPage（表示）", () => {
               id: "m2",
               nameJa: "鈴木花子",
               part: { id: "part-2", name: "ベース", voiceType: "bass", sortOrder: 4 },
-              memberTypeFee: null,
             },
           }),
         ],
@@ -257,5 +259,71 @@ describe("CollectionDetailPage（支払い操作）", () => {
 
     await user.click(await screen.findByLabelText("山田太郎を編集"));
     expect(screen.getByText("支払い記録")).toBeInTheDocument();
+  });
+});
+
+describe("CollectionDetailPage（失敗の表示）", () => {
+  it("読み込み中も見出しと戻るリンクを出す", () => {
+    vi.mocked(accountingApi.getCollection).mockReturnValue(new Promise(() => {}));
+    renderPage();
+
+    expect(screen.getByRole("heading", { name: "徴収" })).toBeInTheDocument();
+    expect(screen.getByText("読み込み中...")).toBeInTheDocument();
+  });
+
+  it("存在しない徴収は API の理由を出す", async () => {
+    vi.mocked(accountingApi.getCollection).mockRejectedValue(
+      new ApiClientError("NOT_FOUND", "徴収が見つかりません", 404),
+    );
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("徴収が見つかりません");
+  });
+
+  it("「支払済」の失敗は一覧の上に出し、成功のトーストは出さない", async () => {
+    vi.mocked(accountingApi.getCollection).mockResolvedValue(makeCollection());
+    vi.mocked(accountingApi.recordPayment).mockRejectedValue(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "山田太郎を支払済みにする" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "山田太郎 の支払いの記録に失敗しました。もう一度お試しください。",
+    );
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+  });
+
+  it("成功を知らせる読み上げ領域は、知らせる前からページにある", async () => {
+    vi.mocked(accountingApi.getCollection).mockResolvedValue(makeCollection());
+    vi.mocked(accountingApi.recordPayment).mockResolvedValue(makePayment({ status: "paid" }));
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByRole("button", { name: "山田太郎を支払済みにする" });
+    const region = screen.getByRole("status");
+    expect(region).toBeEmptyDOMElement();
+
+    await user.click(screen.getByRole("button", { name: "山田太郎を支払済みにする" }));
+
+    await waitFor(() => expect(region).toHaveTextContent("山田太郎 の支払いを記録しました"));
+  });
+
+  it("一括処理の失敗は一覧の上に出し、次の操作で消える", async () => {
+    vi.mocked(accountingApi.getCollection).mockResolvedValue(makeCollection());
+    vi.mocked(accountingApi.bulkRecordPayment).mockRejectedValueOnce(
+      new ApiClientError("VALIDATION_ERROR", "入力値が不正です", 400),
+    );
+    vi.mocked(accountingApi.bulkRecordPayment).mockResolvedValueOnce({ updated: 1 });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: /未払いを全選択/ }));
+    await user.click(screen.getByRole("button", { name: /一括現金支払済み/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("入力値が不正です");
+
+    await user.click(screen.getByRole("button", { name: /一括現金支払済み/ }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    expect(await screen.findByRole("status")).toHaveTextContent("1名を現金支払済みにしました");
   });
 });

@@ -383,7 +383,7 @@ export const eventsRouter = new Hono<TenantEnv>()
                 collectionId: collection.id,
                 memberId: m.id,
                 status: "pending",
-                amount:
+                expectedAmount:
                   m.memberType?.defaultFeeAmount != null &&
                   m.memberType.defaultFeeAmount !== org.defaultFeeAmount
                     ? m.memberType.defaultFeeAmount

@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { Loader2 } from "lucide-react";
+import { Modal } from "@/components/Modal";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 import { accountingApi, PAYMENT_METHOD_LABEL } from "@/lib/accounting-api";
 import { todayStr } from "@/lib/date";
 import type {
@@ -51,7 +54,7 @@ export function RecordModal({
 }: RecordModalProps) {
   const [status, setStatus] = useState<CollectionPaymentStatus>(payment.status);
   const [amount, setAmount] = useState(
-    String(payment.amount ?? payment.member.memberTypeFee ?? defaultAmount),
+    String(payment.amount ?? payment.expectedAmount ?? defaultAmount),
   );
   const [paidAt, setPaidAt] = useState(payment.paidAt ? payment.paidAt.slice(0, 10) : todayStr());
   const [method, setMethod] = useState<PaymentMethod | "">(payment.method ?? "cash");
@@ -59,165 +62,156 @@ export function RecordModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSave = async () => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const parsedAmount = Number(amount.trim());
+    if (status === "paid" && !(/^\d+$/.test(amount.trim()) && parsedAmount > 0)) {
+      setError("金額を正の整数で入力してください");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
       const updated = await accountingApi.recordPayment(org, collectionId, payment.member.id, {
         status,
-        amount: status === "paid" ? parseInt(amount, 10) || defaultAmount : null,
+        amount: status === "paid" ? parsedAmount : null,
         paidAt: status === "paid" ? paidAt || null : null,
         method: status === "paid" ? ((method || null) as PaymentMethod | null) : null,
         note: note.trim() || null,
       });
       onSaved(updated);
-    } catch {
-      setError("保存に失敗しました");
+    } catch (err) {
+      setError(userErrorMessage(err, "支払い記録の保存に失敗しました。もう一度お試しください。"));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <div>
-            <h2 className="font-semibold text-gray-800">支払い記録</h2>
-            <p className="mt-0.5 text-xs text-gray-400">{payment.member.nameJa}</p>
-          </div>
+    <Modal
+      title="支払い記録"
+      description={payment.member.nameJa}
+      size="sm"
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      busy={saving}
+      footer={
+        <>
           <button
             type="button"
-            aria-label="閉じる"
             onClick={onClose}
-            className="text-gray-400 transition-colors hover:text-gray-600"
+            disabled={saving}
+            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50"
           >
-            <X size={18} />
+            キャンセル
           </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
+          >
+            {saving && <Loader2 size={13} className="animate-spin" />}
+            保存する
+          </button>
+        </>
+      }
+    >
+      <fieldset>
+        <legend className="mb-2 block text-xs font-medium text-gray-500">ステータス</legend>
+        <div className="flex gap-2">
+          {(["paid", "pending", "waived"] as CollectionPaymentStatus[]).map((s) => (
+            <button
+              key={s}
+              type="button"
+              aria-pressed={status === s}
+              autoFocus={status === s}
+              onClick={() => setStatus(s)}
+              className={[
+                "flex-1 rounded-lg border py-2 text-xs font-medium transition-colors",
+                status === s ? STATUS_STYLE[s] : "border-gray-200 text-gray-400 hover:bg-gray-50",
+              ].join(" ")}
+            >
+              {STATUS_LABEL[s]}
+            </button>
+          ))}
         </div>
+      </fieldset>
 
-        <div className="space-y-4 px-6 py-4">
+      {status === "paid" && (
+        <>
           <div>
-            <label className="mb-2 block text-xs font-medium text-gray-500">ステータス</label>
-            <div className="flex gap-2">
-              {(["paid", "pending", "waived"] as CollectionPaymentStatus[]).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setStatus(s)}
-                  className={[
-                    "flex-1 rounded-lg border py-2 text-xs font-medium transition-colors",
-                    status === s
-                      ? STATUS_STYLE[s]
-                      : "border-gray-200 text-gray-400 hover:bg-gray-50",
-                  ].join(" ")}
-                >
-                  {STATUS_LABEL[s]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {status === "paid" && (
-            <>
-              <div>
-                <label
-                  htmlFor="record-amount"
-                  className="mb-1.5 block text-xs font-medium text-gray-500"
-                >
-                  金額（円）
-                </label>
-                <input
-                  id="record-amount"
-                  type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  min={1}
-                  className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label
-                    htmlFor="record-paidAt"
-                    className="mb-1.5 block text-xs font-medium text-gray-500"
-                  >
-                    支払日
-                  </label>
-                  <input
-                    id="record-paidAt"
-                    type="date"
-                    value={paidAt}
-                    onChange={(e) => setPaidAt(e.target.value)}
-                    className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="record-method"
-                    className="mb-1.5 block text-xs font-medium text-gray-500"
-                  >
-                    方法
-                  </label>
-                  <select
-                    id="record-method"
-                    value={method}
-                    onChange={(e) => setMethod(e.target.value as PaymentMethod | "")}
-                    className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
-                  >
-                    <option value="">—</option>
-                    {(["cash", "paypay", "bank_transfer", "other"] as PaymentMethod[]).map((m) => (
-                      <option key={m} value={m}>
-                        {PAYMENT_METHOD_LABEL[m]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </>
-          )}
-
-          <div>
-            <label htmlFor="record-note" className="mb-1.5 block text-xs font-medium text-gray-500">
-              メモ
+            <label
+              htmlFor="record-amount"
+              className="mb-1.5 block text-xs font-medium text-gray-500"
+            >
+              金額（円）
             </label>
             <input
-              id="record-note"
-              type="text"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="任意"
+              id="record-amount"
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              min={1}
               className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
             />
           </div>
 
-          {error && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-              {error}
-            </p>
-          )}
-
-          <div className="flex gap-2 border-t border-gray-100 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50"
-            >
-              キャンセル
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-brand-600 hover:bg-brand-700 flex flex-1 items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
-            >
-              {saving && <Loader2 size={13} className="animate-spin" />}
-              保存する
-            </button>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label
+                htmlFor="record-paidAt"
+                className="mb-1.5 block text-xs font-medium text-gray-500"
+              >
+                支払日
+              </label>
+              <input
+                id="record-paidAt"
+                type="date"
+                value={paidAt}
+                onChange={(e) => setPaidAt(e.target.value)}
+                className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="record-method"
+                className="mb-1.5 block text-xs font-medium text-gray-500"
+              >
+                方法
+              </label>
+              <select
+                id="record-method"
+                value={method}
+                onChange={(e) => setMethod(e.target.value as PaymentMethod | "")}
+                className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+              >
+                <option value="">—</option>
+                {(["cash", "paypay", "bank_transfer", "other"] as PaymentMethod[]).map((m) => (
+                  <option key={m} value={m}>
+                    {PAYMENT_METHOD_LABEL[m]}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-        </div>
+        </>
+      )}
+
+      <div>
+        <label htmlFor="record-note" className="mb-1.5 block text-xs font-medium text-gray-500">
+          メモ
+        </label>
+        <input
+          id="record-note"
+          type="text"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="任意"
+          className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+        />
       </div>
-    </div>
+
+      <ErrorMessage>{error}</ErrorMessage>
+    </Modal>
   );
 }

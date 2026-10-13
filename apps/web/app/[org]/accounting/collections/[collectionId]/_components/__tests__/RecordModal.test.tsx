@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RecordModal } from "../RecordModal";
 import { accountingApi, type CollectionPaymentItem } from "@/lib/accounting-api";
@@ -22,10 +22,10 @@ function makePayment(overrides: Partial<CollectionPaymentItem> = {}): Collection
       id: "member-1",
       nameJa: "山田太郎",
       part: { id: "part-1", name: "テノール1", voiceType: "tenor1", sortOrder: 1 },
-      memberTypeFee: null,
     },
     status: "pending",
     amount: null,
+    expectedAmount: null,
     paidAt: null,
     method: null,
     note: null,
@@ -83,14 +83,10 @@ describe("RecordModal（表示）", () => {
     expect(screen.getByLabelText("金額（円）")).toBeInTheDocument();
   });
 
-  it("金額の初期値はmemberTypeFeeがdefaultAmountより優先される", () => {
+  it("支払額の初期値は、区分ごとの請求額が徴収の基本額より優先される", () => {
     render(
       <RecordModal
-        payment={makePayment({
-          status: "paid",
-          amount: null,
-          member: { ...makePayment().member, memberTypeFee: 1500 },
-        })}
+        payment={makePayment({ status: "pending", amount: null, expectedAmount: 1500 })}
         defaultAmount={300}
         org="o"
         collectionId="col-1"
@@ -98,7 +94,23 @@ describe("RecordModal（表示）", () => {
         onSaved={vi.fn()}
       />,
     );
+    fireEvent.click(screen.getByRole("button", { name: "支払済" }));
     expect(screen.getByLabelText("金額（円）")).toHaveValue(1500);
+  });
+
+  it("請求額の個別指定がない団員は、区分の既定会費ではなく徴収の基本額で始まる", () => {
+    render(
+      <RecordModal
+        payment={makePayment({ status: "pending", amount: null, expectedAmount: null })}
+        defaultAmount={300}
+        org="o"
+        collectionId="col-1"
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "支払済" }));
+    expect(screen.getByLabelText("金額（円）")).toHaveValue(300);
   });
 });
 
@@ -208,7 +220,9 @@ describe("RecordModal（保存）", () => {
     );
 
     await user.click(screen.getByText("保存する"));
-    expect(await screen.findByText("保存に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "支払い記録の保存に失敗しました。もう一度お試しください。",
+    );
   });
 
   it("キャンセル・×ボタンでonCloseが呼ばれる", async () => {
@@ -230,5 +244,90 @@ describe("RecordModal（保存）", () => {
 
     await user.click(screen.getByLabelText("閉じる"));
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("RecordModal（共通モーダル）", () => {
+  const renderModal = (payment = makePayment(), onClose = vi.fn()) =>
+    render(
+      <RecordModal
+        payment={payment}
+        defaultAmount={300}
+        org="o"
+        collectionId="col-1"
+        onClose={onClose}
+        onSaved={vi.fn()}
+      />,
+    );
+
+  it("団員名を説明に持つダイアログで開き、選択中の状態ボタンにフォーカスが入る", () => {
+    renderModal(makePayment({ status: "waived" }));
+
+    const dialog = screen.getByRole("dialog", { name: "支払い記録" });
+    expect(dialog).toHaveAccessibleDescription("山田太郎");
+    expect(screen.getByRole("button", { name: "免除" })).toHaveFocus();
+  });
+
+  it("状態は押されているかどうかが読み上げられる", async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    expect(screen.getByRole("group", { name: "ステータス" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "未払い" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "支払済" }));
+    expect(screen.getByRole("button", { name: "支払済" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "未払い" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("入力欄で Enter を押すと保存する", async () => {
+    vi.mocked(accountingApi.recordPayment).mockResolvedValue(makePayment({ note: "後日" }));
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.type(screen.getByLabelText("メモ"), "後日{Enter}");
+
+    expect(accountingApi.recordPayment).toHaveBeenCalledWith(
+      "o",
+      "col-1",
+      "member-1",
+      expect.objectContaining({ status: "pending", note: "後日" }),
+    );
+  });
+
+  it("Esc で閉じ、保存中は閉じない", async () => {
+    vi.mocked(accountingApi.recordPayment).mockReturnValue(new Promise(() => {}));
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderModal(makePayment(), onClose);
+
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    await user.type(screen.getByLabelText("メモ"), "x{Enter}");
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "キャンセル" })).toBeDisabled();
+  });
+});
+
+describe("RecordModal（金額の検査）", () => {
+  it("支払済で金額を空にすると、既定額で保存せずに理由を出す", async () => {
+    const user = userEvent.setup();
+    render(
+      <RecordModal
+        payment={makePayment({ status: "paid", amount: 500 })}
+        defaultAmount={300}
+        org="o"
+        collectionId="col-1"
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    await user.clear(screen.getByLabelText("金額（円）"));
+    await user.click(screen.getByRole("button", { name: "保存する" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("金額を正の整数で入力してください");
+    expect(accountingApi.recordPayment).not.toHaveBeenCalled();
   });
 });

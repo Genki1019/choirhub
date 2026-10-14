@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -58,15 +59,16 @@ function makeEvent(overrides: Partial<EventDetail> = {}): EventDetail {
   };
 }
 
-function renderPage(roles: string[] = ["member"]) {
+function renderPage(roles: string[] = ["member"], { strict = false } = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const page = (
     <QueryClientProvider client={queryClient}>
       <MemberProvider memberId="member-self" roles={roles}>
         <ScheduleDetailPage />
       </MemberProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  return render(strict ? <StrictMode>{page}</StrictMode> : page);
 }
 
 beforeEach(() => {
@@ -88,8 +90,10 @@ describe("ScheduleDetailPage（表示状態）", () => {
     vi.mocked(eventsApi.get).mockRejectedValue(new Error("取得に失敗しました"));
     renderPage();
 
-    expect(await screen.findByText("イベント詳細")).toBeInTheDocument();
-    expect(screen.getByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "予定の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+    expect(screen.getByRole("heading", { name: "イベント詳細" })).toBeInTheDocument();
   });
 
   it("タイトル・日時・場所を表示する", async () => {
@@ -561,5 +565,150 @@ describe("ScheduleDetailPage（削除フロー）", () => {
       "削除に失敗しました。もう一度お試しください。",
     );
     expect(pushMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("ScheduleDetailPage（出欠の回答の失敗と送信回数）", () => {
+  it("StrictMode でも、1回の操作で回答は1回だけ送る", async () => {
+    setupAttendanceMembers();
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent({ isLocked: false, attendances: [] }));
+    vi.mocked(eventsApi.updateAttendance).mockResolvedValue(undefined as never);
+    const user = userEvent.setup();
+    renderPage(["member"], { strict: true });
+
+    await user.click(await screen.findByTitle("クリックで変更"));
+
+    expect(eventsApi.updateAttendance).toHaveBeenCalledTimes(1);
+  });
+
+  it("回答の保存に失敗したら、出欠表の上に理由を出して表示を元に戻し、次の回答で消す", async () => {
+    setupAttendanceMembers();
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent({ isLocked: false, attendances: [] }));
+    vi.mocked(eventsApi.updateAttendance)
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValue(undefined as never);
+    const user = userEvent.setup();
+    renderPage();
+
+    const cell = await screen.findByTitle("クリックで変更");
+    await user.click(cell);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "出欠の回答を保存できませんでした。もう一度お試しください。",
+    );
+    expect(cell).toHaveTextContent("—");
+
+    await user.click(cell);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(cell).toHaveTextContent("○");
+  });
+});
+
+describe("ScheduleDetailPage（続けて回答したときの失敗の扱い）", () => {
+  function deferred() {
+    let resolve: () => void = () => {};
+    let reject: (e: unknown) => void = () => {};
+    const promise = new Promise<never>((res, rej) => {
+      resolve = () => res(undefined as never);
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  async function setup() {
+    setupAttendanceMembers();
+    vi.mocked(eventsApi.get).mockResolvedValue(makeEvent({ isLocked: false, attendances: [] }));
+    const user = userEvent.setup();
+    renderPage();
+    const cell = await screen.findByTitle("クリックで変更");
+    return { user, cell };
+  }
+
+  it("前の回答の失敗が遅れて届いても、あとの回答の結果は巻き戻さない", async () => {
+    const first = deferred();
+    const second = deferred();
+    vi.mocked(eventsApi.updateAttendance)
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const { user, cell } = await setup();
+
+    await user.click(cell);
+    await user.click(cell);
+    second.resolve();
+    await waitFor(() => expect(cell).toHaveTextContent("✕"));
+    first.reject(new TypeError("Failed to fetch"));
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(cell).toHaveTextContent("✕");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("続けた回答がどちらも失敗したら、最後に保存できた状態に戻す", async () => {
+    const first = deferred();
+    const second = deferred();
+    vi.mocked(eventsApi.updateAttendance)
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const { user, cell } = await setup();
+
+    await user.click(cell);
+    await user.click(cell);
+    first.reject(new TypeError("Failed to fetch"));
+    second.reject(new TypeError("Failed to fetch"));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(cell).toHaveTextContent("—");
+  });
+
+  it("次の回答が先に失敗し、前の回答があとで保存できたら、保存できた回答を表示する", async () => {
+    const first = deferred();
+    const second = deferred();
+    vi.mocked(eventsApi.updateAttendance)
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const { user, cell } = await setup();
+
+    await user.click(cell);
+    await user.click(cell);
+    second.reject(new TypeError("Failed to fetch"));
+    await waitFor(() => expect(cell).toHaveTextContent("—"));
+    first.resolve();
+
+    await waitFor(() => expect(cell).toHaveTextContent("○"));
+  });
+
+  it("△の詳細の保存中にセルを回して詳細を開き直したら、遅れて届いた保存の成功で閉じない", async () => {
+    const memoSave = deferred();
+    vi.mocked(eventsApi.updateAttendance)
+      .mockResolvedValueOnce(undefined as never)
+      .mockResolvedValueOnce(undefined as never)
+      .mockResolvedValueOnce(undefined as never)
+      .mockReturnValueOnce(memoSave.promise)
+      .mockResolvedValue(undefined as never);
+    const { user, cell } = await setup();
+
+    for (let i = 0; i < 3; i++) await user.click(cell);
+    expect(cell).toHaveTextContent("△");
+    await user.type(screen.getByLabelText("メモ"), "遅れます{Enter}");
+    for (let i = 0; i < 4; i++) await user.click(cell);
+    expect(cell).toHaveTextContent("△");
+    memoSave.resolve();
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.getByLabelText("メモ")).toBeInTheDocument();
+  });
+
+  it("前の回答が保存できたあとで次の回答が失敗したら、保存できた回答に戻す", async () => {
+    vi.mocked(eventsApi.updateAttendance)
+      .mockResolvedValueOnce(undefined as never)
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    const { user, cell } = await setup();
+
+    await user.click(cell);
+    await waitFor(() => expect(eventsApi.updateAttendance).toHaveBeenCalledTimes(1));
+    await user.click(cell);
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(cell).toHaveTextContent("○");
   });
 });

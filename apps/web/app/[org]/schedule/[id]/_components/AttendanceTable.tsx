@@ -60,7 +60,13 @@ function MemoRow({ memberId, attendance, saving, onSave }: MemoRowProps) {
   const [memo, setMemo] = useState(attendance.dayMemo ?? "");
 
   return (
-    <div className="space-y-2 border-t border-orange-100 bg-orange-50 px-4 py-3">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave({ arriveTime: arrive || null, leaveTime: leave || null, dayMemo: memo || null });
+      }}
+      className="space-y-2 border-t border-orange-100 bg-orange-50 px-4 py-3"
+    >
       <p className="text-xs font-medium text-orange-700">△ 詳細を入力してください</p>
       <div className="flex gap-3">
         <div>
@@ -108,17 +114,14 @@ function MemoRow({ memberId, attendance, saving, onSave }: MemoRowProps) {
         />
       </div>
       <button
-        type="button"
-        onClick={() =>
-          onSave({ arriveTime: arrive || null, leaveTime: leave || null, dayMemo: memo || null })
-        }
+        type="submit"
         disabled={saving}
         className="flex items-center gap-1.5 rounded bg-orange-500 px-3 py-1 text-xs text-white transition-colors hover:bg-orange-600 disabled:opacity-60"
       >
         {saving && <Loader2 size={10} className="animate-spin" />}
         保存
       </button>
-    </div>
+    </form>
   );
 }
 
@@ -252,6 +255,7 @@ export function AttendanceTable({
                         type="button"
                         onClick={() => onCycleStatus(member.id)}
                         disabled={isLocked || !isSelf}
+                        aria-label={`${member.nameJa}の出欠: ${sc.label}${isSelf && !isLocked ? "（クリックで変更）" : ""}`}
                         className={[
                           "h-8 w-10 rounded-lg text-sm font-bold transition-all",
                           sc.cell,

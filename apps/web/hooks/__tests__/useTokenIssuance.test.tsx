@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useTokenIssuance } from "../useTokenIssuance";
+import { ApiClientError } from "@/lib/api-client";
 
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -85,5 +86,65 @@ describe("useTokenIssuance", () => {
 
     expect(result.current.isLoading).toBe(false);
     expect(fetchToken).not.toHaveBeenCalled();
+  });
+
+  it("取得に失敗したら loadError に理由を返す（4xx は API の理由）", async () => {
+    const fetchToken = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    const { result } = renderHook(() => useTokenIssuance(["test-token"], fetchToken, vi.fn()), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() =>
+      expect(result.current.loadError).toBe(
+        "トークンの読み込みに失敗しました。ページを再読み込みしてください。",
+      ),
+    );
+    expect(result.current.data).toBeUndefined();
+  });
+
+  it("発行の 4xx は API の理由をそのまま返す", async () => {
+    const regenerateToken = vi
+      .fn()
+      .mockRejectedValue(new ApiClientError("FORBIDDEN", "管理者のみ実行できます", 403));
+    const { result } = renderHook(
+      () =>
+        useTokenIssuance(
+          ["test-token"],
+          vi.fn().mockResolvedValue({ token: null }),
+          regenerateToken,
+        ),
+      { wrapper: createWrapper() },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.handleRegenerate();
+    });
+
+    expect(result.current.error).toBe("管理者のみ実行できます");
+  });
+
+  it("一度取得できたあとの再取得の失敗では、表示中のトークンを隠さない", async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const fetchToken = vi
+      .fn()
+      .mockResolvedValueOnce({ token: "tok" })
+      .mockRejectedValue(new TypeError("Failed to fetch"));
+    const { result } = renderHook(() => useTokenIssuance(["test-token"], fetchToken, vi.fn()), {
+      wrapper: ({ children }: { children: React.ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      ),
+    });
+    await waitFor(() => expect(result.current.data).toEqual({ token: "tok" }));
+
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: ["test-token"] });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(queryClient.getQueryState(["test-token"])?.status).toBe("error");
+
+    expect(fetchToken).toHaveBeenCalledTimes(2);
+    expect(result.current.data).toEqual({ token: "tok" });
+    expect(result.current.loadError).toBeNull();
   });
 });

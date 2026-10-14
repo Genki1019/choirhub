@@ -129,3 +129,42 @@ describe("CalendarFeedModal", () => {
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 });
+
+describe("CalendarFeedModal（共通モーダル）", () => {
+  it("見出しを名前に持つダイアログで開き、Esc で閉じる", async () => {
+    vi.mocked(eventsApi.getCalendarFeedToken).mockResolvedValue({ token: null });
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderModal(onClose);
+
+    expect(await screen.findByRole("dialog", { name: "外部カレンダーに連携" })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("URL をコピーすると「コピーしました」が読み上げられる", async () => {
+    vi.mocked(eventsApi.getCalendarFeedToken).mockResolvedValue({ token: "tok" });
+    const user = userEvent.setup();
+    renderModal();
+
+    const status = await waitFor(() => screen.getByRole("status"));
+    expect(status).toBeEmptyDOMElement();
+    await user.click(await screen.findByLabelText("URLをコピー"));
+
+    expect(status).toHaveTextContent("コピーしました");
+  });
+});
+
+describe("CalendarFeedModal（トークンの取得失敗）", () => {
+  it("取得に失敗したら理由を出し、確認なしで発行できるボタンは出さない", async () => {
+    vi.mocked(eventsApi.getCalendarFeedToken).mockRejectedValue(new TypeError("Failed to fetch"));
+    renderModal();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "トークンの読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+    expect(screen.queryByRole("button", { name: /発行する/ })).not.toBeInTheDocument();
+    expect(eventsApi.regenerateCalendarFeedToken).not.toHaveBeenCalled();
+  });
+});

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { MapPin, Clock, Lock, Pencil, Trash2, Loader2 } from "lucide-react";
+import { MapPin, Clock, Lock, Pencil, Trash2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { eventsApi } from "@/lib/events-api";
 import { membersApi } from "@/lib/members-api";
@@ -14,6 +14,8 @@ import { eventKeys, memberKeys } from "@/lib/query-keys";
 import { AttendanceTable, type LocalAttendance } from "./_components/AttendanceTable";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { userErrorMessage } from "@/lib/api-client";
+import { PageWithHeader } from "@/components/PageWithHeader";
+import { ErrorMessage } from "@/components/ErrorMessage";
 import { ScheduleNotesDisplay } from "../../_components/ScheduleNotesSection";
 import { PageMain } from "@/components/PageMain";
 import { PageHeader } from "@/components/PageHeader";
@@ -53,6 +55,7 @@ export default function ScheduleDetailPage() {
   const [attendances, setAttendances] = useState<Record<string, LocalAttendance>>({});
   const [saving, setSaving] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [attendanceError, setAttendanceError] = useState<string | null>(null);
 
   const {
     data: event,
@@ -75,6 +78,10 @@ export default function ScheduleDetailPage() {
 
   // event + members が揃ったときだけ attendances を初期化する（同一イベントで再フェッチしても上書きしない）
   const initializedForRef = useRef<string | null>(null);
+  const confirmedAttendances = useRef<Record<string, LocalAttendance>>({});
+  const lastRequestId = useRef(0);
+  const lastConfirmedRequestId = useRef(0);
+  const lastFailedRequestId = useRef(0);
   useEffect(() => {
     if (!event || !members.length || initializedForRef.current === id) return;
     const attMap = new Map(event.attendances.map((a) => [a.member.id, a]));
@@ -89,46 +96,18 @@ export default function ScheduleDetailPage() {
       };
     });
     setAttendances(map);
+    confirmedAttendances.current = map;
     initializedForRef.current = id;
   }, [event, members, id]);
 
   const isLocked = event?.isLocked ?? false;
   const isRehearsal = event?.category.slug === "rehearsal" || event?.category.name === "練習";
 
-  const cycleStatus = useCallback(
-    (memberId: string) => {
-      if (isLocked || memberId !== selfId) return;
-      setAttendances((prev) => {
-        const cur = prev[memberId]?.status ?? "undecided";
-        const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(cur) + 1) % STATUS_CYCLE.length];
-        const updated = { ...prev[memberId], status: next };
-        if (next === "maybe") setExpandedId(memberId);
-        else setExpandedId(null);
-
-        eventsApi
-          .updateAttendance(org, id, {
-            status: next,
-            arriveTime: updated.arriveTime,
-            leaveTime: updated.leaveTime,
-            dayMemo: updated.dayMemo,
-          })
-          .catch(() => {
-            setAttendances((p) => ({ ...p, [memberId]: prev[memberId] }));
-          });
-
-        return { ...prev, [memberId]: updated };
-      });
-    },
-    [isLocked, selfId, org, id],
-  );
-
-  const saveMemo = useCallback(
-    async (memberId: string, data: Partial<LocalAttendance>) => {
-      if (memberId !== selfId) return;
-      setSaving(true);
-      const prev = attendances[memberId];
-      const next = { ...prev, ...data };
+  const submitAttendance = useCallback(
+    async (memberId: string, next: LocalAttendance) => {
+      const requestId = ++lastRequestId.current;
       setAttendances((p) => ({ ...p, [memberId]: next }));
+      setAttendanceError(null);
       try {
         await eventsApi.updateAttendance(org, id, {
           status: next.status,
@@ -136,14 +115,50 @@ export default function ScheduleDetailPage() {
           leaveTime: next.leaveTime,
           dayMemo: next.dayMemo,
         });
-        setExpandedId(null);
-      } catch {
-        setAttendances((p) => ({ ...p, [memberId]: prev }));
-      } finally {
-        setSaving(false);
+        if (requestId > lastConfirmedRequestId.current) {
+          lastConfirmedRequestId.current = requestId;
+          confirmedAttendances.current = { ...confirmedAttendances.current, [memberId]: next };
+          if (lastFailedRequestId.current === lastRequestId.current) {
+            setAttendances((p) => ({ ...p, [memberId]: next }));
+          }
+        }
+        return requestId === lastRequestId.current;
+      } catch (err) {
+        if (requestId === lastRequestId.current) {
+          lastFailedRequestId.current = requestId;
+          setAttendances((p) => ({ ...p, [memberId]: confirmedAttendances.current[memberId] }));
+          setAttendanceError(
+            userErrorMessage(err, "出欠の回答を保存できませんでした。もう一度お試しください。"),
+          );
+        }
+        return false;
       }
     },
-    [selfId, attendances, org, id],
+    [org, id],
+  );
+
+  const cycleStatus = useCallback(
+    (memberId: string) => {
+      if (isLocked || memberId !== selfId) return;
+      const prev = attendances[memberId];
+      const cur = prev?.status ?? "undecided";
+      const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(cur) + 1) % STATUS_CYCLE.length];
+      setExpandedId(next === "maybe" ? memberId : null);
+      void submitAttendance(memberId, { ...prev, status: next });
+    },
+    [isLocked, selfId, attendances, submitAttendance],
+  );
+
+  const saveMemo = useCallback(
+    async (memberId: string, data: Partial<LocalAttendance>) => {
+      if (memberId !== selfId) return;
+      setSaving(true);
+      if (await submitAttendance(memberId, { ...attendances[memberId], ...data })) {
+        setExpandedId(null);
+      }
+      setSaving(false);
+    },
+    [selfId, attendances, submitAttendance],
   );
 
   const handleDelete = async () => {
@@ -170,10 +185,9 @@ export default function ScheduleDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center gap-2 text-gray-400">
-        <Loader2 size={18} className="animate-spin" />
-        <span className="text-sm">読み込み中...</span>
-      </div>
+      <PageWithHeader title="イベント詳細" backHref={`/${org}/schedule`} loading>
+        {null}
+      </PageWithHeader>
     );
   }
 
@@ -182,7 +196,14 @@ export default function ScheduleDetailPage() {
       <PageErrorState
         title="イベント詳細"
         backHref={`/${org}/schedule`}
-        message={eventError?.message ?? "イベントが見つかりません"}
+        message={
+          eventError
+            ? userErrorMessage(
+                eventError,
+                "予定の読み込みに失敗しました。ページを再読み込みしてください。",
+              )
+            : "イベントが見つかりません"
+        }
       />
     );
   }
@@ -320,6 +341,8 @@ export default function ScheduleDetailPage() {
             />
           </div>
         )}
+
+        <ErrorMessage>{attendanceError}</ErrorMessage>
 
         <AttendanceTable
           partGroups={partGroups}

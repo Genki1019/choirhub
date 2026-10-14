@@ -101,7 +101,9 @@ describe("EditSchedulePage（権限・表示状態）", () => {
   it("初期化エラー時はエラーメッセージを表示する", async () => {
     vi.mocked(eventsApi.get).mockRejectedValue(new Error("取得に失敗しました"));
     renderPage(["admin"]);
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "予定の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
   });
 });
 
@@ -228,7 +230,9 @@ describe("EditSchedulePage（送信）", () => {
     await screen.findByDisplayValue("第12回定期練習");
     await user.click(screen.getByText("保存する"));
 
-    expect(await screen.findByText("保存に失敗しました。")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "予定の保存に失敗しました。もう一度お試しください。",
+    );
     expect(pushMock).not.toHaveBeenCalled();
   });
 });

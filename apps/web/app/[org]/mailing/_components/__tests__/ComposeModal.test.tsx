@@ -6,6 +6,7 @@ import type { ReactElement } from "react";
 import { ComposeModal } from "../ComposeModal";
 import { mailingApi } from "@/lib/mailing-api";
 import { ApiClientError } from "@/lib/api-client";
+import { homeKeys, mailingKeys } from "@/lib/query-keys";
 import { membersApi, type MemberProfile, type PartSummary } from "@/lib/members-api";
 
 vi.mock("@/lib/mailing-api", async () => {
@@ -519,5 +520,33 @@ describe("ComposeModal（キーボード・読み上げ）", () => {
     await user.click(screen.getByRole("button", { name: "個別" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("閲覧権限がありません");
+  });
+});
+
+describe("ComposeModal（送信後の一覧の更新）", () => {
+  it("送信に成功するとメール一覧とホームの取得をやり直す", async () => {
+    vi.mocked(mailingApi.send).mockResolvedValue({
+      mailLogId: "mail-new",
+      recipientCount: 5,
+      sentAt: "2026-06-01T10:00:00+09:00",
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queryClient.setQueryData(mailingKeys.list("o", 2), { data: [], meta: {} });
+    queryClient.setQueryData(homeKeys.get("o"), {});
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ComposeModal orgSlug="o" onClose={vi.fn()} onSent={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    await user.type(screen.getByLabelText(/件名/), "件名");
+    await user.type(screen.getByLabelText(/本文/), "本文");
+    await user.click(screen.getByRole("button", { name: "送信する" }));
+    await confirmSend(user);
+
+    await waitFor(() => expect(mailingApi.send).toHaveBeenCalledTimes(1));
+    expect(queryClient.getQueryState(mailingKeys.list("o", 2))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(homeKeys.get("o"))?.isInvalidated).toBe(true);
   });
 });

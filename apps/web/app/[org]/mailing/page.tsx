@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { PenSquare, AlertCircle, Mail } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { mailingApi } from "@/lib/mailing-api";
 import { mailingKeys } from "@/lib/query-keys";
 import { ComposeModal } from "./_components/ComposeModal";
@@ -15,7 +15,6 @@ const PER_PAGE = 20;
 
 export default function MailingPage() {
   const { org } = useParams<{ org: string }>();
-  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [showCompose, setShowCompose] = useState(false);
 
@@ -78,10 +77,7 @@ export default function MailingPage() {
         <ComposeModal
           orgSlug={org}
           onClose={() => setShowCompose(false)}
-          onSent={() => {
-            setPage(1);
-            queryClient.invalidateQueries({ queryKey: mailingKeys.list(org, 1) });
-          }}
+          onSent={() => setPage(1)}
         />
       )}
     </>

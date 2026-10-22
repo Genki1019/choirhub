@@ -6,6 +6,7 @@ import MailDetailPage from "../page";
 import { MemberProvider } from "@/contexts/MemberContext";
 import { mailingApi, type MailDetail } from "@/lib/mailing-api";
 import { ApiClientError } from "@/lib/api-client";
+import { homeKeys, mailingKeys } from "@/lib/query-keys";
 
 const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
 
@@ -410,5 +411,36 @@ describe("MailDetailPage（返信モーダル）", () => {
     await user.type(screen.getByLabelText("件名"), "{Enter}");
 
     expect(await screen.findByRole("alertdialog")).toBeInTheDocument();
+  });
+
+  it("返信に成功するとメール一覧とホームの取得をやり直す", async () => {
+    vi.mocked(mailingApi.get).mockResolvedValue(makeMail());
+    vi.mocked(mailingApi.send).mockResolvedValue({
+      mailLogId: "mail-new",
+      recipientCount: 1,
+      sentAt: "2026-06-01T10:00:00+09:00",
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queryClient.setQueryData(mailingKeys.list("tokyo-men-choir", 1), { data: [], meta: {} });
+    queryClient.setQueryData(homeKeys.get("tokyo-men-choir"), {});
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemberProvider memberId="member-self" roles={["member"]}>
+          <MailDetailPage />
+        </MemberProvider>
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText("返信"));
+    await user.type(screen.getByLabelText(/本文/), "返信本文");
+    await user.click(screen.getByRole("button", { name: /名に送信/ }));
+    await confirmSend(user);
+
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/tokyo-men-choir/mailing"));
+    expect(queryClient.getQueryState(mailingKeys.list("tokyo-men-choir", 1))?.isInvalidated).toBe(
+      true,
+    );
+    expect(queryClient.getQueryState(homeKeys.get("tokyo-men-choir"))?.isInvalidated).toBe(true);
   });
 });

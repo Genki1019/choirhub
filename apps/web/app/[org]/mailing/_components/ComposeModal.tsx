@@ -10,7 +10,7 @@ import {
   type SendMailInput,
 } from "@/lib/mailing-api";
 import { membersApi, type MemberProfile } from "@/lib/members-api";
-import { mailingKeys, memberKeys } from "@/lib/query-keys";
+import { homeKeys, mailingKeys, memberKeys } from "@/lib/query-keys";
 import { useMember } from "@/contexts/MemberContext";
 import { ROLES } from "@/lib/roles";
 import { Modal } from "@/components/Modal";
@@ -365,6 +365,8 @@ export function ComposeModal({
         body: body.trim(),
         ...pendingSend.recipients,
       });
+      void queryClient.invalidateQueries({ queryKey: mailingKeys.all(orgSlug) });
+      void queryClient.invalidateQueries({ queryKey: homeKeys.get(orgSlug) });
       onSent();
       onClose();
     } catch (err) {

@@ -3,10 +3,10 @@
 import { useState, type FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Users, Loader2, Reply, Send } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { mailingApi, LAST_EVENT_LABEL } from "@/lib/mailing-api";
 import { userErrorMessage } from "@/lib/api-client";
-import { mailingKeys } from "@/lib/query-keys";
+import { homeKeys, mailingKeys } from "@/lib/query-keys";
 import { formatJaDateTime } from "@/lib/date";
 import { PageHeader } from "@/components/PageHeader";
 import { PageWithHeader } from "@/components/PageWithHeader";
@@ -44,6 +44,7 @@ function ReplyModal({
     null,
   );
   const [sendError, setSendError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const recipientCount = replyTarget === "sender" ? 1 : allMemberIds.length;
 
@@ -90,6 +91,8 @@ function ReplyModal({
         recipientType: "custom",
         recipientFilter: { memberIds: pendingSend.memberIds },
       });
+      void queryClient.invalidateQueries({ queryKey: mailingKeys.all(orgSlug) });
+      void queryClient.invalidateQueries({ queryKey: homeKeys.get(orgSlug) });
       onSent();
       onClose();
     } catch (err) {

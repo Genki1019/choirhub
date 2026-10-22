@@ -40,11 +40,11 @@ function makeMail(overrides: Partial<MailDetail> = {}): MailDetail {
   };
 }
 
-function renderPage(roles: string[] = ["member"]) {
+function renderPage(roles: string[] = ["member"], memberId = "member-self") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemberProvider memberId="member-self" roles={roles}>
+      <MemberProvider memberId={memberId} roles={roles}>
         <MailDetailPage />
       </MemberProvider>
     </QueryClientProvider>,
@@ -112,6 +112,26 @@ describe("MailDetailPage（表示内容）", () => {
     expect(screen.getByText("2名")).toBeInTheDocument();
   });
 
+  it("配信状況のバッジは送信者にだけ出す", async () => {
+    const mail = makeMail({
+      resend: {
+        subject: "6月練習のご案内",
+        html: null,
+        text: null,
+        lastEvent: "sent",
+        createdAt: "2026-05-30T12:00:00+09:00",
+      },
+    });
+    vi.mocked(mailingApi.get).mockResolvedValue(mail);
+    const { unmount } = renderPage(["member"], "member-sender");
+    expect(await screen.findByText("送信済み")).toBeInTheDocument();
+    unmount();
+
+    renderPage(["member"], "member-a");
+    expect(await screen.findByText("幹事花子")).toBeInTheDocument();
+    expect(screen.queryByText("送信済み")).not.toBeInTheDocument();
+  });
+
   it("件名がresendに無い場合は「（件名なし）」を表示する", async () => {
     vi.mocked(mailingApi.get).mockResolvedValue(makeMail({ resend: null }));
     renderPage();
@@ -131,7 +151,7 @@ describe("MailDetailPage（表示内容）", () => {
         },
       }),
     );
-    renderPage();
+    renderPage(["member"], "member-sender");
 
     const iframe = await screen.findByTitle("メール本文");
     expect(iframe).toHaveAttribute("srcdoc", "<p>本文</p>");

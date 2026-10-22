@@ -6,7 +6,7 @@ export interface ResendDetail {
   subject: string;
   html: string | null;
   text: string | null;
-  lastEvent: string;
+  lastEvent: string | null;
   createdAt: string;
 }
 

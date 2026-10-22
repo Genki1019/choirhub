@@ -222,7 +222,7 @@ export default function MailDetailPage() {
   const { org, id } = useParams<{ org: string; id: string }>();
   const router = useRouter();
   const [showReply, setShowReply] = useState(false);
-  const { roles } = useMember();
+  const { memberId, roles } = useMember();
 
   const {
     data: mail,
@@ -255,12 +255,13 @@ export default function MailDetailPage() {
   }
 
   const subject = mail.resend?.subject ?? "（件名なし）";
-  const eventCfg = mail.resend
-    ? (LAST_EVENT_LABEL[mail.resend.lastEvent] ?? {
-        label: mail.resend.lastEvent,
-        color: "text-gray-500 bg-gray-50",
-      })
-    : null;
+  const eventCfg =
+    mail.resend?.lastEvent && mail.sentBy.id === memberId
+      ? (LAST_EVENT_LABEL[mail.resend.lastEvent] ?? {
+          label: mail.resend.lastEvent,
+          color: "text-gray-500 bg-gray-50",
+        })
+      : null;
 
   return (
     <>

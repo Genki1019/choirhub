@@ -481,9 +481,9 @@ describe("GET /mailing/:id", () => {
     expect(body.data.id).toBe("mail-1");
   });
 
-  it("正常（受信者）: recipientsがResend APIの並列取得結果を反映する", async () => {
+  it("正常（送信者）: recipientsがResend APIの並列取得結果を反映する", async () => {
     vi.mocked(prisma.mailLog.findUnique).mockResolvedValue({
-      ...makeMail({ sentById: "member-2", recipientMemberIds: ["member-1"] }),
+      ...makeMail({ sentById: "member-1", recipientMemberIds: ["member-2"] }),
       resendIds: ["resend-1", "resend-2"],
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
@@ -507,6 +507,35 @@ describe("GET /mailing/:id", () => {
       { email: "resend-1@example.com", lastEvent: "delivered" },
       { email: "resend-2@example.com", lastEvent: "delivered" },
     ]);
+  });
+
+  it("正常（受信者）: 本文は返すが、ほかの受信者のアドレスと配信状況（lastEventを含む）は返さずResendも1件だけ問い合わせる", async () => {
+    vi.mocked(prisma.mailLog.findUnique).mockResolvedValue({
+      ...makeMail({ sentById: "member-2", recipientMemberIds: ["member-1", "member-3"] }),
+      resendIds: ["resend-1", "resend-2"],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(getResendEmail).mockImplementation(async (id: string) => ({
+      id,
+      to: [`${id}@example.com`],
+      from: "noreply@example.com",
+      subject: "○月練習のご案内",
+      created_at: "2026-05-30T03:00:00.000Z",
+      last_event: "delivered",
+      html: "<p>本文</p>",
+      text: "本文",
+    }));
+
+    const app = createTestApp(makeMember(["guest"], "member-1"));
+    const res = await app.request("/mailing/mail-1");
+
+    expect(res.status).toBe(200);
+    const body = await json(res);
+    expect(body.data.recipients).toEqual([]);
+    expect(body.data.resend.lastEvent).toBeNull();
+    expect(body.data.resend.html).toBe("<p>本文</p>");
+    expect(JSON.stringify(body)).not.toContain("resend-2@example.com");
+    expect(getResendEmail).toHaveBeenCalledTimes(1);
   });
 
   it("正常: resendIdsのいずれかが取得失敗（null）した場合recipientsから除外される", async () => {

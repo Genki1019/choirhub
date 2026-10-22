@@ -31,7 +31,10 @@ export const homeRouter = new Hono<TenantEnv>().get("/home", async (c) => {
       isVisitorMember
         ? Promise.resolve([])
         : prisma.mailLog.findMany({
-            where: { orgId },
+            where: {
+              orgId,
+              OR: [{ sentById: member.id }, { recipientMemberIds: { has: member.id } }],
+            },
             orderBy: { sentAt: "desc" },
             take: 3,
             select: {

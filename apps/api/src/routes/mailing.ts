@@ -268,8 +268,9 @@ export const mailingRouter = new Hono<TenantEnv>()
       return c.json({ error: { code: "NOT_FOUND", message: "メールが見つかりません" } }, 404);
     }
 
-    // 全 resendId から詳細を並列取得
-    const resendDetails = await Promise.all(mail.resendIds.map((rid) => getResendEmail(rid)));
+    // 受信者のアドレスと配信状況は送信者にだけ返す。受信者には本文用に1件目だけ取得する
+    const resendIds = isSender ? mail.resendIds : mail.resendIds.slice(0, 1);
+    const resendDetails = await Promise.all(resendIds.map((rid) => getResendEmail(rid)));
 
     return c.json({
       data: {
@@ -278,18 +279,20 @@ export const mailingRouter = new Hono<TenantEnv>()
         sentAt: mail.sentAt.toISOString(),
         recipientCount: mail.recipientMemberIds.length,
         recipientMemberIds: mail.recipientMemberIds,
-        recipients: resendDetails
-          .filter((d): d is NonNullable<typeof d> => d !== null)
-          .map((d) => ({
-            email: d.to[0] ?? "",
-            lastEvent: d.last_event,
-          })),
+        recipients: isSender
+          ? resendDetails
+              .filter((d): d is NonNullable<typeof d> => d !== null)
+              .map((d) => ({
+                email: d.to[0] ?? "",
+                lastEvent: d.last_event,
+              }))
+          : [],
         resend: resendDetails[0]
           ? {
               subject: resendDetails[0].subject,
               html: resendDetails[0].html,
               text: resendDetails[0].text,
-              lastEvent: resendDetails[0].last_event,
+              lastEvent: isSender ? resendDetails[0].last_event : null,
               createdAt: resendDetails[0].created_at,
             }
           : null,

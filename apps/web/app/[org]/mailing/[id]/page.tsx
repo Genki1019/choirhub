@@ -1,14 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, type FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Users, Loader2, AlertCircle, Reply, Send, X } from "lucide-react";
+import { Users, Loader2, Reply, Send } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { mailingApi, LAST_EVENT_LABEL } from "@/lib/mailing-api";
-import { ApiClientError, userErrorMessage } from "@/lib/api-client";
+import { userErrorMessage } from "@/lib/api-client";
 import { mailingKeys } from "@/lib/query-keys";
 import { formatJaDateTime } from "@/lib/date";
 import { PageHeader } from "@/components/PageHeader";
+import { PageWithHeader } from "@/components/PageWithHeader";
+import { PageErrorState } from "@/components/PageErrorState";
+import { Modal } from "@/components/Modal";
+import { ErrorMessage } from "@/components/ErrorMessage";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 type ReplyTarget = "sender" | "all";
@@ -41,17 +45,10 @@ function ReplyModal({
   );
   const [sendError, setSendError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [onClose]);
-
   const recipientCount = replyTarget === "sender" ? 1 : allMemberIds.length;
 
-  const handleSend = async () => {
+  const handleSend = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     if (counting) return;
     if (!subject.trim()) {
       setError("件名を入力してください");
@@ -102,108 +99,94 @@ function ReplyModal({
     }
   };
 
+  const targetClass = (active: boolean) =>
+    `flex-1 py-2 text-xs font-medium transition-colors ${
+      active ? "bg-brand-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+    }`;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
-        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4">
-          <div className="flex items-center gap-2">
-            <Reply size={15} className="text-gray-400" />
-            <h2 className="text-sm font-semibold text-gray-800">返信</h2>
+    <>
+      <Modal
+        title="返信"
+        size="lg"
+        onClose={onClose}
+        onSubmit={handleSend}
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50"
+            >
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              aria-busy={counting}
+              className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
+            >
+              {counting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+              {recipientCount}名に送信
+            </button>
+          </>
+        }
+      >
+        <fieldset>
+          <legend className="mb-1.5 block text-xs font-medium text-gray-600">返信先</legend>
+          <div className="flex overflow-hidden rounded-lg border border-gray-200">
+            <button
+              type="button"
+              aria-pressed={replyTarget === "sender"}
+              onClick={() => setReplyTarget("sender")}
+              className={`border-r border-gray-200 ${targetClass(replyTarget === "sender")}`}
+            >
+              送信者のみ（{senderName}）
+            </button>
+            <button
+              type="button"
+              aria-pressed={replyTarget === "all"}
+              onClick={() => setReplyTarget("all")}
+              className={targetClass(replyTarget === "all")}
+            >
+              全員に返信（{allMemberIds.length}名）
+            </button>
           </div>
-          <button
-            type="button"
-            aria-label="閉じる"
-            onClick={onClose}
-            className="text-gray-400 transition-colors hover:text-gray-600"
-          >
-            <X size={18} />
-          </button>
+          <p className="mt-1.5 text-xs text-gray-400">
+            {replyTarget === "sender"
+              ? `${senderName} 1名に送信します`
+              : `送信者・受信者 ${recipientCount}名全員に送信します`}
+          </p>
+        </fieldset>
+
+        <div>
+          <label htmlFor="reply-subject" className="mb-1.5 block text-xs font-medium text-gray-600">
+            件名
+          </label>
+          <input
+            id="reply-subject"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:ring-2 focus:outline-none"
+            autoFocus
+          />
         </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-600">返信先</label>
-            <div className="flex overflow-hidden rounded-lg border border-gray-200">
-              <button
-                type="button"
-                onClick={() => setReplyTarget("sender")}
-                className={`flex-1 border-r border-gray-200 py-2 text-xs font-medium transition-colors ${
-                  replyTarget === "sender"
-                    ? "bg-brand-600 text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                送信者のみ（{senderName}）
-              </button>
-              <button
-                type="button"
-                onClick={() => setReplyTarget("all")}
-                className={`flex-1 py-2 text-xs font-medium transition-colors ${
-                  replyTarget === "all"
-                    ? "bg-brand-600 text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                全員に返信（{allMemberIds.length}名）
-              </button>
-            </div>
-            <p className="mt-1.5 text-xs text-gray-400">
-              {replyTarget === "sender"
-                ? `${senderName} 1名に送信します`
-                : `送信者・受信者 ${recipientCount}名全員に送信します`}
-            </p>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-600">件名</label>
-            <input
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:ring-2 focus:outline-none"
-              autoFocus
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-600">
-              本文 <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="返信内容を入力..."
-              rows={10}
-              className="focus:ring-brand-400 w-full resize-none rounded-lg border border-gray-200 px-3 py-2.5 text-sm leading-relaxed focus:ring-2 focus:outline-none"
-            />
-          </div>
-
-          {error && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
-              {error}
-            </p>
-          )}
+        <div>
+          <label htmlFor="reply-body" className="mb-1.5 block text-xs font-medium text-gray-600">
+            本文 <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            id="reply-body"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="返信内容を入力..."
+            rows={10}
+            className="focus:ring-brand-400 w-full resize-none rounded-lg border border-gray-200 px-3 py-2.5 text-sm leading-relaxed focus:ring-2 focus:outline-none"
+          />
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-gray-100 px-6 py-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50"
-          >
-            キャンセル
-          </button>
-          <button
-            type="button"
-            onClick={handleSend}
-            aria-busy={counting}
-            className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
-          >
-            {counting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-            {recipientCount}名に送信
-          </button>
-        </div>
-      </div>
+        <ErrorMessage>{error}</ErrorMessage>
+      </Modal>
 
       {pendingSend && (
         <ConfirmDialog
@@ -217,7 +200,7 @@ function ReplyModal({
           onConfirm={handleConfirmSend}
         />
       )}
-    </div>
+    </>
   );
 }
 
@@ -244,29 +227,24 @@ export default function MailDetailPage() {
     queryFn: () => mailingApi.get(org, id),
   });
 
-  useEffect(() => {
-    if (queryError instanceof ApiClientError && queryError.status === 404) {
-      router.push(`/${org}/mailing`);
-    }
-  }, [queryError, org, router]);
-
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center gap-2 text-gray-400">
-        <Loader2 size={18} className="animate-spin" />
-        <span className="text-sm">読み込み中...</span>
-      </div>
+      <PageWithHeader title="メール" backHref={`/${org}/mailing`} loading>
+        {null}
+      </PageWithHeader>
     );
   }
 
   if (queryError || !mail) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-          <AlertCircle size={16} />
-          <span className="text-sm">{queryError?.message ?? "メールが見つかりません"}</span>
-        </div>
-      </div>
+      <PageErrorState
+        title="メール"
+        backHref={`/${org}/mailing`}
+        message={userErrorMessage(
+          queryError,
+          "メールの読み込みに失敗しました。ページを再読み込みしてください。",
+        )}
+      />
     );
   }
 

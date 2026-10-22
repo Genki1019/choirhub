@@ -61,25 +61,32 @@ async function confirmSend(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("MailDetailPage（表示状態）", () => {
-  it("データ取得中は「読み込み中...」を表示する", () => {
+  it("データ取得中も見出しと戻るリンクを出し「読み込み中...」を表示する", () => {
     vi.mocked(mailingApi.get).mockReturnValue(new Promise(() => {}));
     renderPage();
 
     expect(screen.getByText("読み込み中...")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "メール" })).toBeInTheDocument();
   });
 
-  it("404エラー時はメール一覧へリダイレクトする", async () => {
-    vi.mocked(mailingApi.get).mockRejectedValue(new ApiClientError("NOT_FOUND", "not found", 404));
+  it("404では一覧へ移らず「メールが見つかりません」を表示する", async () => {
+    vi.mocked(mailingApi.get).mockRejectedValue(
+      new ApiClientError("NOT_FOUND", "メールが見つかりません", 404),
+    );
     renderPage();
 
-    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/tokyo-men-choir/mailing"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("メールが見つかりません");
+    expect(screen.getByRole("heading", { name: "メール" })).toBeInTheDocument();
+    expect(pushMock).not.toHaveBeenCalled();
   });
 
-  it("404以外のエラー時はエラーメッセージを表示する", async () => {
-    vi.mocked(mailingApi.get).mockRejectedValue(new Error("取得に失敗しました"));
+  it("5xxでも空でない文言を表示する", async () => {
+    vi.mocked(mailingApi.get).mockRejectedValue(new ApiClientError("UNKNOWN", "", 500));
     renderPage();
 
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "メールの読み込みに失敗しました。ページを再読み込みしてください。",
+    );
   });
 });
 
@@ -367,5 +374,41 @@ describe("MailDetailPage（返信モーダル）", () => {
     await user.click(screen.getByText("返信"));
     await user.keyboard("{Escape}");
     expect(screen.queryByPlaceholderText("返信内容を入力...")).not.toBeInTheDocument();
+  });
+
+  it("返信を開くと件名の欄にフォーカスが入り、返信先は選択中のものだけが押された状態になる", async () => {
+    vi.mocked(mailingApi.get).mockResolvedValue(makeMail());
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("返信"));
+
+    expect(screen.getByRole("dialog", { name: "返信" })).toBeInTheDocument();
+    expect(screen.getByLabelText("件名")).toHaveFocus();
+    expect(screen.getByRole("button", { name: /送信者のみ/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await user.click(screen.getByRole("button", { name: /全員に返信/ }));
+    expect(screen.getByRole("button", { name: /全員に返信/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: /送信者のみ/ })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("返信の件名の欄でEnterを押すと確認に進む", async () => {
+    vi.mocked(mailingApi.get).mockResolvedValue(makeMail());
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("返信"));
+    await user.type(screen.getByLabelText(/本文/), "返信本文");
+    await user.type(screen.getByLabelText("件名"), "{Enter}");
+
+    expect(await screen.findByRole("alertdialog")).toBeInTheDocument();
   });
 });

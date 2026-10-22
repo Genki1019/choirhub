@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactElement } from "react";
 import { ComposeModal } from "../ComposeModal";
 import { mailingApi } from "@/lib/mailing-api";
+import { ApiClientError } from "@/lib/api-client";
 import { membersApi, type MemberProfile, type PartSummary } from "@/lib/members-api";
 
 vi.mock("@/lib/mailing-api", async () => {
@@ -23,6 +26,7 @@ vi.mock("@/lib/members-api", async () => {
     ...actual,
     membersApi: {
       list: vi.fn(),
+      parts: vi.fn(),
     },
   };
 });
@@ -52,14 +56,20 @@ function makeMember(overrides: Partial<MemberProfile> = {}): MemberProfile {
   };
 }
 
+function renderWithClient(ui: ReactElement) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+}
+
 function renderModal(overrides: Partial<Parameters<typeof ComposeModal>[0]> = {}) {
-  return render(
-    <ComposeModal orgSlug="o" parts={parts} onClose={vi.fn()} onSent={vi.fn()} {...overrides} />,
+  return renderWithClient(
+    <ComposeModal orgSlug="o" onClose={vi.fn()} onSent={vi.fn()} {...overrides} />,
   );
 }
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(membersApi.parts).mockResolvedValue(parts);
   vi.mocked(mailingApi.templates.list).mockResolvedValue([]);
   vi.mocked(mailingApi.recipientCount).mockResolvedValue({ count: 5 });
 });
@@ -443,5 +453,71 @@ describe("ComposeModal（下書きの事前入力）", () => {
     renderModal();
 
     expect(screen.getByPlaceholderText("例: 6月練習のご案内")).toHaveValue("");
+  });
+});
+
+describe("ComposeModal（キーボード・読み上げ）", () => {
+  it("開くと件名の欄にフォーカスが入り、ダイアログの名前は「新規メール」になる", () => {
+    renderModal();
+
+    expect(screen.getByRole("dialog", { name: "新規メール" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/件名/)).toHaveFocus();
+  });
+
+  it("件名の欄でEnterを押すと宛先を数えて確認に進む", async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.type(screen.getByLabelText(/本文/), "本文");
+    await user.type(screen.getByLabelText(/件名/), "件名{Enter}");
+
+    expect(await screen.findByRole("alertdialog")).toBeInTheDocument();
+    expect(mailingApi.recipientCount).toHaveBeenCalledTimes(1);
+  });
+
+  it("本文でEnterを押すと改行し、送信には進まない", async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.type(screen.getByLabelText(/件名/), "件名");
+    await user.type(screen.getByLabelText(/本文/), "1行目{Enter}2行目");
+
+    expect(screen.getByLabelText(/本文/)).toHaveValue("1行目\n2行目");
+    expect(mailingApi.recipientCount).not.toHaveBeenCalled();
+  });
+
+  it("送信先のタブは選択中のものだけが押された状態として読み上げられる", async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    expect(screen.getByRole("button", { name: "全員" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "ロール" }));
+
+    expect(screen.getByRole("button", { name: "全員" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "ロール" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("パートの取得に失敗したら「パート」タブに理由を出す", async () => {
+    vi.mocked(membersApi.parts).mockRejectedValue(new Error("network"));
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.click(screen.getByRole("button", { name: "パート" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "パートの読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+  });
+
+  it("個別の団員の取得の失敗が4xxならAPIの理由を出す", async () => {
+    vi.mocked(membersApi.list).mockRejectedValue(
+      new ApiClientError("FORBIDDEN", "閲覧権限がありません", 403),
+    );
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.click(screen.getByRole("button", { name: "個別" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("閲覧権限がありません");
   });
 });

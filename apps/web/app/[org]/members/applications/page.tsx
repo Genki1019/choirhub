@@ -5,10 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Loader2 } from "lucide-react";
 import { visitorApplicationsApi } from "@/lib/visitor-applications-api";
-import { membersApi } from "@/lib/members-api";
 import { useMember } from "@/contexts/MemberContext";
 import { useClipboardCopy } from "@/hooks/useClipboardCopy";
-import { memberKeys, visitorApplicationKeys } from "@/lib/query-keys";
+import { visitorApplicationKeys } from "@/lib/query-keys";
 import type { VisitorApplication, VisitorApplicationDraft } from "@/lib/api-types";
 import { PageWithHeader } from "@/components/PageWithHeader";
 import { ComposeModal } from "../../mailing/_components/ComposeModal";
@@ -64,12 +63,6 @@ export default function VisitorApplicationsPage() {
   const { data: applications = [], isLoading } = useQuery({
     queryKey: visitorApplicationKeys.pending(org),
     queryFn: () => visitorApplicationsApi.listPending(org),
-    enabled: isAdmin,
-  });
-
-  const { data: parts = [] } = useQuery({
-    queryKey: memberKeys.parts(org),
-    queryFn: () => membersApi.parts(org),
     enabled: isAdmin,
   });
 
@@ -217,7 +210,6 @@ export default function VisitorApplicationsPage() {
       {showCompose && draft && (
         <ComposeModal
           orgSlug={org}
-          parts={parts}
           initialSubject={draft.subject}
           initialBody={draft.body}
           initialRecipientType="all"

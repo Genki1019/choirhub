@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactElement } from "react";
+import { membersApi } from "@/lib/members-api";
 import { ComposeModal } from "../ComposeModal";
 import { mailingApi, type MailTemplate } from "@/lib/mailing-api";
+import { ApiClientError } from "@/lib/api-client";
 
 vi.mock("@/lib/mailing-api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/mailing-api")>("@/lib/mailing-api");
@@ -10,6 +14,7 @@ vi.mock("@/lib/mailing-api", async () => {
     ...actual,
     mailingApi: {
       send: vi.fn(),
+      recipientCount: vi.fn(),
       templates: {
         list: vi.fn(),
         save: vi.fn(),
@@ -31,12 +36,22 @@ function makeTemplate(overrides: Partial<MailTemplate> = {}): MailTemplate {
   };
 }
 
+vi.mock("@/lib/members-api", () => ({
+  membersApi: { parts: vi.fn(), list: vi.fn() },
+}));
+
+function renderWithClient(ui: ReactElement) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+}
+
 function renderModal() {
-  return render(<ComposeModal orgSlug="o" parts={[]} onClose={vi.fn()} onSent={vi.fn()} />);
+  return renderWithClient(<ComposeModal orgSlug="o" onClose={vi.fn()} onSent={vi.fn()} />);
 }
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(membersApi.parts).mockResolvedValue([]);
 });
 
 describe("ComposeModal（テンプレートパネル）", () => {
@@ -140,7 +155,7 @@ describe("ComposeModal（テンプレートパネル）", () => {
     vi.mocked(mailingApi.templates.list).mockResolvedValue([makeTemplate()]);
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<ComposeModal orgSlug="o" parts={[]} onClose={onClose} onSent={vi.fn()} />);
+    renderWithClient(<ComposeModal orgSlug="o" onClose={onClose} onSent={vi.fn()} />);
 
     await user.click(screen.getByText("テンプレート"));
     await user.click(
@@ -217,7 +232,63 @@ describe("ComposeModal（テンプレート保存モーダル）", () => {
     await user.type(screen.getByPlaceholderText("例: 練習案内テンプレート"), "テンプレ名");
     await user.click(screen.getByText("保存", { selector: "button.bg-brand-600" }));
 
-    expect(await screen.findByText("保存に失敗しました")).toBeInTheDocument();
+    expect(
+      await screen.findByText("テンプレートの保存に失敗しました。もう一度お試しください。"),
+    ).toBeInTheDocument();
+  });
+
+  it("保存の失敗が4xxならAPIの理由を表示する", async () => {
+    vi.mocked(mailingApi.templates.save).mockRejectedValue(
+      new ApiClientError("VALIDATION_ERROR", "入力値が不正です", 400),
+    );
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.type(screen.getByPlaceholderText("例: 6月練習のご案内"), "件名テスト");
+    await user.type(screen.getByPlaceholderText("メール本文を入力..."), "本文テスト");
+    await user.click(screen.getByText("保存"));
+    await user.type(screen.getByLabelText(/テンプレート名/), "テンプレ名");
+    await user.click(screen.getByText("保存", { selector: "button.bg-brand-600" }));
+
+    expect(await screen.findByText("入力値が不正です")).toBeInTheDocument();
+  });
+
+  it("テンプレート名の欄でEnterを押すと保存し、メールの送信には進まない", async () => {
+    vi.mocked(mailingApi.templates.save).mockResolvedValue(makeTemplate());
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.type(screen.getByPlaceholderText("例: 6月練習のご案内"), "件名テスト");
+    await user.type(screen.getByPlaceholderText("メール本文を入力..."), "本文テスト");
+    await user.click(screen.getByText("保存"));
+    await user.type(screen.getByLabelText(/テンプレート名/), "テンプレ名{Enter}");
+
+    await waitFor(() => expect(mailingApi.templates.save).toHaveBeenCalledTimes(1));
+    expect(mailingApi.recipientCount).not.toHaveBeenCalled();
+  });
+
+  it("テンプレート名は100文字までしか入力できない", async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.click(screen.getByText("保存"));
+
+    expect(screen.getByLabelText(/テンプレート名/)).toHaveAttribute("maxLength", "100");
+  });
+
+  it("保存の画面でEscを押すと保存の画面だけが閉じ、作成中のメールは閉じない", async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderWithClient(<ComposeModal orgSlug="o" onClose={onClose} onSent={vi.fn()} />);
+
+    await user.type(screen.getByPlaceholderText("例: 6月練習のご案内"), "件名テスト");
+    await user.click(screen.getByText("保存"));
+    expect(screen.getByLabelText(/テンプレート名/)).toHaveFocus();
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByLabelText(/テンプレート名/)).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByDisplayValue("件名テスト")).toBeInTheDocument();
   });
 
   it("閉じるボタンで保存モーダルを閉じる", async () => {

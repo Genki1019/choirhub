@@ -5,8 +5,7 @@ import { useParams } from "next/navigation";
 import { PenSquare, AlertCircle, Mail } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { mailingApi } from "@/lib/mailing-api";
-import { membersApi } from "@/lib/members-api";
-import { mailingKeys, memberKeys } from "@/lib/query-keys";
+import { mailingKeys } from "@/lib/query-keys";
 import { ComposeModal } from "./_components/ComposeModal";
 import { MailCard } from "./_components/MailCard";
 import { Pagination } from "@/components/Pagination";
@@ -27,12 +26,6 @@ export default function MailingPage() {
   } = useQuery({
     queryKey: mailingKeys.list(org, page),
     queryFn: () => mailingApi.list(org, { page, perPage: PER_PAGE }),
-  });
-
-  const { data: parts = [] } = useQuery({
-    queryKey: memberKeys.parts(org),
-    queryFn: () => membersApi.parts(org),
-    enabled: showCompose,
   });
 
   const mails = result?.data ?? [];
@@ -84,7 +77,6 @@ export default function MailingPage() {
       {showCompose && (
         <ComposeModal
           orgSlug={org}
-          parts={parts}
           onClose={() => setShowCompose(false)}
           onSent={() => {
             setPage(1);

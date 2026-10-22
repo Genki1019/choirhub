@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { AlertCircle, Bell } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { Bell } from "lucide-react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { notificationsApi, type NotificationStatusFilter } from "@/lib/notifications-api";
 import { notificationKeys } from "@/lib/query-keys";
 import { formatDate } from "@/lib/format-date";
 import { useNotificationClick } from "@/lib/useNotificationClick";
 import { Pagination } from "@/components/Pagination";
 import { PageWithHeader } from "@/components/PageWithHeader";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 
 const PER_PAGE = 20;
 
@@ -39,19 +41,22 @@ export default function NotificationsPage() {
   const {
     data: result,
     isLoading: loading,
+    isPlaceholderData,
     error,
   } = useQuery({
-    queryKey: [...notificationKeys.list(org), status, page],
+    queryKey: notificationKeys.page(org, status, page),
     queryFn: () => notificationsApi.list(org, { page, perPage: PER_PAGE, status }),
+    placeholderData: keepPreviousData,
   });
 
   const notifications = result?.data ?? [];
-  const meta = result?.meta ?? { total: 0, page, perPage: PER_PAGE, unreadCount: 0 };
+  const meta = { total: result?.meta.total ?? 0, page, perPage: PER_PAGE };
+  const isCurrent = !!result && !isPlaceholderData;
 
   return (
     <PageWithHeader
       title="通知"
-      badge={!loading ? <span className="text-sm text-gray-400">{meta.total}件</span> : undefined}
+      badge={isCurrent ? <span className="text-sm text-gray-400">{meta.total}件</span> : undefined}
       loading={loading}
       mainClassName="space-y-4"
     >
@@ -60,6 +65,7 @@ export default function NotificationsPage() {
           <button
             type="button"
             key={key}
+            aria-pressed={status === key}
             onClick={() => handleStatusChange(key)}
             className={`border-r border-gray-200 px-4 py-1.5 text-xs font-medium transition-colors last:border-0 ${
               status === key ? "bg-brand-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
@@ -71,13 +77,15 @@ export default function NotificationsPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-          <AlertCircle size={16} />
-          <span className="text-sm">{error.message}</span>
-        </div>
+        <ErrorMessage variant="section" autoScroll={false}>
+          {userErrorMessage(
+            error,
+            "通知の読み込みに失敗しました。ページを再読み込みしてください。",
+          )}
+        </ErrorMessage>
       )}
 
-      {!error && notifications.length === 0 && (
+      {!error && isCurrent && notifications.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-gray-400">
           <Bell size={28} className="mb-3 opacity-40" />
           <p className="text-sm">{EMPTY_MESSAGE[status]}</p>
@@ -85,7 +93,12 @@ export default function NotificationsPage() {
       )}
 
       {!error && notifications.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <div
+          aria-busy={isPlaceholderData}
+          className={`overflow-hidden rounded-xl border border-gray-200 bg-white transition-opacity ${
+            isPlaceholderData ? "opacity-60" : ""
+          }`}
+        >
           {notifications.map((item) => (
             <button
               type="button"

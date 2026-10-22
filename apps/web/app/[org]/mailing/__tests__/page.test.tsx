@@ -6,6 +6,7 @@ import MailingPage from "../page";
 import { MemberProvider } from "@/contexts/MemberContext";
 import { mailingApi, type MailSummary, type MailListResponse } from "@/lib/mailing-api";
 import { membersApi } from "@/lib/members-api";
+import { ApiClientError } from "@/lib/api-client";
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ org: "tokyo-men-choir" }),
@@ -74,11 +75,26 @@ describe("MailingPage（表示状態）", () => {
     expect(screen.getByText("読み込み中...")).toBeInTheDocument();
   });
 
-  it("取得エラー時はエラーメッセージを表示する", async () => {
-    vi.mocked(mailingApi.list).mockRejectedValue(new Error("取得に失敗しました"));
+  it("取得の失敗が4xxならAPIの理由を表示し、件数は出さない", async () => {
+    vi.mocked(mailingApi.list).mockRejectedValue(
+      new ApiClientError("VALIDATION_ERROR", "page・perPageは正の整数で指定してください", 400),
+    );
     renderPage();
 
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "page・perPageは正の整数で指定してください",
+    );
+    expect(screen.queryByText("0件")).not.toBeInTheDocument();
+    expect(screen.queryByText("メールがありません")).not.toBeInTheDocument();
+  });
+
+  it("取得の失敗が5xxでも空でない文言を表示する", async () => {
+    vi.mocked(mailingApi.list).mockRejectedValue(new ApiClientError("UNKNOWN", "", 500));
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "メールの読み込みに失敗しました。ページを再読み込みしてください。",
+    );
   });
 
   it("0件の場合は空表示を出す", async () => {
@@ -118,6 +134,24 @@ describe("MailingPage（一覧表示・件数）", () => {
 
     expect(await screen.findByText("件名2")).toBeInTheDocument();
     expect(mailingApi.list).toHaveBeenLastCalledWith("tokyo-men-choir", { page: 2, perPage: 20 });
+  });
+
+  it("ページを切り替えて読み込んでいる間も、直前の一覧を薄く表示したまま残す", async () => {
+    vi.mocked(mailingApi.list)
+      .mockResolvedValueOnce(
+        makeResponse([makeMail({ subject: "件名1" })], { total: 25, page: 1, perPage: 20 }),
+      )
+      .mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText("件名1")).toBeInTheDocument();
+    await user.click(screen.getByLabelText("次のページ"));
+
+    expect(screen.getByText("件名1")).toBeInTheDocument();
+    expect(screen.queryByText("読み込み中...")).not.toBeInTheDocument();
+    expect(screen.getByText("件名1").closest("[aria-busy]")).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByLabelText("次のページ")).toBeInTheDocument();
   });
 });
 

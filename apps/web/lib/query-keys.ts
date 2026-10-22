@@ -83,6 +83,8 @@ export const ticketKeys = {
 
 export const notificationKeys = {
   list: (org: string) => ["notifications", org] as const,
+  page: (org: string, status: string, page: number) =>
+    ["notifications", org, status, page] as const,
 };
 
 export const libraryKeys = {

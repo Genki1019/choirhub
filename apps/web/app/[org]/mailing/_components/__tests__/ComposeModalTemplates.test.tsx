@@ -178,11 +178,11 @@ describe("ComposeModal（テンプレートパネル）", () => {
 });
 
 describe("ComposeModal（テンプレート保存モーダル）", () => {
-  it("「保存」ボタンクリックで保存モーダルを開く", async () => {
+  it("「テンプレートに保存」ボタンクリックで保存モーダルを開く", async () => {
     const user = userEvent.setup();
     renderModal();
 
-    await user.click(screen.getByText("保存"));
+    await user.click(screen.getByRole("button", { name: "テンプレートに保存" }));
     expect(screen.getByText("テンプレートとして保存")).toBeInTheDocument();
   });
 
@@ -190,8 +190,8 @@ describe("ComposeModal（テンプレート保存モーダル）", () => {
     const user = userEvent.setup();
     renderModal();
 
-    await user.click(screen.getByText("保存"));
-    await user.click(screen.getByText("保存", { selector: "button.bg-brand-600" }));
+    await user.click(screen.getByRole("button", { name: "テンプレートに保存" }));
+    await user.click(screen.getByRole("button", { name: "保存" }));
 
     expect(await screen.findByText("テンプレート名を入力してください")).toBeInTheDocument();
     expect(mailingApi.templates.save).not.toHaveBeenCalled();
@@ -202,9 +202,9 @@ describe("ComposeModal（テンプレート保存モーダル）", () => {
     renderModal();
 
     await user.type(screen.getByPlaceholderText("メール本文を入力..."), "本文のみ入力");
-    await user.click(screen.getByText("保存"));
+    await user.click(screen.getByRole("button", { name: "テンプレートに保存" }));
     await user.type(screen.getByPlaceholderText("例: 練習案内テンプレート"), "テンプレ名");
-    await user.click(screen.getByText("保存", { selector: "button.bg-brand-600" }));
+    await user.click(screen.getByRole("button", { name: "保存" }));
 
     expect(await screen.findByText("件名が空です")).toBeInTheDocument();
   });
@@ -216,9 +216,9 @@ describe("ComposeModal（テンプレート保存モーダル）", () => {
 
     await user.type(screen.getByPlaceholderText("例: 6月練習のご案内"), "件名テスト");
     await user.type(screen.getByPlaceholderText("メール本文を入力..."), "本文テスト");
-    await user.click(screen.getByText("保存"));
+    await user.click(screen.getByRole("button", { name: "テンプレートに保存" }));
     await user.type(screen.getByPlaceholderText("例: 練習案内テンプレート"), "テンプレ名");
-    await user.click(screen.getByText("保存", { selector: "button.bg-brand-600" }));
+    await user.click(screen.getByRole("button", { name: "保存" }));
 
     expect(mailingApi.templates.save).toHaveBeenCalledWith("o", {
       name: "テンプレ名",
@@ -237,9 +237,9 @@ describe("ComposeModal（テンプレート保存モーダル）", () => {
 
     await user.type(screen.getByPlaceholderText("例: 6月練習のご案内"), "件名テスト");
     await user.type(screen.getByPlaceholderText("メール本文を入力..."), "本文テスト");
-    await user.click(screen.getByText("保存"));
+    await user.click(screen.getByRole("button", { name: "テンプレートに保存" }));
     await user.type(screen.getByPlaceholderText("例: 練習案内テンプレート"), "テンプレ名");
-    await user.click(screen.getByText("保存", { selector: "button.bg-brand-600" }));
+    await user.click(screen.getByRole("button", { name: "保存" }));
 
     expect(
       await screen.findByText("テンプレートの保存に失敗しました。もう一度お試しください。"),
@@ -255,9 +255,9 @@ describe("ComposeModal（テンプレート保存モーダル）", () => {
 
     await user.type(screen.getByPlaceholderText("例: 6月練習のご案内"), "件名テスト");
     await user.type(screen.getByPlaceholderText("メール本文を入力..."), "本文テスト");
-    await user.click(screen.getByText("保存"));
+    await user.click(screen.getByRole("button", { name: "テンプレートに保存" }));
     await user.type(screen.getByLabelText(/テンプレート名/), "テンプレ名");
-    await user.click(screen.getByText("保存", { selector: "button.bg-brand-600" }));
+    await user.click(screen.getByRole("button", { name: "保存" }));
 
     expect(await screen.findByText("入力値が不正です")).toBeInTheDocument();
   });
@@ -269,7 +269,7 @@ describe("ComposeModal（テンプレート保存モーダル）", () => {
 
     await user.type(screen.getByPlaceholderText("例: 6月練習のご案内"), "件名テスト");
     await user.type(screen.getByPlaceholderText("メール本文を入力..."), "本文テスト");
-    await user.click(screen.getByText("保存"));
+    await user.click(screen.getByRole("button", { name: "テンプレートに保存" }));
     await user.type(screen.getByLabelText(/テンプレート名/), "テンプレ名{Enter}");
 
     await waitFor(() => expect(mailingApi.templates.save).toHaveBeenCalledTimes(1));
@@ -280,7 +280,7 @@ describe("ComposeModal（テンプレート保存モーダル）", () => {
     const user = userEvent.setup();
     renderModal();
 
-    await user.click(screen.getByText("保存"));
+    await user.click(screen.getByRole("button", { name: "テンプレートに保存" }));
 
     expect(screen.getByLabelText(/テンプレート名/)).toHaveAttribute("maxLength", "100");
   });
@@ -291,7 +291,7 @@ describe("ComposeModal（テンプレート保存モーダル）", () => {
     renderWithClient(<ComposeModal orgSlug="o" onClose={onClose} onSent={vi.fn()} />);
 
     await user.type(screen.getByPlaceholderText("例: 6月練習のご案内"), "件名テスト");
-    await user.click(screen.getByText("保存"));
+    await user.click(screen.getByRole("button", { name: "テンプレートに保存" }));
     expect(screen.getByLabelText(/テンプレート名/)).toHaveFocus();
     await user.keyboard("{Escape}");
 
@@ -304,7 +304,7 @@ describe("ComposeModal（テンプレート保存モーダル）", () => {
     const user = userEvent.setup();
     renderModal();
 
-    await user.click(screen.getByText("保存"));
+    await user.click(screen.getByRole("button", { name: "テンプレートに保存" }));
     const closeButtons = screen.getAllByLabelText("閉じる");
     await user.click(closeButtons[closeButtons.length - 1]);
 
@@ -335,7 +335,7 @@ describe("ComposeModal（テンプレート保存モーダル）", () => {
     expect(await screen.findByText("保存済みテンプレートがありません")).toBeInTheDocument();
     await user.type(screen.getByPlaceholderText("例: 6月練習のご案内"), "件名テスト");
     await user.type(screen.getByPlaceholderText("メール本文を入力..."), "本文テスト");
-    await user.click(screen.getByRole("button", { name: "保存" }));
+    await user.click(screen.getByRole("button", { name: "テンプレートに保存" }));
     await user.type(screen.getByLabelText(/テンプレート名/), "新しいテンプレート{Enter}");
 
     expect(await screen.findByText("新しいテンプレート")).toBeInTheDocument();

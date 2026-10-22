@@ -1,21 +1,17 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { X, Loader2, Send, BookMarked, Trash2 } from "lucide-react";
+import { Loader2, Send, BookMarked } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  mailingApi,
-  type RecipientType,
-  type MailTemplate,
-  type SendMailInput,
-} from "@/lib/mailing-api";
+import { mailingApi, type RecipientType, type SendMailInput } from "@/lib/mailing-api";
 import { membersApi, type MemberProfile } from "@/lib/members-api";
 import { homeKeys, mailingKeys, memberKeys } from "@/lib/query-keys";
-import { useMember } from "@/contexts/MemberContext";
 import { ROLES } from "@/lib/roles";
 import { Modal } from "@/components/Modal";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { SaveTemplateModal } from "./SaveTemplateModal";
+import { TemplatePanel } from "./TemplatePanel";
 import { userErrorMessage } from "@/lib/api-client";
 
 const RECIPIENT_TABS: { key: RecipientType; label: string }[] = [
@@ -24,216 +20,6 @@ const RECIPIENT_TABS: { key: RecipientType; label: string }[] = [
   { key: "role", label: "ロール" },
   { key: "custom", label: "個別" },
 ];
-
-const TEMPLATE_NAME_MAX = 100;
-
-interface SaveTemplateModalProps {
-  orgSlug: string;
-  subject: string;
-  body: string;
-  onClose: () => void;
-  onSaved: () => void;
-}
-
-function SaveTemplateModal({ orgSlug, subject, body, onClose, onSaved }: SaveTemplateModalProps) {
-  const [name, setName] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSave = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!name.trim()) {
-      setError("テンプレート名を入力してください");
-      return;
-    }
-    if (!subject.trim()) {
-      setError("件名が空です");
-      return;
-    }
-    if (!body.trim()) {
-      setError("本文が空です");
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    try {
-      await mailingApi.templates.save(orgSlug, {
-        name: name.trim(),
-        subject,
-        body,
-      });
-      onSaved();
-      onClose();
-    } catch (err) {
-      setError(userErrorMessage(err, "テンプレートの保存に失敗しました。もう一度お試しください。"));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal
-      title="テンプレートとして保存"
-      size="sm"
-      onClose={onClose}
-      onSubmit={handleSave}
-      busy={saving}
-      footer={
-        <>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-50"
-          >
-            キャンセル
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
-          >
-            {saving && <Loader2 size={13} className="animate-spin" />}保存
-          </button>
-        </>
-      }
-    >
-      <div>
-        <label htmlFor="template-name" className="mb-1.5 block text-xs font-medium text-gray-600">
-          テンプレート名 <span className="text-red-500">*</span>
-        </label>
-        <input
-          id="template-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={TEMPLATE_NAME_MAX}
-          placeholder="例: 練習案内テンプレート"
-          className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-          autoFocus
-        />
-      </div>
-      <ErrorMessage>{error}</ErrorMessage>
-    </Modal>
-  );
-}
-
-interface TemplatePanelProps {
-  orgSlug: string;
-  onApply: (t: MailTemplate) => void;
-  onClose: () => void;
-}
-
-function TemplatePanel({ orgSlug, onApply, onClose }: TemplatePanelProps) {
-  const queryClient = useQueryClient();
-  const { memberId, roles } = useMember();
-  const [deleting, setDeleting] = useState(false);
-  const [confirmTarget, setConfirmTarget] = useState<MailTemplate | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  const {
-    data: templates = [],
-    isLoading: loading,
-    error: loadError,
-  } = useQuery({
-    queryKey: mailingKeys.templates(orgSlug),
-    queryFn: () => mailingApi.templates.list(orgSlug),
-  });
-
-  const canDelete = (t: MailTemplate) => roles.includes("admin") || t.createdBy.id === memberId;
-
-  const handleDelete = async (id: string) => {
-    setDeleting(true);
-    setDeleteError(null);
-    try {
-      await mailingApi.templates.delete(orgSlug, id);
-      await queryClient.invalidateQueries({ queryKey: mailingKeys.templates(orgSlug) });
-      setConfirmTarget(null);
-    } catch (err) {
-      setDeleteError(
-        userErrorMessage(err, "テンプレートの削除に失敗しました。もう一度お試しください。"),
-      );
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2">
-        <span className="text-xs font-medium text-gray-600">テンプレート</span>
-        <button
-          type="button"
-          aria-label="テンプレートパネルを閉じる"
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600"
-        >
-          <X size={14} />
-        </button>
-      </div>
-      <div className="max-h-44 overflow-y-auto">
-        {loading && (
-          <div className="flex items-center gap-2 px-4 py-3 text-gray-400">
-            <Loader2 size={13} className="animate-spin" />
-            <span className="text-xs">読み込み中...</span>
-          </div>
-        )}
-        {loadError && (
-          <ErrorMessage autoScroll={false} className="m-3">
-            {userErrorMessage(
-              loadError,
-              "テンプレートの読み込みに失敗しました。もう一度お試しください。",
-            )}
-          </ErrorMessage>
-        )}
-        {!loading && !loadError && templates.length === 0 && (
-          <p className="px-4 py-3 text-xs text-gray-400">保存済みテンプレートがありません</p>
-        )}
-        {templates.map((t) => (
-          <div key={t.id} className="border-b border-gray-100 last:border-0">
-            <div className="group flex items-center justify-between px-4 py-2.5 hover:bg-white">
-              <button
-                type="button"
-                className="min-w-0 flex-1 text-left"
-                onClick={() => {
-                  onApply(t);
-                  onClose();
-                }}
-              >
-                <p className="truncate text-sm font-medium text-gray-700">{t.name}</p>
-                <p className="truncate text-xs text-gray-400">{t.subject}</p>
-              </button>
-              {canDelete(t) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDeleteError(null);
-                    setConfirmTarget(t);
-                  }}
-                  className="ml-2 shrink-0 text-gray-300 transition-colors hover:text-red-500"
-                  aria-label={`テンプレート「${t.name}」を削除`}
-                >
-                  <Trash2 size={13} />
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {confirmTarget && (
-        <ConfirmDialog
-          title="テンプレートを削除しますか？"
-          description={`「${confirmTarget.name}」を削除します。この操作は取り消せません。`}
-          confirmLabel="削除する"
-          busy={deleting}
-          error={deleteError}
-          onCancel={() => setConfirmTarget(null)}
-          onConfirm={() => handleDelete(confirmTarget.id)}
-        />
-      )}
-    </div>
-  );
-}
 
 const optionClass =
   "flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-gray-50";
@@ -400,7 +186,7 @@ export function ComposeModal({
                 onClick={() => setShowSaveModal(true)}
                 className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-50"
               >
-                保存
+                テンプレートに保存
               </button>
             </div>
             <div className="flex items-center gap-2">

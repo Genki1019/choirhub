@@ -10,6 +10,8 @@ import { ComposeModal } from "./_components/ComposeModal";
 import { MailCard } from "./_components/MailCard";
 import { Pagination } from "@/components/Pagination";
 import { PageWithHeader } from "@/components/PageWithHeader";
+import { useMember } from "@/contexts/MemberContext";
+import { isMemberPlus } from "@/lib/roles";
 
 const PER_PAGE = 20;
 
@@ -17,6 +19,7 @@ export default function MailingPage() {
   const { org } = useParams<{ org: string }>();
   const [page, setPage] = useState(1);
   const [showCompose, setShowCompose] = useState(false);
+  const { roles } = useMember();
 
   const {
     data: result,
@@ -38,14 +41,16 @@ export default function MailingPage() {
         loading={loading}
         mainClassName="space-y-4"
         actions={
-          <button
-            type="button"
-            onClick={() => setShowCompose(true)}
-            className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
-          >
-            <PenSquare size={14} />
-            メールを作成
-          </button>
+          isMemberPlus(roles) && (
+            <button
+              type="button"
+              onClick={() => setShowCompose(true)}
+              className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
+            >
+              <PenSquare size={14} />
+              メールを作成
+            </button>
+          )
         }
       >
         {mailsError && (

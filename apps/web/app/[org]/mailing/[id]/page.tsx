@@ -13,6 +13,8 @@ import { PageWithHeader } from "@/components/PageWithHeader";
 import { PageErrorState } from "@/components/PageErrorState";
 import { Modal } from "@/components/Modal";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { useMember } from "@/contexts/MemberContext";
+import { isMemberPlus } from "@/lib/roles";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 type ReplyTarget = "sender" | "all";
@@ -220,6 +222,7 @@ export default function MailDetailPage() {
   const { org, id } = useParams<{ org: string; id: string }>();
   const router = useRouter();
   const [showReply, setShowReply] = useState(false);
+  const { roles } = useMember();
 
   const {
     data: mail,
@@ -266,14 +269,16 @@ export default function MailDetailPage() {
           title={subject}
           backHref={`/${org}/mailing`}
           actions={
-            <button
-              type="button"
-              onClick={() => setShowReply(true)}
-              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
-            >
-              <Reply size={14} />
-              返信
-            </button>
+            isMemberPlus(roles) && (
+              <button
+                type="button"
+                onClick={() => setShowReply(true)}
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+              >
+                <Reply size={14} />
+                返信
+              </button>
+            )
           }
         />
 

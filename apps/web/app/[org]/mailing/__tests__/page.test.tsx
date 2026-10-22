@@ -191,3 +191,20 @@ describe("MailCard", () => {
     expect(screen.queryByText(/名$/)).not.toBeInTheDocument();
   });
 });
+
+describe("MailingPage（権限）", () => {
+  it("客演には「メールを作成」を出さず、受け取ったメールは表示する", async () => {
+    vi.mocked(mailingApi.list).mockResolvedValue(makeResponse([makeMail()]));
+    renderPage(["guest"]);
+
+    expect(await screen.findByText("6月練習のご案内")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /メールを作成/ })).not.toBeInTheDocument();
+  });
+
+  it("一般団員には「メールを作成」を出す", async () => {
+    vi.mocked(mailingApi.list).mockResolvedValue(makeResponse([makeMail()]));
+    renderPage(["member"]);
+
+    expect(await screen.findByRole("button", { name: /メールを作成/ })).toBeInTheDocument();
+  });
+});

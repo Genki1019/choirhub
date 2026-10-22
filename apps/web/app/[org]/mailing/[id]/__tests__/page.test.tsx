@@ -444,3 +444,23 @@ describe("MailDetailPage（返信モーダル）", () => {
     expect(queryClient.getQueryState(homeKeys.get("tokyo-men-choir"))?.isInvalidated).toBe(true);
   });
 });
+
+describe("MailDetailPage（権限）", () => {
+  it("客演には「返信」を出さず、本文は表示する", async () => {
+    vi.mocked(mailingApi.get).mockResolvedValue(
+      makeMail({
+        resend: {
+          subject: "6月練習のご案内",
+          html: null,
+          text: "本文です",
+          lastEvent: "delivered",
+          createdAt: "2026-05-30T03:00:00.000Z",
+        },
+      }),
+    );
+    renderPage(["guest"]);
+
+    expect(await screen.findByText("本文です")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /返信/ })).not.toBeInTheDocument();
+  });
+});

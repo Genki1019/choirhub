@@ -175,13 +175,11 @@ describe("MailDetailPage（表示内容）", () => {
     expect(await screen.findByText("プレーンテキスト本文")).toBeInTheDocument();
   });
 
-  it("resendが未設定の場合は案内メッセージを表示する", async () => {
+  it("本文を取得できなかった場合（Resend未設定・取得失敗）はサービス名を出さずにその旨を表示する", async () => {
     vi.mocked(mailingApi.get).mockResolvedValue(makeMail({ resend: null }));
     renderPage();
 
-    expect(
-      await screen.findByText("Resend が未設定のため本文を取得できません"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("メール本文を取得できませんでした")).toBeInTheDocument();
   });
 
   it("受信者が1件以上ある場合は配信ステータス一覧を表示する", async () => {

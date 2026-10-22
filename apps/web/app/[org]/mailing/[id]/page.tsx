@@ -142,7 +142,7 @@ export default function MailDetailPage() {
             </div>
           ) : (
             <div className="rounded-xl border border-gray-200 bg-gray-50 px-6 py-8 text-center text-sm text-gray-400">
-              Resend が未設定のため本文を取得できません
+              メール本文を取得できませんでした
             </div>
           )}
 

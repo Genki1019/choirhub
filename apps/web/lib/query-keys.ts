@@ -51,6 +51,7 @@ export const mailingKeys = {
   all: (org: string) => ["mails", org] as const,
   list: (org: string, page: number) => ["mails", org, page] as const,
   detail: (org: string, id: string) => ["mail", org, id] as const,
+  templates: (org: string) => ["mails", org, "templates"] as const,
 };
 
 export const settingsKeys = {

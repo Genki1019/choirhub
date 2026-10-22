@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { membersApi } from "@/lib/members-api";
+import { MemberProvider } from "@/contexts/MemberContext";
 import { ComposeModal } from "../ComposeModal";
 import { mailingApi, type MailTemplate } from "@/lib/mailing-api";
 import { ApiClientError } from "@/lib/api-client";
@@ -40,13 +41,19 @@ vi.mock("@/lib/members-api", () => ({
   membersApi: { parts: vi.fn(), list: vi.fn() },
 }));
 
-function renderWithClient(ui: ReactElement) {
+function renderWithClient(ui: ReactElement, roles: string[] = ["member"]) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemberProvider memberId="member-1" roles={roles}>
+        {ui}
+      </MemberProvider>
+    </QueryClientProvider>,
+  );
 }
 
-function renderModal() {
-  return renderWithClient(<ComposeModal orgSlug="o" onClose={vi.fn()} onSent={vi.fn()} />);
+function renderModal(roles?: string[]) {
+  return renderWithClient(<ComposeModal orgSlug="o" onClose={vi.fn()} onSent={vi.fn()} />, roles);
 }
 
 beforeEach(() => {
@@ -118,7 +125,9 @@ describe("ComposeModal（テンプレートパネル）", () => {
   });
 
   it("削除を確定するとtemplates.deleteが呼ばれ一覧から消える", async () => {
-    vi.mocked(mailingApi.templates.list).mockResolvedValue([makeTemplate()]);
+    vi.mocked(mailingApi.templates.list)
+      .mockResolvedValueOnce([makeTemplate()])
+      .mockResolvedValue([]);
     vi.mocked(mailingApi.templates.delete).mockResolvedValue(undefined);
     const user = userEvent.setup();
     renderModal();
@@ -300,5 +309,75 @@ describe("ComposeModal（テンプレート保存モーダル）", () => {
     await user.click(closeButtons[closeButtons.length - 1]);
 
     expect(screen.queryByText("テンプレートとして保存")).not.toBeInTheDocument();
+  });
+
+  it("テンプレートの一覧の取得に失敗したら「ありません」ではなく理由を出す", async () => {
+    vi.mocked(mailingApi.templates.list).mockRejectedValue(new Error("network"));
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.click(screen.getByText("テンプレート"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "テンプレートの読み込みに失敗しました。もう一度お試しください。",
+    );
+    expect(screen.queryByText("保存済みテンプレートがありません")).not.toBeInTheDocument();
+  });
+
+  it("テンプレートを保存すると、開いているテンプレートの一覧に出る", async () => {
+    const saved = makeTemplate({ id: "template-2", name: "新しいテンプレート" });
+    vi.mocked(mailingApi.templates.list).mockResolvedValueOnce([]).mockResolvedValue([saved]);
+    vi.mocked(mailingApi.templates.save).mockResolvedValue(saved);
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.click(screen.getByText("テンプレート"));
+    expect(await screen.findByText("保存済みテンプレートがありません")).toBeInTheDocument();
+    await user.type(screen.getByPlaceholderText("例: 6月練習のご案内"), "件名テスト");
+    await user.type(screen.getByPlaceholderText("メール本文を入力..."), "本文テスト");
+    await user.click(screen.getByRole("button", { name: "保存" }));
+    await user.type(screen.getByLabelText(/テンプレート名/), "新しいテンプレート{Enter}");
+
+    expect(await screen.findByText("新しいテンプレート")).toBeInTheDocument();
+  });
+
+  it("他人のテンプレートには削除ボタンを出さない", async () => {
+    vi.mocked(mailingApi.templates.list).mockResolvedValue([
+      makeTemplate(),
+      makeTemplate({
+        id: "template-2",
+        name: "他人のテンプレート",
+        createdBy: { id: "member-2", nameJa: "別の団員" },
+      }),
+    ]);
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.click(screen.getByText("テンプレート"));
+
+    expect(
+      await screen.findByRole("button", { name: "テンプレート「練習案内テンプレート」を削除" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "テンプレート「他人のテンプレート」を削除" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("admin には他人のテンプレートにも削除ボタンを出す", async () => {
+    vi.mocked(mailingApi.templates.list).mockResolvedValue([
+      makeTemplate({
+        id: "template-2",
+        name: "他人のテンプレート",
+        createdBy: { id: "member-2", nameJa: "別の団員" },
+      }),
+    ]);
+    const user = userEvent.setup();
+    renderModal(["admin", "member"]);
+
+    await user.click(screen.getByText("テンプレート"));
+
+    expect(
+      await screen.findByRole("button", { name: "テンプレート「他人のテンプレート」を削除" }),
+    ).toBeInTheDocument();
   });
 });

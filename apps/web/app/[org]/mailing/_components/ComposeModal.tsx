@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { X, Loader2, Send, BookMarked, Trash2 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   mailingApi,
   type RecipientType,
@@ -10,7 +10,8 @@ import {
   type SendMailInput,
 } from "@/lib/mailing-api";
 import { membersApi, type MemberProfile } from "@/lib/members-api";
-import { memberKeys } from "@/lib/query-keys";
+import { mailingKeys, memberKeys } from "@/lib/query-keys";
+import { useMember } from "@/contexts/MemberContext";
 import { ROLES } from "@/lib/roles";
 import { Modal } from "@/components/Modal";
 import { ErrorMessage } from "@/components/ErrorMessage";
@@ -31,7 +32,7 @@ interface SaveTemplateModalProps {
   subject: string;
   body: string;
   onClose: () => void;
-  onSaved: (t: MailTemplate) => void;
+  onSaved: () => void;
 }
 
 function SaveTemplateModal({ orgSlug, subject, body, onClose, onSaved }: SaveTemplateModalProps) {
@@ -56,12 +57,12 @@ function SaveTemplateModal({ orgSlug, subject, body, onClose, onSaved }: SaveTem
     setSaving(true);
     setError(null);
     try {
-      const template = await mailingApi.templates.save(orgSlug, {
+      await mailingApi.templates.save(orgSlug, {
         name: name.trim(),
         subject,
         body,
       });
-      onSaved(template);
+      onSaved();
       onClose();
     } catch (err) {
       setError(userErrorMessage(err, "テンプレートの保存に失敗しました。もう一度お試しください。"));
@@ -123,26 +124,29 @@ interface TemplatePanelProps {
 }
 
 function TemplatePanel({ orgSlug, onApply, onClose }: TemplatePanelProps) {
-  const [templates, setTemplates] = useState<MailTemplate[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { memberId, roles } = useMember();
   const [deleting, setDeleting] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState<MailTemplate | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  useEffect(() => {
-    mailingApi.templates
-      .list(orgSlug)
-      .then((templates) => setTemplates(templates))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [orgSlug]);
+  const {
+    data: templates = [],
+    isLoading: loading,
+    error: loadError,
+  } = useQuery({
+    queryKey: mailingKeys.templates(orgSlug),
+    queryFn: () => mailingApi.templates.list(orgSlug),
+  });
+
+  const canDelete = (t: MailTemplate) => roles.includes("admin") || t.createdBy.id === memberId;
 
   const handleDelete = async (id: string) => {
     setDeleting(true);
     setDeleteError(null);
     try {
       await mailingApi.templates.delete(orgSlug, id);
-      setTemplates((prev) => prev.filter((t) => t.id !== id));
+      await queryClient.invalidateQueries({ queryKey: mailingKeys.templates(orgSlug) });
       setConfirmTarget(null);
     } catch (err) {
       setDeleteError(
@@ -173,7 +177,15 @@ function TemplatePanel({ orgSlug, onApply, onClose }: TemplatePanelProps) {
             <span className="text-xs">読み込み中...</span>
           </div>
         )}
-        {!loading && templates.length === 0 && (
+        {loadError && (
+          <ErrorMessage autoScroll={false} className="m-3">
+            {userErrorMessage(
+              loadError,
+              "テンプレートの読み込みに失敗しました。もう一度お試しください。",
+            )}
+          </ErrorMessage>
+        )}
+        {!loading && !loadError && templates.length === 0 && (
           <p className="px-4 py-3 text-xs text-gray-400">保存済みテンプレートがありません</p>
         )}
         {templates.map((t) => (
@@ -190,17 +202,19 @@ function TemplatePanel({ orgSlug, onApply, onClose }: TemplatePanelProps) {
                 <p className="truncate text-sm font-medium text-gray-700">{t.name}</p>
                 <p className="truncate text-xs text-gray-400">{t.subject}</p>
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setDeleteError(null);
-                  setConfirmTarget(t);
-                }}
-                className="ml-2 shrink-0 text-gray-300 transition-colors hover:text-red-500"
-                aria-label={`テンプレート「${t.name}」を削除`}
-              >
-                <Trash2 size={13} />
-              </button>
+              {canDelete(t) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteError(null);
+                    setConfirmTarget(t);
+                  }}
+                  className="ml-2 shrink-0 text-gray-300 transition-colors hover:text-red-500"
+                  aria-label={`テンプレート「${t.name}」を削除`}
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -260,6 +274,7 @@ export function ComposeModal({
   const [showTemplatePanel, setShowTemplatePanel] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
 
+  const queryClient = useQueryClient();
   const {
     data: parts = [],
     isLoading: loadingParts,
@@ -560,7 +575,9 @@ export function ComposeModal({
           subject={subject}
           body={body}
           onClose={() => setShowSaveModal(false)}
-          onSaved={() => {}}
+          onSaved={() =>
+            queryClient.invalidateQueries({ queryKey: mailingKeys.templates(orgSlug) })
+          }
         />
       )}
     </>

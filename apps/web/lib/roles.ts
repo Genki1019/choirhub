@@ -69,6 +69,10 @@ export const MEMBER_LEVEL_ROLES = new Set<string>(
   ROLES.filter((r) => r.key !== "guest" && r.key !== "visitor").map((r) => r.key),
 );
 
+/** 一般団員以上か（客演・体験だけのときは false）。APIの isMemberPlus と同じ判定 */
+export const isMemberPlus = (roles: string[]): boolean =>
+  roles.some((r) => MEMBER_LEVEL_ROLES.has(r));
+
 /** 管理者がロール変更パネルで操作できる全ロール（member は常に付与されるためチップから除外） */
 export const MANAGEABLE_ROLES = ROLES.filter((r) => r.key !== "member").map((r) => ({
   value: r.key,

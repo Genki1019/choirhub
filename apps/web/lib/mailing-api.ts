@@ -1,4 +1,4 @@
-import { apiClient } from "./api-client";
+import { apiClient, toApiClientError } from "./api-client";
 
 export type RecipientType = "all" | "part" | "role" | "custom";
 
@@ -6,7 +6,7 @@ export interface ResendDetail {
   subject: string;
   html: string | null;
   text: string | null;
-  lastEvent: string;
+  lastEvent: string | null;
   createdAt: string;
 }
 
@@ -92,7 +92,7 @@ export const mailingApi = {
       credentials: "include",
       cache: "no-store",
     }).then(async (res) => {
-      if (!res.ok) throw new Error(res.statusText);
+      if (!res.ok) throw await toApiClientError(res);
       return res.json() as Promise<MailListResponse>;
     });
   },

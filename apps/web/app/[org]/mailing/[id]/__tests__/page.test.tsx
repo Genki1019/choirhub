@@ -6,6 +6,7 @@ import MailDetailPage from "../page";
 import { MemberProvider } from "@/contexts/MemberContext";
 import { mailingApi, type MailDetail } from "@/lib/mailing-api";
 import { ApiClientError } from "@/lib/api-client";
+import { homeKeys, mailingKeys } from "@/lib/query-keys";
 
 const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
 
@@ -39,11 +40,11 @@ function makeMail(overrides: Partial<MailDetail> = {}): MailDetail {
   };
 }
 
-function renderPage(roles: string[] = ["member"]) {
+function renderPage(roles: string[] = ["member"], memberId = "member-self") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemberProvider memberId="member-self" roles={roles}>
+      <MemberProvider memberId={memberId} roles={roles}>
         <MailDetailPage />
       </MemberProvider>
     </QueryClientProvider>,
@@ -61,25 +62,32 @@ async function confirmSend(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("MailDetailPage（表示状態）", () => {
-  it("データ取得中は「読み込み中...」を表示する", () => {
+  it("データ取得中も見出しと戻るリンクを出し「読み込み中...」を表示する", () => {
     vi.mocked(mailingApi.get).mockReturnValue(new Promise(() => {}));
     renderPage();
 
     expect(screen.getByText("読み込み中...")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "メール" })).toBeInTheDocument();
   });
 
-  it("404エラー時はメール一覧へリダイレクトする", async () => {
-    vi.mocked(mailingApi.get).mockRejectedValue(new ApiClientError("NOT_FOUND", "not found", 404));
+  it("404では一覧へ移らず「メールが見つかりません」を表示する", async () => {
+    vi.mocked(mailingApi.get).mockRejectedValue(
+      new ApiClientError("NOT_FOUND", "メールが見つかりません", 404),
+    );
     renderPage();
 
-    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/tokyo-men-choir/mailing"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("メールが見つかりません");
+    expect(screen.getByRole("heading", { name: "メール" })).toBeInTheDocument();
+    expect(pushMock).not.toHaveBeenCalled();
   });
 
-  it("404以外のエラー時はエラーメッセージを表示する", async () => {
-    vi.mocked(mailingApi.get).mockRejectedValue(new Error("取得に失敗しました"));
+  it("5xxでも空でない文言を表示する", async () => {
+    vi.mocked(mailingApi.get).mockRejectedValue(new ApiClientError("UNKNOWN", "", 500));
     renderPage();
 
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "メールの読み込みに失敗しました。ページを再読み込みしてください。",
+    );
   });
 });
 
@@ -104,6 +112,26 @@ describe("MailDetailPage（表示内容）", () => {
     expect(screen.getByText("2名")).toBeInTheDocument();
   });
 
+  it("配信状況のバッジは送信者にだけ出す", async () => {
+    const mail = makeMail({
+      resend: {
+        subject: "6月練習のご案内",
+        html: null,
+        text: null,
+        lastEvent: "sent",
+        createdAt: "2026-05-30T12:00:00+09:00",
+      },
+    });
+    vi.mocked(mailingApi.get).mockResolvedValue(mail);
+    const { unmount } = renderPage(["member"], "member-sender");
+    expect(await screen.findByText("送信済み")).toBeInTheDocument();
+    unmount();
+
+    renderPage(["member"], "member-a");
+    expect(await screen.findByText("幹事花子")).toBeInTheDocument();
+    expect(screen.queryByText("送信済み")).not.toBeInTheDocument();
+  });
+
   it("件名がresendに無い場合は「（件名なし）」を表示する", async () => {
     vi.mocked(mailingApi.get).mockResolvedValue(makeMail({ resend: null }));
     renderPage();
@@ -123,7 +151,7 @@ describe("MailDetailPage（表示内容）", () => {
         },
       }),
     );
-    renderPage();
+    renderPage(["member"], "member-sender");
 
     const iframe = await screen.findByTitle("メール本文");
     expect(iframe).toHaveAttribute("srcdoc", "<p>本文</p>");
@@ -147,13 +175,11 @@ describe("MailDetailPage（表示内容）", () => {
     expect(await screen.findByText("プレーンテキスト本文")).toBeInTheDocument();
   });
 
-  it("resendが未設定の場合は案内メッセージを表示する", async () => {
+  it("本文を取得できなかった場合（Resend未設定・取得失敗）はサービス名を出さずにその旨を表示する", async () => {
     vi.mocked(mailingApi.get).mockResolvedValue(makeMail({ resend: null }));
     renderPage();
 
-    expect(
-      await screen.findByText("Resend が未設定のため本文を取得できません"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("メール本文を取得できませんでした")).toBeInTheDocument();
   });
 
   it("受信者が1件以上ある場合は配信ステータス一覧を表示する", async () => {
@@ -367,5 +393,92 @@ describe("MailDetailPage（返信モーダル）", () => {
     await user.click(screen.getByText("返信"));
     await user.keyboard("{Escape}");
     expect(screen.queryByPlaceholderText("返信内容を入力...")).not.toBeInTheDocument();
+  });
+
+  it("返信を開くと件名の欄にフォーカスが入り、返信先は選択中のものだけが押された状態になる", async () => {
+    vi.mocked(mailingApi.get).mockResolvedValue(makeMail());
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("返信"));
+
+    expect(screen.getByRole("dialog", { name: "返信" })).toBeInTheDocument();
+    expect(screen.getByLabelText("件名")).toHaveFocus();
+    expect(screen.getByRole("button", { name: /送信者のみ/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await user.click(screen.getByRole("button", { name: /全員に返信/ }));
+    expect(screen.getByRole("button", { name: /全員に返信/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: /送信者のみ/ })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("返信の件名の欄でEnterを押すと確認に進む", async () => {
+    vi.mocked(mailingApi.get).mockResolvedValue(makeMail());
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("返信"));
+    await user.type(screen.getByLabelText(/本文/), "返信本文");
+    await user.type(screen.getByLabelText("件名"), "{Enter}");
+
+    expect(await screen.findByRole("alertdialog")).toBeInTheDocument();
+  });
+
+  it("返信に成功するとメール一覧とホームの取得をやり直す", async () => {
+    vi.mocked(mailingApi.get).mockResolvedValue(makeMail());
+    vi.mocked(mailingApi.send).mockResolvedValue({
+      mailLogId: "mail-new",
+      recipientCount: 1,
+      sentAt: "2026-06-01T10:00:00+09:00",
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queryClient.setQueryData(mailingKeys.list("tokyo-men-choir", 1), { data: [], meta: {} });
+    queryClient.setQueryData(homeKeys.get("tokyo-men-choir"), {});
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemberProvider memberId="member-self" roles={["member"]}>
+          <MailDetailPage />
+        </MemberProvider>
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByText("返信"));
+    await user.type(screen.getByLabelText(/本文/), "返信本文");
+    await user.click(screen.getByRole("button", { name: /名に送信/ }));
+    await confirmSend(user);
+
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/tokyo-men-choir/mailing"));
+    expect(queryClient.getQueryState(mailingKeys.list("tokyo-men-choir", 1))?.isInvalidated).toBe(
+      true,
+    );
+    expect(queryClient.getQueryState(homeKeys.get("tokyo-men-choir"))?.isInvalidated).toBe(true);
+  });
+});
+
+describe("MailDetailPage（権限）", () => {
+  it("客演には「返信」を出さず、本文は表示する", async () => {
+    vi.mocked(mailingApi.get).mockResolvedValue(
+      makeMail({
+        resend: {
+          subject: "6月練習のご案内",
+          html: null,
+          text: "本文です",
+          lastEvent: "delivered",
+          createdAt: "2026-05-30T03:00:00.000Z",
+        },
+      }),
+    );
+    renderPage(["guest"]);
+
+    expect(await screen.findByText("本文です")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /返信/ })).not.toBeInTheDocument();
   });
 });

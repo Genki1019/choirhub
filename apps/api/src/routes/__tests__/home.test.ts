@@ -326,7 +326,7 @@ describe("GET /home", () => {
     expect(prisma.mailLog.findMany).not.toHaveBeenCalled();
   });
 
-  it("recentMails: visitor以外は直近3件をsenderName・senderAvatarUrl付きで返す", async () => {
+  it("recentMails: visitor以外は自分が送信者・受信者のメールの直近3件をsenderName・senderAvatarUrl付きで返す", async () => {
     vi.mocked(prisma.mailLog.findMany).mockResolvedValue([
       {
         id: "mail-1",
@@ -336,9 +336,18 @@ describe("GET /home", () => {
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ] as any);
-    const app = createTestApp(makeMember(["member"]));
+    const member = makeMember(["member"]);
+    const app = createTestApp(member);
     const res = await app.request("/home");
     const body = await json(res);
+    expect(prisma.mailLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          orgId: testOrg.id,
+          OR: [{ sentById: member.id }, { recipientMemberIds: { has: member.id } }],
+        },
+      }),
+    );
     expect(body.data.recentMails).toEqual([
       {
         id: "mail-1",

@@ -1,225 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Users, Loader2, AlertCircle, Reply, Send, X } from "lucide-react";
+import { Users, Reply } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { mailingApi, LAST_EVENT_LABEL } from "@/lib/mailing-api";
-import { ApiClientError, userErrorMessage } from "@/lib/api-client";
+import { userErrorMessage } from "@/lib/api-client";
 import { mailingKeys } from "@/lib/query-keys";
 import { formatJaDateTime } from "@/lib/date";
 import { PageHeader } from "@/components/PageHeader";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
-
-type ReplyTarget = "sender" | "all";
-
-function ReplyModal({
-  orgSlug,
-  senderMemberId,
-  senderName,
-  allMemberIds,
-  originalSubject,
-  onClose,
-  onSent,
-}: {
-  orgSlug: string;
-  senderMemberId: string;
-  senderName: string;
-  allMemberIds: string[];
-  originalSubject: string;
-  onClose: () => void;
-  onSent: () => void;
-}) {
-  const [subject, setSubject] = useState(`Re: ${originalSubject}`);
-  const [body, setBody] = useState("");
-  const [replyTarget, setReplyTarget] = useState<ReplyTarget>("sender");
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [counting, setCounting] = useState(false);
-  const [pendingSend, setPendingSend] = useState<{ count: number; memberIds: string[] } | null>(
-    null,
-  );
-  const [sendError, setSendError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [onClose]);
-
-  const recipientCount = replyTarget === "sender" ? 1 : allMemberIds.length;
-
-  const handleSend = async () => {
-    if (counting) return;
-    if (!subject.trim()) {
-      setError("件名を入力してください");
-      return;
-    }
-    if (!body.trim()) {
-      setError("本文を入力してください");
-      return;
-    }
-    setCounting(true);
-    setError(null);
-    const memberIds = replyTarget === "sender" ? [senderMemberId] : allMemberIds;
-    try {
-      const { count } = await mailingApi.recipientCount(orgSlug, {
-        recipientType: "custom",
-        recipientFilter: { memberIds },
-      });
-      if (count === 0) {
-        setError("宛先に該当する団員がいません。");
-        return;
-      }
-      setSendError(null);
-      setPendingSend({ count, memberIds });
-    } catch (err) {
-      setError(userErrorMessage(err, "宛先の確認に失敗しました。もう一度お試しください。"));
-    } finally {
-      setCounting(false);
-    }
-  };
-
-  const handleConfirmSend = async () => {
-    if (!pendingSend) return;
-    setSending(true);
-    setSendError(null);
-    try {
-      await mailingApi.send(orgSlug, {
-        subject: subject.trim(),
-        body: body.trim(),
-        recipientType: "custom",
-        recipientFilter: { memberIds: pendingSend.memberIds },
-      });
-      onSent();
-      onClose();
-    } catch (err) {
-      setSendError(userErrorMessage(err, "送信に失敗しました。もう一度お試しください。"));
-    } finally {
-      setSending(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
-        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4">
-          <div className="flex items-center gap-2">
-            <Reply size={15} className="text-gray-400" />
-            <h2 className="text-sm font-semibold text-gray-800">返信</h2>
-          </div>
-          <button
-            type="button"
-            aria-label="閉じる"
-            onClick={onClose}
-            className="text-gray-400 transition-colors hover:text-gray-600"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-600">返信先</label>
-            <div className="flex overflow-hidden rounded-lg border border-gray-200">
-              <button
-                type="button"
-                onClick={() => setReplyTarget("sender")}
-                className={`flex-1 border-r border-gray-200 py-2 text-xs font-medium transition-colors ${
-                  replyTarget === "sender"
-                    ? "bg-brand-600 text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                送信者のみ（{senderName}）
-              </button>
-              <button
-                type="button"
-                onClick={() => setReplyTarget("all")}
-                className={`flex-1 py-2 text-xs font-medium transition-colors ${
-                  replyTarget === "all"
-                    ? "bg-brand-600 text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                全員に返信（{allMemberIds.length}名）
-              </button>
-            </div>
-            <p className="mt-1.5 text-xs text-gray-400">
-              {replyTarget === "sender"
-                ? `${senderName} 1名に送信します`
-                : `送信者・受信者 ${recipientCount}名全員に送信します`}
-            </p>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-600">件名</label>
-            <input
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:ring-2 focus:outline-none"
-              autoFocus
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-600">
-              本文 <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="返信内容を入力..."
-              rows={10}
-              className="focus:ring-brand-400 w-full resize-none rounded-lg border border-gray-200 px-3 py-2.5 text-sm leading-relaxed focus:ring-2 focus:outline-none"
-            />
-          </div>
-
-          {error && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
-              {error}
-            </p>
-          )}
-        </div>
-
-        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-gray-100 px-6 py-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50"
-          >
-            キャンセル
-          </button>
-          <button
-            type="button"
-            onClick={handleSend}
-            aria-busy={counting}
-            className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
-          >
-            {counting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-            {recipientCount}名に送信
-          </button>
-        </div>
-      </div>
-
-      {pendingSend && (
-        <ConfirmDialog
-          title={`${pendingSend.count}名に返信しますか？`}
-          description={`件名「${subject.trim()}」のメールを送信します。送信したメールは取り消せません。`}
-          confirmLabel="送信する"
-          tone="primary"
-          busy={sending}
-          error={sendError}
-          onCancel={() => setPendingSend(null)}
-          onConfirm={handleConfirmSend}
-        />
-      )}
-    </div>
-  );
-}
+import { ReplyModal } from "./_components/ReplyModal";
+import { PageWithHeader } from "@/components/PageWithHeader";
+import { PageErrorState } from "@/components/PageErrorState";
+import { useMember } from "@/contexts/MemberContext";
+import { isMemberPlus } from "@/lib/roles";
 
 function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -234,6 +28,7 @@ export default function MailDetailPage() {
   const { org, id } = useParams<{ org: string; id: string }>();
   const router = useRouter();
   const [showReply, setShowReply] = useState(false);
+  const { memberId, roles } = useMember();
 
   const {
     data: mail,
@@ -244,39 +39,35 @@ export default function MailDetailPage() {
     queryFn: () => mailingApi.get(org, id),
   });
 
-  useEffect(() => {
-    if (queryError instanceof ApiClientError && queryError.status === 404) {
-      router.push(`/${org}/mailing`);
-    }
-  }, [queryError, org, router]);
-
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center gap-2 text-gray-400">
-        <Loader2 size={18} className="animate-spin" />
-        <span className="text-sm">読み込み中...</span>
-      </div>
+      <PageWithHeader title="メール" backHref={`/${org}/mailing`} loading>
+        {null}
+      </PageWithHeader>
     );
   }
 
   if (queryError || !mail) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-          <AlertCircle size={16} />
-          <span className="text-sm">{queryError?.message ?? "メールが見つかりません"}</span>
-        </div>
-      </div>
+      <PageErrorState
+        title="メール"
+        backHref={`/${org}/mailing`}
+        message={userErrorMessage(
+          queryError,
+          "メールの読み込みに失敗しました。ページを再読み込みしてください。",
+        )}
+      />
     );
   }
 
   const subject = mail.resend?.subject ?? "（件名なし）";
-  const eventCfg = mail.resend
-    ? (LAST_EVENT_LABEL[mail.resend.lastEvent] ?? {
-        label: mail.resend.lastEvent,
-        color: "text-gray-500 bg-gray-50",
-      })
-    : null;
+  const eventCfg =
+    mail.resend?.lastEvent && mail.sentBy.id === memberId
+      ? (LAST_EVENT_LABEL[mail.resend.lastEvent] ?? {
+          label: mail.resend.lastEvent,
+          color: "text-gray-500 bg-gray-50",
+        })
+      : null;
 
   return (
     <>
@@ -285,14 +76,16 @@ export default function MailDetailPage() {
           title={subject}
           backHref={`/${org}/mailing`}
           actions={
-            <button
-              type="button"
-              onClick={() => setShowReply(true)}
-              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
-            >
-              <Reply size={14} />
-              返信
-            </button>
+            isMemberPlus(roles) && (
+              <button
+                type="button"
+                onClick={() => setShowReply(true)}
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+              >
+                <Reply size={14} />
+                返信
+              </button>
+            )
           }
         />
 
@@ -349,7 +142,7 @@ export default function MailDetailPage() {
             </div>
           ) : (
             <div className="rounded-xl border border-gray-200 bg-gray-50 px-6 py-8 text-center text-sm text-gray-400">
-              Resend が未設定のため本文を取得できません
+              メール本文を取得できませんでした
             </div>
           )}
 

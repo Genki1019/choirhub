@@ -1,4 +1,4 @@
-import { apiClient } from "./api-client";
+import { apiClient, toApiClientError } from "./api-client";
 
 export interface NotificationItem {
   id: string;
@@ -44,7 +44,7 @@ export const notificationsApi = {
       credentials: "include",
       cache: "no-store",
     }).then(async (res) => {
-      if (!res.ok) throw new Error(res.statusText);
+      if (!res.ok) throw await toApiClientError(res);
       return res.json() as Promise<NotificationListResponse>;
     });
   },

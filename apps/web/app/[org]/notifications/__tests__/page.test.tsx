@@ -8,6 +8,7 @@ import {
   type NotificationItem,
   type NotificationListResponse,
 } from "@/lib/notifications-api";
+import { ApiClientError } from "@/lib/api-client";
 
 const push = vi.fn();
 
@@ -177,5 +178,64 @@ describe("NotificationsPage（絞り込み）", () => {
     await user.click(screen.getByText("既読"));
 
     expect(await screen.findByText("既読の通知はありません")).toBeInTheDocument();
+  });
+});
+
+describe("NotificationsPage（取得エラー・再取得中）", () => {
+  it("取得の失敗が4xxならAPIの理由を表示し、件数は出さない", async () => {
+    vi.mocked(notificationsApi.list).mockRejectedValue(
+      new ApiClientError("VALIDATION_ERROR", "statusの指定が不正です", 400),
+    );
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("statusの指定が不正です");
+    expect(screen.queryByText("0件")).not.toBeInTheDocument();
+    expect(screen.queryByText("通知はありません")).not.toBeInTheDocument();
+  });
+
+  it("取得の失敗が5xxでも空でない文言を表示する", async () => {
+    vi.mocked(notificationsApi.list).mockRejectedValue(new ApiClientError("UNKNOWN", "", 500));
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "通知の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+  });
+
+  it("タブを切り替えて読み込んでいる間も、タブと直前の一覧を残し、前のタブの件数や新しいタブの空状態を出さない", async () => {
+    vi.mocked(notificationsApi.list)
+      .mockResolvedValueOnce(
+        makeResponse([makeItem()], { total: 3, page: 1, perPage: 20, unreadCount: 1 }),
+      )
+      .mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText("3件")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "未読" }));
+
+    expect(screen.getByRole("button", { name: "未読" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "すべて" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByText("6月練習のご案内").closest("[aria-busy]")).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    expect(screen.queryByText("3件")).not.toBeInTheDocument();
+    expect(screen.queryByText("未読の通知はありません")).not.toBeInTheDocument();
+    expect(screen.queryByText("読み込み中...")).not.toBeInTheDocument();
+  });
+
+  it("前のタブが0件でも、切り替えた直後に新しいタブの空状態を出さない", async () => {
+    vi.mocked(notificationsApi.list)
+      .mockResolvedValueOnce(makeResponse([]))
+      .mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText("通知はありません")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "未読" }));
+
+    expect(screen.queryByText("未読の通知はありません")).not.toBeInTheDocument();
+    expect(screen.queryByText("通知はありません")).not.toBeInTheDocument();
   });
 });

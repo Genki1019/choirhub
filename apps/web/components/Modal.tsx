@@ -5,6 +5,27 @@ import { X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
+interface ReturnFocus {
+  target: HTMLElement | null;
+  fallback: ReturnFocus | null;
+}
+
+// 続けて開いたモーダル（選択 → 管理など）は、閉じたときに戻り先（前のモーダルの中の要素）が
+// 消えているので、前のモーダルの戻り先をたどる
+const returnFocusOf = new WeakMap<Element, ReturnFocus>();
+
+function captureReturnFocus(): ReturnFocus {
+  if (typeof document === "undefined") return { target: null, fallback: null };
+  const target = document.activeElement as HTMLElement | null;
+  const owner = target?.closest('[role="dialog"], [role="alertdialog"]');
+  return { target, fallback: (owner && returnFocusOf.get(owner)) ?? null };
+}
+
+function resolveReturnFocus(rf: ReturnFocus | null): HTMLElement | null {
+  if (!rf) return null;
+  return rf.target?.isConnected ? rf.target : resolveReturnFocus(rf.fallback);
+}
+
 const SIZE_CLASS = {
   sm: "sm:max-w-sm",
   md: "sm:max-w-md",
@@ -32,9 +53,7 @@ export function Modal({
   footer,
   children,
 }: ModalProps) {
-  const [returnFocusTo] = useState(() =>
-    typeof document === "undefined" ? null : (document.activeElement as HTMLElement | null),
-  );
+  const [returnFocus] = useState(captureReturnFocus);
   const content = (
     <>
       <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">{children}</div>
@@ -54,9 +73,12 @@ export function Modal({
       <DialogContent
         showCloseButton={false}
         aria-modal="true"
+        ref={(el: HTMLDivElement | null) => {
+          if (el) returnFocusOf.set(el, returnFocus);
+        }}
         onCloseAutoFocus={(e) => {
           e.preventDefault();
-          returnFocusTo?.focus();
+          resolveReturnFocus(returnFocus)?.focus();
         }}
         {...(description ? {} : { "aria-describedby": undefined })}
         className={cn(

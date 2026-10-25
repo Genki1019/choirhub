@@ -8,18 +8,21 @@ import { PageHeader } from "@/components/PageHeader";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
 import { useMember } from "@/contexts/MemberContext";
-import { canManageAttachments } from "@/lib/roles";
+import { canManageAttachments, canManageScoreMidi, canManageScorePdf } from "@/lib/roles";
 import { documentsApi, type DocumentCategory, type OrgDocument } from "@/lib/documents-api";
 import { filesApi, type CrossFileKind } from "@/lib/files-api";
 import { concertsApi } from "@/lib/concerts-api";
 import { eventsApi } from "@/lib/events-api";
-import { libraryKeys, concertKeys, eventKeys } from "@/lib/query-keys";
+import { membersApi } from "@/lib/members-api";
+import type { ScoreDetail } from "@/lib/scores-api";
+import { libraryKeys, concertKeys, eventKeys, memberKeys } from "@/lib/query-keys";
 import { UploadModal } from "./_components/UploadModal";
 import { ResourcePickerModal } from "./_components/ResourcePickerModal";
-import { ScoreFilesModal } from "./_components/ScoreFilesModal";
+import { FileManageModal } from "@/app/[org]/scores/_components/FileManageModal";
 import { ResourceFilesModal } from "./_components/ResourceFilesModal";
 import { FileRow } from "./_components/FileRow";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ErrorMessage } from "@/components/ErrorMessage";
 import { userErrorMessage } from "@/lib/api-client";
 
 type CategoryTab = DocumentCategory | "all";
@@ -102,7 +105,14 @@ export default function LibraryPage() {
     kind: CrossFileKind;
     id: string;
     title: string;
+    score?: ScoreDetail;
   } | null>(null);
+
+  const { data: parts = [] } = useQuery({
+    queryKey: memberKeys.parts(org),
+    queryFn: () => membersApi.parts(org),
+    enabled: selectedResource?.kind === "score",
+  });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => documentsApi.delete(org, id),
@@ -177,6 +187,7 @@ export default function LibraryPage() {
             <button
               type="button"
               key={tab.id}
+              aria-pressed={mainTab === tab.id}
               onClick={() => setTab(tab.id)}
               className={[
                 "flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors",
@@ -196,6 +207,7 @@ export default function LibraryPage() {
               <button
                 type="button"
                 key={tab.id}
+                aria-pressed={activeCategory === tab.id}
                 onClick={() => setCategory(tab.id)}
                 className={[
                   "flex items-center gap-1.5 border-b-2 px-4 py-2 text-xs font-medium transition-colors",
@@ -219,9 +231,12 @@ export default function LibraryPage() {
               <span className="text-sm">読み込み中...</span>
             </div>
           ) : documentsError ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-500">
-              資料の取得に失敗しました
-            </div>
+            <ErrorMessage variant="section" autoScroll={false}>
+              {userErrorMessage(
+                documentsError,
+                "資料の読み込みに失敗しました。ページを再読み込みしてください。",
+              )}
+            </ErrorMessage>
           ) : documents.length === 0 ? (
             <p className="py-12 text-center text-sm text-gray-400">
               登録されている資料はありません
@@ -272,9 +287,12 @@ export default function LibraryPage() {
             <span className="text-sm">読み込み中...</span>
           </div>
         ) : crossFilesError ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-500">
-            ファイルの取得に失敗しました
-          </div>
+          <ErrorMessage variant="section" autoScroll={false}>
+            {userErrorMessage(
+              crossFilesError,
+              "ファイルの読み込みに失敗しました。ページを再読み込みしてください。",
+            )}
+          </ErrorMessage>
         ) : crossFiles.length === 0 ? (
           <p className="py-12 text-center text-sm text-gray-400">
             登録されているファイルはありません
@@ -324,8 +342,15 @@ export default function LibraryPage() {
         />
       )}
 
-      {selectedResource?.kind === "score" && (
-        <ScoreFilesModal org={org} scoreId={selectedResource.id} onClose={closeResourceModal} />
+      {selectedResource?.kind === "score" && selectedResource.score && (
+        <FileManageModal
+          orgSlug={org}
+          score={selectedResource.score}
+          parts={parts}
+          canManagePdf={canManageScorePdf(roles)}
+          canManageMidi={canManageScoreMidi(roles)}
+          onClose={closeResourceModal}
+        />
       )}
       {selectedResource?.kind === "concert" && (
         <ResourceFilesModal

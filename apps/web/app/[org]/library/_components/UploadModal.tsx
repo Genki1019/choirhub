@@ -1,8 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Loader2, Upload, X } from "lucide-react";
+import { useRef, useState, type FormEvent } from "react";
+import { Loader2, Upload } from "lucide-react";
 import { documentsApi, type DocumentCategory, type DocumentAccessLevel } from "@/lib/documents-api";
+import { Modal } from "@/components/Modal";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 
 const CATEGORY_OPTIONS: { value: DocumentCategory; label: string }[] = [
   { value: "bylaws", label: "規約・規則" },
@@ -18,6 +21,11 @@ const ACCESS_LEVEL_OPTIONS: { value: DocumentAccessLevel; label: string }[] = [
   { value: "secret", label: "管理者限定" },
 ];
 
+const TITLE_MAX = 100;
+
+const fieldClass =
+  "focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:outline-none";
+
 interface UploadModalProps {
   org: string;
   defaultCategory: DocumentCategory;
@@ -32,9 +40,10 @@ export function UploadModal({ org, defaultCategory, onClose, onSuccess }: Upload
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (uploading) return;
     const file = fileInputRef.current?.files?.[0];
     if (!file) {
       setError("ファイルを選択してください");
@@ -50,119 +59,105 @@ export function UploadModal({ org, defaultCategory, onClose, onSuccess }: Upload
     try {
       await documentsApi.upload(org, file, { title: title.trim(), category, accessLevel });
       onSuccess();
-    } catch {
-      setError("アップロードに失敗しました。もう一度お試しください");
+    } catch (err) {
+      setError(userErrorMessage(err, "アップロードに失敗しました。もう一度お試しください。"));
     } finally {
       setUploading(false);
     }
   };
 
   return (
-    <div
-      ref={overlayRef}
-      onClick={(e) => {
-        if (e.target === overlayRef.current) onClose();
-      }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-    >
-      <div className="mx-4 w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <h2 className="text-base font-semibold text-gray-800">資料を追加</h2>
+    <Modal
+      title="資料を追加"
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      busy={uploading}
+      footer={
+        <>
           <button
             type="button"
             onClick={onClose}
-            aria-label="閉じる"
-            className="text-gray-400 transition-colors hover:text-gray-600"
+            disabled={uploading}
+            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50"
           >
-            <X size={18} />
+            キャンセル
           </button>
-        </div>
-
-        <div className="space-y-4 px-6 py-5">
-          <div>
-            <label htmlFor="doc-title" className="mb-1 block text-xs font-medium text-gray-500">
-              タイトル <span className="text-red-400">*</span>
-            </label>
-            <input
-              id="doc-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="団則、〇年度総会議事録 など"
-              className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="doc-category" className="mb-1 block text-xs font-medium text-gray-500">
-              カテゴリ
-            </label>
-            <select
-              id="doc-category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value as DocumentCategory)}
-              className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-            >
-              {CATEGORY_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="doc-access" className="mb-1 block text-xs font-medium text-gray-500">
-              公開範囲
-            </label>
-            <select
-              id="doc-access"
-              value={accessLevel}
-              onChange={(e) => setAccessLevel(e.target.value as DocumentAccessLevel)}
-              className="focus:ring-brand-400 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-            >
-              {ACCESS_LEVEL_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="doc-file" className="mb-1 block text-xs font-medium text-gray-500">
-              ファイル（PDF） <span className="text-red-400">*</span>
-            </label>
-            <input
-              id="doc-file"
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf"
-              className="file:text-brand-600 file:border-brand-200 hover:file:bg-brand-50 w-full cursor-pointer text-xs text-gray-600 file:mr-3 file:rounded-md file:border file:border-0 file:bg-white file:px-2.5 file:py-1 file:text-xs file:font-medium"
-            />
-          </div>
-
-          {error && <p className="text-xs text-red-600">{error}</p>}
-
-          <div className="flex gap-2 pt-1">
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={uploading}
-              className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
-            >
-              {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-              アップロード
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50"
-            >
-              キャンセル
-            </button>
-          </div>
-        </div>
+          <button
+            type="submit"
+            aria-disabled={uploading}
+            className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors aria-disabled:opacity-60"
+          >
+            {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+            アップロード
+          </button>
+        </>
+      }
+    >
+      <div>
+        <label htmlFor="doc-title" className="mb-1 block text-xs font-medium text-gray-500">
+          タイトル <span className="text-red-400">*</span>
+        </label>
+        <input
+          id="doc-title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={TITLE_MAX}
+          placeholder="団則、〇年度総会議事録 など"
+          className={fieldClass}
+          autoFocus
+        />
       </div>
-    </div>
+
+      <div>
+        <label htmlFor="doc-category" className="mb-1 block text-xs font-medium text-gray-500">
+          カテゴリ
+        </label>
+        <select
+          id="doc-category"
+          value={category}
+          onChange={(e) => setCategory(e.target.value as DocumentCategory)}
+          className={`${fieldClass} bg-white`}
+        >
+          {CATEGORY_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label htmlFor="doc-access" className="mb-1 block text-xs font-medium text-gray-500">
+          公開範囲
+        </label>
+        <select
+          id="doc-access"
+          value={accessLevel}
+          onChange={(e) => setAccessLevel(e.target.value as DocumentAccessLevel)}
+          className={`${fieldClass} bg-white`}
+        >
+          {ACCESS_LEVEL_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label htmlFor="doc-file" className="mb-1 block text-xs font-medium text-gray-500">
+          ファイル（PDF） <span className="text-red-400">*</span>
+        </label>
+        <input
+          id="doc-file"
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf"
+          className="file:text-brand-600 file:border-brand-200 hover:file:bg-brand-50 w-full cursor-pointer text-xs text-gray-600 file:mr-3 file:rounded-md file:border file:border-0 file:bg-white file:px-2.5 file:py-1 file:text-xs file:font-medium"
+        />
+      </div>
+
+      <ErrorMessage>{error}</ErrorMessage>
+    </Modal>
   );
 }

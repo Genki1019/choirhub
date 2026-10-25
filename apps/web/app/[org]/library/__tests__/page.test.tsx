@@ -1,11 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import LibraryPage from "../page";
 import { MemberProvider } from "@/contexts/MemberContext";
 import { documentsApi, type OrgDocument } from "@/lib/documents-api";
 import { filesApi, type CrossFileItem } from "@/lib/files-api";
+import { ApiClientError } from "@/lib/api-client";
+import { concertsApi, type ConcertSummary } from "@/lib/concerts-api";
+import { scoresApi, type ScoreDetail } from "@/lib/scores-api";
+import { membersApi } from "@/lib/members-api";
 
 const replace = vi.fn();
 let searchParams = new URLSearchParams();
@@ -36,6 +40,24 @@ vi.mock("@/lib/files-api", async () => {
       list: vi.fn(),
     },
   };
+});
+
+vi.mock("@/lib/concerts-api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/concerts-api")>("@/lib/concerts-api");
+  return {
+    ...actual,
+    concertsApi: { list: vi.fn(), listFiles: vi.fn(), uploadFile: vi.fn(), deleteFile: vi.fn() },
+  };
+});
+
+vi.mock("@/lib/scores-api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/scores-api")>("@/lib/scores-api");
+  return { ...actual, scoresApi: { list: vi.fn(), getDetail: vi.fn() } };
+});
+
+vi.mock("@/lib/members-api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/members-api")>("@/lib/members-api");
+  return { ...actual, membersApi: { parts: vi.fn() } };
 });
 
 function renderPage(roles: string[] = ["member"]) {
@@ -71,11 +93,22 @@ describe("LibraryPage（表示状態）", () => {
     expect(screen.getByText("読み込み中...")).toBeInTheDocument();
   });
 
-  it("取得エラー時はエラーメッセージを表示する", async () => {
-    vi.mocked(documentsApi.list).mockRejectedValue(new Error("取得に失敗しました"));
+  it("取得の失敗が4xxならAPIの理由を読み上げる形で表示する", async () => {
+    vi.mocked(documentsApi.list).mockRejectedValue(
+      new ApiClientError("NOT_INVITED", "閲覧する権限がありません", 403),
+    );
     renderPage();
 
-    expect(await screen.findByText("資料の取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("閲覧する権限がありません");
+  });
+
+  it("取得の失敗が5xxでも空でない文言を表示する", async () => {
+    vi.mocked(documentsApi.list).mockRejectedValue(new ApiClientError("UNKNOWN", "", 500));
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "資料の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
   });
 
   it("0件の場合は空表示を出す", async () => {
@@ -233,12 +266,14 @@ describe("LibraryPage（種別タブ）", () => {
     expect(await screen.findByText("登録されているファイルはありません")).toBeInTheDocument();
   });
 
-  it("取得エラー時はエラーメッセージを表示する", async () => {
+  it("取得エラー時は理由を読み上げる形で表示する", async () => {
     searchParams = new URLSearchParams("tab=event");
-    vi.mocked(filesApi.list).mockRejectedValue(new Error("失敗"));
+    vi.mocked(filesApi.list).mockRejectedValue(new ApiClientError("UNKNOWN", "", 500));
     renderPage();
 
-    expect(await screen.findByText("ファイルの取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "ファイルの読み込みに失敗しました。ページを再読み込みしてください。",
+    );
   });
 });
 
@@ -266,5 +301,123 @@ describe("LibraryPage（種別タブの追加ボタン権限）", () => {
     renderPage(["score"]);
 
     expect(await screen.findByText("楽譜ファイルを追加")).toBeInTheDocument();
+  });
+});
+
+const sampleConcert: ConcertSummary = {
+  id: "concert-1",
+  title: "第20回定期演奏会",
+  heldOn: "2026-11-23",
+  venue: null,
+  status: "draft",
+  stageCount: 1,
+  programCount: 1,
+  hasSurvey: false,
+  surveyOpen: false,
+  linkedEventId: null,
+};
+
+const sampleScore: ScoreDetail = {
+  id: "score-1",
+  title: "楽譜A",
+  composer: null,
+  arranger: null,
+  accessLevel: "restricted",
+  distributionPrice: null,
+  canAccessFiles: true,
+  canDownload: true,
+  files: [],
+  isCommissioned: false,
+  purchaseDate: null,
+  distributionStart: null,
+  notes: null,
+  hasCollection: false,
+};
+
+describe("LibraryPage（選択からファイル管理へ）", () => {
+  it("本番を選ぶとファイル管理が開き、閉じると一覧を取り直して「本番ファイルを追加」にフォーカスが戻る", async () => {
+    searchParams = new URLSearchParams("tab=concert");
+    vi.mocked(filesApi.list).mockResolvedValue([]);
+    vi.mocked(concertsApi.list).mockResolvedValue([sampleConcert]);
+    vi.mocked(concertsApi.listFiles).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderPage(["admin", "member"]);
+
+    await user.click(await screen.findByRole("button", { name: "本番ファイルを追加" }));
+    await user.click(await screen.findByText("第20回定期演奏会"));
+    expect(await screen.findByRole("dialog", { name: "第20回定期演奏会" })).toBeInTheDocument();
+    const callsBeforeClose = vi.mocked(filesApi.list).mock.calls.length;
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(vi.mocked(filesApi.list).mock.calls.length).toBeGreaterThan(callsBeforeClose),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "本番ファイルを追加" })).toHaveFocus(),
+    );
+  });
+
+  it("楽譜を選ぶと詳細を読み込んでから楽譜のファイル管理が開く。楽譜がかりはPDFを追加できる", async () => {
+    searchParams = new URLSearchParams("tab=score");
+    vi.mocked(filesApi.list).mockResolvedValue([]);
+    vi.mocked(scoresApi.list).mockResolvedValue([
+      { id: "score-1", title: "楽譜A", composer: null, arranger: null },
+    ]);
+    vi.mocked(scoresApi.getDetail).mockResolvedValue(sampleScore);
+    vi.mocked(membersApi.parts).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderPage(["member", "score"]);
+
+    await user.click(await screen.findByRole("button", { name: "楽譜ファイルを追加" }));
+    await user.click(await screen.findByText("楽譜A"));
+
+    const dialog = await screen.findByRole("dialog", { name: "ファイル管理" });
+    expect(within(dialog).getByRole("option", { name: "楽譜 (PDF)" })).toBeInTheDocument();
+  });
+
+  it("techには楽譜のPDFの追加を出さない（MIDIだけ）", async () => {
+    searchParams = new URLSearchParams("tab=score");
+    vi.mocked(filesApi.list).mockResolvedValue([]);
+    vi.mocked(scoresApi.list).mockResolvedValue([
+      { id: "score-1", title: "楽譜A", composer: null, arranger: null },
+    ]);
+    vi.mocked(scoresApi.getDetail).mockResolvedValue(sampleScore);
+    vi.mocked(membersApi.parts).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderPage(["member", "tech"]);
+
+    await user.click(await screen.findByRole("button", { name: "楽譜ファイルを追加" }));
+    await user.click(await screen.findByText("楽譜A"));
+
+    const dialog = await screen.findByRole("dialog", { name: "ファイル管理" });
+    expect(within(dialog).queryByRole("option", { name: "楽譜 (PDF)" })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("option", { name: "MIDI" })).toBeInTheDocument();
+  });
+
+  it("主タブを切り替えると、開いていた選択のモーダルを閉じる", async () => {
+    searchParams = new URLSearchParams("tab=concert");
+    vi.mocked(filesApi.list).mockResolvedValue([]);
+    vi.mocked(concertsApi.list).mockResolvedValue([sampleConcert]);
+    const user = userEvent.setup();
+    renderPage(["admin", "member"]);
+
+    await user.click(await screen.findByRole("button", { name: "本番ファイルを追加" }));
+    expect(await screen.findByRole("dialog", { name: "本番を選択" })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("button", { name: "楽譜" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(replace).toHaveBeenCalledWith("/tokyo-men-choir/library?tab=score");
+  });
+
+  it("主タブ・カテゴリタブの選択中が押された状態として読み上げられる", async () => {
+    searchParams = new URLSearchParams("category=minutes");
+    vi.mocked(documentsApi.list).mockResolvedValue([]);
+    renderPage();
+
+    expect(screen.getByRole("button", { name: "資料" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "楽譜" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "議事録" })).toHaveAttribute("aria-pressed", "true");
   });
 });

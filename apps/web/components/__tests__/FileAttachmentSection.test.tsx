@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { FileAttachmentSection } from "../FileAttachmentSection";
 import type { AttachmentFile } from "@/lib/file-attachment-api";
+import { ApiClientError } from "@/lib/api-client";
 
 function renderSection(props: {
   files?: AttachmentFile[];
@@ -247,5 +248,116 @@ describe("FileAttachmentSection（削除）", () => {
 
     resolveDelete();
     await waitFor(() => expect(screen.queryByText("flyer.pdf")).not.toBeInTheDocument());
+  });
+});
+
+describe("FileAttachmentSection（失敗の表示・読み上げ）", () => {
+  it("一覧の取得に失敗したら「ありません」ではなく理由を出す", async () => {
+    renderSection({ listFiles: vi.fn().mockRejectedValue(new ApiClientError("UNKNOWN", "", 500)) });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "ファイルの読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+    expect(screen.queryByText("登録されているファイルはありません")).not.toBeInTheDocument();
+  });
+
+  it("アップロードの失敗が5xxでも空でない文言を、読み上げる形で出す", async () => {
+    const uploadFile = vi.fn().mockRejectedValue(new ApiClientError("UNKNOWN", "", 500));
+    const user = userEvent.setup();
+    renderSection({ files: [], uploadFile });
+
+    await screen.findByText("登録されているファイルはありません");
+    await user.upload(
+      screen.getByLabelText("追加するファイル"),
+      new File(["x"], "a.pdf", { type: "application/pdf" }),
+    );
+    await user.click(screen.getByRole("button", { name: "追加" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "アップロードに失敗しました。もう一度お試しください。",
+    );
+  });
+
+  it("アップロードの失敗が4xxならAPIの理由を出す", async () => {
+    const uploadFile = vi
+      .fn()
+      .mockRejectedValue(
+        new ApiClientError("VALIDATION_ERROR", "ファイルの内容が拡張子と一致しません", 400),
+      );
+    const user = userEvent.setup();
+    renderSection({ files: [], uploadFile });
+
+    await screen.findByText("登録されているファイルはありません");
+    await user.upload(
+      screen.getByLabelText("追加するファイル"),
+      new File(["x"], "a.pdf", { type: "application/pdf" }),
+    );
+    await user.click(screen.getByRole("button", { name: "追加" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "ファイルの内容が拡張子と一致しません",
+    );
+  });
+
+  it("ファイル未選択では送らずに理由を読み上げる形で出す", async () => {
+    const uploadFile = vi.fn();
+    const user = userEvent.setup();
+    renderSection({ files: [], uploadFile });
+
+    await screen.findByText("登録されているファイルはありません");
+    await user.click(screen.getByRole("button", { name: "追加" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("ファイルを選択してください");
+    expect(uploadFile).not.toHaveBeenCalled();
+  });
+
+  it("ラベル・ファイルの各欄が名前を持つ", async () => {
+    const user = userEvent.setup();
+    renderSection({ files: [] });
+
+    await screen.findByText("登録されているファイルはありません");
+    expect(screen.getByRole("combobox", { name: "ラベル" })).toBeInTheDocument();
+    expect(screen.getByLabelText("追加するファイル")).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole("combobox", { name: "ラベル" }), "その他");
+    expect(screen.getByRole("textbox", { name: "ラベル（その他）" })).toBeInTheDocument();
+  });
+
+  it("アップロード中にもう一度押しても二重に送らず、ボタンは無効として読み上げる", async () => {
+    const uploadFile = vi.fn().mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderSection({ files: [], uploadFile });
+
+    await screen.findByText("登録されているファイルはありません");
+    await user.upload(
+      screen.getByLabelText("追加するファイル"),
+      new File(["x"], "a.pdf", { type: "application/pdf" }),
+    );
+    const button = screen.getByRole("button", { name: "追加" });
+    await user.click(button);
+    await user.click(button);
+
+    expect(uploadFile).toHaveBeenCalledTimes(1);
+    expect(button).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("一覧の取得に失敗したまま追加しても、追加した1件だけの一覧にせず取り直す", async () => {
+    const listFiles = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiClientError("UNKNOWN", "", 500))
+      .mockResolvedValue([makeFile({ id: "old" }), makeFile({ id: "new", fileName: "new.pdf" })]);
+    const uploadFile = vi.fn().mockResolvedValue(makeFile({ id: "new", fileName: "new.pdf" }));
+    const user = userEvent.setup();
+    renderSection({ listFiles, uploadFile });
+
+    await screen.findByRole("alert");
+    await user.upload(
+      screen.getByLabelText("追加するファイル"),
+      new File(["x"], "new.pdf", { type: "application/pdf" }),
+    );
+    await user.click(screen.getByRole("button", { name: "追加" }));
+
+    expect(await screen.findByText("flyer.pdf")).toBeInTheDocument();
+    expect(screen.getByText("new.pdf")).toBeInTheDocument();
+    expect(listFiles).toHaveBeenCalledTimes(2);
   });
 });

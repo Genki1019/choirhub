@@ -1,7 +1,7 @@
 "use client";
 
-import type { QueryKey } from "@tanstack/react-query";
-import { FileAttachmentSection } from "@/components/FileAttachmentSection";
+import { useIsMutating, type QueryKey } from "@tanstack/react-query";
+import { attachmentUploadKey, FileAttachmentSection } from "@/components/FileAttachmentSection";
 import { Modal } from "@/components/Modal";
 import type { AttachmentFile } from "@/lib/file-attachment-api";
 
@@ -25,8 +25,9 @@ export function ResourceFilesModal({
   deleteFile,
   onClose,
 }: ResourceFilesModalProps) {
+  const uploading = useIsMutating({ mutationKey: attachmentUploadKey(queryKey) }) > 0;
   return (
-    <Modal title={title} onClose={onClose}>
+    <Modal title={title} onClose={onClose} busy={uploading}>
       <FileAttachmentSection
         queryKey={queryKey}
         canManage={canManage}

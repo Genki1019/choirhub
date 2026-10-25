@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { ApiClientError } from "@/lib/api-client";
 import { FileManageModal } from "../FileManageModal";
 import { scoresApi, type ScoreDetail, type ScoreFile } from "@/lib/scores-api";
 import { type PartSummary } from "@/lib/members-api";
@@ -246,6 +247,84 @@ describe("FileManageModal（アップロード）", () => {
     await user.click(screen.getByText("追加"));
 
     expect(await screen.findByText("new-score.pdf")).toBeInTheDocument();
+  });
+});
+
+describe("FileManageModal（失敗・パート名）", () => {
+  it("アップロードの失敗が5xxでも空でない文言を出す", async () => {
+    vi.mocked(scoresApi.uploadFile).mockRejectedValue(new ApiClientError("UNKNOWN", "", 500));
+    const user = userEvent.setup();
+    render(
+      <FileManageModal
+        orgSlug="o"
+        score={makeScore([])}
+        parts={parts}
+        canManagePdf={true}
+        canManageMidi={false}
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.upload(
+      screen.getByLabelText("追加するファイル"),
+      new File(["x"], "a.pdf", { type: "application/pdf" }),
+    );
+    await user.click(screen.getByText("追加"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "アップロードに失敗しました。もう一度お試しください。",
+    );
+  });
+
+  it("アップロード中にもう一度押しても二重に送らず、ボタンは無効として読み上げる", async () => {
+    vi.mocked(scoresApi.uploadFile).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    render(
+      <FileManageModal
+        orgSlug="o"
+        score={makeScore([])}
+        parts={parts}
+        canManagePdf={true}
+        canManageMidi={false}
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.upload(
+      screen.getByLabelText("追加するファイル"),
+      new File(["x"], "a.pdf", { type: "application/pdf" }),
+    );
+    const button = screen.getByRole("button", { name: "追加" });
+    await user.click(button);
+    await user.click(button);
+
+    expect(scoresApi.uploadFile).toHaveBeenCalledTimes(1);
+    expect(button).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("パート一覧が取れていなくても、MIDIのグループ名はファイルのパート名で出す", () => {
+    const files = [
+      makeFile({
+        id: "m-tenor",
+        fileType: "midi",
+        fileName: "テノール.mid",
+        partId: "part-x",
+        partName: "テノール1",
+      }),
+    ];
+    render(
+      <FileManageModal
+        orgSlug="o"
+        score={makeScore(files)}
+        parts={[]}
+        canManagePdf={false}
+        canManageMidi={true}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("テノール1")).toBeInTheDocument();
+    expect(screen.queryByText("part-x")).not.toBeInTheDocument();
   });
 });
 

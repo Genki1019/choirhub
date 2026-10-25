@@ -5,11 +5,14 @@ import { FileText, Loader2, Paperclip, Trash2, Upload } from "lucide-react";
 import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import type { AttachmentFile } from "@/lib/file-attachment-api";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ErrorMessage } from "@/components/ErrorMessage";
 import { userErrorMessage } from "@/lib/api-client";
 
 const LABEL_OPTIONS = ["フライヤー", "しおり", "行程表", "資料", "その他"] as const;
 const OTHER_LABEL = "その他";
 const DEFAULT_ACCEPT = ".pdf,.jpg,.jpeg,.png";
+
+export const attachmentUploadKey = (queryKey: QueryKey) => [...queryKey, "upload"];
 
 interface FileAttachmentSectionProps {
   queryKey: QueryKey;
@@ -35,7 +38,11 @@ export function FileAttachmentSection({
   renderFile,
 }: FileAttachmentSectionProps) {
   const queryClient = useQueryClient();
-  const { data: files = [], isLoading } = useQuery({ queryKey, queryFn: listFiles });
+  const {
+    data: files = [],
+    isLoading,
+    error: loadError,
+  } = useQuery({ queryKey, queryFn: listFiles });
 
   const [selectedLabel, setSelectedLabel] = useState<string>(LABEL_OPTIONS[0]);
   const [customLabel, setCustomLabel] = useState("");
@@ -51,24 +58,39 @@ export function FileAttachmentSection({
   };
 
   const uploadMutation = useMutation({
-    mutationFn: async () => {
-      const file = fileInputRef.current?.files?.[0];
-      if (!file) throw new Error("ファイルを選択してください");
-      const label = resolveLabel();
-      if (!label) throw new Error("ラベルを入力してください");
-      return uploadFile(file, label);
-    },
+    mutationKey: attachmentUploadKey(queryKey),
+    mutationFn: ({ file, label }: { file: File; label: string }) => uploadFile(file, label),
     onSuccess: (created) => {
-      queryClient.setQueryData<AttachmentFile[]>(queryKey, (prev) => [...(prev ?? []), created]);
+      if (queryClient.getQueryData(queryKey)) {
+        queryClient.setQueryData<AttachmentFile[]>(queryKey, (prev) => [...(prev ?? []), created]);
+      } else {
+        void queryClient.invalidateQueries({ queryKey });
+      }
       if (fileInputRef.current) fileInputRef.current.value = "";
       setCustomLabel("");
       setTextLabel("");
       setUploadError(null);
     },
     onError: (err) => {
-      setUploadError(err instanceof Error ? err.message : "アップロードに失敗しました");
+      setUploadError(userErrorMessage(err, "アップロードに失敗しました。もう一度お試しください。"));
     },
   });
+
+  const handleUpload = () => {
+    if (uploadMutation.isPending) return;
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) {
+      setUploadError("ファイルを選択してください");
+      return;
+    }
+    const label = resolveLabel();
+    if (!label) {
+      setUploadError("ラベルを入力してください");
+      return;
+    }
+    setUploadError(null);
+    uploadMutation.mutate({ file, label });
+  };
 
   const deleteMutation = useMutation({
     mutationFn: (fileId: string) => deleteFile(fileId),
@@ -95,6 +117,13 @@ export function FileAttachmentSection({
 
       {isLoading ? (
         <p className="px-1 text-xs text-gray-300">読み込み中…</p>
+      ) : loadError ? (
+        <ErrorMessage autoScroll={false}>
+          {userErrorMessage(
+            loadError,
+            "ファイルの読み込みに失敗しました。ページを再読み込みしてください。",
+          )}
+        </ErrorMessage>
       ) : files.length === 0 ? (
         <p className="px-1 text-xs text-gray-300">登録されているファイルはありません</p>
       ) : (
@@ -148,6 +177,7 @@ export function FileAttachmentSection({
             {labelInput === "text" ? (
               <input
                 type="text"
+                aria-label="ラベル"
                 value={textLabel}
                 onChange={(e) => setTextLabel(e.target.value)}
                 placeholder="曲名・パート名など"
@@ -156,6 +186,7 @@ export function FileAttachmentSection({
             ) : (
               <>
                 <select
+                  aria-label="ラベル"
                   value={selectedLabel}
                   onChange={(e) => setSelectedLabel(e.target.value)}
                   className="focus:ring-brand-400 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:ring-1 focus:outline-none"
@@ -169,6 +200,7 @@ export function FileAttachmentSection({
                 {selectedLabel === OTHER_LABEL && (
                   <input
                     type="text"
+                    aria-label="ラベル（その他）"
                     value={customLabel}
                     onChange={(e) => setCustomLabel(e.target.value)}
                     placeholder="ラベルを入力"
@@ -181,15 +213,16 @@ export function FileAttachmentSection({
           <div className="flex items-center gap-2">
             <input
               ref={fileInputRef}
+              aria-label="追加するファイル"
               type="file"
               accept={accept}
               className="file:text-brand-600 file:border-brand-200 hover:file:bg-brand-50 flex-1 cursor-pointer text-xs text-gray-600 file:mr-3 file:rounded-md file:border file:border-0 file:bg-white file:px-2.5 file:py-1 file:text-xs file:font-medium"
             />
             <button
               type="button"
-              onClick={() => uploadMutation.mutate()}
-              disabled={uploadMutation.isPending}
-              className="bg-brand-600 hover:bg-brand-700 flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-60"
+              onClick={handleUpload}
+              aria-disabled={uploadMutation.isPending}
+              className="bg-brand-600 hover:bg-brand-700 flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors aria-disabled:opacity-60"
             >
               {uploadMutation.isPending ? (
                 <Loader2 size={12} className="animate-spin" />
@@ -199,7 +232,7 @@ export function FileAttachmentSection({
               追加
             </button>
           </div>
-          {uploadError && <p className="text-xs text-red-600">{uploadError}</p>}
+          <ErrorMessage>{uploadError}</ErrorMessage>
         </div>
       )}
 

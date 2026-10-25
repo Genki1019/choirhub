@@ -112,3 +112,78 @@ describe("Modal", () => {
     await waitFor(() => expect(opener).toHaveFocus());
   });
 });
+
+function ChainHarness() {
+  const [step, setStep] = useState<"none" | "pick" | "manage">("none");
+  return (
+    <>
+      <button type="button" onClick={() => setStep("pick")}>
+        ファイルを追加
+      </button>
+      {step === "pick" && (
+        <Modal title="楽譜を選択" onClose={() => setStep("none")}>
+          <button type="button" onClick={() => setStep("manage")}>
+            楽譜A
+          </button>
+        </Modal>
+      )}
+      {step === "manage" && (
+        <Modal title="ファイル管理" onClose={() => setStep("none")}>
+          <input aria-label="ファイル" />
+        </Modal>
+      )}
+    </>
+  );
+}
+
+function NestedHarness() {
+  const [outer, setOuter] = useState(false);
+  const [inner, setInner] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOuter(true)}>
+        作成
+      </button>
+      {outer && (
+        <Modal title="作成" onClose={() => setOuter(false)}>
+          <button type="button" onClick={() => setInner(true)}>
+            保存
+          </button>
+        </Modal>
+      )}
+      {inner && (
+        <Modal title="保存" onClose={() => setInner(false)}>
+          <input aria-label="名前" />
+        </Modal>
+      )}
+    </>
+  );
+}
+
+describe("Modal（閉じたあとのフォーカス）", () => {
+  it("続けて開いたモーダルを閉じると、最初のモーダルを開いたボタンに戻る", async () => {
+    const user = userEvent.setup();
+    render(<ChainHarness />);
+
+    await user.click(screen.getByRole("button", { name: "ファイルを追加" }));
+    await user.click(await screen.findByRole("button", { name: "楽譜A" }));
+    await screen.findByRole("dialog", { name: "ファイル管理" });
+    await user.keyboard("{Escape}");
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "ファイルを追加" })).toHaveFocus(),
+    );
+  });
+
+  it("重ねて開いたモーダルを閉じると、下のモーダルの中のボタンに戻る", async () => {
+    const user = userEvent.setup();
+    render(<NestedHarness />);
+
+    await user.click(screen.getByRole("button", { name: "作成" }));
+    await user.click(await screen.findByRole("button", { name: "保存" }));
+    await screen.findByRole("dialog", { name: "保存" });
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "保存" })).toHaveFocus());
+  });
+});

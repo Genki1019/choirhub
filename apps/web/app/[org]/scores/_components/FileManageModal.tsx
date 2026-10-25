@@ -125,7 +125,9 @@ function FileSection({
             .filter(([k]) => k !== null)
             .map(([partId, pFiles]) => (
               <div key={partId}>
-                <p className="mb-1 text-[11px] text-gray-400">{partMap.get(partId!) ?? partId}</p>
+                <p className="mb-1 text-[11px] text-gray-400">
+                  {partMap.get(partId!) ?? pFiles[0]?.partName ?? partId}
+                </p>
                 <div className="space-y-1.5">
                   {pFiles.map((f) => (
                     <FileRow
@@ -210,6 +212,7 @@ export function FileManageModal({
   };
 
   const handleUpload = async () => {
+    if (uploading) return;
     const file = fileInputRef.current?.files?.[0];
     if (!file) {
       setUploadError("ファイルを選択してください");
@@ -228,7 +231,7 @@ export function FileManageModal({
       setFiles((prev) => [...prev, created]);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "アップロードに失敗しました");
+      setUploadError(userErrorMessage(err, "アップロードに失敗しました。もう一度お試しください。"));
     } finally {
       setUploading(false);
     }
@@ -309,8 +312,8 @@ export function FileManageModal({
               <button
                 type="button"
                 onClick={handleUpload}
-                disabled={uploading}
-                className="bg-brand-600 hover:bg-brand-700 flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-60"
+                aria-disabled={uploading}
+                className="bg-brand-600 hover:bg-brand-700 flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors aria-disabled:opacity-60"
               >
                 {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
                 追加

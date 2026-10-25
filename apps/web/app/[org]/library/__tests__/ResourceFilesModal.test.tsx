@@ -62,4 +62,26 @@ describe("ResourceFilesModal", () => {
 
     expect(onClose).toHaveBeenCalled();
   });
+
+  it("アップロード中はEsc・×で閉じず、終わったら閉じられる", async () => {
+    const user = userEvent.setup();
+    const { uploadFile, onClose } = renderModal(true);
+    let finish: (file: AttachmentFile) => void = () => {};
+    uploadFile.mockReturnValue(new Promise<AttachmentFile>((resolve) => (finish = resolve)));
+
+    await screen.findByText("flyer.pdf");
+    await user.upload(
+      screen.getByLabelText("追加するファイル"),
+      new File(["%PDF"], "program.pdf", { type: "application/pdf" }),
+    );
+    await user.click(screen.getByRole("button", { name: /追加/ }));
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByLabelText("閉じる"));
+    expect(onClose).not.toHaveBeenCalled();
+
+    finish({ id: "file-2", label: "フライヤー", fileName: "program.pdf" });
+    await screen.findByText("program.pdf");
+    await user.click(screen.getByLabelText("閉じる"));
+    expect(onClose).toHaveBeenCalled();
+  });
 });

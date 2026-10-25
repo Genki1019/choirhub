@@ -1,9 +1,8 @@
 "use client";
 
-import { useRef } from "react";
-import { X } from "lucide-react";
-import type { QueryKey } from "@tanstack/react-query";
-import { FileAttachmentSection } from "@/components/FileAttachmentSection";
+import { useIsMutating, type QueryKey } from "@tanstack/react-query";
+import { attachmentUploadKey, FileAttachmentSection } from "@/components/FileAttachmentSection";
+import { Modal } from "@/components/Modal";
 import type { AttachmentFile } from "@/lib/file-attachment-api";
 
 interface ResourceFilesModalProps {
@@ -26,38 +25,16 @@ export function ResourceFilesModal({
   deleteFile,
   onClose,
 }: ResourceFilesModalProps) {
-  const overlayRef = useRef<HTMLDivElement>(null);
-
+  const uploading = useIsMutating({ mutationKey: attachmentUploadKey(queryKey) }) > 0;
   return (
-    <div
-      ref={overlayRef}
-      onClick={(e) => {
-        if (e.target === overlayRef.current) onClose();
-      }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-    >
-      <div className="mx-4 w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <h2 className="text-base font-semibold text-gray-800">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="閉じる"
-            className="text-gray-400 transition-colors hover:text-gray-600"
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <div className="px-6 py-5">
-          <FileAttachmentSection
-            queryKey={queryKey}
-            canManage={canManage}
-            listFiles={listFiles}
-            uploadFile={uploadFile}
-            deleteFile={deleteFile}
-          />
-        </div>
-      </div>
-    </div>
+    <Modal title={title} onClose={onClose} busy={uploading}>
+      <FileAttachmentSection
+        queryKey={queryKey}
+        canManage={canManage}
+        listFiles={listFiles}
+        uploadFile={uploadFile}
+        deleteFile={deleteFile}
+      />
+    </Modal>
   );
 }

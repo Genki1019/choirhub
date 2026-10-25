@@ -54,7 +54,7 @@ export async function uploadAttachment<T = AttachmentFile>(params: {
     if (!uploadRes.ok) {
       throw new ApiClientError(
         "UPLOAD_FAILED",
-        `R2へのアップロードに失敗しました (${uploadRes.status})`,
+        "ファイルを送信できませんでした。もう一度お試しください。",
         uploadRes.status,
       );
     }

@@ -10,6 +10,8 @@ import { ApiClientError } from "@/lib/api-client";
 import { concertsApi, type ConcertSummary } from "@/lib/concerts-api";
 import { scoresApi, type ScoreDetail } from "@/lib/scores-api";
 import { membersApi } from "@/lib/members-api";
+import { eventsApi, type EventSummary } from "@/lib/events-api";
+import { eventKeys } from "@/lib/query-keys";
 
 const replace = vi.fn();
 let searchParams = new URLSearchParams();
@@ -47,6 +49,14 @@ vi.mock("@/lib/concerts-api", async () => {
   return {
     ...actual,
     concertsApi: { list: vi.fn(), listFiles: vi.fn(), uploadFile: vi.fn(), deleteFile: vi.fn() },
+  };
+});
+
+vi.mock("@/lib/events-api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/events-api")>("@/lib/events-api");
+  return {
+    ...actual,
+    eventsApi: { list: vi.fn(), listFiles: vi.fn(), uploadFile: vi.fn(), deleteFile: vi.fn() },
   };
 });
 
@@ -458,5 +468,57 @@ describe("LibraryPage（選択からファイル管理へ）", () => {
     expect(screen.getByRole("button", { name: "資料" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "楽譜" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByRole("button", { name: "議事録" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("イベントのファイル管理は、予定詳細の添付ファイル（録音を除いた一覧）のキャッシュと混ざらず、閉じると予定詳細側も取り直す", async () => {
+    searchParams = new URLSearchParams("tab=event");
+    vi.mocked(filesApi.list).mockResolvedValue([]);
+    vi.mocked(eventsApi.list).mockResolvedValue([
+      { id: "event-1", title: "第1回練習", startsAt: "2026-06-10T00:30:00Z" } as EventSummary,
+    ]);
+    vi.mocked(eventsApi.listFiles).mockResolvedValue([
+      { id: "f-1", label: "資料", fileName: "score.pdf" },
+      { id: "f-2", label: "通し録音", fileName: "rehearsal.mp3" },
+    ]);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queryClient.setQueryData(eventKeys.files("tokyo-men-choir", "event-1"), [
+      { id: "f-1", label: "資料", fileName: "score.pdf" },
+    ]);
+    const user = userEvent.setup();
+    renderPage(["admin", "member"], queryClient);
+
+    await user.click(await screen.findByRole("button", { name: "イベントファイルを追加" }));
+    await user.click(await screen.findByText("第1回練習"));
+    const dialog = await screen.findByRole("dialog", { name: "第1回練習" });
+    expect(await within(dialog).findByText("rehearsal.mp3")).toBeInTheDocument();
+    expect(queryClient.getQueryData(eventKeys.files("tokyo-men-choir", "event-1"))).toHaveLength(1);
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(
+      queryClient.getQueryState(eventKeys.files("tokyo-men-choir", "event-1"))?.isInvalidated,
+    ).toBe(true);
+  });
+
+  it("イベントのファイル管理を開いたままページを離れても、予定詳細の一覧を取り直させる", async () => {
+    searchParams = new URLSearchParams("tab=event");
+    vi.mocked(filesApi.list).mockResolvedValue([]);
+    vi.mocked(eventsApi.list).mockResolvedValue([
+      { id: "event-1", title: "第1回練習", startsAt: "2026-06-10T00:30:00Z" } as EventSummary,
+    ]);
+    vi.mocked(eventsApi.listFiles).mockResolvedValue([]);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queryClient.setQueryData(eventKeys.files("tokyo-men-choir", "event-1"), []);
+    const user = userEvent.setup();
+    const { unmount } = renderPage(["admin", "member"], queryClient);
+
+    await user.click(await screen.findByRole("button", { name: "イベントファイルを追加" }));
+    await user.click(await screen.findByText("第1回練習"));
+    await screen.findByRole("dialog", { name: "第1回練習" });
+    unmount();
+
+    expect(
+      queryClient.getQueryState(eventKeys.files("tokyo-men-choir", "event-1"))?.isInvalidated,
+    ).toBe(true);
   });
 });

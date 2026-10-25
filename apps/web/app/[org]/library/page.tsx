@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { FileText, Loader2, Plus, Trash2 } from "lucide-react";
@@ -144,6 +144,15 @@ export default function LibraryPage() {
     else params.set("category", id);
     router.replace(`/${org}/library${params.toString() ? `?${params}` : ""}`);
   };
+
+  // 予定詳細は録音を除いた一覧を別に持つので、ファイル管理が画面から消えたら（閉じた・ページを離れた）取り直させる
+  const selectedEventId = selectedResource?.kind === "event" ? selectedResource.id : null;
+  useEffect(() => {
+    if (!selectedEventId) return;
+    return () => {
+      void queryClient.invalidateQueries({ queryKey: eventKeys.files(org, selectedEventId) });
+    };
+  }, [selectedEventId, org, queryClient]);
 
   const closeResourceModal = () => {
     if (selectedResource) {
@@ -374,7 +383,7 @@ export default function LibraryPage() {
       {selectedResource?.kind === "event" && (
         <ResourceFilesModal
           title={selectedResource.title}
-          queryKey={eventKeys.files(org, selectedResource.id)}
+          queryKey={[...eventKeys.files(org, selectedResource.id), "all"]}
           canManage={canManageFiles}
           listFiles={() => eventsApi.listFiles(org, selectedResource.id)}
           uploadFile={(file, label) => eventsApi.uploadFile(org, selectedResource.id, file, label)}

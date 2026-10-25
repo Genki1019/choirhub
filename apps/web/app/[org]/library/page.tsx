@@ -15,7 +15,7 @@ import { concertsApi } from "@/lib/concerts-api";
 import { eventsApi } from "@/lib/events-api";
 import { membersApi } from "@/lib/members-api";
 import type { ScoreDetail } from "@/lib/scores-api";
-import { libraryKeys, concertKeys, eventKeys, memberKeys } from "@/lib/query-keys";
+import { libraryKeys, concertKeys, eventKeys, memberKeys, scoresKeys } from "@/lib/query-keys";
 import { UploadModal } from "./_components/UploadModal";
 import { ResourcePickerModal } from "./_components/ResourcePickerModal";
 import { FileManageModal } from "@/app/[org]/scores/_components/FileManageModal";
@@ -349,7 +349,13 @@ export default function LibraryPage() {
           parts={parts}
           canManagePdf={canManageScorePdf(roles)}
           canManageMidi={canManageScoreMidi(roles)}
-          onClose={closeResourceModal}
+          onClose={(files) => {
+            queryClient.setQueryData<ScoreDetail>(
+              scoresKeys.detail(org, selectedResource.id),
+              (prev) => (prev ? { ...prev, files } : prev),
+            );
+            closeResourceModal();
+          }}
         />
       )}
       {selectedResource?.kind === "concert" && (

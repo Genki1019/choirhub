@@ -52,7 +52,7 @@ vi.mock("@/lib/concerts-api", async () => {
 
 vi.mock("@/lib/scores-api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/scores-api")>("@/lib/scores-api");
-  return { ...actual, scoresApi: { list: vi.fn(), getDetail: vi.fn() } };
+  return { ...actual, scoresApi: { list: vi.fn(), getDetail: vi.fn(), uploadFile: vi.fn() } };
 });
 
 vi.mock("@/lib/members-api", async () => {
@@ -60,8 +60,10 @@ vi.mock("@/lib/members-api", async () => {
   return { ...actual, membersApi: { parts: vi.fn() } };
 });
 
-function renderPage(roles: string[] = ["member"]) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function renderPage(
+  roles: string[] = ["member"],
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemberProvider memberId="member-self" roles={roles}>
@@ -374,6 +376,43 @@ describe("LibraryPage（選択からファイル管理へ）", () => {
 
     const dialog = await screen.findByRole("dialog", { name: "ファイル管理" });
     expect(within(dialog).getByRole("option", { name: "楽譜 (PDF)" })).toBeInTheDocument();
+  });
+
+  it("楽譜のファイル管理で追加したファイルは、閉じたあとの楽譜詳細のキャッシュにも反映する", async () => {
+    searchParams = new URLSearchParams("tab=score");
+    vi.mocked(filesApi.list).mockResolvedValue([]);
+    vi.mocked(scoresApi.list).mockResolvedValue([
+      { id: "score-1", title: "楽譜A", composer: null, arranger: null },
+    ]);
+    vi.mocked(scoresApi.getDetail).mockResolvedValue(sampleScore);
+    vi.mocked(scoresApi.uploadFile).mockResolvedValue({
+      id: "file-1",
+      fileType: "full_score",
+      fileName: "a.pdf",
+      partId: null,
+      partName: null,
+      version: 1,
+    });
+    vi.mocked(membersApi.parts).mockResolvedValue([]);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const user = userEvent.setup();
+    renderPage(["member", "score"], queryClient);
+
+    await user.click(await screen.findByRole("button", { name: "楽譜ファイルを追加" }));
+    await user.click(await screen.findByText("楽譜A"));
+    const dialog = await screen.findByRole("dialog", { name: "ファイル管理" });
+    await user.upload(
+      within(dialog).getByLabelText("追加するファイル"),
+      new File(["%PDF"], "a.pdf", { type: "application/pdf" }),
+    );
+    await user.click(within(dialog).getByRole("button", { name: "追加" }));
+    expect(await within(dialog).findByText("a.pdf")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(
+      queryClient.getQueryData<ScoreDetail>(["score", "tokyo-men-choir", "score-1"])?.files,
+    ).toEqual([expect.objectContaining({ id: "file-1" })]);
   });
 
   it("techには楽譜のPDFの追加を出さない（MIDIだけ）", async () => {

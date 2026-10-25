@@ -179,6 +179,33 @@ describe("ResourcePickerModal（楽譜）", () => {
   });
 });
 
+describe("ResourcePickerModal（一覧の取得失敗）", () => {
+  it.each(["score", "concert", "event"] as const)(
+    "%s: 一覧の取得に失敗したら「見つかりません」ではなく理由を出す",
+    async (kind) => {
+      const err = new ApiClientError("UNKNOWN", "", 500);
+      vi.mocked(scoresApi.list).mockRejectedValue(err);
+      vi.mocked(concertsApi.list).mockRejectedValue(err);
+      vi.mocked(eventsApi.list).mockRejectedValue(err);
+      renderModal(kind);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        /の読み込みに失敗しました。もう一度お試しください。/,
+      );
+      expect(screen.queryByText("見つかりません")).not.toBeInTheDocument();
+    },
+  );
+
+  it("4xxならAPIの理由を出す", async () => {
+    vi.mocked(concertsApi.list).mockRejectedValue(
+      new ApiClientError("FORBIDDEN", "閲覧権限がありません", 403),
+    );
+    renderModal("concert");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("閲覧権限がありません");
+  });
+});
+
 describe("ResourcePickerModal（本番）", () => {
   it("全件取得しタイトルでクライアント側フィルタする", async () => {
     vi.mocked(concertsApi.list).mockResolvedValue([

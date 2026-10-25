@@ -80,10 +80,12 @@ export function ResourcePickerModal({ org, kind, onClose, onSelect }: ResourcePi
 
   let items: PickerItem[] = [];
   let isLoading = false;
+  let listError: unknown = null;
   if (kind === "score") {
     // isFetchingだと同じ検索語に戻った際キャッシュ済み結果が再フェッチのたびに一瞬消えるため、
     // 初回未取得時のみtrueになるisLoadingを使う（concert/eventの分岐と挙動を揃える）
     isLoading = scoreQuery.isLoading;
+    listError = scoreQuery.error;
     items = (scoreQuery.data ?? []).map((s) => ({
       id: s.id,
       title: s.title,
@@ -93,11 +95,13 @@ export function ResourcePickerModal({ org, kind, onClose, onSelect }: ResourcePi
     }));
   } else if (kind === "concert") {
     isLoading = concertQuery.isLoading;
+    listError = concertQuery.error;
     items = (concertQuery.data ?? [])
       .filter((c) => c.title.toLowerCase().includes(search.toLowerCase()))
       .map((c) => ({ id: c.id, title: c.title, subtitle: formatJaDate(c.heldOn) }));
   } else {
     isLoading = eventQuery.isLoading;
+    listError = eventQuery.error;
     items = (eventQuery.data ?? [])
       .filter((e) => e.title.toLowerCase().includes(search.toLowerCase()))
       .map((e) => ({ id: e.id, title: e.title, subtitle: formatJaDate(e.startsAt) }));
@@ -147,6 +151,13 @@ export function ResourcePickerModal({ org, kind, onClose, onSelect }: ResourcePi
             <Loader2 size={14} className="animate-spin" />
             <span className="text-xs">読み込み中...</span>
           </div>
+        ) : listError ? (
+          <ErrorMessage autoScroll={false} className="m-3">
+            {userErrorMessage(
+              listError,
+              `${KIND_LABEL[kind]}の読み込みに失敗しました。もう一度お試しください。`,
+            )}
+          </ErrorMessage>
         ) : items.length === 0 ? (
           <p className="py-8 text-center text-xs text-gray-400">見つかりません</p>
         ) : (

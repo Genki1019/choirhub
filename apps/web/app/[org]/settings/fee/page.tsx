@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { settingsApi } from "@/lib/settings-api";
 import { settingsKeys } from "@/lib/query-keys";
 import { settingsPageTitle, SETTINGS_MAIN_CLASS_NAME } from "@/lib/settings-nav";
@@ -12,6 +12,7 @@ import { userErrorMessage } from "@/lib/api-client";
 
 export default function FeeSettingsPage() {
   const { org } = useParams<{ org: string }>();
+  const queryClient = useQueryClient();
 
   const {
     data: feeData,
@@ -43,6 +44,7 @@ export default function FeeSettingsPage() {
             initialAmount={
               feeData?.defaultFeeAmount != null ? String(feeData.defaultFeeAmount) : ""
             }
+            onSaved={(updated) => queryClient.setQueryData(settingsKeys.fee(org), updated)}
           />
         </>
       )}

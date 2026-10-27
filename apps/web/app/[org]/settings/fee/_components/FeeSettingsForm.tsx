@@ -4,15 +4,21 @@ import { useState, type FormEvent } from "react";
 import { CheckCircle, Loader2 } from "lucide-react";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { userErrorMessage } from "@/lib/api-client";
-import { settingsApi } from "@/lib/settings-api";
+import { settingsApi, type FeeSettings } from "@/lib/settings-api";
 
 interface FeeSettingsFormProps {
   orgSlug: string;
   initialFeeType: "per_rehearsal" | "monthly";
   initialAmount: string;
+  onSaved?: (settings: FeeSettings) => void;
 }
 
-export function FeeSettingsForm({ orgSlug, initialFeeType, initialAmount }: FeeSettingsFormProps) {
+export function FeeSettingsForm({
+  orgSlug,
+  initialFeeType,
+  initialAmount,
+  onSaved,
+}: FeeSettingsFormProps) {
   const [feeType, setFeeType] = useState(initialFeeType);
   const [amount, setAmount] = useState(initialAmount);
   const [saving, setSaving] = useState(false);
@@ -30,7 +36,11 @@ export function FeeSettingsForm({ orgSlug, initialFeeType, initialAmount }: FeeS
         setError("金額は数値で入力してください");
         return;
       }
-      await settingsApi.updateFee(orgSlug, { feeType, defaultFeeAmount: parsedAmount });
+      const updated = await settingsApi.updateFee(orgSlug, {
+        feeType,
+        defaultFeeAmount: parsedAmount,
+      });
+      onSaved?.(updated);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {

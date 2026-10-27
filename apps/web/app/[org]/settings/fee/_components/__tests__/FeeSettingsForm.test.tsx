@@ -70,6 +70,29 @@ describe("FeeSettingsForm（保存）", () => {
     });
   });
 
+  it("保存に成功したら保存後の設定をonSavedに渡す（開き直したときに古い値で開かないように）", async () => {
+    vi.mocked(settingsApi.updateFee).mockResolvedValue({
+      feeType: "monthly",
+      defaultFeeAmount: 3000,
+    });
+    const onSaved = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <FeeSettingsForm
+        orgSlug="o"
+        initialFeeType="per_rehearsal"
+        initialAmount="300"
+        onSaved={onSaved}
+      />,
+    );
+
+    await user.click(screen.getByText("保存する"));
+
+    await vi.waitFor(() =>
+      expect(onSaved).toHaveBeenCalledWith({ feeType: "monthly", defaultFeeAmount: 3000 }),
+    );
+  });
+
   it("保存の失敗が4xxならAPIの理由を読み上げる", async () => {
     vi.mocked(settingsApi.updateFee).mockRejectedValue(
       new ApiClientError("VALIDATION_ERROR", "入力値が不正です", 400),

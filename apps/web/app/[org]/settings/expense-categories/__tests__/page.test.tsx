@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { ApiClientError } from "@/lib/api-client";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -42,6 +43,18 @@ beforeEach(() => {
 });
 
 describe("ExpenseCategoriesPage", () => {
+  it("読み込みに失敗したら理由を読み上げ、空の一覧やフォームは出さない", async () => {
+    vi.mocked(settingsApi.listExpenseCategories).mockRejectedValue(
+      new ApiClientError("UNKNOWN", "", 500),
+    );
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "カテゴリの読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+    expect(screen.queryByRole("button", { name: /追加/ })).not.toBeInTheDocument();
+  });
+
   it("データ取得中は「読み込み中...」を表示する", () => {
     vi.mocked(settingsApi.listExpenseCategories).mockReturnValue(new Promise(() => {}));
     renderPage();

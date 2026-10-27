@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { ApiClientError } from "@/lib/api-client";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FeeSettingsForm } from "../FeeSettingsForm";
@@ -69,12 +70,62 @@ describe("FeeSettingsForm（保存）", () => {
     });
   });
 
-  it("保存に失敗した場合はエラーメッセージを表示する", async () => {
-    vi.mocked(settingsApi.updateFee).mockRejectedValue(new Error("failed"));
+  it("保存に成功したら保存後の設定をonSavedに渡す（開き直したときに古い値で開かないように）", async () => {
+    vi.mocked(settingsApi.updateFee).mockResolvedValue({
+      feeType: "monthly",
+      defaultFeeAmount: 3000,
+    });
+    const onSaved = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <FeeSettingsForm
+        orgSlug="o"
+        initialFeeType="per_rehearsal"
+        initialAmount="300"
+        onSaved={onSaved}
+      />,
+    );
+
+    await user.click(screen.getByText("保存する"));
+
+    await vi.waitFor(() =>
+      expect(onSaved).toHaveBeenCalledWith({ feeType: "monthly", defaultFeeAmount: 3000 }),
+    );
+  });
+
+  it("保存の失敗が4xxならAPIの理由を読み上げる", async () => {
+    vi.mocked(settingsApi.updateFee).mockRejectedValue(
+      new ApiClientError("VALIDATION_ERROR", "入力値が不正です", 400),
+    );
     const user = userEvent.setup();
     render(<FeeSettingsForm orgSlug="o" initialFeeType="per_rehearsal" initialAmount="300" />);
 
     await user.click(screen.getByText("保存する"));
-    expect(await screen.findByText("保存に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("入力値が不正です");
+  });
+
+  it("保存の失敗が5xxなら代わりの文言を出す", async () => {
+    vi.mocked(settingsApi.updateFee).mockRejectedValue(new ApiClientError("UNKNOWN", "", 500));
+    const user = userEvent.setup();
+    render(<FeeSettingsForm orgSlug="o" initialFeeType="per_rehearsal" initialAmount="300" />);
+
+    await user.click(screen.getByText("保存する"));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "会費設定の保存に失敗しました。もう一度お試しください。",
+    );
+  });
+
+  it("保存中にもう一度押しても二重に送らず、ボタンは無効として読み上げる（フォーカスを外さない）", async () => {
+    vi.mocked(settingsApi.updateFee).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    render(<FeeSettingsForm orgSlug="o" initialFeeType="per_rehearsal" initialAmount="300" />);
+
+    const button = screen.getByRole("button", { name: /保存する/ });
+    await user.click(button);
+    await user.click(button);
+
+    expect(settingsApi.updateFee).toHaveBeenCalledTimes(1);
+    expect(button).toHaveAttribute("aria-disabled", "true");
+    expect(button).not.toBeDisabled();
   });
 });

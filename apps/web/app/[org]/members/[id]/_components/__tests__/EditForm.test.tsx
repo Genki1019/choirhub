@@ -117,11 +117,15 @@ describe("EditForm（アバターアップロード）", () => {
     expect(callArgs.body).toBeInstanceOf(FormData);
   });
 
-  it("アップロード失敗: エラーメッセージを表示し、プレビューが元に戻る", async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: false,
-      json: () => Promise.resolve({ error: { message: "アップロードに失敗しました" } }),
-    } as Response);
+  it("アップロード失敗（4xx）: APIの理由を読み上げ、プレビューが元に戻る", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: { code: "VALIDATION_ERROR", message: "画像はJPEG・PNG・WebPのみ対応しています" },
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      ),
+    );
     const user = userEvent.setup();
     render(
       <EditForm
@@ -136,12 +140,43 @@ describe("EditForm（アバターアップロード）", () => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     await user.upload(input, file);
 
-    expect(await screen.findByText("アップロードに失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "画像はJPEG・PNG・WebPのみ対応しています",
+    );
     await waitFor(() => {
       expect(
         screen.getByRole("button", { name: "プロフィール画像を変更" }).querySelector("img"),
       ).toHaveAttribute("src", "https://example.com/original.png");
     });
+  });
+
+  it("アップロード失敗（5xxで本文がJSONでない）: 空や英語ではなく代わりの文言を出す", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response("<html>Bad Gateway</html>", { status: 502, statusText: "Bad Gateway" }),
+    );
+    const user = userEvent.setup();
+    render(<EditForm member={makeMember()} org="tokyo" onSave={vi.fn()} onCancel={vi.fn()} />);
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, new File(["dummy"], "avatar.png", { type: "image/png" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "写真のアップロードに失敗しました。もう一度お試しください。",
+    );
+  });
+
+  it("4MBを超える写真は送らずに理由を読み上げる（本番では送る前に弾かれ、理由が伝わらないため）", async () => {
+    const user = userEvent.setup();
+    render(<EditForm member={makeMember()} org="tokyo" onSave={vi.fn()} onCancel={vi.fn()} />);
+
+    const big = new File([new Uint8Array(4 * 1024 * 1024 + 1)], "big.jpg", { type: "image/jpeg" });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, big);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "ファイルサイズは4MB以内にしてください",
+    );
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("アンマウント時にURL.revokeObjectURLでクリーンアップする", async () => {

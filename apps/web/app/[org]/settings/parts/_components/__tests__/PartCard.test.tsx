@@ -36,7 +36,6 @@ function renderCard(canEdit: boolean, overrides: Partial<Record<string, unknown>
       onDeleted={vi.fn()}
       onCreated={vi.fn()}
       onReordered={vi.fn()}
-      onToast={vi.fn()}
       {...overrides}
     />,
   );
@@ -48,6 +47,51 @@ beforeEach(() => {
 });
 
 describe("PartCard（canEdit: true）", () => {
+  it("追加の失敗は理由をカードの中に読み上げ、もう一度追加を始めると消える", async () => {
+    vi.mocked(settingsApi.createPart)
+      .mockRejectedValueOnce(new ApiClientError("FORBIDDEN", "管理者権限が必要です", 403))
+      .mockReturnValueOnce(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderCard(true);
+
+    await user.click(screen.getByText("追加"));
+    await user.type(screen.getByPlaceholderText("パート名を入力"), "バリトン");
+    const addButtons = screen.getAllByRole("button", { name: "追加" });
+    await user.click(addButtons[addButtons.length - 1]);
+    expect(await screen.findByRole("alert")).toHaveTextContent("管理者権限が必要です");
+
+    await user.click(addButtons[addButtons.length - 1]);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("追加の失敗のあと、追加欄を閉じるとエラーも消える", async () => {
+    vi.mocked(settingsApi.createPart).mockRejectedValue(new ApiClientError("UNKNOWN", "", 500));
+    const user = userEvent.setup();
+    renderCard(true);
+
+    await user.click(screen.getByText("追加"));
+    await user.type(screen.getByPlaceholderText("パート名を入力"), "バリトン{Enter}");
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("追加の失敗が5xxなら代わりの文言を出す", async () => {
+    vi.mocked(settingsApi.createPart).mockRejectedValue(new ApiClientError("UNKNOWN", "", 500));
+    const user = userEvent.setup();
+    renderCard(true);
+
+    await user.click(screen.getByText("追加"));
+    await user.type(screen.getByPlaceholderText("パート名を入力"), "バリトン");
+    const addButtons = screen.getAllByRole("button", { name: "追加" });
+    await user.click(addButtons[addButtons.length - 1]);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "パートの追加に失敗しました。もう一度お試しください。",
+    );
+  });
+
   it("「追加」クリックで入力欄が展開しaddPartでcreatePartが呼ばれる", async () => {
     vi.mocked(settingsApi.createPart).mockResolvedValue({
       id: "part-3",
@@ -107,20 +151,19 @@ describe("PartCard（canEdit: true）", () => {
     expect(settingsApi.updatePart).not.toHaveBeenCalled();
   });
 
-  it("保存に失敗したら入力欄の下に理由を出し、入力を残す（トーストは出さない）", async () => {
+  it("保存に失敗したら入力欄の下に理由を出し、入力を残す（ほかの場所には出さない）", async () => {
     vi.mocked(settingsApi.updatePart).mockRejectedValue(
       new ApiClientError("CONFLICT", "同じ名前のパートがあります", 409),
     );
-    const onToast = vi.fn();
     const user = userEvent.setup();
-    renderCard(true, { onToast });
+    renderCard(true);
 
     await user.click(screen.getByLabelText("テノール1を編集"));
     await user.type(screen.getByRole("textbox", { name: "パート名" }), "改{Enter}");
 
     expect(await screen.findByRole("alert")).toHaveTextContent("同じ名前のパートがあります");
     expect(screen.getByRole("textbox", { name: "パート名" })).toHaveValue("テノール1改");
-    expect(onToast).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
   });
 
   it.each(["在団メンバーが所属しているため削除できません", "デフォルトパートは削除できません"])(
@@ -237,11 +280,10 @@ describe("PartCard（並び替え）", () => {
     ]);
   });
 
-  it("並び替えに失敗したら元の順序にロールバックしトーストする", async () => {
+  it("並び替えに失敗したら元の順序にロールバックし、理由を読み上げる", async () => {
     vi.mocked(settingsApi.updatePart).mockRejectedValue(new Error("network error"));
-    const onToast = vi.fn();
     const onReordered = vi.fn();
-    renderCard(true, { onToast, onReordered });
+    renderCard(true, { onReordered });
 
     dragAndDrop(
       screen.getByLabelText("ベースをドラッグして並び替え"),
@@ -249,7 +291,9 @@ describe("PartCard（並び替え）", () => {
     );
 
     await vi.waitFor(() => {
-      expect(onToast).toHaveBeenCalledWith("並び替えに失敗しました");
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "並び替えに失敗しました。もう一度お試しください。",
+      );
     });
     expect(onReordered).toHaveBeenLastCalledWith(makeParts());
   });

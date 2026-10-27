@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { AlertCircle, History } from "lucide-react";
+import { History } from "lucide-react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { auditLogsApi, type AuditCategory, type AuditLogFilter } from "@/lib/audit-logs-api";
 import { AUDIT_CATEGORY_LABEL } from "@/lib/audit-log-labels";
@@ -12,6 +12,8 @@ import { useMember } from "@/contexts/MemberContext";
 import { PageWithHeader } from "@/components/PageWithHeader";
 import { Pagination } from "@/components/Pagination";
 import { CsvExportButton } from "@/components/CsvExportButton";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 import { AuditLogItem } from "./_components/AuditLogItem";
 
 const SYSTEM_ADMIN_VALUE = "system_admin";
@@ -160,10 +162,12 @@ export default function AuditLogsPage() {
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-500">
-              <AlertCircle size={16} />
-              <span className="text-sm">{error.message}</span>
-            </div>
+            <ErrorMessage variant="section" autoScroll={false}>
+              {userErrorMessage(
+                error,
+                "操作履歴の読み込みに失敗しました。ページを再読み込みしてください。",
+              )}
+            </ErrorMessage>
           )}
 
           {!error && result && logs.length === 0 && (

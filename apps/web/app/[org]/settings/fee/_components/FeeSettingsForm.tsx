@@ -2,15 +2,23 @@
 
 import { useState, type FormEvent } from "react";
 import { CheckCircle, Loader2 } from "lucide-react";
-import { settingsApi } from "@/lib/settings-api";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
+import { settingsApi, type FeeSettings } from "@/lib/settings-api";
 
 interface FeeSettingsFormProps {
   orgSlug: string;
   initialFeeType: "per_rehearsal" | "monthly";
   initialAmount: string;
+  onSaved?: (settings: FeeSettings) => void;
 }
 
-export function FeeSettingsForm({ orgSlug, initialFeeType, initialAmount }: FeeSettingsFormProps) {
+export function FeeSettingsForm({
+  orgSlug,
+  initialFeeType,
+  initialAmount,
+  onSaved,
+}: FeeSettingsFormProps) {
   const [feeType, setFeeType] = useState(initialFeeType);
   const [amount, setAmount] = useState(initialAmount);
   const [saving, setSaving] = useState(false);
@@ -19,6 +27,7 @@ export function FeeSettingsForm({ orgSlug, initialFeeType, initialAmount }: FeeS
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     setError(null);
     setSaving(true);
     try {
@@ -27,11 +36,15 @@ export function FeeSettingsForm({ orgSlug, initialFeeType, initialAmount }: FeeS
         setError("金額は数値で入力してください");
         return;
       }
-      await settingsApi.updateFee(orgSlug, { feeType, defaultFeeAmount: parsedAmount });
+      const updated = await settingsApi.updateFee(orgSlug, {
+        feeType,
+        defaultFeeAmount: parsedAmount,
+      });
+      onSaved?.(updated);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
-    } catch {
-      setError("保存に失敗しました");
+    } catch (err) {
+      setError(userErrorMessage(err, "会費設定の保存に失敗しました。もう一度お試しください。"));
     } finally {
       setSaving(false);
     }
@@ -100,11 +113,7 @@ export function FeeSettingsForm({ orgSlug, initialFeeType, initialAmount }: FeeS
         <p className="mt-1 text-xs text-gray-400">空欄にすると自動生成は行われません。</p>
       </div>
 
-      {error && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-          {error}
-        </p>
-      )}
+      <ErrorMessage>{error}</ErrorMessage>
 
       <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-2">
         {saved && (
@@ -115,8 +124,8 @@ export function FeeSettingsForm({ orgSlug, initialFeeType, initialAmount }: FeeS
         )}
         <button
           type="submit"
-          disabled={saving}
-          className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
+          aria-disabled={saving}
+          className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors aria-disabled:opacity-60"
         >
           {saving && <Loader2 size={13} className="animate-spin" />}
           保存する

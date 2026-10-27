@@ -1,4 +1,5 @@
 import { Loader2 } from "lucide-react";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 interface AdminListSectionProps {
   title: string;
@@ -32,9 +33,9 @@ export function AdminListSection({
     );
   } else if (isError) {
     content = (
-      <p role="alert" className="text-sm text-red-600">
+      <ErrorMessage variant="section" autoScroll={false}>
         {loadErrorMessage}
-      </p>
+      </ErrorMessage>
     );
   } else if (isEmpty) {
     content = <p className="py-8 text-center text-sm text-gray-400">{emptyMessage}</p>;
@@ -47,14 +48,7 @@ export function AdminListSection({
       <h2 className="mb-1 text-lg font-semibold text-gray-800">{title}</h2>
       {description && <p className="text-xs text-gray-500">{description}</p>}
       <div className="mt-4">
-        {actionError && (
-          <p
-            role="alert"
-            className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600"
-          >
-            {actionError}
-          </p>
-        )}
+        <ErrorMessage className="mb-4">{actionError}</ErrorMessage>
         {content}
       </div>
     </section>

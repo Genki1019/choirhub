@@ -7,6 +7,8 @@ import { settingsKeys } from "@/lib/query-keys";
 import { useMember } from "@/contexts/MemberContext";
 import { settingsPageTitle, SETTINGS_MAIN_CLASS_NAME } from "@/lib/settings-nav";
 import { PageWithHeader } from "@/components/PageWithHeader";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 import { OrgSettingsForm } from "./_components/OrgSettingsForm";
 import { DangerZone } from "./_components/DangerZone";
 
@@ -30,10 +32,13 @@ export default function SettingsPage() {
       loading={loading}
       mainClassName={SETTINGS_MAIN_CLASS_NAME}
     >
-      {error ? (
-        <div className="flex items-center justify-center py-16 text-sm text-red-500">
-          {error.message}
-        </div>
+      {error && !settings ? (
+        <ErrorMessage variant="section" autoScroll={false}>
+          {userErrorMessage(
+            error,
+            "団体設定の読み込みに失敗しました。ページを再読み込みしてください。",
+          )}
+        </ErrorMessage>
       ) : (
         <>
           <OrgSettingsForm

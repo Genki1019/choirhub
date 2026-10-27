@@ -165,9 +165,9 @@ describe("InviteForm（送信）", () => {
     await user.type(screen.getByLabelText("パスワード（確認）"), "password123");
     await user.click(screen.getByText("登録する"));
 
-    expect(
-      await screen.findByText("登録に失敗しました。もう一度お試しください。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "登録に失敗しました。もう一度お試しください。",
+    );
   });
 
   it("401エラー時（既に別タブ等でアカウントが作られていた場合）はパスワード不一致メッセージを表示する", async () => {
@@ -182,7 +182,7 @@ describe("InviteForm（送信）", () => {
     await user.type(screen.getByLabelText("パスワード（確認）"), "password123");
     await user.click(screen.getByText("登録する"));
 
-    expect(await screen.findByText("パスワードが正しくありません")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("パスワードが正しくありません");
   });
 });
 
@@ -247,7 +247,7 @@ describe("InviteForm（既存ユーザー）", () => {
     await user.type(screen.getByLabelText("パスワード"), "wrong-password");
     await user.click(screen.getByText("ログインして参加する"));
 
-    expect(await screen.findByText("パスワードが正しくありません")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("パスワードが正しくありません");
   });
 
   it("409エラー時は登録済みメッセージを表示する", async () => {

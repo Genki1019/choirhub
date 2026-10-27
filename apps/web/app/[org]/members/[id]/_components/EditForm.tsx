@@ -4,7 +4,11 @@ import { useState, useRef, useEffect, type ChangeEvent, type ReactNode } from "r
 import Image from "next/image";
 import { Camera, X, Check, Loader2 } from "lucide-react";
 import type { MemberProfile } from "@/lib/members-api";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { toApiClientError, userErrorMessage } from "@/lib/api-client";
 import { avatarColor } from "../../_components/MemberCard";
+
+const AVATAR_MAX_BYTES = 4 * 1024 * 1024;
 
 const INPUT_CLS =
   "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400";
@@ -60,6 +64,11 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
   const handleAvatarChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > AVATAR_MAX_BYTES) {
+      setUploadError("ファイルサイズは4MB以内にしてください");
+      e.target.value = "";
+      return;
+    }
 
     setUploadError(null);
     if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
@@ -78,14 +87,13 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
         credentials: "include",
       });
 
-      if (!res.ok) {
-        const json = (await res.json()) as { error?: { message?: string } };
-        throw new Error(json.error?.message ?? "アップロードに失敗しました");
-      }
+      if (!res.ok) throw await toApiClientError(res);
 
       // アバターはアップロード時点でDBが更新済み。プレビューのみ更新する。
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "アップロードに失敗しました");
+      setUploadError(
+        userErrorMessage(err, "写真のアップロードに失敗しました。もう一度お試しください。"),
+      );
       setAvatarPreview(member.avatarUrl ?? null);
     } finally {
       setUploading(false);
@@ -121,7 +129,7 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
           aria-label="プロフィール画像を変更"
           onClick={() => !uploading && fileRef.current?.click()}
           className="group relative"
-          disabled={uploading}
+          aria-disabled={uploading}
         >
           {avatarPreview ? (
             <Image
@@ -150,7 +158,7 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
         <p className="text-xs text-gray-400">
           {uploading ? "アップロード中..." : "クリックして写真を変更（JPEG / PNG / WebP・4MB以内）"}
         </p>
-        {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
+        <ErrorMessage>{uploadError}</ErrorMessage>
         <input
           ref={fileRef}
           type="file"

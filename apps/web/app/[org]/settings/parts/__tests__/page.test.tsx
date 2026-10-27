@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { ApiClientError } from "@/lib/api-client";
 import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import PartsPage from "../page";
@@ -56,6 +57,16 @@ beforeEach(() => {
 });
 
 describe("PartsPage", () => {
+  it("読み込みに失敗したら理由を読み上げ、空の一覧やフォームは出さない", async () => {
+    vi.mocked(membersApi.parts).mockRejectedValue(new ApiClientError("UNKNOWN", "", 500));
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "パートの読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+    expect(screen.queryByText("パート一覧")).not.toBeInTheDocument();
+  });
+
   it("パート一覧を表示する", async () => {
     vi.mocked(membersApi.parts).mockResolvedValue(makeParts());
     renderPage();

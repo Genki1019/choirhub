@@ -35,7 +35,6 @@ function renderCard(canEdit: boolean, overrides: Partial<Record<string, unknown>
       onDeleted={vi.fn()}
       onCreated={vi.fn()}
       onReordered={vi.fn()}
-      onToast={vi.fn()}
       {...overrides}
     />,
   );
@@ -65,7 +64,6 @@ describe("MemberTypeCard（表示）", () => {
         onDeleted={vi.fn()}
         onCreated={vi.fn()}
         onReordered={vi.fn()}
-        onToast={vi.fn()}
       />,
     );
     expect(screen.getByText("区分がまだありません")).toBeInTheDocument();
@@ -173,6 +171,40 @@ describe("MemberTypeCard（canEdit: true）", () => {
     );
   });
 
+  it("同じ名前で追加すると、409の理由をカードの中に読み上げ、もう一度追加を始めると消える", async () => {
+    vi.mocked(settingsApi.createMemberType)
+      .mockRejectedValueOnce(new ApiClientError("CONFLICT", "同じ名前の区分がすでにあります", 409))
+      .mockReturnValueOnce(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderCard(true);
+
+    await user.click(screen.getByText("追加"));
+    await user.type(screen.getByPlaceholderText("区分名（例: 社会人）"), "客演");
+    const addButtons = screen.getAllByRole("button", { name: "追加" });
+    await user.click(addButtons[addButtons.length - 1]);
+    expect(await screen.findByRole("alert")).toHaveTextContent("同じ名前の区分がすでにあります");
+
+    await user.click(addButtons[addButtons.length - 1]);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("追加の失敗が5xxなら代わりの文言を出す", async () => {
+    vi.mocked(settingsApi.createMemberType).mockRejectedValue(
+      new ApiClientError("UNKNOWN", "", 500),
+    );
+    const user = userEvent.setup();
+    renderCard(true);
+
+    await user.click(screen.getByText("追加"));
+    await user.type(screen.getByPlaceholderText("区分名（例: 社会人）"), "客演");
+    const addButtons = screen.getAllByRole("button", { name: "追加" });
+    await user.click(addButtons[addButtons.length - 1]);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "メンバー区分の追加に失敗しました。もう一度お試しください。",
+    );
+  });
+
   it("「追加」で区分名・会費を入力するとcreateMemberTypeが呼ばれる", async () => {
     vi.mocked(settingsApi.createMemberType).mockResolvedValue({
       id: "type-3",
@@ -222,10 +254,9 @@ describe("MemberTypeCard（並び替え）", () => {
     expect(settingsApi.updateMemberType).toHaveBeenCalledWith("o", "type-1", { sortOrder: 2 });
   });
 
-  it("並び替えに失敗したら元の順序にロールバックしトーストする", async () => {
+  it("並び替えに失敗したら元の順序にロールバックし、理由を読み上げる", async () => {
     vi.mocked(settingsApi.updateMemberType).mockRejectedValue(new Error("network error"));
-    const onToast = vi.fn();
-    renderCard(true, { onToast });
+    renderCard(true);
 
     dragAndDrop(
       screen.getByLabelText("学生をドラッグして並び替え"),
@@ -233,7 +264,9 @@ describe("MemberTypeCard（並び替え）", () => {
     );
 
     await vi.waitFor(() => {
-      expect(onToast).toHaveBeenCalledWith("並び替えに失敗しました");
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "並び替えに失敗しました。もう一度お試しください。",
+      );
     });
   });
 });

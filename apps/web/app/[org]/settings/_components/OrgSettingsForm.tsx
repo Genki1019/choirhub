@@ -2,6 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { CheckCircle, Loader2 } from "lucide-react";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 import { settingsApi, type OrgSettings } from "@/lib/settings-api";
 
 interface OrgSettingsFormProps {
@@ -26,6 +28,7 @@ export function OrgSettingsForm({
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     setError(null);
     setSaving(true);
     try {
@@ -33,8 +36,8 @@ export function OrgSettingsForm({
       onSaved?.(updated);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
-    } catch {
-      setError("保存に失敗しました");
+    } catch (err) {
+      setError(userErrorMessage(err, "団体設定の保存に失敗しました。もう一度お試しください。"));
     } finally {
       setSaving(false);
     }
@@ -79,11 +82,7 @@ export function OrgSettingsForm({
         </p>
       </div>
 
-      {error && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-          {error}
-        </p>
-      )}
+      <ErrorMessage>{error}</ErrorMessage>
 
       {canEdit ? (
         <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-2">
@@ -95,8 +94,8 @@ export function OrgSettingsForm({
           )}
           <button
             type="submit"
-            disabled={saving}
-            className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
+            aria-disabled={saving}
+            className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors aria-disabled:opacity-60"
           >
             {saving && <Loader2 size={13} className="animate-spin" />}
             保存する

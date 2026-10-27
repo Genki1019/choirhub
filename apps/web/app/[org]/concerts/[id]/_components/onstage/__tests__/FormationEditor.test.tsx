@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { ApiClientError } from "@/lib/api-client";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FormationEditor } from "../FormationEditor";
@@ -338,10 +339,24 @@ describe("FormationEditor（保存失敗時のロールバック）", () => {
     await user.type(screen.getByPlaceholderText("枠の名前"), "ソロ");
     await user.click(screen.getByText("作成"));
 
-    expect(
-      await screen.findByText("フォーメーションの保存に失敗しました。もう一度お試しください。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "フォーメーションの保存に失敗しました。もう一度お試しください。",
+    );
     expect(screen.queryByText("ソロ")).not.toBeInTheDocument();
+  });
+
+  it("保存の失敗が4xxならAPIの理由を読み上げる", async () => {
+    vi.mocked(concertsApi.saveFormationSlots).mockRejectedValue(
+      new ApiClientError("VALIDATION_ERROR", "同じ団員を2か所に配置できません", 400),
+    );
+    const user = userEvent.setup();
+    render(<FormationEditor {...defaultProps()} />);
+
+    await user.click(screen.getByText("枠を追加"));
+    await user.type(screen.getByPlaceholderText("枠の名前"), "ソロ");
+    await user.click(screen.getByText("作成"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("同じ団員を2か所に配置できません");
   });
 });
 

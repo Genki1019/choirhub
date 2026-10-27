@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Music, Loader2, CheckCircle } from "lucide-react";
 import { authApi } from "@/lib/auth-api";
 import { passwordResetRequestSchema, type PasswordResetRequestInput } from "@/lib/schemas";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 const INPUT_CLS =
   "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition";
@@ -87,11 +88,7 @@ export default function PasswordResetRequestPage() {
               {errors.email && <p className={ERROR_CLS}>{errors.email.message}</p>}
             </div>
 
-            {errors.root && (
-              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-                {errors.root.message}
-              </p>
-            )}
+            <ErrorMessage>{errors.root?.message}</ErrorMessage>
 
             <button
               type="submit"

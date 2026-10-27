@@ -13,6 +13,7 @@ import { ApiClientError } from "@/lib/auth-api";
 import { orgApplicationSchema, type OrgApplicationInput } from "@/lib/schemas";
 import { sanitizeSlug } from "@/lib/slug";
 import { TermsConsentNote } from "@/components/TermsConsentNote";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 const INPUT_CLS =
   "focus:ring-brand-500 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:outline-none";
@@ -173,11 +174,7 @@ export function OrgApplicationForm({
         />
       </div>
 
-      {errors.root && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-          {errors.root.message}
-        </p>
-      )}
+      <ErrorMessage>{errors.root?.message}</ErrorMessage>
 
       <button
         type="submit"

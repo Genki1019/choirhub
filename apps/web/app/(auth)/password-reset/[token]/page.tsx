@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Music, Loader2, CheckCircle, Eye, EyeOff } from "lucide-react";
 import { authApi, ApiClientError } from "@/lib/auth-api";
 import { passwordResetConfirmSchema, type PasswordResetConfirmInput } from "@/lib/schemas";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 const INPUT_CLS =
   "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition";
@@ -19,6 +20,7 @@ export default function PasswordResetConfirmPage() {
 
   const [email, setEmail] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [linkInvalid, setLinkInvalid] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -26,11 +28,16 @@ export default function PasswordResetConfirmPage() {
     authApi
       .getPasswordResetToken(token)
       .then((data) => setEmail(data.email))
-      .catch(() =>
-        setLoadError(
-          "リンクが無効または期限切れです。もう一度パスワードリセットを申請してください。",
-        ),
-      );
+      .catch((err: unknown) => {
+        if (err instanceof ApiClientError && err.status === 404) {
+          setLinkInvalid(true);
+          setLoadError(
+            "リンクが無効または期限切れです。もう一度パスワードリセットを申請してください。",
+          );
+        } else {
+          setLoadError("読み込みに失敗しました。ページを再読み込みしてください。");
+        }
+      });
   }, [token]);
 
   const {
@@ -66,13 +73,15 @@ export default function PasswordResetConfirmPage() {
 
         {loadError && (
           <div className="space-y-4 rounded-2xl border border-gray-200 bg-white px-8 py-8 text-center">
-            <p className="text-sm text-red-600">{loadError}</p>
-            <Link
-              href="/password-reset"
-              className="bg-brand-600 hover:bg-brand-700 block w-full rounded-lg py-2.5 text-center text-sm font-medium text-white transition"
-            >
-              再申請する
-            </Link>
+            <ErrorMessage autoScroll={false}>{loadError}</ErrorMessage>
+            {linkInvalid && (
+              <Link
+                href="/password-reset"
+                className="bg-brand-600 hover:bg-brand-700 block w-full rounded-lg py-2.5 text-center text-sm font-medium text-white transition"
+              >
+                再申請する
+              </Link>
+            )}
           </div>
         )}
 
@@ -151,11 +160,7 @@ export default function PasswordResetConfirmPage() {
               )}
             </div>
 
-            {errors.root && (
-              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-                {errors.root.message}
-              </p>
-            )}
+            <ErrorMessage>{errors.root?.message}</ErrorMessage>
 
             <button
               type="submit"

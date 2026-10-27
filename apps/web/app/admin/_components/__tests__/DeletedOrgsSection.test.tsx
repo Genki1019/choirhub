@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { ApiClientError } from "@/lib/api-client";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -78,8 +79,23 @@ describe("DeletedOrgsSection", () => {
 
     await user.click(await screen.findByRole("button", { name: "東京男声合唱団を復元" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("復元に失敗しました");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "復元に失敗しました。もう一度お試しください。",
+    );
     expect(screen.getByText("東京男声合唱団")).toBeInTheDocument();
+  });
+
+  it("復元の失敗が4xxならAPIの理由を出す", async () => {
+    vi.mocked(deletedOrgsApi.list).mockResolvedValue([deletedOrg]);
+    vi.mocked(deletedOrgsApi.restore).mockRejectedValue(
+      new ApiClientError("NOT_FOUND", "削除済みの団体が見つかりません", 404),
+    );
+    const user = userEvent.setup();
+    renderSection();
+
+    await user.click(await screen.findByRole("button", { name: "東京男声合唱団を復元" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("削除済みの団体が見つかりません");
   });
 
   it("一覧の取得に失敗した場合はエラーを表示する", async () => {

@@ -108,9 +108,9 @@ describe("LoginPage（送信）", () => {
     await user.type(screen.getByLabelText("パスワード"), "wrongpass");
     await user.click(screen.getByText("ログイン"));
 
-    expect(
-      await screen.findByText("メールアドレスまたはパスワードが正しくありません"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "メールアドレスまたはパスワードが正しくありません",
+    );
   });
 
   it("401以外のエラー時は汎用メッセージを表示する", async () => {
@@ -122,8 +122,8 @@ describe("LoginPage（送信）", () => {
     await user.type(screen.getByLabelText("パスワード"), "password123");
     await user.click(screen.getByText("ログイン"));
 
-    expect(
-      await screen.findByText("ログインに失敗しました。しばらく後でお試しください。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "ログインに失敗しました。しばらく後でお試しください。",
+    );
   });
 });

@@ -110,9 +110,9 @@ describe("SelectOrgPage（表示）", () => {
     vi.mocked(authApi.me).mockRejectedValue(new Error("network error"));
     render(<SelectOrgPage />);
 
-    expect(
-      await screen.findByText("団体情報の取得に失敗しました。しばらくしてから再度お試しください。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "団体情報の取得に失敗しました。しばらくしてから再度お試しください。",
+    );
     expect(screen.queryByText("所属している団体がありません")).not.toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
   });
@@ -261,8 +261,8 @@ describe("SelectOrgPage（団体作成を申請する）", () => {
     await user.type(screen.getByLabelText("団体名"), "My Choir");
     await user.click(screen.getByText("申請する"));
 
-    expect(
-      await screen.findByText("送信に失敗しました。しばらくしてから再試行してください"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "送信に失敗しました。しばらくしてから再試行してください",
+    );
   });
 });

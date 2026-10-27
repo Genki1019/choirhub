@@ -63,8 +63,8 @@ describe("PasswordResetRequestPage（送信）", () => {
     await user.type(screen.getByLabelText("メールアドレス"), "user@example.com");
     await user.click(screen.getByText("リセットメールを送信"));
 
-    expect(
-      await screen.findByText("送信に失敗しました。しばらく後でお試しください。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "送信に失敗しました。しばらく後でお試しください。",
+    );
   });
 });

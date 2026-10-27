@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Plus, Loader2 } from "lucide-react";
 import { settingsApi, type EventCategory } from "@/lib/settings-api";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 
 const PRESET_COLORS = [
   "#10B981",
@@ -27,6 +29,7 @@ export function AddCategoryForm({ org, onCreated }: AddCategoryFormProps) {
   const [addError, setAddError] = useState("");
 
   const handleAdd = async () => {
+    if (adding) return;
     if (!newName.trim()) {
       setAddError("名前を入力してください");
       return;
@@ -42,7 +45,7 @@ export function AddCategoryForm({ org, onCreated }: AddCategoryFormProps) {
       setNewName("");
       setNewColor("#6B7280");
     } catch (err) {
-      setAddError(err instanceof Error ? err.message : "追加に失敗しました");
+      setAddError(userErrorMessage(err, "区分の追加に失敗しました。もう一度お試しください。"));
     } finally {
       setAdding(false);
     }
@@ -83,14 +86,14 @@ export function AddCategoryForm({ org, onCreated }: AddCategoryFormProps) {
         <button
           type="button"
           onClick={handleAdd}
-          disabled={adding}
-          className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-60"
+          aria-disabled={adding}
+          className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors aria-disabled:opacity-60"
         >
           {adding ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
           追加
         </button>
       </div>
-      {addError && <p className="text-xs text-red-500">{addError}</p>}
+      <ErrorMessage>{addError}</ErrorMessage>
     </div>
   );
 }

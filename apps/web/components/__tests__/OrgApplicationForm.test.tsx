@@ -112,9 +112,9 @@ describe("OrgApplicationForm", () => {
     await user.type(screen.getByLabelText("管理者メールアドレス"), "hanako@example.com");
     await user.click(screen.getByText("申請する"));
 
-    expect(
-      await screen.findByText("送信に失敗しました。しばらくしてから再試行してください"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "送信に失敗しました。しばらくしてから再試行してください",
+    );
   });
 
   it("submitFn/successMessage/submitLabelを指定すると、それらが使われる", async () => {
@@ -152,7 +152,9 @@ describe("OrgApplicationForm", () => {
     await user.type(screen.getByLabelText("管理者メールアドレス"), "hanako@example.com");
     await user.click(screen.getByText("申請する"));
 
-    expect(await screen.findByText("このスラグはすでに使用されています")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "このスラグはすでに使用されています",
+    );
   });
 
   it("400エラー時はサーバーのメッセージ（予約語のスラグ等）を表示する", async () => {
@@ -171,8 +173,8 @@ describe("OrgApplicationForm", () => {
     await user.type(screen.getByLabelText("管理者メールアドレス"), "hanako@example.com");
     await user.click(screen.getByText("申請する"));
 
-    expect(
-      await screen.findByText("このスラグはシステムで使用しているため使えません"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "このスラグはシステムで使用しているため使えません",
+    );
   });
 });

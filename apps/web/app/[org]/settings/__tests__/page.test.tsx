@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { ApiClientError } from "@/lib/api-client";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import SettingsPage from "../page";
@@ -33,13 +34,14 @@ function makeSettings(overrides: Partial<OrgSettings> = {}): OrgSettings {
 
 function renderPage(roles: string[] = ["admin"]) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const view = render(
     <QueryClientProvider client={queryClient}>
       <MemberProvider memberId="member-self" roles={roles}>
         <SettingsPage />
       </MemberProvider>
     </QueryClientProvider>,
   );
+  return { ...view, queryClient };
 }
 
 beforeEach(() => {
@@ -54,11 +56,43 @@ describe("SettingsPage（表示）", () => {
     expect(screen.getByText("読み込み中...")).toBeInTheDocument();
   });
 
-  it("取得エラー時はエラーメッセージを表示する", async () => {
-    vi.mocked(settingsApi.get).mockRejectedValue(new Error("取得に失敗しました"));
+  it("取得エラーが4xxならAPIの理由を、見出しを残して一覧の位置に読み上げる", async () => {
+    vi.mocked(settingsApi.get).mockRejectedValue(
+      new ApiClientError("FORBIDDEN", "この団体にアクセスする権限がありません", 403),
+    );
     renderPage();
 
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "この団体にアクセスする権限がありません",
+    );
+    expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+  });
+
+  it("取得エラーが5xxなら、空や英語ではなく代わりの文言を出す", async () => {
+    vi.mocked(settingsApi.get).mockRejectedValue(
+      new ApiClientError("UNKNOWN", "Internal Server Error", 500),
+    );
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "団体設定の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+  });
+
+  it("取得済みのときは、裏の取り直しに失敗しても入力中のフォームを残す", async () => {
+    vi.mocked(settingsApi.get).mockResolvedValueOnce(makeSettings());
+    const { queryClient } = renderPage();
+    expect(await screen.findByDisplayValue("東京男声合唱団")).toBeInTheDocument();
+
+    vi.mocked(settingsApi.get).mockRejectedValue(new ApiClientError("UNKNOWN", "", 500));
+    await act(async () => {
+      await queryClient.refetchQueries();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(queryClient.getQueryCache().getAll()[0].state.status).toBe("error");
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByDisplayValue("東京男声合唱団")).toBeInTheDocument();
   });
 
   it("団体名・スラッグを表示する", async () => {

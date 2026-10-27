@@ -27,6 +27,8 @@ import {
 import { GridCell, PartColorLegend, SeatContainer } from "./Chips";
 import { AddBoxPopover, AddMemberPopover, NameEditPopover } from "./Popovers";
 import { InlineEditButton } from "@/components/InlineEdit";
+import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 import { useHoverPinPopover } from "@/lib/useHoverPinPopover";
 import {
   GRID_STAGGER_OFFSET,
@@ -163,10 +165,12 @@ export function FormationEditor({
         const { boxes: boxDetails, slots: slotDetails } = toFormationDetails(nextPlaced, nextBoxes);
         onFormationChanged(boxDetails, slotDetails);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         setPlaced(prevPlaced);
         setBoxes(prevBoxes);
-        setError("フォーメーションの保存に失敗しました。もう一度お試しください。");
+        setError(
+          userErrorMessage(err, "フォーメーションの保存に失敗しました。もう一度お試しください。"),
+        );
       });
   };
 
@@ -516,7 +520,7 @@ export function FormationEditor({
       onDragEnd={handleDragEnd}
     >
       <div className="space-y-4">
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        <ErrorMessage>{error}</ErrorMessage>
 
         <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50/50 p-3">
           <div className="flex items-center justify-between">

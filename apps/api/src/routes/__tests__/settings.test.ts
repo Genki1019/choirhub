@@ -1,7 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Hono } from "hono";
-import type { Member, Organization } from "../../generated/prisma/index.js";
+import { Prisma, type Member, type Organization } from "../../generated/prisma/index.js";
 import type { TenantEnv } from "../../middleware/tenant.js";
+
+function uniqueConstraintError(): Prisma.PrismaClientKnownRequestError {
+  return new Prisma.PrismaClientKnownRequestError(
+    "Unique constraint failed on the fields: (`orgId`,`name`)",
+    {
+      code: "P2002",
+      clientVersion: "test",
+    },
+  );
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function json(res: Response): Promise<Record<string, any>> {
@@ -807,6 +817,25 @@ describe("GET /settings/expense-categories", () => {
 // ────────────────────────────
 
 describe("POST /settings/expense-categories", () => {
+  it("同じ名前がすでにある（P2002）: 409 CONFLICTを返す", async () => {
+    vi.mocked(prisma.expenseCategory.aggregate).mockResolvedValue({
+      _max: { sortOrder: 1 },
+    } as never);
+    vi.mocked(prisma.expenseCategory.create).mockRejectedValue(uniqueConstraintError());
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/settings/expense-categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "練習会場費" }),
+    });
+    expect(res.status).toBe(409);
+    const json_ = await json(res);
+    expect(json_.error).toEqual({
+      code: "CONFLICT",
+      message: "同じ名前のカテゴリがすでにあります",
+    });
+  });
+
   it("finance未満: 403を返す", async () => {
     const app = createTestApp(makeMember(["member"]));
     const res = await app.request("/settings/expense-categories", {
@@ -890,6 +919,26 @@ describe("POST /settings/expense-categories", () => {
 // ────────────────────────────
 
 describe("PATCH /settings/expense-categories/:categoryId", () => {
+  it("同じ名前がすでにある（P2002）: 409 CONFLICTを返す", async () => {
+    vi.mocked(prisma.expenseCategory.findUnique).mockResolvedValue({
+      id: "cat-1",
+      orgId: "org-1",
+    } as never);
+    vi.mocked(prisma.expenseCategory.update).mockRejectedValue(uniqueConstraintError());
+    const app = createTestApp(makeMember(["finance"]));
+    const res = await app.request("/settings/expense-categories/cat-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "練習会場費" }),
+    });
+    expect(res.status).toBe(409);
+    const json_ = await json(res);
+    expect(json_.error).toEqual({
+      code: "CONFLICT",
+      message: "同じ名前のカテゴリがすでにあります",
+    });
+  });
+
   it("finance未満: 403を返す", async () => {
     const app = createTestApp(makeMember(["member"]));
     const res = await app.request("/settings/expense-categories/cat-1", {
@@ -1071,6 +1120,20 @@ describe("GET /settings/member-types", () => {
 // ────────────────────────────
 
 describe("POST /settings/member-types", () => {
+  it("同じ名前がすでにある（P2002）: 409 CONFLICTを返す", async () => {
+    vi.mocked(prisma.memberType.aggregate).mockResolvedValue({ _max: { sortOrder: 1 } } as never);
+    vi.mocked(prisma.memberType.create).mockRejectedValue(uniqueConstraintError());
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/member-types", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "OB" }),
+    });
+    expect(res.status).toBe(409);
+    const json_ = await json(res);
+    expect(json_.error).toEqual({ code: "CONFLICT", message: "同じ名前の区分がすでにあります" });
+  });
+
   it("admin未満: 403を返す", async () => {
     const app = createTestApp(makeMember(["member"]));
     const res = await app.request("/settings/member-types", {
@@ -1159,6 +1222,23 @@ describe("POST /settings/member-types", () => {
 // ────────────────────────────
 
 describe("PATCH /settings/member-types/:typeId", () => {
+  it("同じ名前がすでにある（P2002）: 409 CONFLICTを返す", async () => {
+    vi.mocked(prisma.memberType.findUnique).mockResolvedValue({
+      id: "type-1",
+      orgId: "org-1",
+    } as never);
+    vi.mocked(prisma.memberType.update).mockRejectedValue(uniqueConstraintError());
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/member-types/type-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "OB" }),
+    });
+    expect(res.status).toBe(409);
+    const json_ = await json(res);
+    expect(json_.error).toEqual({ code: "CONFLICT", message: "同じ名前の区分がすでにあります" });
+  });
+
   it("admin未満: 403を返す", async () => {
     const app = createTestApp(makeMember(["member"]));
     const res = await app.request("/settings/member-types/type-1", {
@@ -1353,6 +1433,22 @@ describe("GET /settings/event-categories", () => {
 // ────────────────────────────
 
 describe("POST /settings/event-categories", () => {
+  it("同じ名前がすでにある（P2002）: 409 CONFLICTを返す", async () => {
+    vi.mocked(prisma.eventCategory.aggregate).mockResolvedValue({
+      _max: { sortOrder: 1 },
+    } as never);
+    vi.mocked(prisma.eventCategory.create).mockRejectedValue(uniqueConstraintError());
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/event-categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "練習" }),
+    });
+    expect(res.status).toBe(409);
+    const json_ = await json(res);
+    expect(json_.error).toEqual({ code: "CONFLICT", message: "同じ名前の区分がすでにあります" });
+  });
+
   it("admin未満: 403を返す", async () => {
     const app = createTestApp(makeMember(["member"]));
     const res = await app.request("/settings/event-categories", {
@@ -1456,6 +1552,23 @@ describe("POST /settings/event-categories", () => {
 // ────────────────────────────
 
 describe("PATCH /settings/event-categories/:categoryId", () => {
+  it("同じ名前がすでにある（P2002）: 409 CONFLICTを返す", async () => {
+    vi.mocked(prisma.eventCategory.findUnique).mockResolvedValue({
+      id: "cat-1",
+      orgId: "org-1",
+    } as never);
+    vi.mocked(prisma.eventCategory.update).mockRejectedValue(uniqueConstraintError());
+    const app = createTestApp(makeMember(["admin"]));
+    const res = await app.request("/settings/event-categories/cat-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "練習" }),
+    });
+    expect(res.status).toBe(409);
+    const json_ = await json(res);
+    expect(json_.error).toEqual({ code: "CONFLICT", message: "同じ名前の区分がすでにあります" });
+  });
+
   it("admin未満: 403を返す", async () => {
     const app = createTestApp(makeMember(["member"]));
     const res = await app.request("/settings/event-categories/cat-1", {

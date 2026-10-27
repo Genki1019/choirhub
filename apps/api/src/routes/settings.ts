@@ -3,6 +3,12 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { randomUUID } from "crypto";
 import { prisma } from "../lib/prisma.js";
+import {
+  Prisma,
+  type EventCategory,
+  type ExpenseCategory,
+  type MemberType,
+} from "../generated/prisma/index.js";
 import { isAdmin, isFinancePlus, isMemberPlus, isVisitor } from "../services/access.js";
 import { sendOrgDeletedEmail } from "../services/mail.js";
 import { getPurgeScheduledAt, isProtectedOrg } from "../services/org-deletion.js";
@@ -11,6 +17,14 @@ import { checkOrgDeleteRateLimit, clearOrgDeleteRateLimit } from "../lib/redis.j
 import { logger } from "../lib/logger.js";
 import { diffChanges, memberActor, recordAudit } from "../services/audit.js";
 import type { TenantEnv } from "../middleware/tenant.js";
+
+function isUniqueViolation(e: unknown): boolean {
+  return e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002";
+}
+
+function duplicateNameError(label: string) {
+  return { code: "CONFLICT", message: `同じ名前の${label}がすでにあります` };
+}
 
 export const settingsRouter = new Hono<TenantEnv>()
 
@@ -428,9 +442,15 @@ export const settingsRouter = new Hono<TenantEnv>()
       });
       const order = sortOrder ?? (maxOrder._max.sortOrder ?? 0) + 1;
 
-      const cat = await prisma.expenseCategory.create({
-        data: { orgId: org.id, name, sortOrder: order },
-      });
+      let cat: ExpenseCategory;
+      try {
+        cat = await prisma.expenseCategory.create({
+          data: { orgId: org.id, name, sortOrder: order },
+        });
+      } catch (e) {
+        if (isUniqueViolation(e)) return c.json({ error: duplicateNameError("カテゴリ") }, 409);
+        throw e;
+      }
 
       return c.json({ data: { id: cat.id, name: cat.name, sortOrder: cat.sortOrder } }, 201);
     },
@@ -465,10 +485,16 @@ export const settingsRouter = new Hono<TenantEnv>()
         return c.json({ error: { code: "NOT_FOUND", message: "カテゴリが見つかりません" } }, 404);
       }
 
-      const updated = await prisma.expenseCategory.update({
-        where: { id: categoryId },
-        data: c.req.valid("json"),
-      });
+      let updated: ExpenseCategory;
+      try {
+        updated = await prisma.expenseCategory.update({
+          where: { id: categoryId },
+          data: c.req.valid("json"),
+        });
+      } catch (e) {
+        if (isUniqueViolation(e)) return c.json({ error: duplicateNameError("カテゴリ") }, 409);
+        throw e;
+      }
 
       return c.json({ data: { id: updated.id, name: updated.name, sortOrder: updated.sortOrder } });
     },
@@ -560,9 +586,20 @@ export const settingsRouter = new Hono<TenantEnv>()
       });
       const order = sortOrder ?? (maxOrder._max.sortOrder ?? 0) + 1;
 
-      const created = await prisma.memberType.create({
-        data: { orgId: org.id, name, defaultFeeAmount: defaultFeeAmount ?? null, sortOrder: order },
-      });
+      let created: MemberType;
+      try {
+        created = await prisma.memberType.create({
+          data: {
+            orgId: org.id,
+            name,
+            defaultFeeAmount: defaultFeeAmount ?? null,
+            sortOrder: order,
+          },
+        });
+      } catch (e) {
+        if (isUniqueViolation(e)) return c.json({ error: duplicateNameError("区分") }, 409);
+        throw e;
+      }
 
       return c.json(
         {
@@ -608,10 +645,16 @@ export const settingsRouter = new Hono<TenantEnv>()
         return c.json({ error: { code: "NOT_FOUND", message: "区分が見つかりません" } }, 404);
       }
 
-      const updated = await prisma.memberType.update({
-        where: { id: typeId },
-        data: c.req.valid("json"),
-      });
+      let updated: MemberType;
+      try {
+        updated = await prisma.memberType.update({
+          where: { id: typeId },
+          data: c.req.valid("json"),
+        });
+      } catch (e) {
+        if (isUniqueViolation(e)) return c.json({ error: duplicateNameError("区分") }, 409);
+        throw e;
+      }
 
       return c.json({
         data: {
@@ -714,9 +757,15 @@ export const settingsRouter = new Hono<TenantEnv>()
       });
       const order = sortOrder ?? (maxOrder._max.sortOrder ?? 0) + 1;
 
-      const cat = await prisma.eventCategory.create({
-        data: { orgId: org.id, name, color: color ?? "#6B7280", sortOrder: order },
-      });
+      let cat: EventCategory;
+      try {
+        cat = await prisma.eventCategory.create({
+          data: { orgId: org.id, name, color: color ?? "#6B7280", sortOrder: order },
+        });
+      } catch (e) {
+        if (isUniqueViolation(e)) return c.json({ error: duplicateNameError("区分") }, 409);
+        throw e;
+      }
 
       return c.json(
         {
@@ -766,10 +815,16 @@ export const settingsRouter = new Hono<TenantEnv>()
         return c.json({ error: { code: "NOT_FOUND", message: "区分が見つかりません" } }, 404);
       }
 
-      const updated = await prisma.eventCategory.update({
-        where: { id: categoryId },
-        data: c.req.valid("json"),
-      });
+      let updated: EventCategory;
+      try {
+        updated = await prisma.eventCategory.update({
+          where: { id: categoryId },
+          data: c.req.valid("json"),
+        });
+      } catch (e) {
+        if (isUniqueViolation(e)) return c.json({ error: duplicateNameError("区分") }, 409);
+        throw e;
+      }
 
       return c.json({
         data: {

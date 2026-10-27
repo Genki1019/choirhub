@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Music, Loader2 } from "lucide-react";
-import { authApi, type InviteInfo } from "@/lib/auth-api";
+import { authApi, ApiClientError, type InviteInfo } from "@/lib/auth-api";
 import { InviteForm } from "./_components/InviteForm";
 import { ErrorMessage } from "@/components/ErrorMessage";
 
@@ -17,8 +17,12 @@ export default function InviteAcceptPage() {
     authApi
       .getInvite(token)
       .then((data) => setInvite(data))
-      .catch(() =>
-        setLoadError("招待リンクが無効または期限切れです。管理者に再発行を依頼してください。"),
+      .catch((err: unknown) =>
+        setLoadError(
+          err instanceof ApiClientError && err.status === 404
+            ? "招待リンクが無効または期限切れです。管理者に再発行を依頼してください。"
+            : "読み込みに失敗しました。ページを再読み込みしてください。",
+        ),
       );
   }, [token]);
 

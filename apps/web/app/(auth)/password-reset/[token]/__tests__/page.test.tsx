@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import PasswordResetConfirmPage from "../page";
 import { authApi, ApiClientError } from "@/lib/auth-api";
@@ -34,18 +34,28 @@ describe("PasswordResetConfirmPage（読み込み）", () => {
     expect(container.querySelector(".animate-spin")).toBeInTheDocument();
   });
 
-  it("トークンが無効な場合はエラーメッセージと再申請リンクを表示する", async () => {
-    vi.mocked(authApi.getPasswordResetToken).mockRejectedValue(new Error("not found"));
+  it("トークンが無効（404）な場合は理由を読み上げ、再申請リンクを表示する", async () => {
+    vi.mocked(authApi.getPasswordResetToken).mockRejectedValue(
+      new ApiClientError("NOT_FOUND", "リンクの有効期限が切れています", 404),
+    );
     render(<PasswordResetConfirmPage />);
 
-    await waitFor(() => {
-      expect(
-        screen.getByText(
-          "リンクが無効または期限切れです。もう一度パスワードリセットを申請してください。",
-        ),
-      ).toBeInTheDocument();
-    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "リンクが無効または期限切れです。もう一度パスワードリセットを申請してください。",
+    );
     expect(screen.getByText("再申請する").closest("a")).toHaveAttribute("href", "/password-reset");
+  });
+
+  it("トークンの確認が通信・サーバーの失敗なら「無効」と言わず、再申請リンクも出さない", async () => {
+    vi.mocked(authApi.getPasswordResetToken).mockRejectedValue(
+      new ApiClientError("UNKNOWN", "", 500),
+    );
+    render(<PasswordResetConfirmPage />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+    expect(screen.queryByText("再申請する")).not.toBeInTheDocument();
   });
 
   it("トークンが有効な場合はメールアドレスとフォームを表示する", async () => {

@@ -21,9 +21,11 @@ export default function EmailChangeConfirmPage() {
     authApi
       .getEmailChangeToken(token)
       .then((data) => setNewEmail(data.newEmail))
-      .catch(() =>
+      .catch((err: unknown) =>
         setLoadError(
-          "リンクが無効または期限切れです。もう一度メールアドレス変更を申請してください。",
+          err instanceof ApiClientError && err.status === 404
+            ? "リンクが無効または期限切れです。もう一度メールアドレス変更を申請してください。"
+            : "読み込みに失敗しました。ページを再読み込みしてください。",
         ),
       );
   }, [token]);

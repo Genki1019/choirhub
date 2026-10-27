@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import InviteAcceptPage from "../page";
-import { authApi } from "@/lib/auth-api";
+import { authApi, ApiClientError } from "@/lib/auth-api";
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ token: "test-token" }),
@@ -45,14 +45,23 @@ describe("InviteAcceptPage", () => {
     expect(screen.getByText("user@example.com")).toBeInTheDocument();
   });
 
-  it("招待情報の取得に失敗したらエラーメッセージを表示する", async () => {
-    vi.mocked(authApi.getInvite).mockRejectedValue(new Error("not found"));
+  it("招待リンクが無効（404）なら理由を読み上げる", async () => {
+    vi.mocked(authApi.getInvite).mockRejectedValue(
+      new ApiClientError("NOT_FOUND", "招待リンクの有効期限が切れています", 404),
+    );
     render(<InviteAcceptPage />);
 
-    await waitFor(() => {
-      expect(
-        screen.getByText("招待リンクが無効または期限切れです。管理者に再発行を依頼してください。"),
-      ).toBeInTheDocument();
-    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "招待リンクが無効または期限切れです。管理者に再発行を依頼してください。",
+    );
+  });
+
+  it("招待情報の取得が通信・サーバーの失敗なら「無効」と言わずに再読み込みを案内する", async () => {
+    vi.mocked(authApi.getInvite).mockRejectedValue(new ApiClientError("UNKNOWN", "", 503));
+    render(<InviteAcceptPage />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "読み込みに失敗しました。ページを再読み込みしてください。",
+    );
   });
 });

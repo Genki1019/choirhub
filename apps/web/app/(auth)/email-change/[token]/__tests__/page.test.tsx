@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import EmailChangeConfirmPage from "../page";
 import { authApi, ApiClientError } from "@/lib/auth-api";
@@ -34,17 +34,24 @@ describe("EmailChangeConfirmPage（読み込み）", () => {
     expect(container.querySelector(".animate-spin")).toBeInTheDocument();
   });
 
-  it("トークンが無効な場合はエラーメッセージを表示する", async () => {
-    vi.mocked(authApi.getEmailChangeToken).mockRejectedValue(new Error("not found"));
+  it("トークンが無効（404）な場合は理由を読み上げる", async () => {
+    vi.mocked(authApi.getEmailChangeToken).mockRejectedValue(
+      new ApiClientError("NOT_FOUND", "リンクの有効期限が切れています", 404),
+    );
     render(<EmailChangeConfirmPage />);
 
-    await waitFor(() => {
-      expect(
-        screen.getByText(
-          "リンクが無効または期限切れです。もう一度メールアドレス変更を申請してください。",
-        ),
-      ).toBeInTheDocument();
-    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "リンクが無効または期限切れです。もう一度メールアドレス変更を申請してください。",
+    );
+  });
+
+  it("トークンの確認が通信・サーバーの失敗なら「無効」と言わずに再読み込みを案内する", async () => {
+    vi.mocked(authApi.getEmailChangeToken).mockRejectedValue(new TypeError("Failed to fetch"));
+    render(<EmailChangeConfirmPage />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "読み込みに失敗しました。ページを再読み込みしてください。",
+    );
   });
 
   it("トークンが有効な場合は変更先メールアドレスと確認ボタンを表示する", async () => {

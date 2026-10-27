@@ -20,6 +20,7 @@ export default function PasswordResetConfirmPage() {
 
   const [email, setEmail] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [linkInvalid, setLinkInvalid] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -27,11 +28,16 @@ export default function PasswordResetConfirmPage() {
     authApi
       .getPasswordResetToken(token)
       .then((data) => setEmail(data.email))
-      .catch(() =>
-        setLoadError(
-          "リンクが無効または期限切れです。もう一度パスワードリセットを申請してください。",
-        ),
-      );
+      .catch((err: unknown) => {
+        if (err instanceof ApiClientError && err.status === 404) {
+          setLinkInvalid(true);
+          setLoadError(
+            "リンクが無効または期限切れです。もう一度パスワードリセットを申請してください。",
+          );
+        } else {
+          setLoadError("読み込みに失敗しました。ページを再読み込みしてください。");
+        }
+      });
   }, [token]);
 
   const {
@@ -68,12 +74,14 @@ export default function PasswordResetConfirmPage() {
         {loadError && (
           <div className="space-y-4 rounded-2xl border border-gray-200 bg-white px-8 py-8 text-center">
             <ErrorMessage autoScroll={false}>{loadError}</ErrorMessage>
-            <Link
-              href="/password-reset"
-              className="bg-brand-600 hover:bg-brand-700 block w-full rounded-lg py-2.5 text-center text-sm font-medium text-white transition"
-            >
-              再申請する
-            </Link>
+            {linkInvalid && (
+              <Link
+                href="/password-reset"
+                className="bg-brand-600 hover:bg-brand-700 block w-full rounded-lg py-2.5 text-center text-sm font-medium text-white transition"
+              >
+                再申請する
+              </Link>
+            )}
           </div>
         )}
 

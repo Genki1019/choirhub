@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { ApiClientError } from "@/lib/api-client";
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import MemberTypesPage from "../page";
@@ -42,6 +43,18 @@ beforeEach(() => {
 });
 
 describe("MemberTypesPage", () => {
+  it("読み込みに失敗したら理由を読み上げ、空の一覧やフォームは出さない", async () => {
+    vi.mocked(settingsApi.listMemberTypes).mockRejectedValue(
+      new ApiClientError("UNKNOWN", "", 500),
+    );
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "メンバー区分の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+    expect(screen.queryByRole("button", { name: /追加/ })).not.toBeInTheDocument();
+  });
+
   it("区分一覧を表示する", async () => {
     vi.mocked(settingsApi.listMemberTypes).mockResolvedValue(makeTypes());
     renderPage();

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { ApiClientError } from "@/lib/api-client";
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import FeeSettingsPage from "../page";
@@ -33,6 +34,16 @@ beforeEach(() => {
 });
 
 describe("FeeSettingsPage", () => {
+  it("読み込みに失敗したら理由を読み上げ、空の一覧やフォームは出さない", async () => {
+    vi.mocked(settingsApi.getFee).mockRejectedValue(new ApiClientError("UNKNOWN", "", 500));
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "会費設定の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+    expect(screen.queryByRole("button", { name: /保存する/ })).not.toBeInTheDocument();
+  });
+
   it("データ取得中は「読み込み中...」を表示する", () => {
     vi.mocked(settingsApi.getFee).mockReturnValue(new Promise(() => {}));
     renderPage();

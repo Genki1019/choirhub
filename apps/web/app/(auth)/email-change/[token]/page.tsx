@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Music, Loader2, CheckCircle } from "lucide-react";
 import { authApi, ApiClientError } from "@/lib/auth-api";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 export default function EmailChangeConfirmPage() {
   const { token } = useParams<{ token: string }>();
@@ -59,7 +60,7 @@ export default function EmailChangeConfirmPage() {
 
         {loadError && (
           <div className="space-y-4 rounded-2xl border border-gray-200 bg-white px-8 py-8 text-center">
-            <p className="text-sm text-red-600">{loadError}</p>
+            <ErrorMessage autoScroll={false}>{loadError}</ErrorMessage>
           </div>
         )}
 
@@ -98,11 +99,7 @@ export default function EmailChangeConfirmPage() {
               </p>
             </div>
 
-            {confirmError && (
-              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-                {confirmError}
-              </p>
-            )}
+            <ErrorMessage>{confirmError}</ErrorMessage>
 
             <button
               type="button"

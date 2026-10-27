@@ -169,9 +169,9 @@ describe("AdminPage（承認・却下）", () => {
     ).toBeInTheDocument();
   });
 
-  it("承認が409（スラグ重複）で失敗した場合は専用メッセージを表示する", async () => {
+  it("承認が409（スラグ重複）で失敗した場合はAPIの理由を読み上げる", async () => {
     vi.mocked(orgApplicationsApi.approve).mockRejectedValue(
-      new ApiClientError("CONFLICT", "conflict", 409),
+      new ApiClientError("CONFLICT", "このスラグはすでに使用されています", 409),
     );
     const user = userEvent.setup();
     renderPage();
@@ -179,7 +179,22 @@ describe("AdminPage（承認・却下）", () => {
     await screen.findByText("○○混声合唱団");
     await user.click(screen.getByLabelText("承認"));
 
-    expect(await screen.findByText("このスラグはすでに使用されています")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "このスラグはすでに使用されています",
+    );
+  });
+
+  it("承認が409（ほかの管理者が処理済み）で失敗した場合は、スラグの重複と言わずにAPIの理由を出す", async () => {
+    vi.mocked(orgApplicationsApi.approve).mockRejectedValue(
+      new ApiClientError("CONFLICT", "既に処理済みの申請です", 409),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("○○混声合唱団");
+    await user.click(screen.getByLabelText("承認"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("既に処理済みの申請です");
   });
 
   it("却下をクリックするとrejectが呼ばれ一覧から消える", async () => {
@@ -227,11 +242,11 @@ describe("AdminPage（承認・却下）", () => {
     await user.click(screen.getByRole("button", { name: "却下する" }));
 
     expect(await within(screen.getByRole("alertdialog")).findByRole("alert")).toHaveTextContent(
-      "操作に失敗しました。もう一度お試しください。",
+      "却下に失敗しました。もう一度お試しください。",
     );
   });
 
-  it("操作失敗時はエラーメッセージを表示する", async () => {
+  it("承認の失敗が通信エラーなら代わりの文言を読み上げる", async () => {
     vi.mocked(orgApplicationsApi.approve).mockRejectedValue(new Error("network error"));
     const user = userEvent.setup();
     renderPage();
@@ -239,9 +254,9 @@ describe("AdminPage（承認・却下）", () => {
     await screen.findByText("○○混声合唱団");
     await user.click(screen.getByLabelText("承認"));
 
-    expect(
-      await screen.findByText("操作に失敗しました。もう一度お試しください。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "承認に失敗しました。もう一度お試しください。",
+    );
   });
 });
 

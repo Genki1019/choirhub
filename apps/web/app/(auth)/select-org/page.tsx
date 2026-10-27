@@ -6,6 +6,7 @@ import { Music, ChevronRight, Loader2, Users, Plus, X } from "lucide-react";
 import { authApi, ApiClientError } from "@/lib/auth-api";
 import { ROLE_LABELS } from "@/lib/roles";
 import { OrgApplicationForm } from "@/components/OrgApplicationForm";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 const STATUS_LABELS: Record<string, { label: string; dot: string }> = {
   active: { label: "在団", dot: "bg-teal-400" },
@@ -80,9 +81,10 @@ export default function SelectOrgPage() {
           </div>
 
           {loadError ? (
-            <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
-              <Users size={32} className="mb-1 text-gray-200" />
-              <p className="text-sm font-medium text-red-600">{loadError}</p>
+            <div className="px-6 py-10">
+              <ErrorMessage variant="section" autoScroll={false}>
+                {loadError}
+              </ErrorMessage>
             </div>
           ) : orgs.length === 0 ? (
             <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">

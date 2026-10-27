@@ -8,6 +8,7 @@ import { Loader2 } from "lucide-react";
 import { inquiriesApi, INQUIRY_CATEGORY_OPTIONS, type InquiryCategory } from "@/lib/inquiries-api";
 import { ApiClientError } from "@/lib/api-client";
 import { inquirySchema, type InquiryInput } from "@/lib/schemas";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 const INPUT_CLS =
   "focus:ring-brand-500 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:outline-none";
@@ -114,14 +115,7 @@ export function InquiryForm({ initialCategory = "other" }: InquiryFormProps) {
         に従って取り扱います。
       </p>
 
-      {errors.root && (
-        <p
-          role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600"
-        >
-          {errors.root.message}
-        </p>
-      )}
+      <ErrorMessage>{errors.root?.message}</ErrorMessage>
 
       <button
         type="submit"

@@ -7,6 +7,7 @@ import { AdminListSection } from "./AdminListSection";
 import { deletedOrgsApi, type DeletedOrg } from "@/lib/deleted-orgs-api";
 import { deletedOrgKeys } from "@/lib/query-keys";
 import { formatShortDate } from "@/lib/date";
+import { userErrorMessage } from "@/lib/api-client";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -35,8 +36,8 @@ export function DeletedOrgsSection() {
       queryClient.setQueryData<DeletedOrg[]>(deletedOrgKeys.list(), (prev) =>
         prev?.filter((o) => o.id !== org.id),
       );
-    } catch {
-      setActionError("復元に失敗しました。もう一度お試しください。");
+    } catch (err) {
+      setActionError(userErrorMessage(err, "復元に失敗しました。もう一度お試しください。"));
     } finally {
       setRestoringId(null);
     }

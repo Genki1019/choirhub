@@ -7,6 +7,7 @@ import { AdminListSection } from "./AdminListSection";
 import { inquiriesApi, INQUIRY_CATEGORY_LABELS, type Inquiry } from "@/lib/inquiries-api";
 import { inquiryKeys } from "@/lib/query-keys";
 import { formatShortDate } from "@/lib/date";
+import { userErrorMessage } from "@/lib/api-client";
 
 export function InquiriesSection() {
   const queryClient = useQueryClient();
@@ -29,8 +30,8 @@ export function InquiriesSection() {
       queryClient.setQueryData<Inquiry[]>(inquiryKeys.open(), (prev) =>
         prev?.filter((i) => i.id !== inquiry.id),
       );
-    } catch {
-      setActionError("更新に失敗しました。もう一度お試しください。");
+    } catch (err) {
+      setActionError(userErrorMessage(err, "対応済みにできませんでした。もう一度お試しください。"));
     } finally {
       setResolvingId(null);
     }

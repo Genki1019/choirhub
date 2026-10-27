@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { ApiClientError } from "@/lib/api-client";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -75,6 +76,21 @@ describe("InquiriesSection", () => {
     expect(await screen.findByText("未対応のお問い合わせはありません")).toBeInTheDocument();
   });
 
+  it("ほかの管理者が先に対応済みにしていたら（409）APIの理由を出す", async () => {
+    vi.mocked(inquiriesApi.listOpen).mockResolvedValue([inquiry]);
+    vi.mocked(inquiriesApi.resolve).mockRejectedValue(
+      new ApiClientError("CONFLICT", "既に対応済みです", 409),
+    );
+    const user = userEvent.setup();
+    renderSection();
+
+    await user.click(
+      await screen.findByRole("button", { name: "山田 太郎さんのお問い合わせを対応済みにする" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("既に対応済みです");
+  });
+
   it("更新に失敗した場合はエラーを表示し、一覧に残す", async () => {
     vi.mocked(inquiriesApi.listOpen).mockResolvedValue([inquiry]);
     vi.mocked(inquiriesApi.resolve).mockRejectedValue(new Error("failed"));
@@ -85,7 +101,9 @@ describe("InquiriesSection", () => {
       await screen.findByRole("button", { name: "山田 太郎さんのお問い合わせを対応済みにする" }),
     );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("更新に失敗しました");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "対応済みにできませんでした。もう一度お試しください。",
+    );
     expect(screen.getByText("山田 太郎（yamada@example.com）")).toBeInTheDocument();
   });
 

@@ -8,7 +8,8 @@ import {
   PART_TEMPLATE_LABELS,
   type OrgApplication,
 } from "@/lib/org-applications-api";
-import { ApiClientError } from "@/lib/auth-api";
+import { userErrorMessage } from "@/lib/api-client";
+import { ErrorMessage } from "@/components/ErrorMessage";
 import { orgApplicationKeys } from "@/lib/query-keys";
 import { OrgApplicationForm } from "@/components/OrgApplicationForm";
 import { SLUG_REGEX, sanitizeSlug } from "@/lib/slug";
@@ -58,13 +59,7 @@ export default function AdminPage() {
       await orgApplicationsApi.approve(id, slug);
       removeFromList(id);
     } catch (err) {
-      if (err instanceof ApiClientError && err.status === 409) {
-        setActionError("このスラグはすでに使用されています");
-      } else if (err instanceof ApiClientError && err.status === 400) {
-        setActionError(err.message);
-      } else {
-        setActionError("操作に失敗しました。もう一度お試しください。");
-      }
+      setActionError(userErrorMessage(err, "承認に失敗しました。もう一度お試しください。"));
     } finally {
       setProcessing(null);
     }
@@ -77,8 +72,8 @@ export default function AdminPage() {
       await orgApplicationsApi.reject(id);
       removeFromList(id);
       setConfirmReject(null);
-    } catch {
-      setRejectError("操作に失敗しました。もう一度お試しください。");
+    } catch (err) {
+      setRejectError(userErrorMessage(err, "却下に失敗しました。もう一度お試しください。"));
     } finally {
       setProcessing(null);
     }
@@ -127,15 +122,11 @@ export default function AdminPage() {
       <h1 className="mb-4 text-lg font-semibold text-gray-800">団体作成の申請</h1>
 
       {isError && (
-        <p className="mb-4 text-sm text-red-600">
+        <ErrorMessage variant="section" autoScroll={false} className="mb-4">
           申請一覧の取得に失敗しました。しばらくしてから再度お試しください。
-        </p>
+        </ErrorMessage>
       )}
-      {actionError && (
-        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-          {actionError}
-        </p>
-      )}
+      <ErrorMessage className="mb-4">{actionError}</ErrorMessage>
 
       {!isError && applications.length === 0 ? (
         <p className="py-16 text-center text-sm text-gray-400">保留中の申請はありません</p>

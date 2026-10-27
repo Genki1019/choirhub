@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { Music, Loader2 } from "lucide-react";
 import { authApi, type InviteInfo } from "@/lib/auth-api";
 import { InviteForm } from "./_components/InviteForm";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 export default function InviteAcceptPage() {
   const { token } = useParams<{ token: string }>();
@@ -34,7 +35,7 @@ export default function InviteAcceptPage() {
 
         {loadError && (
           <div className="space-y-4 rounded-2xl border border-gray-200 bg-white px-8 py-8 text-center">
-            <p className="text-sm text-red-600">{loadError}</p>
+            <ErrorMessage autoScroll={false}>{loadError}</ErrorMessage>
           </div>
         )}
 

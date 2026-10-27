@@ -90,9 +90,9 @@ describe("EmailChangeConfirmPage（確定）", () => {
     await screen.findByText("new@example.com");
     await user.click(screen.getByText("このメールアドレスに変更する"));
 
-    expect(
-      await screen.findByText("このメールアドレスは既に使用されています。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "このメールアドレスは既に使用されています。",
+    );
   });
 
   it("404エラー時はリンク無効メッセージを表示する", async () => {
@@ -105,9 +105,9 @@ describe("EmailChangeConfirmPage（確定）", () => {
     await screen.findByText("new@example.com");
     await user.click(screen.getByText("このメールアドレスに変更する"));
 
-    expect(
-      await screen.findByText("リンクが無効または期限切れです。もう一度申請してください。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "リンクが無効または期限切れです。もう一度申請してください。",
+    );
   });
 
   it("その他のエラー時は汎用メッセージを表示する", async () => {
@@ -118,8 +118,8 @@ describe("EmailChangeConfirmPage（確定）", () => {
     await screen.findByText("new@example.com");
     await user.click(screen.getByText("このメールアドレスに変更する"));
 
-    expect(
-      await screen.findByText("メールアドレスの変更に失敗しました。しばらく後でお試しください。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "メールアドレスの変更に失敗しました。しばらく後でお試しください。",
+    );
   });
 });

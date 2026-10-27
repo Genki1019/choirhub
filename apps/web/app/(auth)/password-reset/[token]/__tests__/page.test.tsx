@@ -134,9 +134,9 @@ describe("PasswordResetConfirmPage（バリデーション・送信）", () => {
     await user.type(screen.getByLabelText("パスワード（確認）"), "password123");
     await user.click(screen.getByText("パスワードを変更する"));
 
-    expect(
-      await screen.findByText("リンクが無効または期限切れです。もう一度申請してください。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "リンクが無効または期限切れです。もう一度申請してください。",
+    );
   });
 
   it("404以外のエラー時は汎用メッセージを表示する", async () => {
@@ -149,8 +149,8 @@ describe("PasswordResetConfirmPage（バリデーション・送信）", () => {
     await user.type(screen.getByLabelText("パスワード（確認）"), "password123");
     await user.click(screen.getByText("パスワードを変更する"));
 
-    expect(
-      await screen.findByText("パスワードの変更に失敗しました。しばらく後でお試しください。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "パスワードの変更に失敗しました。しばらく後でお試しください。",
+    );
   });
 });

@@ -13,6 +13,7 @@ import {
   type InviteAcceptExistingUserInput,
 } from "@/lib/schemas";
 import { TermsConsentNote } from "@/components/TermsConsentNote";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 const INPUT_CLS =
   "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition";
@@ -92,11 +93,7 @@ function InviteFormShell({
     >
       {children}
 
-      {rootError && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-          {rootError}
-        </p>
-      )}
+      <ErrorMessage>{rootError}</ErrorMessage>
 
       <button
         type="submit"

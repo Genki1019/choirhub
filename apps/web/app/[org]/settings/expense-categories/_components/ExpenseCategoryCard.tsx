@@ -98,7 +98,6 @@ interface ExpenseCategoryCardProps {
   onDeleted: (id: string) => void;
   onCreated: (created: ExpenseCategory) => void;
   onReordered: (reordered: ExpenseCategory[]) => void;
-  onToast: (msg: string) => void;
 }
 
 export function ExpenseCategoryCard({
@@ -108,9 +107,9 @@ export function ExpenseCategoryCard({
   onDeleted,
   onCreated,
   onReordered,
-  onToast,
 }: ExpenseCategoryCardProps) {
   const [showAdd, setShowAdd] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const { busy, setBusy, runBusy } = useBusy();
   const [confirmTarget, setConfirmTarget] = useState<ExpenseCategory | null>(null);
@@ -137,12 +136,13 @@ export function ExpenseCategoryCard({
     items: cats,
     onReordered,
     persistOne: (c) => settingsApi.updateExpenseCategory(org, c.id, { sortOrder: c.sortOrder }),
-    onError: onToast,
+    onError: setError,
     setBusy,
   });
 
   const addCategory = async () => {
     if (busy || !newName.trim()) return;
+    setError(null);
     try {
       const created = await runBusy(() =>
         settingsApi.createExpenseCategory(org, { name: newName.trim() }),
@@ -150,8 +150,9 @@ export function ExpenseCategoryCard({
       onCreated(created);
       setNewName("");
       setShowAdd(false);
-    } catch {
-      onToast("追加に失敗しました");
+      setError(null);
+    } catch (err) {
+      setError(userErrorMessage(err, "カテゴリの追加に失敗しました。もう一度お試しください。"));
     }
   };
 
@@ -161,7 +162,10 @@ export function ExpenseCategoryCard({
         <p className="text-sm font-semibold text-gray-700">支出カテゴリ</p>
         <button
           type="button"
-          onClick={() => setShowAdd(true)}
+          onClick={() => {
+            setError(null);
+            setShowAdd(true);
+          }}
           disabled={busy}
           className="text-brand-600 hover:text-brand-700 flex items-center gap-1 text-xs font-medium transition-colors disabled:opacity-40"
         >
@@ -196,6 +200,7 @@ export function ExpenseCategoryCard({
                       onUpdated={onUpdated}
                       onDeleteClick={() => {
                         setDeleteError(null);
+                        setError(null);
                         setConfirmTarget(cat);
                       }}
                     />
@@ -221,6 +226,7 @@ export function ExpenseCategoryCard({
               if (e.key === "Enter") addCategory();
               if (e.key === "Escape") {
                 setShowAdd(false);
+                setError(null);
                 setNewName("");
               }
             }}
@@ -230,8 +236,8 @@ export function ExpenseCategoryCard({
           <button
             type="button"
             onClick={addCategory}
-            disabled={busy}
-            className="bg-brand-600 hover:bg-brand-700 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-60"
+            aria-disabled={busy}
+            className="bg-brand-600 hover:bg-brand-700 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors aria-disabled:opacity-60"
           >
             {busy ? <Loader2 size={12} className="animate-spin" /> : "追加"}
           </button>
@@ -239,6 +245,7 @@ export function ExpenseCategoryCard({
             type="button"
             onClick={() => {
               setShowAdd(false);
+              setError(null);
               setNewName("");
             }}
             className="p-1.5 text-gray-400 transition-colors hover:text-gray-600"
@@ -247,6 +254,7 @@ export function ExpenseCategoryCard({
           </button>
         </div>
       )}
+      <ErrorMessage className="mx-5 my-3">{error}</ErrorMessage>
       {confirmTarget && (
         <ConfirmDialog
           title="支出の区分を削除しますか？"

@@ -115,7 +115,7 @@ interface CategoryListProps {
   onUpdated: (updated: EventCategory) => void;
   onDeleted: (id: string) => void;
   onReordered: (reordered: EventCategory[]) => void;
-  onError: (msg: string) => void;
+  onError: (msg: string | null) => void;
 }
 
 export function CategoryList({

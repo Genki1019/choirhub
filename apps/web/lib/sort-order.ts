@@ -1,5 +1,6 @@
 import type { DragEndEvent } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
+import { userErrorMessage } from "./api-client";
 
 export function computeSortOrderPatches<T extends { id: string; sortOrder: number }>(
   before: T[],
@@ -43,7 +44,7 @@ export function createSortDragEndHandler<T extends { id: string; sortOrder: numb
   items: T[];
   onReordered: (items: T[]) => void;
   persistOne: (item: T) => Promise<unknown>;
-  onError: (msg: string) => void;
+  onError: (msg: string | null) => void;
   setBusy: (busy: boolean) => void;
 }) {
   return async (event: DragEndEvent) => {
@@ -53,12 +54,13 @@ export function createSortDragEndHandler<T extends { id: string; sortOrder: numb
     const reindexed = moved.map((item, i) => ({ ...item, sortOrder: i + 1 }));
     const changed = computeSortOrderPatches(items, reindexed);
     onReordered(reindexed);
+    onError(null);
     setBusy(true);
     try {
       await Promise.all(changed.map(persistOne));
-    } catch {
+    } catch (err) {
       onReordered(snapshot);
-      onError("並び替えに失敗しました");
+      onError(userErrorMessage(err, "並び替えに失敗しました。もう一度お試しください。"));
     } finally {
       setBusy(false);
     }

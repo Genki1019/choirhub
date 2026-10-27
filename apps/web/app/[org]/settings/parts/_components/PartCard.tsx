@@ -101,7 +101,6 @@ interface PartCardProps {
   onDeleted: (id: string) => void;
   onCreated: (created: PartSummary) => void;
   onReordered: (reordered: PartSummary[]) => void;
-  onToast: (msg: string) => void;
 }
 
 export function PartCard({
@@ -112,13 +111,13 @@ export function PartCard({
   onDeleted,
   onCreated,
   onReordered,
-  onToast,
 }: PartCardProps) {
   const { busy, setBusy, runBusy } = useBusy();
   const [confirmTarget, setConfirmTarget] = useState<PartSummary | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
 
   const sensors = useListDndSensors();
@@ -127,7 +126,7 @@ export function PartCard({
     items: parts,
     onReordered,
     persistOne: (p) => settingsApi.updatePart(org, p.id, { sortOrder: p.sortOrder }),
-    onError: onToast,
+    onError: setError,
     setBusy,
   });
 
@@ -147,13 +146,15 @@ export function PartCard({
 
   const addPart = async () => {
     if (busy || !newName.trim()) return;
+    setError(null);
     try {
       const created = await runBusy(() => settingsApi.createPart(org, { name: newName.trim() }));
       onCreated(created);
       setNewName("");
       setShowAdd(false);
-    } catch {
-      onToast("追加に失敗しました");
+      setError(null);
+    } catch (err) {
+      setError(userErrorMessage(err, "パートの追加に失敗しました。もう一度お試しください。"));
     }
   };
 
@@ -164,7 +165,10 @@ export function PartCard({
         {canEdit && (
           <button
             type="button"
-            onClick={() => setShowAdd(true)}
+            onClick={() => {
+              setError(null);
+              setShowAdd(true);
+            }}
             disabled={busy}
             className="text-brand-600 hover:text-brand-700 flex items-center gap-1 text-xs font-medium transition-colors disabled:opacity-40"
           >
@@ -204,6 +208,7 @@ export function PartCard({
                       onUpdated={onUpdated}
                       onDeleteClick={() => {
                         setDeleteError(null);
+                        setError(null);
                         setConfirmTarget(part);
                       }}
                     />
@@ -225,6 +230,7 @@ export function PartCard({
               if (e.key === "Enter") addPart();
               if (e.key === "Escape") {
                 setShowAdd(false);
+                setError(null);
                 setNewName("");
               }
             }}
@@ -234,8 +240,8 @@ export function PartCard({
           <button
             type="button"
             onClick={addPart}
-            disabled={busy}
-            className="bg-brand-600 hover:bg-brand-700 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-60"
+            aria-disabled={busy}
+            className="bg-brand-600 hover:bg-brand-700 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors aria-disabled:opacity-60"
           >
             {busy ? <Loader2 size={12} className="animate-spin" /> : "追加"}
           </button>
@@ -243,6 +249,7 @@ export function PartCard({
             type="button"
             onClick={() => {
               setShowAdd(false);
+              setError(null);
               setNewName("");
             }}
             className="p-1.5 text-gray-400 transition-colors hover:text-gray-600"
@@ -251,6 +258,7 @@ export function PartCard({
           </button>
         </div>
       )}
+      <ErrorMessage className="mx-5 my-3">{error}</ErrorMessage>
       {confirmTarget && (
         <ConfirmDialog
           title="パートを削除しますか？"

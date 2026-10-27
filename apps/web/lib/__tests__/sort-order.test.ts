@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { ApiClientError } from "../api-client";
 import type { DragEndEvent } from "@dnd-kit/core";
 import {
   computeSortOrderPatches,
@@ -167,10 +168,11 @@ describe("createSortDragEndHandler", () => {
     expect(persistOne).toHaveBeenCalledTimes(3);
     expect(setBusy).toHaveBeenNthCalledWith(1, true);
     expect(setBusy).toHaveBeenNthCalledWith(2, false);
-    expect(onError).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(null);
   });
 
-  it("persistOneが失敗したら元の順序にロールバックしonErrorを呼ぶ", async () => {
+  it("persistOneが失敗したら元の順序にロールバックし、前のエラーを消してから代わりの文言でonErrorを呼ぶ", async () => {
     const onReordered = vi.fn();
     const persistOne = vi.fn().mockRejectedValue(new Error("network error"));
     const onError = vi.fn();
@@ -187,7 +189,25 @@ describe("createSortDragEndHandler", () => {
     await handleDragEnd(dragEvent("a", "b"));
 
     expect(onReordered).toHaveBeenLastCalledWith(items);
-    expect(onError).toHaveBeenCalledWith("並び替えに失敗しました");
+    expect(onError).toHaveBeenNthCalledWith(1, null);
+    expect(onError).toHaveBeenLastCalledWith("並び替えに失敗しました。もう一度お試しください。");
     expect(setBusy).toHaveBeenLastCalledWith(false);
+  });
+
+  it("persistOneの失敗が4xxならAPIの理由でonErrorを呼ぶ", async () => {
+    const onError = vi.fn();
+    const handleDragEnd = createSortDragEndHandler({
+      items: makeItems(),
+      onReordered: vi.fn(),
+      persistOne: vi
+        .fn()
+        .mockRejectedValue(new ApiClientError("FORBIDDEN", "管理者権限が必要です", 403)),
+      onError,
+      setBusy: vi.fn(),
+    });
+
+    await handleDragEnd(dragEvent("a", "b"));
+
+    expect(onError).toHaveBeenLastCalledWith("管理者権限が必要です");
   });
 });

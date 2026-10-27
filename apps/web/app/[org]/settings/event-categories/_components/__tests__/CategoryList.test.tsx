@@ -195,7 +195,7 @@ describe("CategoryList（並び替え）", () => {
     );
 
     await vi.waitFor(() => {
-      expect(onError).toHaveBeenCalledWith("並び替えに失敗しました");
+      expect(onError).toHaveBeenLastCalledWith("並び替えに失敗しました。もう一度お試しください。");
     });
   });
 });

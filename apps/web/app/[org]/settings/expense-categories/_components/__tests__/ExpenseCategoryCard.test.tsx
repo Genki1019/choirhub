@@ -38,7 +38,6 @@ function renderCard(
       onDeleted={vi.fn()}
       onCreated={vi.fn()}
       onReordered={vi.fn()}
-      onToast={vi.fn()}
       {...overrides}
     />,
   );
@@ -50,6 +49,44 @@ beforeEach(() => {
 });
 
 describe("ExpenseCategoryCard（表示）", () => {
+  it("同じ名前で追加すると、409の理由をカードの中に読み上げ、もう一度追加を始めると消える", async () => {
+    vi.mocked(settingsApi.createExpenseCategory)
+      .mockRejectedValueOnce(
+        new ApiClientError("CONFLICT", "同じ名前のカテゴリがすでにあります", 409),
+      )
+      .mockReturnValueOnce(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(screen.getByText("追加"));
+    await user.type(screen.getByPlaceholderText("カテゴリ名を入力"), "合宿費");
+    const addButtons = screen.getAllByRole("button", { name: "追加" });
+    await user.click(addButtons[addButtons.length - 1]);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "同じ名前のカテゴリがすでにあります",
+    );
+
+    await user.click(addButtons[addButtons.length - 1]);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("追加の失敗が5xxなら代わりの文言を出す", async () => {
+    vi.mocked(settingsApi.createExpenseCategory).mockRejectedValue(
+      new ApiClientError("UNKNOWN", "", 500),
+    );
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(screen.getByText("追加"));
+    await user.type(screen.getByPlaceholderText("カテゴリ名を入力"), "合宿費");
+    const addButtons = screen.getAllByRole("button", { name: "追加" });
+    await user.click(addButtons[addButtons.length - 1]);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "カテゴリの追加に失敗しました。もう一度お試しください。",
+    );
+  });
+
   it("カテゴリ一覧を表示する", () => {
     renderCard();
     expect(screen.getByText("会場費")).toBeInTheDocument();
@@ -79,7 +116,6 @@ describe("ExpenseCategoryCard（編集・削除）", () => {
         onDeleted={vi.fn()}
         onCreated={vi.fn()}
         onReordered={vi.fn()}
-        onToast={vi.fn()}
       />,
     );
 
@@ -95,11 +131,10 @@ describe("ExpenseCategoryCard（編集・削除）", () => {
     expect(onUpdated).toHaveBeenCalledWith({ id: "cat-1", name: "会場費改", sortOrder: 1 });
   });
 
-  it("名前の保存に失敗したら入力欄の下に理由を出し、トーストは出さない", async () => {
+  it("名前の保存に失敗したら入力欄の下に理由を出し、ほかの場所には出さない", async () => {
     vi.mocked(settingsApi.updateExpenseCategory).mockRejectedValue(
       new TypeError("Failed to fetch"),
     );
-    const onToast = vi.fn();
     const user = userEvent.setup();
     render(
       <ExpenseCategoryCard
@@ -109,7 +144,6 @@ describe("ExpenseCategoryCard（編集・削除）", () => {
         onDeleted={vi.fn()}
         onCreated={vi.fn()}
         onReordered={vi.fn()}
-        onToast={onToast}
       />,
     );
 
@@ -119,14 +153,13 @@ describe("ExpenseCategoryCard（編集・削除）", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "カテゴリ名の保存に失敗しました。もう一度お試しください。",
     );
-    expect(onToast).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
   });
 
   it("削除して409エラー時はAPIの理由を確認ダイアログの中に表示する", async () => {
     vi.mocked(settingsApi.deleteExpenseCategory).mockRejectedValue(
       new ApiClientError("CONFLICT", "支出記録が紐付いているため削除できません", 409),
     );
-    const onToast = vi.fn();
     const user = userEvent.setup();
     render(
       <ExpenseCategoryCard
@@ -136,7 +169,6 @@ describe("ExpenseCategoryCard（編集・削除）", () => {
         onDeleted={vi.fn()}
         onCreated={vi.fn()}
         onReordered={vi.fn()}
-        onToast={onToast}
       />,
     );
 
@@ -153,7 +185,7 @@ describe("ExpenseCategoryCard（編集・削除）", () => {
     expect(await within(screen.getByRole("alertdialog")).findByRole("alert")).toHaveTextContent(
       "支出記録が紐付いているため削除できません",
     );
-    expect(onToast).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
   });
 });
 
@@ -175,10 +207,9 @@ describe("ExpenseCategoryCard（並び替え）", () => {
     });
   });
 
-  it("並び替えに失敗したら元の順序にロールバックしトーストする", async () => {
+  it("並び替えに失敗したら元の順序にロールバックし、理由を読み上げる", async () => {
     vi.mocked(settingsApi.updateExpenseCategory).mockRejectedValue(new Error("network error"));
-    const onToast = vi.fn();
-    renderCard(makeCats(), { onToast });
+    renderCard(makeCats());
 
     dragAndDrop(
       screen.getByLabelText("楽譜費をドラッグして並び替え"),
@@ -186,7 +217,9 @@ describe("ExpenseCategoryCard（並び替え）", () => {
     );
 
     await vi.waitFor(() => {
-      expect(onToast).toHaveBeenCalledWith("並び替えに失敗しました");
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "並び替えに失敗しました。もう一度お試しください。",
+      );
     });
   });
 });

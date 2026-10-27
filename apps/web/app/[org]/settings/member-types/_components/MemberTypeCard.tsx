@@ -135,7 +135,6 @@ interface MemberTypeCardProps {
   onDeleted: (id: string) => void;
   onCreated: (created: MemberType) => void;
   onReordered: (reordered: MemberType[]) => void;
-  onToast: (msg: string) => void;
 }
 
 export function MemberTypeCard({
@@ -146,13 +145,13 @@ export function MemberTypeCard({
   onDeleted,
   onCreated,
   onReordered,
-  onToast,
 }: MemberTypeCardProps) {
   const { busy, setBusy, runBusy } = useBusy();
   const [confirmTarget, setConfirmTarget] = useState<MemberType | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [newAmount, setNewAmount] = useState("");
 
@@ -176,12 +175,13 @@ export function MemberTypeCard({
     items: types,
     onReordered,
     persistOne: (t) => settingsApi.updateMemberType(org, t.id, { sortOrder: t.sortOrder }),
-    onError: onToast,
+    onError: setError,
     setBusy,
   });
 
   const addType = async () => {
     if (busy || !newName.trim()) return;
+    setError(null);
     try {
       const amount = newAmount.trim() ? parseInt(newAmount, 10) : null;
       const created = await runBusy(() =>
@@ -194,8 +194,9 @@ export function MemberTypeCard({
       setNewName("");
       setNewAmount("");
       setShowAdd(false);
-    } catch {
-      onToast("追加に失敗しました");
+      setError(null);
+    } catch (err) {
+      setError(userErrorMessage(err, "メンバー区分の追加に失敗しました。もう一度お試しください。"));
     }
   };
 
@@ -209,7 +210,10 @@ export function MemberTypeCard({
         {canEdit && (
           <button
             type="button"
-            onClick={() => setShowAdd(true)}
+            onClick={() => {
+              setError(null);
+              setShowAdd(true);
+            }}
             disabled={busy}
             className="text-brand-600 hover:text-brand-700 flex items-center gap-1 text-xs font-medium transition-colors disabled:opacity-40"
           >
@@ -255,6 +259,7 @@ export function MemberTypeCard({
                       onUpdated={onUpdated}
                       onDeleteClick={() => {
                         setDeleteError(null);
+                        setError(null);
                         setConfirmTarget(t);
                       }}
                     />
@@ -280,6 +285,7 @@ export function MemberTypeCard({
               if (e.key === "Enter") addType();
               if (e.key === "Escape") {
                 setShowAdd(false);
+                setError(null);
                 setNewName("");
                 setNewAmount("");
               }
@@ -298,8 +304,8 @@ export function MemberTypeCard({
           <button
             type="button"
             onClick={addType}
-            disabled={busy}
-            className="bg-brand-600 hover:bg-brand-700 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-60"
+            aria-disabled={busy}
+            className="bg-brand-600 hover:bg-brand-700 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors aria-disabled:opacity-60"
           >
             {busy ? <Loader2 size={12} className="animate-spin" /> : "追加"}
           </button>
@@ -307,6 +313,7 @@ export function MemberTypeCard({
             type="button"
             onClick={() => {
               setShowAdd(false);
+              setError(null);
               setNewName("");
               setNewAmount("");
             }}
@@ -316,6 +323,7 @@ export function MemberTypeCard({
           </button>
         </div>
       )}
+      <ErrorMessage className="mx-5 my-3">{error}</ErrorMessage>
       {confirmTarget && (
         <ConfirmDialog
           title="団員種別を削除しますか？"

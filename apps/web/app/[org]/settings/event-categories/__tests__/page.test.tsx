@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { ApiClientError } from "@/lib/api-client";
+import { act, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import EventCategoriesPage from "../page";
 import { MemberProvider } from "@/contexts/MemberContext";
@@ -28,13 +29,14 @@ function makeCats(): EventCategory[] {
 
 function renderPage(roles: string[] = ["admin"]) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const view = render(
     <QueryClientProvider client={queryClient}>
       <MemberProvider memberId="member-self" roles={roles}>
         <EventCategoriesPage />
       </MemberProvider>
     </QueryClientProvider>,
   );
+  return { ...view, queryClient };
 }
 
 beforeEach(() => {
@@ -51,11 +53,34 @@ describe("EventCategoriesPage", () => {
     expect(screen.getByText("標準")).toBeInTheDocument();
   });
 
-  it("取得エラー時はエラーメッセージを表示する", async () => {
-    vi.mocked(settingsApi.listEventCategories).mockRejectedValue(new Error("取得に失敗しました"));
-    renderPage();
+  it("取得エラーは理由を読み上げ、空の一覧や追加フォームは出さない", async () => {
+    vi.mocked(settingsApi.listEventCategories).mockRejectedValue(
+      new ApiClientError("UNKNOWN", "", 500),
+    );
+    renderPage(["admin"]);
 
-    expect(await screen.findByText("取得に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "区分の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+    expect(screen.queryByText("区分を追加")).not.toBeInTheDocument();
+  });
+
+  it("取得済みの一覧があるときは、裏の取り直しに失敗しても一覧と追加フォームを残す", async () => {
+    vi.mocked(settingsApi.listEventCategories).mockResolvedValueOnce(makeCats());
+    const { queryClient } = renderPage(["admin"]);
+    expect(await screen.findByText("区分を追加")).toBeInTheDocument();
+
+    vi.mocked(settingsApi.listEventCategories).mockRejectedValue(
+      new ApiClientError("UNKNOWN", "", 500),
+    );
+    await act(async () => {
+      await queryClient.refetchQueries();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(queryClient.getQueryCache().getAll()[0].state.status).toBe("error");
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByText("区分を追加")).toBeInTheDocument();
   });
 
   it("adminの場合は「区分を追加」フォームを表示する", async () => {

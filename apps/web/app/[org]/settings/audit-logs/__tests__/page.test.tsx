@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { ApiClientError } from "@/lib/api-client";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -163,11 +164,24 @@ describe("AuditLogsPage", () => {
     expect(screen.queryByRole("button", { name: "条件をクリア" })).not.toBeInTheDocument();
   });
 
-  it("取得エラー時はエラーメッセージを表示する", async () => {
-    vi.mocked(auditLogsApi.list).mockRejectedValue(new Error("Forbidden"));
+  it("取得エラーが4xxならAPIの理由を読み上げる", async () => {
+    vi.mocked(auditLogsApi.list).mockRejectedValue(
+      new ApiClientError("FORBIDDEN", "管理者権限が必要です", 403),
+    );
     renderPage();
 
-    expect(await screen.findByText("Forbidden")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("管理者権限が必要です");
+  });
+
+  it("取得エラーが5xxなら、英語の statusText ではなく代わりの文言を出す", async () => {
+    vi.mocked(auditLogsApi.list).mockRejectedValue(
+      new ApiClientError("UNKNOWN", "Internal Server Error", 500),
+    );
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "操作履歴の読み込みに失敗しました。ページを再読み込みしてください。",
+    );
   });
 
   it("分類・操作者で絞り込むと1ページ目から再取得し、CSV出力にも同じ条件を渡し、出力後は一覧を再取得する", async () => {

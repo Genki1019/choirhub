@@ -16,6 +16,7 @@ import { StatusPillList } from "./onstage/StatusPillList";
 import { buildPartColorMap } from "./onstage/formation-model";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 import { InlineEditActions, InlineEditButton } from "@/components/InlineEdit";
 import { useInlineEdit } from "@/hooks/useInlineEdit";
 
@@ -189,11 +190,12 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
     revert: () => void,
     errorMessage: string,
   ) => {
+    setError(null);
     try {
       await request();
-    } catch {
+    } catch (err) {
       revert();
-      setError(errorMessage);
+      setError(userErrorMessage(err, errorMessage));
     }
   };
 
@@ -207,6 +209,7 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
   };
 
   const handleCreatePattern = async () => {
+    setError(null);
     try {
       const created = await concertsApi.createFormationPattern(
         org,
@@ -216,8 +219,8 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
       );
       updateStagePatterns((prev) => [...prev, created]);
       setSelectedPatternId(created.id);
-    } catch {
-      setError("パターンの作成に失敗しました。もう一度お試しください。");
+    } catch (err) {
+      setError(userErrorMessage(err, "パターンの作成に失敗しました。もう一度お試しください。"));
     }
   };
 
@@ -255,8 +258,10 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
       updateStagePatterns((prev) => prev.filter((p) => p.id !== id));
       if (selectedPatternId === id) setSelectedPatternId(null);
       setConfirmPattern(null);
-    } catch {
-      setDeletePatternError("パターンの削除に失敗しました。もう一度お試しください。");
+    } catch (err) {
+      setDeletePatternError(
+        userErrorMessage(err, "パターンの削除に失敗しました。もう一度お試しください。"),
+      );
     } finally {
       setDeletingPattern(false);
     }
@@ -291,7 +296,7 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
 
   return (
     <div className="space-y-6">
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      <ErrorMessage>{error}</ErrorMessage>
 
       {stages.length > 1 && (
         <div className="flex flex-wrap items-center gap-2">

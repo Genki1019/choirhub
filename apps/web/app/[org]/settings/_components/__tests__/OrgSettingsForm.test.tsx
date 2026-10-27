@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { ApiClientError } from "@/lib/api-client";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { OrgSettingsForm } from "../OrgSettingsForm";
@@ -44,8 +45,10 @@ describe("OrgSettingsForm（canEdit: true）", () => {
     expect(await screen.findByText("保存しました")).toBeInTheDocument();
   });
 
-  it("保存に失敗した場合はエラーメッセージを表示する", async () => {
-    vi.mocked(settingsApi.update).mockRejectedValue(new Error("failed"));
+  it("保存の失敗が4xxならAPIの理由を読み上げる", async () => {
+    vi.mocked(settingsApi.update).mockRejectedValue(
+      new ApiClientError("VALIDATION_ERROR", "入力値が不正です", 400),
+    );
     const user = userEvent.setup();
     render(
       <OrgSettingsForm
@@ -57,7 +60,7 @@ describe("OrgSettingsForm（canEdit: true）", () => {
     );
 
     await user.click(screen.getByText("保存する"));
-    expect(await screen.findByText("保存に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("入力値が不正です");
   });
 
   it("保存に成功するとonSavedに更新後の団体情報を渡す", async () => {
@@ -81,8 +84,8 @@ describe("OrgSettingsForm（canEdit: true）", () => {
     expect(onSaved).toHaveBeenCalledWith(updated);
   });
 
-  it("保存に失敗した場合はonSavedを呼ばない", async () => {
-    vi.mocked(settingsApi.update).mockRejectedValue(new Error("failed"));
+  it("保存に失敗した場合は代わりの文言を出し、onSavedを呼ばない", async () => {
+    vi.mocked(settingsApi.update).mockRejectedValue(new ApiClientError("UNKNOWN", "", 500));
     const onSaved = vi.fn();
     const user = userEvent.setup();
     render(
@@ -97,7 +100,9 @@ describe("OrgSettingsForm（canEdit: true）", () => {
 
     await user.click(screen.getByText("保存する"));
 
-    expect(await screen.findByText("保存に失敗しました")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "団体設定の保存に失敗しました。もう一度お試しください。",
+    );
     expect(onSaved).not.toHaveBeenCalled();
   });
 

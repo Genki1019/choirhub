@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { ApiClientError } from "@/lib/api-client";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { OnstageTab } from "../OnstageTab";
@@ -212,6 +213,33 @@ describe("OnstageTab（パターンCRUD）", () => {
       "パターン1",
     );
     expect(onStagesChanged).toHaveBeenCalled();
+  });
+
+  it("パターンの作成に失敗したら理由を読み上げ、次の操作を始めると消え、また失敗すると出直す", async () => {
+    const concert = makeConcert({
+      stages: [
+        { id: "stage-1", name: "第1ステージ", sortOrder: 0, programs: [], formationPatterns: [] },
+      ],
+    });
+    let rejectSecond: (err: unknown) => void = () => {};
+    vi.mocked(concertsApi.createFormationPattern)
+      .mockRejectedValueOnce(new ApiClientError("FORBIDDEN", "編集権限がありません", 403))
+      .mockReturnValueOnce(new Promise((_, reject) => (rejectSecond = reject)));
+    const user = userEvent.setup();
+    render(
+      <OnstageTab concert={concert} org="o" canManageStage={true} onStagesChanged={vi.fn()} />,
+    );
+
+    await user.click(screen.getByText("新しいパターン"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("編集権限がありません");
+
+    await user.click(screen.getByText("新しいパターン"));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    rejectSecond(new ApiClientError("UNKNOWN", "", 500));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "パターンの作成に失敗しました。もう一度お試しください。",
+    );
   });
 
   it("鉛筆でパターン名の入力欄に切り替わり、Enter で保存して表示を更新する", async () => {

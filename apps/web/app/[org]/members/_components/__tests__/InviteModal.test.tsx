@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { InviteModal } from "../InviteModal";
 import { membersApi } from "@/lib/members-api";
@@ -240,6 +240,29 @@ describe("InviteModal（項目ごとのエラーと入力欄の関連付け）",
     expect(email).toHaveAttribute("aria-invalid", "true");
     expect(email).toHaveAccessibleDescription("有効なメールアドレスを入力してください");
     await waitFor(() => expect(email).toHaveFocus());
+    expect(membersApi.invite).not.toHaveBeenCalled();
+  });
+});
+
+describe("InviteModal（ロールの選択）", () => {
+  it("ロールの集まりは見出しの「ロール *」で読まれる", () => {
+    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} />);
+
+    expect(screen.getByRole("group", { name: "ロール *" })).toBeInTheDocument();
+  });
+
+  it("ロールだけが未選択のまま送信すると、先頭のロールボタンにフォーカスを移し、理由を説明に入れる", async () => {
+    const user = userEvent.setup();
+    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} />);
+
+    await user.type(screen.getByLabelText("メールアドレス *"), "new@example.com");
+    await user.click(screen.getByRole("button", { name: "一般" }));
+    await user.click(screen.getByRole("button", { name: "招待メールを送信" }));
+
+    const roles = within(screen.getByRole("group", { name: "ロール *" })).getAllByRole("button");
+    await waitFor(() => expect(roles[0]).toHaveFocus());
+    expect(roles[0]).toHaveAccessibleDescription("ロールを1つ以上選択してください");
+    expect(roles[0]).not.toHaveAttribute("aria-invalid");
     expect(membersApi.invite).not.toHaveBeenCalled();
   });
 });

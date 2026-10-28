@@ -158,19 +158,21 @@ export function InviteModal({ org, parts, onClose }: InviteModalProps) {
       </div>
 
       <div>
-        <label className="mb-2 block text-xs font-medium text-gray-500">
+        <p id="invite-roles-label" className="mb-2 block text-xs font-medium text-gray-500">
           ロール <span className="text-red-400">*</span>
-        </label>
+        </p>
         <Controller
           name="roles"
           control={control}
           render={({ field }) => (
-            <div className="flex flex-wrap gap-2" role="group" aria-label="ロール選択">
-              {ROLE_OPTIONS.map(({ value, label }) => (
+            <div className="flex flex-wrap gap-2" role="group" aria-labelledby="invite-roles-label">
+              {ROLE_OPTIONS.map(({ value, label }, i) => (
                 <button
                   key={value}
+                  ref={i === 0 ? field.ref : undefined}
                   type="button"
                   aria-pressed={field.value.includes(value)}
+                  {...fieldErrorProps("invite-roles-error", errors.roles?.message, false)}
                   onClick={() => {
                     const next = field.value.includes(value)
                       ? field.value.filter((r) => r !== value)

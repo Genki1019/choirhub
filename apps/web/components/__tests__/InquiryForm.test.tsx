@@ -147,3 +147,21 @@ describe("InquiryForm（項目ごとのエラーと入力欄の関連付け）",
     await waitFor(() => expect(orgName).toHaveFocus());
   });
 });
+
+describe("InquiryForm（文字数の上限）", () => {
+  it("お名前が100文字を超えると、日本語の理由をお名前欄に出す", async () => {
+    const user = userEvent.setup();
+    render(<InquiryForm />);
+
+    await user.click(screen.getByLabelText("お名前"));
+    await user.paste("あ".repeat(101));
+    await user.type(screen.getByLabelText("メールアドレス"), "a@example.com");
+    await user.type(screen.getByLabelText("お問い合わせ内容"), "内容");
+    await user.click(screen.getByRole("button", { name: "送信する" }));
+
+    const name = screen.getByLabelText("お名前");
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(name).toHaveAccessibleDescription("100文字以内で入力してください");
+    expect(inquiriesApi.create).not.toHaveBeenCalled();
+  });
+});

@@ -179,7 +179,9 @@ export function OrgApplicationForm({
           rows={3}
           className={`${INPUT_CLS} resize-none`}
           {...register("message")}
+          {...fieldErrorProps("applyMessage-error", errors.message?.message)}
         />
+        <FieldError id="applyMessage-error">{errors.message?.message}</FieldError>
       </div>
 
       <ErrorMessage>{errors.root?.message}</ErrorMessage>

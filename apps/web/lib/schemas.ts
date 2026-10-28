@@ -53,23 +53,30 @@ export const passwordResetConfirmSchema = z
   });
 
 export const orgApplicationSchema = z.object({
-  orgName: z.string().min(1, "団体名を入力してください").max(100),
+  orgName: z.string().min(1, "団体名を入力してください").max(100, "100文字以内で入力してください"),
   slug: z
     .string()
     .regex(SLUG_REGEX, "スラグは2〜50文字の英小文字・数字・ハイフンで入力してください"),
   templateKey: z.enum(
     PART_TEMPLATE_OPTIONS.map((opt) => opt.key) as [PartTemplateKey, ...PartTemplateKey[]],
   ),
-  applicantName: z.string().min(1, "管理者氏名を入力してください").max(100),
+  applicantName: z
+    .string()
+    .min(1, "管理者氏名を入力してください")
+    .max(100, "100文字以内で入力してください"),
   applicantEmail: z.string().email("有効なメールアドレスを入力してください"),
-  message: z.string().max(1000).optional(),
+  message: z.string().max(1000, "1000文字以内で入力してください").optional(),
 });
 
 export const inquirySchema = z.object({
   category: z.enum(
     INQUIRY_CATEGORY_OPTIONS.map((opt) => opt.key) as [InquiryCategory, ...InquiryCategory[]],
   ),
-  name: z.string().trim().min(1, "お名前を入力してください").max(100),
+  name: z
+    .string()
+    .trim()
+    .min(1, "お名前を入力してください")
+    .max(100, "100文字以内で入力してください"),
   email: z.string().email("有効なメールアドレスを入力してください"),
   orgName: z.string().max(100, "100文字以内で入力してください").optional(),
   message: z

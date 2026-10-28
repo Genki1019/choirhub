@@ -10,6 +10,7 @@ import { RankBadge } from "./RankBadge";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { InlineEditActions, InlineEditButton } from "@/components/InlineEdit";
 import { useInlineEdit } from "@/hooks/useInlineEdit";
+import type { fieldErrorProps } from "@/components/FieldError";
 import { formatShortDate, jstParts } from "@/lib/date";
 
 function fmt(n: number, digits = 1) {
@@ -46,12 +47,14 @@ function MonthSelect({
   onChange,
   onKeyDown,
   autoFocus,
+  fieldProps,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   onKeyDown: (e: KeyboardEvent<HTMLSelectElement>) => void;
   autoFocus?: boolean;
+  fieldProps: ReturnType<typeof fieldErrorProps>;
 }) {
   const [year, setYear] = useState(() => value.split("-")[0] ?? "");
   const [month, setMonth] = useState(() => value.split("-")[1] ?? "");
@@ -82,6 +85,7 @@ function MonthSelect({
         value={year}
         onChange={(e) => commit(e.target.value, month)}
         onKeyDown={onKeyDown}
+        {...fieldProps}
         className={selectClass}
       >
         <option value="">年</option>
@@ -99,6 +103,7 @@ function MonthSelect({
         value={month}
         onChange={(e) => commit(year, e.target.value)}
         onKeyDown={onKeyDown}
+        {...fieldProps}
         className={selectClass}
       >
         <option value="">月</option>
@@ -133,8 +138,13 @@ function OrganizerPeriodRow({
   const { registerTrigger, ...edit } = useInlineEdit({
     initial: () => ({ fromMonth: period?.fromMonth ?? "", toMonth: period?.toMonth ?? "" }),
     validate: ({ fromMonth, toMonth }) => {
-      if (!!fromMonth !== !!toMonth) return "開始月と終了月の両方を選んでください";
-      if (fromMonth && fromMonth > toMonth) return "終了月は開始月以降を選んでください";
+      if (!!fromMonth !== !!toMonth)
+        return {
+          message: "開始月と終了月の両方を選んでください",
+          fields: [fromMonth ? "toMonth" : "fromMonth"],
+        };
+      if (fromMonth && fromMonth > toMonth)
+        return { message: "終了月は開始月以降を選んでください", fields: ["toMonth"] };
       return null;
     },
     onSave: async ({ fromMonth, toMonth }) => {
@@ -176,6 +186,7 @@ function OrganizerPeriodRow({
           value={edit.value.fromMonth}
           onChange={(fromMonth) => edit.setValue({ ...edit.value, fromMonth })}
           onKeyDown={edit.handleKeyDown}
+          fieldProps={edit.fieldProps("fromMonth")}
         />
         <span className="text-xs text-gray-400">〜</span>
         <MonthSelect
@@ -183,6 +194,7 @@ function OrganizerPeriodRow({
           value={edit.value.toMonth}
           onChange={(toMonth) => edit.setValue({ ...edit.value, toMonth })}
           onKeyDown={edit.handleKeyDown}
+          fieldProps={edit.fieldProps("toMonth")}
         />
         <InlineEditActions
           label="幹事期間"
@@ -192,7 +204,9 @@ function OrganizerPeriodRow({
           onCancel={edit.cancel}
         />
       </div>
-      <ErrorMessage className="mt-2">{edit.error}</ErrorMessage>
+      <ErrorMessage id={edit.errorId} className="mt-2">
+        {edit.error}
+      </ErrorMessage>
     </div>
   );
 }

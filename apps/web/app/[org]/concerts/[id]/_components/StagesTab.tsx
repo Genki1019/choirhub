@@ -36,6 +36,7 @@ function StageTitle({
         {edit.editing ? (
           <input
             aria-label="ステージ名"
+            {...edit.fieldProps()}
             value={edit.value}
             onChange={(e) => edit.setValue(e.target.value)}
             onKeyDown={edit.handleKeyDown}
@@ -62,7 +63,7 @@ function StageTitle({
             />
           ))}
       </div>
-      <ErrorMessage>{edit.error}</ErrorMessage>
+      <ErrorMessage id={edit.errorId}>{edit.error}</ErrorMessage>
     </div>
   );
 }

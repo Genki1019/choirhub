@@ -28,6 +28,34 @@ describe("AddCategoryForm", () => {
     expect(await screen.findByText("名前を入力してください")).toBeInTheDocument();
   });
 
+  it("名前未入力のエラーは名前欄に関連付け、入力すると外れる", async () => {
+    const user = userEvent.setup();
+    render(<AddCategoryForm org="o" onCreated={vi.fn()} />);
+
+    await user.click(screen.getByText("追加"));
+    const name = screen.getByPlaceholderText("区分名");
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(name).toHaveAccessibleDescription("名前を入力してください");
+
+    await user.type(name, "合宿");
+    expect(name).not.toHaveAttribute("aria-invalid");
+    expect(name).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("追加の失敗は名前欄の説明に入れるが、aria-invalid は付けない", async () => {
+    vi.mocked(settingsApi.createEventCategory).mockRejectedValue(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    render(<AddCategoryForm org="o" onCreated={vi.fn()} />);
+
+    await user.type(screen.getByPlaceholderText("区分名"), "合宿");
+    await user.click(screen.getByText("追加"));
+
+    await screen.findByRole("alert");
+    const name = screen.getByPlaceholderText("区分名");
+    expect(name).not.toHaveAttribute("aria-invalid");
+    expect(name).toHaveAccessibleDescription("区分の追加に失敗しました。もう一度お試しください。");
+  });
+
   it("名前・色を入力して追加するとcreateEventCategoryが呼ばれonCreatedが呼ばれる", async () => {
     vi.mocked(settingsApi.createEventCategory).mockResolvedValue({
       id: "cat-new",

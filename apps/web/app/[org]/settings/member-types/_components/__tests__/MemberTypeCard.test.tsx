@@ -122,6 +122,10 @@ describe("MemberTypeCard（canEdit: true）", () => {
     await user.type(screen.getByRole("textbox", { name: "デフォルト会費" }), "-{Enter}");
 
     expect(screen.getByRole("alert")).toHaveTextContent("会費は0以上の整数で入力してください");
+    const amount = screen.getByRole("textbox", { name: "デフォルト会費" });
+    expect(amount).toHaveAttribute("aria-invalid", "true");
+    expect(amount).toHaveAccessibleDescription("会費は0以上の整数で入力してください");
+    expect(screen.getByRole("textbox", { name: "区分名" })).not.toHaveAttribute("aria-invalid");
     expect(settingsApi.updateMemberType).not.toHaveBeenCalled();
   });
 
@@ -146,6 +150,12 @@ describe("MemberTypeCard（canEdit: true）", () => {
     await user.click(screen.getByRole("button", { name: "メンバー区分を保存" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent("区分名を入力してください");
+    const name = screen.getByRole("textbox", { name: "区分名" });
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(name).toHaveAccessibleDescription("区分名を入力してください");
+    expect(screen.getByRole("textbox", { name: "デフォルト会費" })).not.toHaveAttribute(
+      "aria-invalid",
+    );
     expect(settingsApi.updateMemberType).not.toHaveBeenCalled();
   });
 

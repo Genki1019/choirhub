@@ -318,6 +318,9 @@ describe("OnstageTab（パターンCRUD）", () => {
     await user.click(screen.getByRole("button", { name: "パターン名を保存" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent("パターン名を入力してください");
+    const name = screen.getByRole("textbox", { name: "パターン名" });
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(name).toHaveAccessibleDescription("パターン名を入力してください");
     expect(concertsApi.updateFormationPattern).not.toHaveBeenCalled();
   });
 

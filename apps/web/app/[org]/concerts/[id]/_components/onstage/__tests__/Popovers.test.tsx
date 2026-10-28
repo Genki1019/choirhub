@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { AddBoxPopover, AddMemberPopover } from "../Popovers";
+import { AddBoxPopover, AddMemberPopover, NameEditPopover } from "../Popovers";
 import type { AssignmentDetail } from "@/lib/concerts-api";
 
 describe("AddBoxPopover", () => {
@@ -127,5 +127,33 @@ describe("AddMemberPopover（客演モード）", () => {
     await user.type(screen.getByPlaceholderText("客演者の名前"), "客演太郎{Enter}");
 
     expect(onPlaceGuest).toHaveBeenCalledWith("box-c", "客演太郎");
+  });
+});
+
+describe("NameEditPopover", () => {
+  it("入力チェックで弾くと、入力欄に aria-invalid と理由の説明を付け、保存しない", async () => {
+    const onSave = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <NameEditPopover
+        heading="枠名を編集"
+        label="枠名"
+        initialValue="ソロ"
+        position={{ x: 0, y: 0 }}
+        validate={(value) => (value ? null : "枠名を入力してください")}
+        onSave={onSave}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const input = screen.getByRole("textbox", { name: "枠名" });
+    expect(input).not.toHaveAttribute("aria-invalid");
+    await user.clear(input);
+    await user.keyboard("{Enter}");
+
+    expect(screen.getByRole("alert")).toHaveTextContent("枠名を入力してください");
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input).toHaveAccessibleDescription("枠名を入力してください");
+    expect(onSave).not.toHaveBeenCalled();
   });
 });

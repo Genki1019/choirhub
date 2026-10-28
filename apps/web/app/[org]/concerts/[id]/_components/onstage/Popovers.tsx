@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { AssignmentDetail } from "@/lib/concerts-api";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { fieldErrorProps } from "@/components/FieldError";
 import { InlineEditActions } from "@/components/InlineEdit";
 import { handleInlineEditKeyDown } from "@/hooks/useInlineEdit";
 
@@ -183,6 +184,7 @@ export function NameEditPopover({
 }) {
   const [value, setValue] = useState(initialValue);
   const [error, setError] = useState<string | null>(null);
+  const errorId = useId();
 
   const save = () => {
     const trimmed = value.trim();
@@ -208,6 +210,7 @@ export function NameEditPopover({
             autoFocus
             type="text"
             aria-label={label}
+            {...fieldErrorProps(errorId, error)}
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => handleInlineEditKeyDown(e, save, onClose)}
@@ -215,7 +218,9 @@ export function NameEditPopover({
           />
           <InlineEditActions label={label} saving={false} onSave={save} onCancel={onClose} />
         </div>
-        <ErrorMessage className="mt-2">{error}</ErrorMessage>
+        <ErrorMessage id={errorId} className="mt-2">
+          {error}
+        </ErrorMessage>
       </div>
     </>
   );

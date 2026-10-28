@@ -15,6 +15,7 @@ interface ErrorMessageProps {
   variant?: keyof typeof VARIANT_CLASS;
   className?: string;
   autoScroll?: boolean;
+  id?: string;
 }
 
 export function ErrorMessage({
@@ -22,6 +23,7 @@ export function ErrorMessage({
   variant = "inline",
   className,
   autoScroll = true,
+  id,
 }: ErrorMessageProps) {
   const ref = useRef<HTMLDivElement>(null);
   const message = typeof children === "string" ? children : null;
@@ -33,7 +35,7 @@ export function ErrorMessage({
   if (!children) return null;
 
   return (
-    <div ref={ref} role="alert" className={cn(VARIANT_CLASS[variant], className)}>
+    <div ref={ref} id={id} role="alert" className={cn(VARIANT_CLASS[variant], className)}>
       {variant === "section" ? (
         <>
           <AlertCircle size={16} className="shrink-0" />

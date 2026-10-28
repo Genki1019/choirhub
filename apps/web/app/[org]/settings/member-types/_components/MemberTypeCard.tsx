@@ -44,9 +44,9 @@ function MemberTypeRowFields({
       amount: type.defaultFeeAmount != null ? String(type.defaultFeeAmount) : "",
     }),
     validate: ({ name, amount }) => {
-      if (!name.trim()) return "区分名を入力してください";
+      if (!name.trim()) return { message: "区分名を入力してください", fields: ["name"] };
       if (amount.trim() && !/^\d+$/.test(amount.trim()))
-        return "会費は0以上の整数で入力してください";
+        return { message: "会費は0以上の整数で入力してください", fields: ["amount"] };
       return null;
     },
     onSave: async ({ name, amount }) => {
@@ -71,6 +71,7 @@ function MemberTypeRowFields({
           <input
             autoFocus
             aria-label="区分名"
+            {...edit.fieldProps("name")}
             value={edit.value.name}
             onChange={(e) => edit.setValue({ ...edit.value, name: e.target.value })}
             onKeyDown={edit.handleKeyDown}
@@ -81,6 +82,7 @@ function MemberTypeRowFields({
             type="text"
             inputMode="numeric"
             aria-label="デフォルト会費"
+            {...edit.fieldProps("amount")}
             value={edit.value.amount}
             onChange={(e) => edit.setValue({ ...edit.value, amount: e.target.value })}
             onKeyDown={edit.handleKeyDown}
@@ -95,7 +97,7 @@ function MemberTypeRowFields({
             onCancel={edit.cancel}
           />
         </div>
-        <ErrorMessage>{edit.error}</ErrorMessage>
+        <ErrorMessage id={edit.errorId}>{edit.error}</ErrorMessage>
       </div>
     );
   }

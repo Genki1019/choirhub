@@ -74,6 +74,7 @@ function PatternItem({
             <input
               autoFocus
               aria-label="パターン名"
+              {...edit.fieldProps()}
               value={edit.value}
               onChange={(e) => edit.setValue(e.target.value)}
               onKeyDown={edit.handleKeyDown}
@@ -130,7 +131,9 @@ function PatternItem({
           </>
         )}
       </div>
-      <ErrorMessage className="mt-1">{edit.error}</ErrorMessage>
+      <ErrorMessage id={edit.errorId} className="mt-1">
+        {edit.error}
+      </ErrorMessage>
     </div>
   );
 }

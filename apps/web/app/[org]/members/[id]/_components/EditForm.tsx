@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, type ChangeEvent, type ReactNode } from "react";
+import { useState, useRef, useEffect, useId, type ChangeEvent, type ReactNode } from "react";
 import Image from "next/image";
 import { Camera, X, Check, Loader2 } from "lucide-react";
 import type { MemberProfile } from "@/lib/members-api";
@@ -53,6 +53,7 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(member.avatarUrl ?? null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const uploadErrorId = useId();
   const [saving, setSaving] = useState(false);
 
   const field = (key: keyof typeof form) => ({
@@ -127,6 +128,7 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
         <button
           type="button"
           aria-label="プロフィール画像を変更"
+          aria-describedby={uploadError ? uploadErrorId : undefined}
           onClick={() => !uploading && fileRef.current?.click()}
           className="group relative"
           aria-disabled={uploading}
@@ -158,7 +160,7 @@ export function EditForm({ member, org, onSave, onCancel }: EditFormProps) {
         <p className="text-xs text-gray-400">
           {uploading ? "アップロード中..." : "クリックして写真を変更（JPEG / PNG / WebP・4MB以内）"}
         </p>
-        <ErrorMessage>{uploadError}</ErrorMessage>
+        <ErrorMessage id={uploadErrorId}>{uploadError}</ErrorMessage>
         <input
           ref={fileRef}
           type="file"

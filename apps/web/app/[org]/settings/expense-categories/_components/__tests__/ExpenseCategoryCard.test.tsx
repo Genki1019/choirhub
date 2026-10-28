@@ -154,6 +154,34 @@ describe("ExpenseCategoryCard（編集・削除）", () => {
       "カテゴリ名の保存に失敗しました。もう一度お試しください。",
     );
     expect(screen.getAllByRole("alert")).toHaveLength(1);
+    const name = screen.getByRole("textbox", { name: "カテゴリ名" });
+    expect(name).toHaveAccessibleDescription(
+      "カテゴリ名の保存に失敗しました。もう一度お試しください。",
+    );
+    expect(name).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("カテゴリ名を空にして保存すると、入力欄に理由を関連付ける", async () => {
+    const user = userEvent.setup();
+    render(
+      <ExpenseCategoryCard
+        cats={makeCats()}
+        org="o"
+        onUpdated={vi.fn()}
+        onDeleted={vi.fn()}
+        onCreated={vi.fn()}
+        onReordered={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByLabelText("会場費を編集"));
+    await user.clear(screen.getByRole("textbox", { name: "カテゴリ名" }));
+    await user.keyboard("{Enter}");
+
+    const name = screen.getByRole("textbox", { name: "カテゴリ名" });
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(name).toHaveAccessibleDescription("カテゴリ名を入力してください");
+    expect(settingsApi.updateExpenseCategory).not.toHaveBeenCalled();
   });
 
   it("削除して409エラー時はAPIの理由を確認ダイアログの中に表示する", async () => {

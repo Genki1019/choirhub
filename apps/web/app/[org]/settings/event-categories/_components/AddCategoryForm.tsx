@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Plus, Loader2 } from "lucide-react";
 import { settingsApi, type EventCategory } from "@/lib/settings-api";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { fieldErrorProps } from "@/components/FieldError";
 import { userErrorMessage } from "@/lib/api-client";
 
 const PRESET_COLORS = [
@@ -27,15 +28,19 @@ export function AddCategoryForm({ org, onCreated }: AddCategoryFormProps) {
   const [newColor, setNewColor] = useState("#6B7280");
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState("");
+  const [nameMissing, setNameMissing] = useState(false);
+  const errorId = useId();
 
   const handleAdd = async () => {
     if (adding) return;
     if (!newName.trim()) {
       setAddError("名前を入力してください");
+      setNameMissing(true);
       return;
     }
     setAdding(true);
     setAddError("");
+    setNameMissing(false);
     try {
       const created = await settingsApi.createEventCategory(org, {
         name: newName.trim(),
@@ -79,7 +84,9 @@ export function AddCategoryForm({ org, onCreated }: AddCategoryFormProps) {
           onChange={(e) => {
             setNewName(e.target.value);
             setAddError("");
+            setNameMissing(false);
           }}
+          {...fieldErrorProps(errorId, addError, nameMissing)}
           placeholder="区分名"
           className="focus:ring-brand-400 flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:ring-1 focus:outline-none"
         />
@@ -93,7 +100,7 @@ export function AddCategoryForm({ org, onCreated }: AddCategoryFormProps) {
           追加
         </button>
       </div>
-      <ErrorMessage>{addError}</ErrorMessage>
+      <ErrorMessage id={errorId}>{addError}</ErrorMessage>
     </div>
   );
 }

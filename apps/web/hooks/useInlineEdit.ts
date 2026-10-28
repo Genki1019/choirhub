@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { userErrorMessage } from "@/lib/api-client";
+import { fieldErrorProps } from "@/components/FieldError";
+
+export type InlineEditValidation = string | { message: string; fields: string[] } | null;
 
 interface UseInlineEditOptions<T> {
   initial: () => T;
   onSave: (value: T) => void | Promise<void>;
   errorFallback: string;
-  validate?: (value: T) => string | null;
+  validate?: (value: T) => InlineEditValidation;
   isEqual?: (a: T, b: T) => boolean;
   disabled?: boolean;
 }
@@ -42,6 +45,8 @@ export function useInlineEdit<T>({
   const [value, setValue] = useState<T>(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [invalid, setInvalid] = useState<{ fields?: string[] } | null>(null);
+  const errorId = useId();
   const trigger = useRef<HTMLButtonElement | null>(null);
   const wasEditing = useRef(false);
   const registerTrigger = useCallback((el: HTMLButtonElement | null) => {
@@ -53,41 +58,54 @@ export function useInlineEdit<T>({
     wasEditing.current = editing;
   }, [editing]);
 
+  const showError = (message: string | null, nextInvalid: { fields?: string[] } | null = null) => {
+    setError(message);
+    setInvalid(nextInvalid);
+  };
+
   const start = () => {
     setValue(initial());
-    setError(null);
+    showError(null);
     setEditing(true);
   };
 
   const cancel = () => {
     if (saving) return;
-    setError(null);
+    showError(null);
     setEditing(false);
   };
 
   const save = async () => {
     if (saving || disabled) return;
-    const invalid = validate?.(value) ?? null;
-    if (invalid) {
-      setError(invalid);
+    const result = validate?.(value) ?? null;
+    if (result) {
+      if (typeof result === "string") showError(result, {});
+      else showError(result.message, { fields: result.fields });
       return;
     }
     if (isEqual(value, initial())) {
-      setError(null);
+      showError(null);
       setEditing(false);
       return;
     }
     setSaving(true);
-    setError(null);
+    showError(null);
     try {
       await onSave(value);
       setEditing(false);
     } catch (err) {
-      setError(userErrorMessage(err, errorFallback));
+      showError(userErrorMessage(err, errorFallback));
     } finally {
       setSaving(false);
     }
   };
+
+  const fieldProps = (field?: string) =>
+    fieldErrorProps(
+      errorId,
+      error,
+      !!invalid && (!invalid.fields || (!!field && invalid.fields.includes(field))),
+    );
 
   const handleKeyDown = (e: KeyboardEvent<HTMLElement>) =>
     handleInlineEditKeyDown(e, () => void save(), cancel);
@@ -101,6 +119,8 @@ export function useInlineEdit<T>({
     save,
     saving,
     error,
+    errorId,
+    fieldProps,
     registerTrigger,
     handleKeyDown,
   };

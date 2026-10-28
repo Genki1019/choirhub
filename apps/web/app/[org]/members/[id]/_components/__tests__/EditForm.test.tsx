@@ -163,6 +163,9 @@ describe("EditForm（アバターアップロード）", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "写真のアップロードに失敗しました。もう一度お試しください。",
     );
+    expect(
+      screen.getByRole("button", { name: "プロフィール画像を変更" }),
+    ).toHaveAccessibleDescription("写真のアップロードに失敗しました。もう一度お試しください。");
   });
 
   it("4MBを超える写真は送らずに理由を読み上げる（本番では送る前に弾かれ、理由が伝わらないため）", async () => {
@@ -176,6 +179,9 @@ describe("EditForm（アバターアップロード）", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "ファイルサイズは4MB以内にしてください",
     );
+    expect(
+      screen.getByRole("button", { name: "プロフィール画像を変更" }),
+    ).toHaveAccessibleDescription("ファイルサイズは4MB以内にしてください");
     expect(fetch).not.toHaveBeenCalled();
   });
 

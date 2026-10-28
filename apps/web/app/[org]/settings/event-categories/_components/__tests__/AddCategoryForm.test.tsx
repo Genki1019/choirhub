@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ApiClientError } from "@/lib/api-client";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AddCategoryForm } from "../AddCategoryForm";
 import { settingsApi } from "@/lib/settings-api";
@@ -25,7 +25,7 @@ describe("AddCategoryForm", () => {
     render(<AddCategoryForm org="o" onCreated={vi.fn()} />);
 
     await user.click(screen.getByText("追加"));
-    expect(await screen.findByText("名前を入力してください")).toBeInTheDocument();
+    expect(await screen.findByText("区分名を入力してください")).toBeInTheDocument();
   });
 
   it("名前未入力のエラーは名前欄に関連付け、入力すると外れる", async () => {
@@ -35,7 +35,7 @@ describe("AddCategoryForm", () => {
     await user.click(screen.getByText("追加"));
     const name = screen.getByPlaceholderText("区分名");
     expect(name).toHaveAttribute("aria-invalid", "true");
-    expect(name).toHaveAccessibleDescription("名前を入力してください");
+    expect(name).toHaveAccessibleDescription("区分名を入力してください");
 
     await user.type(name, "合宿");
     expect(name).not.toHaveAttribute("aria-invalid");
@@ -119,5 +119,38 @@ describe("AddCategoryForm", () => {
     expect(settingsApi.createEventCategory).toHaveBeenCalledTimes(1);
     expect(button).toHaveAttribute("aria-disabled", "true");
     expect(button).not.toBeDisabled();
+  });
+});
+
+describe("AddCategoryForm（読み上げ名）", () => {
+  it("名前欄・色の欄は、編集欄と重ならない読み上げ名を持つ", () => {
+    render(<AddCategoryForm org="o" onCreated={vi.fn()} />);
+
+    expect(screen.getByRole("textbox", { name: "追加する区分名" })).toBeInTheDocument();
+    expect(screen.getByLabelText("追加する区分の色")).toBeInTheDocument();
+  });
+
+  it("よく使う色のボタンは色の名前で読まれ、選んだ色だけが押された状態になる", async () => {
+    const user = userEvent.setup();
+    render(<AddCategoryForm org="o" onCreated={vi.fn()} />);
+
+    const colors = within(screen.getByRole("group", { name: "よく使う色" })).getAllByRole("button");
+    expect(colors.map((b) => b.getAttribute("aria-label"))).toEqual([
+      "緑",
+      "オレンジ",
+      "紫",
+      "グレー",
+      "青",
+      "赤",
+      "黄",
+      "ピンク",
+    ]);
+    expect(screen.getByRole("button", { name: "グレー" })).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(screen.getByRole("button", { name: "青" }));
+
+    expect(screen.getByRole("button", { name: "青" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "グレー" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByLabelText("追加する区分の色")).toHaveValue("#3b82f6");
   });
 });

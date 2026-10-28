@@ -8,14 +8,14 @@ import { fieldErrorProps } from "@/components/FieldError";
 import { userErrorMessage } from "@/lib/api-client";
 
 const PRESET_COLORS = [
-  "#10B981",
-  "#F97316",
-  "#8B5CF6",
-  "#6B7280",
-  "#3B82F6",
-  "#EF4444",
-  "#F59E0B",
-  "#EC4899",
+  { value: "#10B981", name: "緑" },
+  { value: "#F97316", name: "オレンジ" },
+  { value: "#8B5CF6", name: "紫" },
+  { value: "#6B7280", name: "グレー" },
+  { value: "#3B82F6", name: "青" },
+  { value: "#EF4444", name: "赤" },
+  { value: "#F59E0B", name: "黄" },
+  { value: "#EC4899", name: "ピンク" },
 ];
 
 interface AddCategoryFormProps {
@@ -34,7 +34,7 @@ export function AddCategoryForm({ org, onCreated }: AddCategoryFormProps) {
   const handleAdd = async () => {
     if (adding) return;
     if (!newName.trim()) {
-      setAddError("名前を入力してください");
+      setAddError("区分名を入力してください");
       setNameMissing(true);
       return;
     }
@@ -60,21 +60,24 @@ export function AddCategoryForm({ org, onCreated }: AddCategoryFormProps) {
     <div className="space-y-3 rounded-xl border border-gray-200 bg-white px-4 py-4">
       <p className="text-xs font-semibold text-gray-700">区分を追加</p>
       <div className="flex items-center gap-2">
-        <div className="flex flex-col gap-1">
+        <div className="flex shrink-0 flex-col gap-1">
           <input
             type="color"
+            aria-label="追加する区分の色"
             value={newColor}
             onChange={(e) => setNewColor(e.target.value)}
             className="h-8 w-8 cursor-pointer rounded border border-gray-200"
           />
-          <div className="flex flex-wrap gap-1">
+          <div role="group" aria-label="よく使う色" className="grid grid-cols-4 gap-1">
             {PRESET_COLORS.map((c) => (
               <button
                 type="button"
-                key={c}
-                onClick={() => setNewColor(c)}
-                className="h-4 w-4 rounded-full border border-white shadow-sm"
-                style={{ backgroundColor: c }}
+                key={c.value}
+                aria-label={c.name}
+                aria-pressed={newColor.toLowerCase() === c.value.toLowerCase()}
+                onClick={() => setNewColor(c.value)}
+                className="h-6 w-6 rounded-full border-2 border-white shadow-sm aria-pressed:ring-2 aria-pressed:ring-gray-500"
+                style={{ backgroundColor: c.value }}
               />
             ))}
           </div>
@@ -87,14 +90,15 @@ export function AddCategoryForm({ org, onCreated }: AddCategoryFormProps) {
             setNameMissing(false);
           }}
           {...fieldErrorProps(errorId, addError, nameMissing)}
+          aria-label="追加する区分名"
           placeholder="区分名"
-          className="focus:ring-brand-400 flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:ring-1 focus:outline-none"
+          className="focus:ring-brand-400 min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:ring-1 focus:outline-none"
         />
         <button
           type="button"
           onClick={handleAdd}
           aria-disabled={adding}
-          className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors aria-disabled:opacity-60"
+          className="bg-brand-600 hover:bg-brand-700 flex shrink-0 items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors aria-disabled:opacity-60"
         >
           {adding ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
           追加

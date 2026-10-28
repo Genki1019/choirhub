@@ -267,3 +267,48 @@ describe("InviteForm（既存ユーザー）", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("InviteForm（項目ごとのエラーと入力欄の関連付け）", () => {
+  it("新規: 空のまま送信すると、各欄にエラーを関連付け、お名前欄にフォーカスを移す", async () => {
+    const user = userEvent.setup();
+    render(<InviteForm token="test-token" invite={invite} />);
+
+    await user.click(screen.getByRole("button", { name: "登録する" }));
+
+    const name = screen.getByLabelText("お名前");
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(name).toHaveAccessibleDescription("お名前を入力してください");
+    expect(screen.getByLabelText(/8文字以上/)).toHaveAccessibleDescription(
+      "パスワードは8文字以上で入力してください",
+    );
+    await waitFor(() => expect(name).toHaveFocus());
+    expect(authApi.acceptInvite).not.toHaveBeenCalled();
+  });
+
+  it("新規: 確認が一致しなければ、確認欄にエラーを関連付ける", async () => {
+    const user = userEvent.setup();
+    render(<InviteForm token="test-token" invite={invite} />);
+
+    await user.type(screen.getByLabelText("お名前"), "山田太郎");
+    await user.type(screen.getByLabelText(/8文字以上/), "password123");
+    await user.type(screen.getByLabelText("パスワード（確認）"), "password999");
+    await user.click(screen.getByRole("button", { name: "登録する" }));
+
+    const confirm = screen.getByLabelText("パスワード（確認）");
+    expect(confirm).toHaveAttribute("aria-invalid", "true");
+    expect(confirm).toHaveAccessibleDescription("パスワードが一致しません");
+    await waitFor(() => expect(confirm).toHaveFocus());
+  });
+
+  it("既存ユーザー: 空のまま送信すると、パスワード欄にエラーを関連付けてフォーカスを移す", async () => {
+    const user = userEvent.setup();
+    render(<InviteForm token="test-token" invite={{ ...invite, isExistingUser: true }} />);
+
+    await user.click(screen.getByRole("button", { name: "ログインして参加する" }));
+
+    const password = screen.getByLabelText("パスワード");
+    expect(password).toHaveAttribute("aria-invalid", "true");
+    expect(password).toHaveAccessibleDescription("パスワードを入力してください");
+    await waitFor(() => expect(password).toHaveFocus());
+  });
+});

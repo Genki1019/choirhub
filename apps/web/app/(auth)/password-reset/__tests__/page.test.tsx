@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import PasswordResetRequestPage from "../page";
 import { authApi } from "@/lib/auth-api";
@@ -66,5 +66,21 @@ describe("PasswordResetRequestPage（送信）", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "送信に失敗しました。しばらく後でお試しください。",
     );
+  });
+});
+
+describe("PasswordResetRequestPage（項目ごとのエラーと入力欄の関連付け）", () => {
+  it("形式の誤ったメールで送信すると、欄にエラーを関連付けてフォーカスを移す", async () => {
+    const user = userEvent.setup();
+    render(<PasswordResetRequestPage />);
+
+    await user.type(screen.getByLabelText("メールアドレス"), "abc");
+    await user.click(screen.getByRole("button", { name: "リセットメールを送信" }));
+
+    const email = screen.getByLabelText("メールアドレス");
+    expect(email).toHaveAttribute("aria-invalid", "true");
+    expect(email).toHaveAccessibleDescription("有効なメールアドレスを入力してください");
+    await waitFor(() => expect(email).toHaveFocus());
+    expect(authApi.requestPasswordReset).not.toHaveBeenCalled();
   });
 });

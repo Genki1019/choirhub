@@ -187,3 +187,23 @@ describe("Modal（閉じたあとのフォーカス）", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "保存" })).toHaveFocus());
   });
 });
+
+describe("Modal（ブラウザの入力検証）", () => {
+  it("既定ではフォームにブラウザの入力検証を残す", () => {
+    render(
+      <Modal title="追加" onClose={vi.fn()} onSubmit={vi.fn()}>
+        <input aria-label="名前" />
+      </Modal>,
+    );
+    expect(screen.getByRole("dialog").querySelector("form")).not.toHaveAttribute("novalidate");
+  });
+
+  it("noValidate を渡すと、ブラウザの入力検証を止める", () => {
+    render(
+      <Modal title="追加" onClose={vi.fn()} onSubmit={vi.fn()} noValidate>
+        <input aria-label="名前" />
+      </Modal>,
+    );
+    expect(screen.getByRole("dialog").querySelector("form")).toHaveAttribute("novalidate");
+  });
+});

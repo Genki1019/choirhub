@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import PasswordResetConfirmPage from "../page";
 import { authApi, ApiClientError } from "@/lib/auth-api";
@@ -162,5 +162,40 @@ describe("PasswordResetConfirmPage（バリデーション・送信）", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "パスワードの変更に失敗しました。しばらく後でお試しください。",
     );
+  });
+});
+
+describe("PasswordResetConfirmPage（項目ごとのエラーと入力欄の関連付け）", () => {
+  beforeEach(() => {
+    vi.mocked(authApi.getPasswordResetToken).mockResolvedValue({ email: "user@example.com" });
+  });
+
+  it("空のまま送信すると、新しいパスワード欄にエラーを関連付けてフォーカスを移す", async () => {
+    const user = userEvent.setup();
+    render(<PasswordResetConfirmPage />);
+
+    await screen.findByText("user@example.com");
+    await user.click(screen.getByRole("button", { name: "パスワードを変更する" }));
+
+    const password = screen.getByLabelText(/8文字以上/);
+    expect(password).toHaveAttribute("aria-invalid", "true");
+    expect(password).toHaveAccessibleDescription("パスワードは8文字以上で入力してください");
+    await waitFor(() => expect(password).toHaveFocus());
+  });
+
+  it("確認が一致しなければ、確認欄にだけエラーを関連付けてフォーカスを移す", async () => {
+    const user = userEvent.setup();
+    render(<PasswordResetConfirmPage />);
+
+    await screen.findByText("user@example.com");
+    await user.type(screen.getByLabelText(/8文字以上/), "password123");
+    await user.type(screen.getByLabelText("パスワード（確認）"), "password999");
+    await user.click(screen.getByRole("button", { name: "パスワードを変更する" }));
+
+    const confirm = screen.getByLabelText("パスワード（確認）");
+    expect(confirm).toHaveAttribute("aria-invalid", "true");
+    expect(confirm).toHaveAccessibleDescription("パスワードが一致しません");
+    await waitFor(() => expect(confirm).toHaveFocus());
+    expect(screen.getByLabelText(/8文字以上/)).not.toHaveAttribute("aria-invalid");
   });
 });

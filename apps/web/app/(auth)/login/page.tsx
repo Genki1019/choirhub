@@ -8,10 +8,11 @@ import { Music, Loader2 } from "lucide-react";
 import { authApi, ApiClientError } from "@/lib/auth-api";
 import { loginSchema, type LoginInput } from "@/lib/schemas";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { FieldError, fieldErrorProps } from "@/components/FieldError";
+import { useFocusFirstFieldError } from "@/hooks/useFocusFirstFieldError";
 
 const INPUT_CLS =
   "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition";
-const ERROR_CLS = "text-xs text-red-500 mt-1";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,8 +21,10 @@ export default function LoginPage() {
     register,
     handleSubmit,
     setError,
-    formState: { errors, isSubmitting },
-  } = useForm<LoginInput>({ resolver: zodResolver(loginSchema) });
+    setFocus,
+    formState: { errors, isSubmitting, submitCount },
+  } = useForm<LoginInput>({ resolver: zodResolver(loginSchema), shouldFocusError: false });
+  useFocusFirstFieldError(errors, submitCount, setFocus);
 
   const onSubmit = async (data: LoginInput) => {
     try {
@@ -48,6 +51,7 @@ export default function LoginPage() {
         </div>
 
         <form
+          noValidate
           onSubmit={handleSubmit(onSubmit)}
           className="space-y-5 rounded-2xl border border-gray-200 bg-white px-8 py-8"
         >
@@ -62,8 +66,9 @@ export default function LoginPage() {
               placeholder="you@example.com"
               className={INPUT_CLS}
               {...register("email")}
+              {...fieldErrorProps("login-email-error", errors.email?.message)}
             />
-            {errors.email && <p className={ERROR_CLS}>{errors.email.message}</p>}
+            <FieldError id="login-email-error">{errors.email?.message}</FieldError>
           </div>
 
           <div>
@@ -77,8 +82,9 @@ export default function LoginPage() {
               placeholder="••••••••"
               className={INPUT_CLS}
               {...register("password")}
+              {...fieldErrorProps("login-password-error", errors.password?.message)}
             />
-            {errors.password && <p className={ERROR_CLS}>{errors.password.message}</p>}
+            <FieldError id="login-password-error">{errors.password?.message}</FieldError>
           </div>
 
           <ErrorMessage>{errors.root?.message}</ErrorMessage>

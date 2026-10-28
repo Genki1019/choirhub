@@ -6,6 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Check } from "lucide-react";
 import { Modal } from "@/components/Modal";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { FieldError, fieldErrorProps } from "@/components/FieldError";
+import { useFocusFirstFieldError } from "@/hooks/useFocusFirstFieldError";
 import { membersApi, type PartSummary } from "@/lib/members-api";
 import { ApiClientError } from "@/lib/api-client";
 import { ROLE_OPTIONS } from "@/lib/roles";
@@ -13,7 +15,6 @@ import { inviteMemberSchema, type InviteMemberInput } from "@/lib/schemas";
 
 const INVITE_INPUT_CLS =
   "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400";
-const ERROR_CLS = "text-xs text-red-500 mt-1";
 
 interface InviteModalProps {
   org: string;
@@ -29,11 +30,14 @@ export function InviteModal({ org, parts, onClose }: InviteModalProps) {
     handleSubmit,
     control,
     setError,
-    formState: { errors, isSubmitting },
+    setFocus,
+    formState: { errors, isSubmitting, submitCount },
   } = useForm<InviteMemberInput>({
     resolver: zodResolver(inviteMemberSchema),
     defaultValues: { roles: ["member"] },
+    shouldFocusError: false,
   });
+  useFocusFirstFieldError(errors, submitCount, setFocus);
 
   const onSubmit = async (data: InviteMemberInput) => {
     try {
@@ -82,6 +86,7 @@ export function InviteModal({ org, parts, onClose }: InviteModalProps) {
       title="メンバーを招待"
       onClose={onClose}
       onSubmit={handleSubmit(onSubmit)}
+      noValidate
       busy={isSubmitting}
       footer={
         <>
@@ -129,8 +134,9 @@ export function InviteModal({ org, parts, onClose }: InviteModalProps) {
           className={INVITE_INPUT_CLS}
           placeholder="member@example.com"
           {...register("email")}
+          {...fieldErrorProps("invite-email-error", errors.email?.message)}
         />
-        {errors.email && <p className={ERROR_CLS}>{errors.email.message}</p>}
+        <FieldError id="invite-email-error">{errors.email?.message}</FieldError>
       </div>
 
       <div>
@@ -184,7 +190,7 @@ export function InviteModal({ org, parts, onClose }: InviteModalProps) {
             </div>
           )}
         />
-        {errors.roles && <p className={ERROR_CLS}>{errors.roles.message}</p>}
+        <FieldError id="invite-roles-error">{errors.roles?.message}</FieldError>
       </div>
 
       <ErrorMessage>{errors.root?.message}</ErrorMessage>

@@ -195,3 +195,18 @@ describe("AddVisitorApplicationModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("AddVisitorApplicationModal（項目ごとのエラーと入力欄の関連付け）", () => {
+  it("お名前が空のまま送信すると、お名前欄にエラーを関連付けてフォーカスを移す", async () => {
+    const user = userEvent.setup();
+    render(<AddVisitorApplicationModal org="tokyo" parts={parts} onClose={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "登録する" }));
+
+    const name = screen.getByLabelText("お名前 *");
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(name).toHaveAccessibleDescription("お名前を入力してください");
+    await waitFor(() => expect(name).toHaveFocus());
+    expect(visitorApplicationsApi.create).not.toHaveBeenCalled();
+  });
+});

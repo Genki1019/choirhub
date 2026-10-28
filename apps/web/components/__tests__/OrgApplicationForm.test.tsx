@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { OrgApplicationForm } from "../OrgApplicationForm";
 import { orgApplicationsApi } from "@/lib/org-applications-api";
@@ -176,5 +176,27 @@ describe("OrgApplicationForm", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "このスラグはシステムで使用しているため使えません",
     );
+  });
+});
+
+describe("OrgApplicationForm（項目ごとのエラーと入力欄の関連付け）", () => {
+  it("空のまま送信すると、各欄にエラーを関連付け、団体名欄にフォーカスを移す", async () => {
+    const user = userEvent.setup();
+    render(<OrgApplicationForm />);
+
+    await user.click(screen.getByRole("button", { name: "申請する" }));
+
+    const orgName = screen.getByLabelText("団体名");
+    expect(orgName).toHaveAttribute("aria-invalid", "true");
+    expect(orgName).toHaveAccessibleDescription("団体名を入力してください");
+    expect(screen.getByLabelText(/スラグ/)).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("管理者氏名")).toHaveAccessibleDescription(
+      "管理者氏名を入力してください",
+    );
+    expect(screen.getByLabelText("管理者メールアドレス")).toHaveAccessibleDescription(
+      "有効なメールアドレスを入力してください",
+    );
+    await waitFor(() => expect(orgName).toHaveFocus());
+    expect(orgApplicationsApi.create).not.toHaveBeenCalled();
   });
 });

@@ -14,10 +14,11 @@ import { orgApplicationSchema, type OrgApplicationInput } from "@/lib/schemas";
 import { sanitizeSlug } from "@/lib/slug";
 import { TermsConsentNote } from "@/components/TermsConsentNote";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { FieldError, fieldErrorProps } from "@/components/FieldError";
+import { useFocusFirstFieldError } from "@/hooks/useFocusFirstFieldError";
 
 const INPUT_CLS =
   "focus:ring-brand-500 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:outline-none";
-const ERROR_CLS = "mt-1 text-xs text-red-600";
 
 function toSlug(name: string): string {
   return sanitizeSlug(name.replace(/[\s_]+/g, "-"))
@@ -49,7 +50,8 @@ export function OrgApplicationForm({
     handleSubmit,
     setValue,
     setError,
-    formState: { errors, isSubmitting },
+    setFocus,
+    formState: { errors, isSubmitting, submitCount },
   } = useForm<OrgApplicationInput>({
     resolver: zodResolver(orgApplicationSchema),
     defaultValues: {
@@ -60,7 +62,9 @@ export function OrgApplicationForm({
       applicantEmail: initialEmail,
       message: "",
     },
+    shouldFocusError: false,
   });
+  useFocusFirstFieldError(errors, submitCount, setFocus);
 
   const orgName = useWatch({ control, name: "orgName" });
   useEffect(() => {
@@ -89,7 +93,7 @@ export function OrgApplicationForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+    <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-3">
       <div>
         <label htmlFor="applyOrgName" className="mb-1 block text-xs font-medium text-gray-600">
           団体名
@@ -100,14 +104,15 @@ export function OrgApplicationForm({
           placeholder="○○合唱団"
           className={INPUT_CLS}
           {...register("orgName")}
+          {...fieldErrorProps("applyOrgName-error", errors.orgName?.message)}
         />
-        {errors.orgName && <p className={ERROR_CLS}>{errors.orgName.message}</p>}
+        <FieldError id="applyOrgName-error">{errors.orgName?.message}</FieldError>
       </div>
       <div>
         <label htmlFor="applyOrgSlug" className="mb-1 block text-xs font-medium text-gray-600">
           スラグ <span className="font-normal text-gray-400">（URL に使用）</span>
         </label>
-        <div className="focus-within:ring-brand-500 flex items-center gap-1 overflow-hidden rounded-lg border border-gray-200 text-sm focus-within:ring-2">
+        <div className="focus-within:ring-brand-500 flex items-center gap-1 overflow-hidden rounded-lg border border-gray-200 text-sm focus-within:ring-2 has-aria-invalid:border-red-500">
           <span className="px-2 text-gray-400 select-none">choirhub.app/</span>
           <input
             id="applyOrgSlug"
@@ -115,13 +120,14 @@ export function OrgApplicationForm({
             placeholder="my-choir"
             className="flex-1 py-2 pr-3 focus:outline-none"
             {...register("slug")}
+            {...fieldErrorProps("applySlug-error", errors.slug?.message)}
             onChange={(e) => {
               slugManual.current = true;
               setValue("slug", sanitizeSlug(e.target.value), { shouldValidate: true });
             }}
           />
         </div>
-        {errors.slug && <p className={ERROR_CLS}>{errors.slug.message}</p>}
+        <FieldError id="applySlug-error">{errors.slug?.message}</FieldError>
       </div>
       <div>
         <label htmlFor="applyTemplateKey" className="mb-1 block text-xs font-medium text-gray-600">
@@ -145,8 +151,9 @@ export function OrgApplicationForm({
           placeholder="山田 太郎"
           className={INPUT_CLS}
           {...register("applicantName")}
+          {...fieldErrorProps("applyName-error", errors.applicantName?.message)}
         />
-        {errors.applicantName && <p className={ERROR_CLS}>{errors.applicantName.message}</p>}
+        <FieldError id="applyName-error">{errors.applicantName?.message}</FieldError>
       </div>
       <div>
         <label htmlFor="applyEmail" className="mb-1 block text-xs font-medium text-gray-600">
@@ -158,8 +165,9 @@ export function OrgApplicationForm({
           placeholder="you@example.com"
           className={INPUT_CLS}
           {...register("applicantEmail")}
+          {...fieldErrorProps("applyEmail-error", errors.applicantEmail?.message)}
         />
-        {errors.applicantEmail && <p className={ERROR_CLS}>{errors.applicantEmail.message}</p>}
+        <FieldError id="applyEmail-error">{errors.applicantEmail?.message}</FieldError>
       </div>
       <div>
         <label htmlFor="applyMessage" className="mb-1 block text-xs font-medium text-gray-600">

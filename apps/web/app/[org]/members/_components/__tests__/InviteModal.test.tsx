@@ -227,3 +227,19 @@ describe("InviteModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("InviteModal（項目ごとのエラーと入力欄の関連付け）", () => {
+  it("形式の誤ったメールで送信すると、メール欄にエラーを関連付けてフォーカスを移す", async () => {
+    const user = userEvent.setup();
+    render(<InviteModal org="tokyo" parts={parts} onClose={vi.fn()} />);
+
+    await user.type(screen.getByLabelText("メールアドレス *"), "abc");
+    await user.click(screen.getByRole("button", { name: "招待メールを送信" }));
+
+    const email = screen.getByLabelText("メールアドレス *");
+    expect(email).toHaveAttribute("aria-invalid", "true");
+    expect(email).toHaveAccessibleDescription("有効なメールアドレスを入力してください");
+    await waitFor(() => expect(email).toHaveFocus());
+    expect(membersApi.invite).not.toHaveBeenCalled();
+  });
+});

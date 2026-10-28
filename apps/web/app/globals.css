@@ -11,3 +11,9 @@
   --color-brand-700: #6d28d9;
   --color-brand-800: #5b21b6;
 }
+
+@layer utilities {
+  :is(input, textarea, select)[aria-invalid="true"] {
+    border-color: var(--color-red-500);
+  }
+}

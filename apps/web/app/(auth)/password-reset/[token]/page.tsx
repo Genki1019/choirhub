@@ -9,10 +9,11 @@ import { Music, Loader2, CheckCircle, Eye, EyeOff } from "lucide-react";
 import { authApi, ApiClientError } from "@/lib/auth-api";
 import { passwordResetConfirmSchema, type PasswordResetConfirmInput } from "@/lib/schemas";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { FieldError, fieldErrorProps } from "@/components/FieldError";
+import { useFocusFirstFieldError } from "@/hooks/useFocusFirstFieldError";
 
 const INPUT_CLS =
   "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition";
-const ERROR_CLS = "text-xs text-red-500 mt-1";
 
 export default function PasswordResetConfirmPage() {
   const { token } = useParams<{ token: string }>();
@@ -44,8 +45,13 @@ export default function PasswordResetConfirmPage() {
     register,
     handleSubmit,
     setError,
-    formState: { errors, isSubmitting },
-  } = useForm<PasswordResetConfirmInput>({ resolver: zodResolver(passwordResetConfirmSchema) });
+    setFocus,
+    formState: { errors, isSubmitting, submitCount },
+  } = useForm<PasswordResetConfirmInput>({
+    resolver: zodResolver(passwordResetConfirmSchema),
+    shouldFocusError: false,
+  });
+  useFocusFirstFieldError(errors, submitCount, setFocus);
 
   const onSubmit = async (data: PasswordResetConfirmInput) => {
     try {
@@ -108,6 +114,7 @@ export default function PasswordResetConfirmPage() {
 
         {email && !done && (
           <form
+            noValidate
             onSubmit={handleSubmit(onSubmit)}
             className="space-y-5 rounded-2xl border border-gray-200 bg-white px-8 py-8"
           >
@@ -128,6 +135,7 @@ export default function PasswordResetConfirmPage() {
                   placeholder="••••••••"
                   className={INPUT_CLS}
                   {...register("password")}
+                  {...fieldErrorProps("new-password-error", errors.password?.message)}
                 />
                 <button
                   type="button"
@@ -138,7 +146,7 @@ export default function PasswordResetConfirmPage() {
                   {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              {errors.password && <p className={ERROR_CLS}>{errors.password.message}</p>}
+              <FieldError id="new-password-error">{errors.password?.message}</FieldError>
             </div>
 
             <div>
@@ -154,10 +162,11 @@ export default function PasswordResetConfirmPage() {
                 placeholder="••••••••"
                 className={INPUT_CLS}
                 {...register("passwordConfirm")}
+                {...fieldErrorProps("new-password-confirm-error", errors.passwordConfirm?.message)}
               />
-              {errors.passwordConfirm && (
-                <p className={ERROR_CLS}>{errors.passwordConfirm.message}</p>
-              )}
+              <FieldError id="new-password-confirm-error">
+                {errors.passwordConfirm?.message}
+              </FieldError>
             </div>
 
             <ErrorMessage>{errors.root?.message}</ErrorMessage>

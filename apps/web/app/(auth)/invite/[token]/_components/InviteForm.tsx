@@ -14,10 +14,11 @@ import {
 } from "@/lib/schemas";
 import { TermsConsentNote } from "@/components/TermsConsentNote";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { FieldError, fieldErrorProps } from "@/components/FieldError";
+import { useFocusFirstFieldError } from "@/hooks/useFocusFirstFieldError";
 
 const INPUT_CLS =
   "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition";
-const ERROR_CLS = "text-xs text-red-500 mt-1";
 
 const ALREADY_REGISTERED_MESSAGE =
   "このメールアドレスはすでに登録済みです。ログインページからログインしてください。";
@@ -58,6 +59,7 @@ function PasswordField({
           placeholder="••••••••"
           className={INPUT_CLS}
           {...registration}
+          {...fieldErrorProps(`${id}-error`, error)}
         />
         <button
           type="button"
@@ -68,7 +70,7 @@ function PasswordField({
           {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>
       </div>
-      {error && <p className={ERROR_CLS}>{error}</p>}
+      <FieldError id={`${id}-error`}>{error}</FieldError>
     </div>
   );
 }
@@ -88,6 +90,7 @@ function InviteFormShell({
 }) {
   return (
     <form
+      noValidate
       onSubmit={onSubmit}
       className="space-y-5 rounded-2xl border border-gray-200 bg-white px-8 py-8"
     >
@@ -160,11 +163,14 @@ function NewUserForm({
     register,
     handleSubmit,
     setError,
-    formState: { errors, isSubmitting },
+    setFocus,
+    formState: { errors, isSubmitting, submitCount },
   } = useForm<InviteAcceptInput>({
     resolver: zodResolver(inviteAcceptSchema),
     defaultValues: { nameJa: invite.nameJa ?? "" },
+    shouldFocusError: false,
   });
+  useFocusFirstFieldError(errors, submitCount, setFocus);
 
   const onSubmit = async (data: InviteAcceptInput) => {
     try {
@@ -197,8 +203,9 @@ function NewUserForm({
           placeholder="山田 太郎"
           className={INPUT_CLS}
           {...register("nameJa")}
+          {...fieldErrorProps("nameJa-error", errors.nameJa?.message)}
         />
-        {errors.nameJa && <p className={ERROR_CLS}>{errors.nameJa.message}</p>}
+        <FieldError id="nameJa-error">{errors.nameJa?.message}</FieldError>
       </div>
 
       <PasswordField
@@ -224,8 +231,9 @@ function NewUserForm({
           placeholder="••••••••"
           className={INPUT_CLS}
           {...register("passwordConfirm")}
+          {...fieldErrorProps("passwordConfirm-error", errors.passwordConfirm?.message)}
         />
-        {errors.passwordConfirm && <p className={ERROR_CLS}>{errors.passwordConfirm.message}</p>}
+        <FieldError id="passwordConfirm-error">{errors.passwordConfirm?.message}</FieldError>
       </div>
     </InviteFormShell>
   );
@@ -239,10 +247,13 @@ function ExistingUserForm({ token, invite }: { token: string; invite: InviteInfo
     register,
     handleSubmit,
     setError,
-    formState: { errors, isSubmitting },
+    setFocus,
+    formState: { errors, isSubmitting, submitCount },
   } = useForm<InviteAcceptExistingUserInput>({
     resolver: zodResolver(inviteAcceptExistingUserSchema),
+    shouldFocusError: false,
   });
+  useFocusFirstFieldError(errors, submitCount, setFocus);
 
   const onSubmit = async (data: InviteAcceptExistingUserInput) => {
     try {

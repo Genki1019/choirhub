@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { InquiryForm } from "../InquiryForm";
 import { inquiriesApi } from "@/lib/inquiries-api";
@@ -106,5 +106,44 @@ describe("InquiryForm", () => {
       "href",
       "/privacy",
     );
+  });
+});
+
+describe("InquiryForm（項目ごとのエラーと入力欄の関連付け）", () => {
+  it("空のまま送信すると、必須の欄にエラーを関連付け、お名前欄にフォーカスを移す", async () => {
+    const user = userEvent.setup();
+    render(<InquiryForm />);
+
+    await user.click(screen.getByRole("button", { name: "送信する" }));
+
+    const name = screen.getByLabelText("お名前");
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(name).toHaveAccessibleDescription("お名前を入力してください");
+    expect(screen.getByLabelText("メールアドレス")).toHaveAccessibleDescription(
+      "有効なメールアドレスを入力してください",
+    );
+    expect(screen.getByLabelText("お問い合わせ内容")).toHaveAccessibleDescription(
+      "お問い合わせ内容を入力してください",
+    );
+    expect(screen.getByLabelText(/団体名/)).not.toHaveAttribute("aria-invalid");
+    await waitFor(() => expect(name).toHaveFocus());
+    expect(inquiriesApi.create).not.toHaveBeenCalled();
+  });
+
+  it("団体名が100文字を超えると、団体名欄にエラーを関連付ける", async () => {
+    const user = userEvent.setup();
+    render(<InquiryForm />);
+
+    await user.type(screen.getByLabelText("お名前"), "山田");
+    await user.type(screen.getByLabelText("メールアドレス"), "a@example.com");
+    await user.click(screen.getByLabelText(/団体名/));
+    await user.paste("あ".repeat(101));
+    await user.type(screen.getByLabelText("お問い合わせ内容"), "内容");
+    await user.click(screen.getByRole("button", { name: "送信する" }));
+
+    const orgName = screen.getByLabelText(/団体名/);
+    expect(orgName).toHaveAttribute("aria-invalid", "true");
+    expect(orgName).toHaveAccessibleDescription("100文字以内で入力してください");
+    await waitFor(() => expect(orgName).toHaveFocus());
   });
 });

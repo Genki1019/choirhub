@@ -9,10 +9,11 @@ import { inquiriesApi, INQUIRY_CATEGORY_OPTIONS, type InquiryCategory } from "@/
 import { ApiClientError } from "@/lib/api-client";
 import { inquirySchema, type InquiryInput } from "@/lib/schemas";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { FieldError, fieldErrorProps } from "@/components/FieldError";
+import { useFocusFirstFieldError } from "@/hooks/useFocusFirstFieldError";
 
 const INPUT_CLS =
   "focus:ring-brand-500 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:outline-none";
-const ERROR_CLS = "mt-1 text-xs text-red-600";
 
 interface InquiryFormProps {
   initialCategory?: InquiryCategory;
@@ -25,11 +26,14 @@ export function InquiryForm({ initialCategory = "other" }: InquiryFormProps) {
     register,
     handleSubmit,
     setError,
-    formState: { errors, isSubmitting },
+    setFocus,
+    formState: { errors, isSubmitting, submitCount },
   } = useForm<InquiryInput>({
     resolver: zodResolver(inquirySchema),
     defaultValues: { category: initialCategory, name: "", email: "", orgName: "", message: "" },
+    shouldFocusError: false,
   });
+  useFocusFirstFieldError(errors, submitCount, setFocus);
 
   const onSubmit = async (data: InquiryInput) => {
     try {
@@ -54,7 +58,7 @@ export function InquiryForm({ initialCategory = "other" }: InquiryFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+    <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-3">
       <div>
         <label htmlFor="inquiryCategory" className="mb-1 block text-xs font-medium text-gray-600">
           お問い合わせの種類
@@ -71,8 +75,14 @@ export function InquiryForm({ initialCategory = "other" }: InquiryFormProps) {
         <label htmlFor="inquiryName" className="mb-1 block text-xs font-medium text-gray-600">
           お名前
         </label>
-        <input id="inquiryName" type="text" className={INPUT_CLS} {...register("name")} />
-        {errors.name && <p className={ERROR_CLS}>{errors.name.message}</p>}
+        <input
+          id="inquiryName"
+          type="text"
+          className={INPUT_CLS}
+          {...register("name")}
+          {...fieldErrorProps("inquiryName-error", errors.name?.message)}
+        />
+        <FieldError id="inquiryName-error">{errors.name?.message}</FieldError>
       </div>
       <div>
         <label htmlFor="inquiryEmail" className="mb-1 block text-xs font-medium text-gray-600">
@@ -84,15 +94,22 @@ export function InquiryForm({ initialCategory = "other" }: InquiryFormProps) {
           placeholder="you@example.com"
           className={INPUT_CLS}
           {...register("email")}
+          {...fieldErrorProps("inquiryEmail-error", errors.email?.message)}
         />
-        {errors.email && <p className={ERROR_CLS}>{errors.email.message}</p>}
+        <FieldError id="inquiryEmail-error">{errors.email?.message}</FieldError>
       </div>
       <div>
         <label htmlFor="inquiryOrgName" className="mb-1 block text-xs font-medium text-gray-600">
           団体名 <span className="font-normal text-gray-400">（任意）</span>
         </label>
-        <input id="inquiryOrgName" type="text" className={INPUT_CLS} {...register("orgName")} />
-        {errors.orgName && <p className={ERROR_CLS}>{errors.orgName.message}</p>}
+        <input
+          id="inquiryOrgName"
+          type="text"
+          className={INPUT_CLS}
+          {...register("orgName")}
+          {...fieldErrorProps("inquiryOrgName-error", errors.orgName?.message)}
+        />
+        <FieldError id="inquiryOrgName-error">{errors.orgName?.message}</FieldError>
       </div>
       <div>
         <label htmlFor="inquiryMessage" className="mb-1 block text-xs font-medium text-gray-600">
@@ -103,8 +120,9 @@ export function InquiryForm({ initialCategory = "other" }: InquiryFormProps) {
           rows={6}
           className={`${INPUT_CLS} resize-none`}
           {...register("message")}
+          {...fieldErrorProps("inquiryMessage-error", errors.message?.message)}
         />
-        {errors.message && <p className={ERROR_CLS}>{errors.message.message}</p>}
+        <FieldError id="inquiryMessage-error">{errors.message?.message}</FieldError>
       </div>
 
       <p className="text-xs text-gray-400">

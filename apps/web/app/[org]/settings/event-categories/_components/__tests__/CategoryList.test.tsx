@@ -44,6 +44,24 @@ beforeEach(() => {
 });
 
 describe("CategoryList（canEdit: true）", () => {
+  it("区分名を空にして保存すると、区分名の欄にだけ aria-invalid を付け、説明は色の欄にも付ける", async () => {
+    const user = userEvent.setup();
+    renderList(true);
+
+    await user.click(screen.getByLabelText("合宿を編集"));
+    await user.clear(screen.getByRole("textbox", { name: "区分名" }));
+    await user.keyboard("{Enter}");
+
+    const name = screen.getByRole("textbox", { name: "区分名" });
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(name).toHaveAccessibleDescription("区分名を入力してください");
+    expect(screen.getByLabelText("区分の色")).not.toHaveAttribute("aria-invalid");
+    expect(screen.getByLabelText("区分の色")).toHaveAccessibleDescription(
+      "区分名を入力してください",
+    );
+    expect(settingsApi.updateEventCategory).not.toHaveBeenCalled();
+  });
+
   it("標準区分（slugあり）は削除ボタンを表示しない", () => {
     renderList(true);
 

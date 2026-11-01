@@ -6,13 +6,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Check } from "lucide-react";
 import { Modal } from "@/components/Modal";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { FieldError, fieldErrorProps } from "@/components/FieldError";
+import { useFocusFirstFieldError } from "@/hooks/useFocusFirstFieldError";
 import { visitorApplicationsApi } from "@/lib/visitor-applications-api";
 import type { PartSummary } from "@/lib/members-api";
 import { addVisitorApplicationSchema, type AddVisitorApplicationInput } from "@/lib/schemas";
 
 const INPUT_CLS =
   "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400";
-const ERROR_CLS = "text-xs text-red-500 mt-1";
 
 interface AddVisitorApplicationModalProps {
   org: string;
@@ -31,10 +32,13 @@ export function AddVisitorApplicationModal({
     register,
     handleSubmit,
     setError,
-    formState: { errors, isSubmitting },
+    setFocus,
+    formState: { errors, isSubmitting, submitCount },
   } = useForm<AddVisitorApplicationInput>({
     resolver: zodResolver(addVisitorApplicationSchema),
+    shouldFocusError: false,
   });
+  useFocusFirstFieldError(errors, submitCount, setFocus);
 
   const onSubmit = async (data: AddVisitorApplicationInput) => {
     try {
@@ -80,6 +84,7 @@ export function AddVisitorApplicationModal({
       title="見学者を追加"
       onClose={onClose}
       onSubmit={handleSubmit(onSubmit)}
+      noValidate
       busy={isSubmitting}
       footer={
         <>
@@ -111,8 +116,9 @@ export function AddVisitorApplicationModal({
           className={INPUT_CLS}
           placeholder="山田 太郎"
           {...register("name")}
+          {...fieldErrorProps("visitor-name-error", errors.name?.message)}
         />
-        {errors.name && <p className={ERROR_CLS}>{errors.name.message}</p>}
+        <FieldError id="visitor-name-error">{errors.name?.message}</FieldError>
       </div>
 
       <div>

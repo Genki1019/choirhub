@@ -34,6 +34,7 @@ export function DistributionPriceField({ price, canEdit, onSave }: DistributionP
             type="text"
             inputMode="numeric"
             aria-label="配布価格"
+            {...edit.fieldProps()}
             value={edit.value}
             onChange={(e) => edit.setValue(e.target.value)}
             onKeyDown={edit.handleKeyDown}
@@ -49,7 +50,9 @@ export function DistributionPriceField({ price, canEdit, onSave }: DistributionP
             onCancel={edit.cancel}
           />
         </div>
-        <ErrorMessage className="mt-1">{edit.error}</ErrorMessage>
+        <ErrorMessage id={edit.errorId} className="mt-1">
+          {edit.error}
+        </ErrorMessage>
       </div>
     );
   }

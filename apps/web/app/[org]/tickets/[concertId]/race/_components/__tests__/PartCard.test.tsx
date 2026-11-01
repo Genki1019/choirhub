@@ -317,6 +317,12 @@ describe("PartCard（幹事期間）", () => {
     await user.click(screen.getByRole("button", { name: "幹事期間を保存" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent("開始月と終了月の両方を選んでください");
+    expect(screen.getByLabelText("終了月（年）")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("終了月（月）")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("終了月（年）")).toHaveAccessibleDescription(
+      "開始月と終了月の両方を選んでください",
+    );
+    expect(screen.getByLabelText("開始月（年）")).not.toHaveAttribute("aria-invalid");
     expect(ticketsApi.saveOrganizerPeriod).not.toHaveBeenCalled();
   });
 
@@ -343,6 +349,11 @@ describe("PartCard（幹事期間）", () => {
     await user.click(screen.getByRole("button", { name: "幹事期間を保存" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent("終了月は開始月以降を選んでください");
+    expect(screen.getByLabelText("終了月（月）")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("開始月（月）")).not.toHaveAttribute("aria-invalid");
+    expect(screen.getByLabelText("開始月（月）")).toHaveAccessibleDescription(
+      "終了月は開始月以降を選んでください",
+    );
     expect(ticketsApi.saveOrganizerPeriod).not.toHaveBeenCalled();
   });
 });

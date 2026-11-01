@@ -38,6 +38,7 @@ interface ModalProps {
   onClose: () => void;
   onSubmit?: (e: FormEvent<HTMLFormElement>) => void;
   busy?: boolean;
+  noValidate?: boolean;
   size?: keyof typeof SIZE_CLASS;
   footer?: ReactNode;
   children: ReactNode;
@@ -49,6 +50,7 @@ export function Modal({
   onClose,
   onSubmit,
   busy = false,
+  noValidate,
   size = "md",
   footer,
   children,
@@ -95,7 +97,11 @@ export function Modal({
           )}
         </div>
         {onSubmit ? (
-          <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
+          <form
+            onSubmit={onSubmit}
+            noValidate={noValidate}
+            className="flex min-h-0 flex-1 flex-col"
+          >
             {content}
           </form>
         ) : (

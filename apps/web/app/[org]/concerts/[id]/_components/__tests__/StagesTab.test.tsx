@@ -217,6 +217,8 @@ describe("StagesTab（ステージ名インライン編集）", () => {
     await user.click(screen.getByRole("button", { name: "ステージ名を保存" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent("ステージ名を入力してください");
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input).toHaveAccessibleDescription("ステージ名を入力してください");
     expect(onEditStageName).not.toHaveBeenCalled();
   });
 });

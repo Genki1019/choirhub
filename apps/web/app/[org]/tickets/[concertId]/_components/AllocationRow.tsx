@@ -44,10 +44,10 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
       returnedCount: String(row.returnedCount),
       isCollected: row.isCollected,
     }),
-    validate: (form) =>
-      COUNT_FIELDS.every((key) => isCount(form[key]))
-        ? null
-        : "枚数は0以上の整数で入力してください",
+    validate: (form) => {
+      const fields = COUNT_FIELDS.filter((key) => !isCount(form[key]));
+      return fields.length > 0 ? { message: "枚数は0以上の整数で入力してください", fields } : null;
+    },
     isEqual: (a, b) => JSON.stringify(toSales(a)) === JSON.stringify(toSales(b)),
     onSave: async (form) => {
       const sales = toSales(form);
@@ -78,6 +78,7 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
                 type="text"
                 inputMode="numeric"
                 aria-label={`${row.nameJa}の配布数`}
+                {...alloc.fieldProps()}
                 value={alloc.value}
                 onChange={(e) => alloc.setValue(e.target.value)}
                 onKeyDown={alloc.handleKeyDown}
@@ -116,6 +117,7 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
               type="text"
               inputMode="numeric"
               aria-label={`${row.nameJa}の大人販売数`}
+              {...sales.fieldProps("soldAdult")}
               autoFocus
               onKeyDown={sales.handleKeyDown}
               value={form.soldAdult}
@@ -126,6 +128,7 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
               type="text"
               inputMode="numeric"
               aria-label={`${row.nameJa}の学生販売数`}
+              {...sales.fieldProps("soldStudent")}
               onKeyDown={sales.handleKeyDown}
               value={form.soldStudent}
               onChange={(e) => setForm({ ...form, soldStudent: e.target.value })}
@@ -135,6 +138,7 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
               type="text"
               inputMode="numeric"
               aria-label={`${row.nameJa}の他販売数`}
+              {...sales.fieldProps("soldOther")}
               onKeyDown={sales.handleKeyDown}
               value={form.soldOther}
               onChange={(e) => setForm({ ...form, soldOther: e.target.value })}
@@ -144,6 +148,7 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
               type="text"
               inputMode="numeric"
               aria-label={`${row.nameJa}の返却数`}
+              {...sales.fieldProps("returnedCount")}
               onKeyDown={sales.handleKeyDown}
               value={form.returnedCount}
               onChange={(e) => setForm({ ...form, returnedCount: e.target.value })}
@@ -170,6 +175,7 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
             <input
               type="checkbox"
               aria-label={`${row.nameJa}の集金済み`}
+              {...sales.fieldProps("isCollected")}
               checked={form.isCollected}
               onChange={(e) => setForm({ ...form, isCollected: e.target.checked })}
               className="accent-brand-600 h-4 w-4"
@@ -217,8 +223,12 @@ export function AllocationRowComponent({ row, orgSlug, onUpdated }: AllocationRo
           )}
         </div>
       </div>
-      <ErrorMessage className="mx-4 mb-3">{alloc.error}</ErrorMessage>
-      <ErrorMessage className="mx-4 mb-3">{sales.error}</ErrorMessage>
+      <ErrorMessage id={alloc.errorId} className="mx-4 mb-3">
+        {alloc.error}
+      </ErrorMessage>
+      <ErrorMessage id={sales.errorId} className="mx-4 mb-3">
+        {sales.error}
+      </ErrorMessage>
     </div>
   );
 }

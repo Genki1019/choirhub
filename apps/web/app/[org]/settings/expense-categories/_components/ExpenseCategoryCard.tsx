@@ -49,6 +49,7 @@ function ExpenseCategoryRowName({
           <input
             autoFocus
             aria-label="カテゴリ名"
+            {...edit.fieldProps()}
             value={edit.value}
             onChange={(e) => edit.setValue(e.target.value)}
             onKeyDown={edit.handleKeyDown}
@@ -62,7 +63,7 @@ function ExpenseCategoryRowName({
             onCancel={edit.cancel}
           />
         </div>
-        <ErrorMessage>{edit.error}</ErrorMessage>
+        <ErrorMessage id={edit.errorId}>{edit.error}</ErrorMessage>
       </div>
     );
   }

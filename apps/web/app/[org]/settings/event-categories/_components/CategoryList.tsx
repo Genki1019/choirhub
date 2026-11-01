@@ -33,7 +33,8 @@ function CategoryRowFields({
 }) {
   const { registerTrigger, ...edit } = useInlineEdit({
     initial: () => ({ name: cat.name, color: cat.color }),
-    validate: ({ name }) => (name.trim() ? null : "区分名を入力してください"),
+    validate: ({ name }) =>
+      name.trim() ? null : { message: "区分名を入力してください", fields: ["name"] },
     onSave: async ({ name, color }) => {
       onUpdated(
         await runBusy(() =>
@@ -52,6 +53,7 @@ function CategoryRowFields({
           <input
             type="color"
             aria-label="区分の色"
+            {...edit.fieldProps("color")}
             value={edit.value.color}
             onChange={(e) => edit.setValue({ ...edit.value, color: e.target.value })}
             onKeyDown={edit.handleKeyDown}
@@ -60,6 +62,7 @@ function CategoryRowFields({
           <input
             autoFocus
             aria-label="区分名"
+            {...edit.fieldProps("name")}
             value={edit.value.name}
             onChange={(e) => edit.setValue({ ...edit.value, name: e.target.value })}
             onKeyDown={edit.handleKeyDown}
@@ -73,7 +76,7 @@ function CategoryRowFields({
             onCancel={edit.cancel}
           />
         </div>
-        <ErrorMessage>{edit.error}</ErrorMessage>
+        <ErrorMessage id={edit.errorId}>{edit.error}</ErrorMessage>
       </div>
     );
   }

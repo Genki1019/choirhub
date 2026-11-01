@@ -148,6 +148,9 @@ describe("PartCard（canEdit: true）", () => {
     await user.keyboard("{Enter}");
 
     expect(screen.getByRole("alert")).toHaveTextContent("パート名を入力してください");
+    const name = screen.getByRole("textbox", { name: "パート名" });
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(name).toHaveAccessibleDescription("パート名を入力してください");
     expect(settingsApi.updatePart).not.toHaveBeenCalled();
   });
 

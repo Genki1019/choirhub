@@ -36,6 +36,13 @@ describe("DistributionPriceField", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent("価格は0以上の整数で入力してください");
     expect(screen.getByRole("textbox", { name: "配布価格" })).toHaveValue(input);
+    expect(screen.getByRole("textbox", { name: "配布価格" })).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(screen.getByRole("textbox", { name: "配布価格" })).toHaveAccessibleDescription(
+      "価格は0以上の整数で入力してください",
+    );
     expect(onSave).not.toHaveBeenCalled();
   });
 

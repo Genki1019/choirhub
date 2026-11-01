@@ -240,6 +240,9 @@ describe("AllocationRowComponent（共通の編集の標準）", () => {
     await user.keyboard("{Enter}");
 
     expect(screen.getByRole("alert")).toHaveTextContent("配布数は0以上の整数で入力してください");
+    const count = screen.getByLabelText("山田太郎の配布数");
+    expect(count).toHaveAttribute("aria-invalid", "true");
+    expect(count).toHaveAccessibleDescription("配布数は0以上の整数で入力してください");
     expect(ticketsApi.updateAllocation).not.toHaveBeenCalled();
   });
 
@@ -268,6 +271,13 @@ describe("AllocationRowComponent（共通の編集の標準）", () => {
     await user.type(screen.getByLabelText("山田太郎の学生販売数"), "-{Enter}");
 
     expect(screen.getByRole("alert")).toHaveTextContent("枚数は0以上の整数で入力してください");
+    const student = screen.getByLabelText("山田太郎の学生販売数");
+    expect(student).toHaveAttribute("aria-invalid", "true");
+    expect(student).toHaveAccessibleDescription("枚数は0以上の整数で入力してください");
+    expect(screen.getByLabelText("山田太郎の大人販売数")).not.toHaveAttribute("aria-invalid");
+    expect(screen.getByLabelText("山田太郎の大人販売数")).toHaveAccessibleDescription(
+      "枚数は0以上の整数で入力してください",
+    );
     expect(ticketsApi.updateAllocation).not.toHaveBeenCalled();
   });
 

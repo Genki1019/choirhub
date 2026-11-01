@@ -8,10 +8,11 @@ import { Music, Loader2, CheckCircle } from "lucide-react";
 import { authApi } from "@/lib/auth-api";
 import { passwordResetRequestSchema, type PasswordResetRequestInput } from "@/lib/schemas";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { FieldError, fieldErrorProps } from "@/components/FieldError";
+import { useFocusFirstFieldError } from "@/hooks/useFocusFirstFieldError";
 
 const INPUT_CLS =
   "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition";
-const ERROR_CLS = "text-xs text-red-500 mt-1";
 
 export default function PasswordResetRequestPage() {
   const [done, setDone] = useState(false);
@@ -20,8 +21,13 @@ export default function PasswordResetRequestPage() {
     register,
     handleSubmit,
     setError,
-    formState: { errors, isSubmitting },
-  } = useForm<PasswordResetRequestInput>({ resolver: zodResolver(passwordResetRequestSchema) });
+    setFocus,
+    formState: { errors, isSubmitting, submitCount },
+  } = useForm<PasswordResetRequestInput>({
+    resolver: zodResolver(passwordResetRequestSchema),
+    shouldFocusError: false,
+  });
+  useFocusFirstFieldError(errors, submitCount, setFocus);
 
   const onSubmit = async (data: PasswordResetRequestInput) => {
     try {
@@ -63,6 +69,7 @@ export default function PasswordResetRequestPage() {
           </div>
         ) : (
           <form
+            noValidate
             onSubmit={handleSubmit(onSubmit)}
             className="space-y-5 rounded-2xl border border-gray-200 bg-white px-8 py-8"
           >
@@ -84,8 +91,9 @@ export default function PasswordResetRequestPage() {
                 placeholder="you@example.com"
                 className={INPUT_CLS}
                 {...register("email")}
+                {...fieldErrorProps("reset-email-error", errors.email?.message)}
               />
-              {errors.email && <p className={ERROR_CLS}>{errors.email.message}</p>}
+              <FieldError id="reset-email-error">{errors.email?.message}</FieldError>
             </div>
 
             <ErrorMessage>{errors.root?.message}</ErrorMessage>

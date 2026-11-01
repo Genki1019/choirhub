@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { OrgApplicationForm } from "../OrgApplicationForm";
 import { orgApplicationsApi } from "@/lib/org-applications-api";
@@ -176,5 +176,56 @@ describe("OrgApplicationForm", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "このスラグはシステムで使用しているため使えません",
     );
+  });
+});
+
+describe("OrgApplicationForm（項目ごとのエラーと入力欄の関連付け）", () => {
+  it("空のまま送信すると、各欄にエラーを関連付け、団体名欄にフォーカスを移す", async () => {
+    const user = userEvent.setup();
+    render(<OrgApplicationForm />);
+
+    await user.click(screen.getByRole("button", { name: "申請する" }));
+
+    const orgName = screen.getByLabelText("団体名");
+    expect(orgName).toHaveAttribute("aria-invalid", "true");
+    expect(orgName).toHaveAccessibleDescription("団体名を入力してください");
+    expect(screen.getByLabelText(/スラグ/)).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("管理者氏名")).toHaveAccessibleDescription(
+      "管理者氏名を入力してください",
+    );
+    expect(screen.getByLabelText("管理者メールアドレス")).toHaveAccessibleDescription(
+      "有効なメールアドレスを入力してください",
+    );
+    await waitFor(() => expect(orgName).toHaveFocus());
+    expect(orgApplicationsApi.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("OrgApplicationForm（文字数の上限）", () => {
+  it("団体名・管理者氏名が100文字、メッセージが1000文字を超えると、日本語の理由をその欄に出す", async () => {
+    const user = userEvent.setup();
+    render(<OrgApplicationForm />);
+
+    await user.click(screen.getByLabelText("団体名"));
+    await user.paste("あ".repeat(101));
+    await user.clear(screen.getByLabelText(/スラグ/));
+    await user.type(screen.getByLabelText(/スラグ/), "my-choir");
+    await user.click(screen.getByLabelText("管理者氏名"));
+    await user.paste("い".repeat(101));
+    await user.type(screen.getByLabelText("管理者メールアドレス"), "a@example.com");
+    await user.click(screen.getByLabelText(/メッセージ/));
+    await user.paste("う".repeat(1001));
+    await user.click(screen.getByRole("button", { name: "申請する" }));
+
+    const orgName = screen.getByLabelText("団体名");
+    expect(orgName).toHaveAccessibleDescription("100文字以内で入力してください");
+    expect(screen.getByLabelText("管理者氏名")).toHaveAccessibleDescription(
+      "100文字以内で入力してください",
+    );
+    const message = screen.getByLabelText(/メッセージ/);
+    expect(message).toHaveAttribute("aria-invalid", "true");
+    expect(message).toHaveAccessibleDescription("1000文字以内で入力してください");
+    await waitFor(() => expect(orgName).toHaveFocus());
+    expect(orgApplicationsApi.create).not.toHaveBeenCalled();
   });
 });

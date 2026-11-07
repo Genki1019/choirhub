@@ -19,6 +19,12 @@ describe("PrivacyPage", () => {
     }
   });
 
+  it("Neon と Upstash のデータの保管先を明記する", () => {
+    render(<PrivacyPage />);
+    expect(screen.getByText(/Neon（米国。データの保管先はシンガポール）/)).toBeInTheDocument();
+    expect(screen.getByText(/Upstash（米国。データの保管先は日本）/)).toBeInTheDocument();
+  });
+
   it("操作履歴の取得・管理者のみの閲覧・2年の保存期間を明記する", () => {
     render(<PrivacyPage />);
     expect(

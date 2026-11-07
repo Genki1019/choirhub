@@ -1,10 +1,15 @@
 import { Redis } from "@upstash/redis";
+import { logger } from "./logger.js";
+
+const REDIS_TIMEOUT_MS = 2000;
 
 const redis =
   process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
     ? new Redis({
         url: process.env.UPSTASH_REDIS_REST_URL,
         token: process.env.UPSTASH_REDIS_REST_TOKEN,
+        retry: { retries: 0 },
+        signal: () => AbortSignal.timeout(REDIS_TIMEOUT_MS),
       })
     : null;
 
@@ -23,6 +28,19 @@ const INQUIRY_WINDOW_S = 3600;
 const ORG_DELETE_MAX = 5;
 const ORG_DELETE_WINDOW_S = 900;
 
+const INCREMENT_WITH_EXPIRY = `
+local count = redis.call("INCR", KEYS[1])
+if redis.call("TTL", KEYS[1]) == -1 then
+  redis.call("EXPIRE", KEYS[1], ARGV[1])
+end
+return count
+`;
+
+// Upstash のエラー本文にはキー（IP・ユーザーID）が含まれるため、エラーオブジェクトをログに渡さない
+function errorName(err: unknown): string {
+  return err instanceof Error ? err.name : "UnknownError";
+}
+
 async function checkRateLimit(
   prefix: string,
   ip: string,
@@ -32,10 +50,13 @@ async function checkRateLimit(
   if (!redis) return true;
   try {
     const key = `rl:${prefix}:${ip}`;
-    const count = await redis.incr(key);
-    if (count === 1) await redis.expire(key, windowS);
+    const count = await redis.eval<[number], number>(INCREMENT_WITH_EXPIRY, [key], [windowS]);
+    if (typeof count !== "number") throw new TypeError("Unexpected rate limit response");
     return count <= max;
-  } catch {
+  } catch (err) {
+    logger.error(
+      `[rate-limit] 回数の確認に失敗しました (target=${prefix}, error=${errorName(err)})`,
+    );
     return true;
   }
 }
@@ -44,8 +65,10 @@ async function clearRateLimit(prefix: string, ip: string): Promise<void> {
   if (!redis) return;
   try {
     await redis.del(`rl:${prefix}:${ip}`);
-  } catch {
-    // ignore
+  } catch (err) {
+    logger.warn(
+      `[rate-limit] 回数の削除に失敗しました (target=${prefix}, error=${errorName(err)})`,
+    );
   }
 }
 

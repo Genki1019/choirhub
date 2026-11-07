@@ -9,7 +9,7 @@ export default function PrivacyPage() {
     <LegalDocument
       title="プライバシーポリシー"
       establishedOn="2026年9月24日"
-      revisedOn="2026年9月29日"
+      revisedOn="2026年11月7日"
     >
       <p>
         ChoirHub
@@ -82,14 +82,14 @@ export default function PrivacyPage() {
 
       <LegalSection title="5. 外部サービスの利用（委託・外国にある第三者）">
         <p>
-          本サービスは、以下の外部サービスを利用して運営しています。これらの事業者のサーバーは日本国外（主に米国）に所在する場合があり、各事業者は自らのプライバシーポリシーに基づき適切な安全管理措置を講じています。
+          本サービスは、以下の外部サービスを利用して運営しています。これらの事業者のサーバーは日本国外（シンガポール・米国など）に所在する場合があり、各事業者は自らのプライバシーポリシーに基づき適切な安全管理措置を講じています。
         </p>
         <ul>
           <li>Vercel Inc.（米国）: アプリケーションのホスティング</li>
-          <li>Neon（米国）: データベース</li>
+          <li>Neon（米国。データの保管先はシンガポール）: データベース</li>
           <li>Cloudflare, Inc.（米国）: 楽譜・資料・写真などのファイル保管</li>
           <li>Resend（米国）: メール送信</li>
-          <li>Upstash（米国）: 不正アクセス防止のための一時データ保管</li>
+          <li>Upstash（米国。データの保管先は日本）: 不正アクセス防止のための一時データ保管</li>
         </ul>
       </LegalSection>
 

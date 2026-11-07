@@ -429,8 +429,8 @@ pnpm --filter web dev    # http://localhost:3000
 | `R2_SECRET_ACCESS_KEY`     |  -   | R2 シークレットキー                                                                                          |
 | `R2_BUCKET_NAME`           |  -   | R2 バケット名（未設定時はローカルの `./uploads/` を使用）                                                    |
 | `R2_PUBLIC_URL`            |  -   | アバター公開用 CDN URL                                                                                       |
-| `UPSTASH_REDIS_REST_URL`   |  -   | Upstash Redis URL                                                                                            |
-| `UPSTASH_REDIS_REST_TOKEN` |  -   | Upstash Redis トークン                                                                                       |
+| `UPSTASH_REDIS_REST_URL`   | 本番 | Upstash Redis URL。本番で未設定か形式が不正ならビルドを失敗させる                                            |
+| `UPSTASH_REDIS_REST_TOKEN` | 本番 | Upstash Redis トークン（引用符なし）。未設定のローカル・プレビューではレート制限が効かない                   |
 
 ### `apps/web/.env.local`（フロントエンド）
 
@@ -469,6 +469,7 @@ Vercel に **2 プロジェクト**を作成してデプロイします。
 - プレビューデプロイが本番データを読み書きしないよう、Neon で本番から分岐したブランチ（例: `preview`）を作り、その接続文字列を Preview 環境の `DATABASE_URL`・`DATABASE_DIRECT_URL` に設定する
 - プレビュー用ブランチのスキーマは自動では更新されない。本番にマイグレーションが適用されたあとは、Neon の「Reset from parent」で本番に揃える
 - そのため、マイグレーションを含む PR はプレビューデプロイでは新しいスキーマを使う API が動かない。動作確認はローカルで行う
+- Production のビルドでは、マイグレーションの前に `scripts/check-production-env.mjs` で Upstash の環境変数を確かめる。問題があればビルドを失敗させ、動いている本番はそのまま残す
 - ビルドは Vercel のシステム環境変数 `VERCEL_ENV` で環境を判定する。未設定の場合はビルドを失敗させるので、プロジェクト設定で「Enable access to System Environment Variables」を有効にしておく
 
 ---

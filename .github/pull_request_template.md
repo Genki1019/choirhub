@@ -11,6 +11,6 @@ closes #
 ## テスト
 
 - [ ] ローカルで動作確認済み
-- [ ] CI（lint / typecheck / test）がgreenであることを確認
+- [ ] CI（lint / typecheck / test / build）がgreenであることを確認
 
 ## スクリーンショット（UI変更がある場合）

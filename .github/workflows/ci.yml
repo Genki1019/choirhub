@@ -49,3 +49,6 @@ jobs:
 
       - name: Test (api)
         run: pnpm --filter @choirhub/api test
+
+      - name: Build (web)
+        run: pnpm --filter @choirhub/web build

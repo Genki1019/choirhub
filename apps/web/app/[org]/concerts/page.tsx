@@ -13,6 +13,7 @@ import { PageWithHeader } from "@/components/PageWithHeader";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { userErrorMessage } from "@/lib/api-client";
 import { useMember } from "@/contexts/MemberContext";
+import { EmptyState } from "@/components/EmptyState";
 
 type Filter = "all" | ConcertStatus;
 
@@ -90,10 +91,7 @@ export default function ConcertsPage() {
       </ErrorMessage>
 
       {!concertsError && sorted.length === 0 && (
-        <div className="py-16 text-center text-gray-400">
-          <CalendarDays size={32} className="mx-auto mb-3 opacity-40" />
-          <p className="text-sm">演奏会が登録されていません</p>
-        </div>
+        <EmptyState icon={CalendarDays} title="演奏会が登録されていません" />
       )}
 
       {!concertsError &&

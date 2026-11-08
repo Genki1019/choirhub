@@ -7,6 +7,7 @@ import { authApi, ApiClientError } from "@/lib/auth-api";
 import { ROLE_LABELS } from "@/lib/roles";
 import { OrgApplicationForm } from "@/components/OrgApplicationForm";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { EmptyState } from "@/components/EmptyState";
 
 const STATUS_LABELS: Record<string, { label: string; dot: string }> = {
   active: { label: "在団", dot: "bg-teal-400" },
@@ -87,12 +88,12 @@ export default function SelectOrgPage() {
               </ErrorMessage>
             </div>
           ) : orgs.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
-              <Users size={32} className="mb-1 text-gray-200" />
-              <p className="text-sm font-medium text-gray-600">所属している団体がありません</p>
-              <p className="text-xs text-gray-400">
-                退団処理された可能性があります。団体の管理者にお問い合わせください。
-              </p>
+            <div className="px-6">
+              <EmptyState
+                icon={Users}
+                title="所属している団体がありません"
+                description="退団処理された可能性があります。団体の管理者にお問い合わせください。"
+              />
             </div>
           ) : (
             <ul className="divide-y divide-gray-100">

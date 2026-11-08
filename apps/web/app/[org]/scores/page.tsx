@@ -13,6 +13,7 @@ import { ScoreFormModal } from "./_components/ScoreFormModal";
 import { ConcertSection } from "./_components/ConcertSection";
 import { UnassignedSection } from "./_components/UnassignedSection";
 import { PageWithHeader } from "@/components/PageWithHeader";
+import { EmptyState } from "@/components/EmptyState";
 
 export default function ScoresPage() {
   const { org } = useParams<{ org: string }>();
@@ -87,10 +88,7 @@ export default function ScoresPage() {
         {data && (
           <>
             {data.concerts.length === 0 && data.unassigned.length === 0 && (
-              <div className="py-16 text-center text-gray-400">
-                <BookOpen size={32} className="mx-auto mb-3 opacity-40" />
-                <p className="text-sm">楽譜が登録されていません</p>
-              </div>
+              <EmptyState icon={BookOpen} title="楽譜が登録されていません" />
             )}
 
             {data.concerts.map((concert) => (

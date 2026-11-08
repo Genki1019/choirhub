@@ -14,6 +14,7 @@ import { ErrorMessage } from "@/components/ErrorMessage";
 import { userErrorMessage } from "@/lib/api-client";
 import { useMember } from "@/contexts/MemberContext";
 import { isMemberPlus } from "@/lib/roles";
+import { EmptyState } from "@/components/EmptyState";
 
 const PER_PAGE = 20;
 
@@ -70,10 +71,7 @@ export default function MailingPage() {
         )}
 
         {!mailsError && isCurrent && mails.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-            <Mail size={28} className="mb-3 opacity-40" />
-            <p className="text-sm">メールがありません</p>
-          </div>
+          <EmptyState icon={Mail} title="メールがありません" />
         )}
 
         {!mailsError && mails.length > 0 && (

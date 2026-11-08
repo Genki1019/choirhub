@@ -10,6 +10,7 @@ import { ManagerConcertCard } from "./_components/ManagerConcertCard";
 import { MyConcertCard } from "./_components/MyConcertCard";
 import { PageWithHeader } from "@/components/PageWithHeader";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { EmptyState } from "@/components/EmptyState";
 
 export default function TicketsPage() {
   const { org } = useParams<{ org: string }>();
@@ -51,17 +52,11 @@ export default function TicketsPage() {
       </ErrorMessage>
 
       {isForbidden && !memberError && (!memberData || memberData.length === 0) && (
-        <div className="py-16 text-center text-gray-400">
-          <Ticket size={32} className="mx-auto mb-3 opacity-40" />
-          <p className="text-sm">チケットが配布されていません</p>
-        </div>
+        <EmptyState icon={Ticket} title="チケットが配布されていません" />
       )}
 
       {!isForbidden && managerData?.length === 0 && (
-        <div className="py-16 text-center text-gray-400">
-          <Ticket size={32} className="mx-auto mb-3 opacity-40" />
-          <p className="text-sm">演奏会が登録されていません</p>
-        </div>
+        <EmptyState icon={Ticket} title="演奏会が登録されていません" />
       )}
 
       {!isForbidden &&

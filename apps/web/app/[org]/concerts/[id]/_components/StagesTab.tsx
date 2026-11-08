@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Pencil, ArrowRightLeft, Plus } from "lucide-react";
+import { Pencil, ArrowRightLeft, Plus, ListMusic } from "lucide-react";
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { DragHandle, SortableItem, useListDndSensors } from "@/components/SortableRow";
@@ -10,6 +10,7 @@ import { type ConcertDetail, type ProgramDetail, type StageDetail } from "@/lib/
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { InlineEditActions, InlineEditButton } from "@/components/InlineEdit";
 import { useInlineEdit } from "@/hooks/useInlineEdit";
+import { EmptyState } from "@/components/EmptyState";
 
 function StageTitle({
   stage,
@@ -227,7 +228,7 @@ export function StagesTab({
       </DndContext>
 
       {concert.stages.length === 0 && !isAdmin && (
-        <p className="py-8 text-center text-sm text-gray-400">ステージ・演目が登録されていません</p>
+        <EmptyState icon={ListMusic} title="ステージ・演目が登録されていません" />
       )}
 
       {isAdmin && (

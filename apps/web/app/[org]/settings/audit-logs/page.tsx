@@ -15,6 +15,7 @@ import { CsvExportButton } from "@/components/CsvExportButton";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { userErrorMessage } from "@/lib/api-client";
 import { AuditLogItem } from "./_components/AuditLogItem";
+import { EmptyState } from "@/components/EmptyState";
 
 const SYSTEM_ADMIN_VALUE = "system_admin";
 
@@ -171,19 +172,15 @@ export default function AuditLogsPage() {
           )}
 
           {!error && result && logs.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-              <History size={28} className="mb-3 opacity-40" />
-              {hasFilter ? (
-                <p className="text-sm">条件に一致する操作履歴はありません</p>
-              ) : (
-                <>
-                  <p className="text-sm">まだ操作履歴はありません</p>
-                  <p className="mt-1 text-xs">
-                    ロールの変更、会計記録の編集、CSV出力などを行うと、ここに記録されます
-                  </p>
-                </>
-              )}
-            </div>
+            <EmptyState
+              icon={History}
+              title={hasFilter ? "条件に一致する操作履歴はありません" : "まだ操作履歴はありません"}
+              description={
+                hasFilter
+                  ? undefined
+                  : "ロールの変更、会計記録の編集、CSV出力などを行うと、ここに記録されます"
+              }
+            />
           )}
 
           {!error && logs.length > 0 && (

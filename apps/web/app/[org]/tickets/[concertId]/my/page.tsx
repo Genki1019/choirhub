@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Trophy, Lock, MapPin } from "lucide-react";
+import { ArrowLeft, Loader2, Trophy, Lock, MapPin, Ticket } from "lucide-react";
 import { ticketsApi, type MyAllocationConcert, type MyAllocationBatch } from "@/lib/tickets-api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ticketKeys } from "@/lib/query-keys";
@@ -13,6 +13,7 @@ import { PageErrorState } from "@/components/PageErrorState";
 import { userErrorMessage } from "@/lib/api-client";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { formatJaDate, formatShortDate } from "@/lib/date";
+import { EmptyState } from "@/components/EmptyState";
 
 export default function MyTicketPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -113,10 +114,11 @@ export default function MyTicketPage() {
         )}
 
         {concert.batches.length === 0 ? (
-          <div className="py-12 text-center text-gray-400">
-            <p className="text-sm">配布登録されていません</p>
-            <p className="mt-1 text-xs">チケット担当者にお問い合わせください</p>
-          </div>
+          <EmptyState
+            icon={Ticket}
+            title="配布登録されていません"
+            description="チケット担当者にお問い合わせください"
+          />
         ) : (
           <>
             {concert.batches.map((batch) => (

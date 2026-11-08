@@ -12,6 +12,7 @@ import { Pagination } from "@/components/Pagination";
 import { PageWithHeader } from "@/components/PageWithHeader";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { userErrorMessage } from "@/lib/api-client";
+import { EmptyState } from "@/components/EmptyState";
 
 const PER_PAGE = 20;
 
@@ -86,10 +87,7 @@ export default function NotificationsPage() {
       )}
 
       {!error && isCurrent && notifications.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-          <Bell size={28} className="mb-3 opacity-40" />
-          <p className="text-sm">{EMPTY_MESSAGE[status]}</p>
-        </div>
+        <EmptyState icon={Bell} title={EMPTY_MESSAGE[status]} />
       )}
 
       {!error && notifications.length > 0 && (

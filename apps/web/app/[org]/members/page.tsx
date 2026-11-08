@@ -22,6 +22,7 @@ import { PageBleedRow } from "@/components/PageBleedRow";
 import { PageHeader } from "@/components/PageHeader";
 import { CsvExportButton } from "@/components/CsvExportButton";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { EmptyState } from "@/components/EmptyState";
 
 type SortKey = "nameJa" | "joinedAt_asc" | "joinedAt_desc";
 type ViewMode = "card" | "list";
@@ -289,10 +290,7 @@ function MembersContent() {
           )}
 
           {!loading && !membersError && grouped.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-              <Users size={40} className="mb-3 opacity-40" />
-              <p className="text-sm">該当するメンバーがいません</p>
-            </div>
+            <EmptyState icon={Users} title="該当するメンバーがいません" />
           )}
 
           {!loading &&

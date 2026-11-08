@@ -177,10 +177,10 @@ export default function RacePage() {
         subtitle={<span className="text-sm text-gray-400">{data.concert.title}</span>}
         backHref={backHref}
         actions={
-          <div className="flex items-center gap-2">
+          <>
             {scoringSettingsButton}
             {publishAction}
-          </div>
+          </>
         }
       >
         {publishedBanner}

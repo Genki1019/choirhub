@@ -178,7 +178,7 @@ function MembersContent() {
         mainClassName="space-y-8"
         actions={
           isAdmin || canAddVisitor ? (
-            <div className="flex items-center gap-2">
+            <>
               {isAdmin && <CsvExportButton onDownload={() => membersApi.exportCsv(org)} />}
               {isAdmin && (
                 <Link
@@ -213,7 +213,7 @@ function MembersContent() {
                   メンバーを招待
                 </button>
               )}
-            </div>
+            </>
           ) : undefined
         }
         toolbar={

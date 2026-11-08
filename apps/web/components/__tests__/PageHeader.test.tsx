@@ -67,4 +67,27 @@ describe("PageHeader", () => {
     );
     expect(screen.getByTestId("tabs")).toBeInTheDocument();
   });
+
+  it("狭い画面ではボタンが次の行に回り、タイトルの幅を残す（行とボタンの箱が折り返す）", () => {
+    render(
+      <PageHeader
+        title="メンバー"
+        actions={
+          <>
+            <button type="button">CSV出力</button>
+            <button type="button">メンバーを招待</button>
+          </>
+        }
+      />,
+    );
+    const heading = screen.getByRole("heading", { name: "メンバー" });
+    const titleBox = heading.parentElement!;
+    const row = titleBox.parentElement!;
+    const actionsBox = screen.getByRole("button", { name: "CSV出力" }).parentElement!;
+
+    expect(row).toHaveClass("flex-wrap");
+    expect(titleBox).toHaveClass("min-w-40", "flex-1");
+    expect(actionsBox).toHaveClass("ml-auto", "flex-wrap", "justify-end");
+    expect(actionsBox).not.toHaveClass("shrink-0");
+  });
 });

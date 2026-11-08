@@ -23,7 +23,7 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <header className={`shrink-0 border-b border-gray-200 bg-white ${className}`}>
-      <PageBleedRow className="flex items-center gap-3 py-4">
+      <PageBleedRow className="flex flex-wrap items-center gap-x-3 gap-y-2 py-4">
         {backHref && (
           <Link
             href={backHref}
@@ -32,7 +32,7 @@ export function PageHeader({
             <ArrowLeft size={18} />
           </Link>
         )}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-40 flex-1">
           {badge ? (
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-lg font-semibold text-gray-800">{title}</h1>
@@ -43,7 +43,9 @@ export function PageHeader({
           )}
           {subtitle && <div className="mt-0.5 text-xs text-gray-400">{subtitle}</div>}
         </div>
-        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+        {actions && (
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">{actions}</div>
+        )}
       </PageBleedRow>
       {children}
     </header>

@@ -63,7 +63,7 @@ export default function SchedulePage() {
         loading={loading}
         mainClassName="flex flex-col gap-6"
         actions={
-          <div className="flex items-center gap-2">
+          <>
             <button
               type="button"
               onClick={() => setShowCalendarFeedModal(true)}
@@ -80,7 +80,7 @@ export default function SchedulePage() {
                 <Plus size={14} /> イベントを追加
               </Link>
             )}
-          </div>
+          </>
         }
       >
         <Calendar

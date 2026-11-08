@@ -84,6 +84,16 @@ describe("MembersPage（表示状態）", () => {
     expect(screen.getByText("読み込み中...")).toBeInTheDocument();
   });
 
+  it("データ取得中も見出しとフィルタ行を残し、読み込み表示は1つだけ出す", () => {
+    vi.mocked(membersApi.list).mockReturnValue(new Promise(() => {}));
+    renderPage();
+
+    expect(screen.getByRole("heading", { name: "メンバー" })).toBeInTheDocument();
+    expect(screen.getAllByRole("combobox").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("読み込み中...")).toHaveLength(1);
+    expect(screen.queryByText(/^\d+名$/)).not.toBeInTheDocument();
+  });
+
   it("取得エラー時はエラーメッセージを表示する", async () => {
     vi.mocked(membersApi.list).mockRejectedValue(new Error("取得に失敗しました"));
     renderPage();

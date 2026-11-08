@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { LayoutGrid, List, UserPlus, UserRoundPlus, Loader2, Users } from "lucide-react";
+import { LayoutGrid, List, UserPlus, UserRoundPlus, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { membersApi, type MemberProfile } from "@/lib/members-api";
 import { visitorApplicationsApi } from "@/lib/visitor-applications-api";
@@ -17,9 +17,8 @@ import { comparePartOrder } from "@/lib/voice-order";
 import { InviteModal } from "./_components/InviteModal";
 import { AddVisitorApplicationModal } from "./_components/AddVisitorApplicationModal";
 import { MemberPartSection } from "./_components/MemberPartSection";
-import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
-import { PageHeader } from "@/components/PageHeader";
+import { PageWithHeader } from "@/components/PageWithHeader";
 import { CsvExportButton } from "@/components/CsvExportButton";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { EmptyState } from "@/components/EmptyState";
@@ -165,53 +164,51 @@ function MembersContent() {
           onClose={() => setShowAddVisitor(false)}
         />
       )}
-      <div className="flex flex-col">
-        <PageHeader
-          title="メンバー"
-          actions={
-            isAdmin || canAddVisitor ? (
-              <div className="flex items-center gap-2">
-                {isAdmin && <CsvExportButton onDownload={() => membersApi.exportCsv(org)} />}
-                {isAdmin && (
-                  <Link
-                    href={`/${org}/members/applications`}
-                    className="relative flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
-                  >
-                    見学申込
-                    {pendingApplications.length > 0 && (
-                      <span className="bg-brand-600 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white">
-                        {pendingApplications.length}
-                      </span>
-                    )}
-                  </Link>
-                )}
-                {canAddVisitor && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAddVisitor(true)}
-                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
-                  >
-                    <UserRoundPlus size={14} />
-                    見学者を追加
-                  </button>
-                )}
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => setShowInvite(true)}
-                    className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
-                  >
-                    <UserPlus size={14} />
-                    メンバーを招待
-                  </button>
-                )}
-              </div>
-            ) : undefined
-          }
-        />
-
-        {/* コントロールバー */}
-        <div className="shrink-0 border-b border-gray-100 bg-white">
+      <PageWithHeader
+        title="メンバー"
+        loading={loading}
+        mainClassName="space-y-8"
+        actions={
+          isAdmin || canAddVisitor ? (
+            <div className="flex items-center gap-2">
+              {isAdmin && <CsvExportButton onDownload={() => membersApi.exportCsv(org)} />}
+              {isAdmin && (
+                <Link
+                  href={`/${org}/members/applications`}
+                  className="relative flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                >
+                  見学申込
+                  {pendingApplications.length > 0 && (
+                    <span className="bg-brand-600 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white">
+                      {pendingApplications.length}
+                    </span>
+                  )}
+                </Link>
+              )}
+              {canAddVisitor && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddVisitor(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                >
+                  <UserRoundPlus size={14} />
+                  見学者を追加
+                </button>
+              )}
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setShowInvite(true)}
+                  className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
+                >
+                  <UserPlus size={14} />
+                  メンバーを招待
+                </button>
+              )}
+            </div>
+          ) : undefined
+        }
+        toolbar={
           <PageBleedRow className="flex flex-wrap items-center justify-between gap-y-2 py-3">
             <div className="flex items-center gap-2">
               <select
@@ -274,39 +271,26 @@ function MembersContent() {
               </div>
             </div>
           </PageBleedRow>
-        </div>
+        }
+      >
+        {membersError && <ErrorMessage variant="section">{membersError.message}</ErrorMessage>}
 
-        {/* メインコンテンツ */}
-        <PageMain className="space-y-8">
-          {loading && (
-            <div className="flex items-center justify-center gap-2 py-16 text-gray-400">
-              <Loader2 size={18} className="animate-spin" />
-              <span className="text-sm">読み込み中...</span>
-            </div>
-          )}
+        {!membersError && grouped.length === 0 && (
+          <EmptyState icon={Users} title="該当するメンバーがいません" />
+        )}
 
-          {!loading && membersError && (
-            <ErrorMessage variant="section">{membersError.message}</ErrorMessage>
-          )}
-
-          {!loading && !membersError && grouped.length === 0 && (
-            <EmptyState icon={Users} title="該当するメンバーがいません" />
-          )}
-
-          {!loading &&
-            !membersError &&
-            grouped.map(({ partId, partName, members: partMembers }) => (
-              <MemberPartSection
-                key={partId}
-                partId={partId}
-                partName={partName}
-                members={partMembers}
-                viewMode={effectiveViewMode}
-                org={org}
-              />
-            ))}
-        </PageMain>
-      </div>
+        {!membersError &&
+          grouped.map(({ partId, partName, members: partMembers }) => (
+            <MemberPartSection
+              key={partId}
+              partId={partId}
+              partName={partName}
+              members={partMembers}
+              viewMode={effectiveViewMode}
+              org={org}
+            />
+          ))}
+      </PageWithHeader>
     </>
   );
 }
@@ -315,10 +299,9 @@ export default function MembersPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-full items-center justify-center gap-2 text-gray-400">
-          <Loader2 size={18} className="animate-spin" />
-          <span className="text-sm">読み込み中...</span>
-        </div>
+        <PageWithHeader title="メンバー" loading>
+          {null}
+        </PageWithHeader>
       }
     >
       <MembersContent />

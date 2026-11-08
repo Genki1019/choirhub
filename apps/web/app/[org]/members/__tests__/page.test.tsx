@@ -10,9 +10,11 @@ import type { MemberProfile, PartSummary } from "@/lib/api-types";
 import type { MemberType } from "@/lib/settings-api";
 import { ApiClientError } from "@/lib/api-client";
 
+let searchParams = new URLSearchParams();
+
 vi.mock("next/navigation", () => ({
   useParams: () => ({ org: "tokyo-men-choir" }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => searchParams,
 }));
 
 vi.mock("@/lib/members-api", () => ({
@@ -74,6 +76,7 @@ function renderPage(roles: string[] = ["member"]) {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  searchParams = new URLSearchParams();
   vi.mocked(membersApi.parts).mockResolvedValue([partTenor, partBass]);
   vi.mocked(settingsApi.listMemberTypes).mockResolvedValue([memberTypeRegular]);
 });
@@ -279,6 +282,63 @@ describe("MembersPage（フィルタ）", () => {
 
     await screen.findByText("山田太郎");
     expect(screen.queryByText("全区分")).not.toBeInTheDocument();
+  });
+});
+
+describe("MembersPage（URL の在籍状況）", () => {
+  it("URL の status が選択肢にあれば、その状況で絞り込む", async () => {
+    searchParams = new URLSearchParams("status=offstage");
+    vi.mocked(membersApi.list).mockResolvedValue([
+      makeMember({ id: "member-1", nameJa: "在団太郎", status: "active" }),
+      makeMember({ id: "member-2", nameJa: "休団花子", status: "offstage" }),
+    ]);
+    renderPage();
+
+    expect(await screen.findByText("休団花子")).toBeInTheDocument();
+    expect(screen.queryByText("在団太郎")).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "在籍状況" })).toHaveValue("offstage");
+  });
+
+  it.each(["status=foo", "status="])(
+    "URL の status が選択肢にない（%s）ときは、在団で絞り込み選択欄も在団にする",
+    async (query) => {
+      searchParams = new URLSearchParams(query);
+      vi.mocked(membersApi.list).mockResolvedValue([
+        makeMember({ id: "member-1", nameJa: "在団太郎", status: "active" }),
+        makeMember({ id: "member-2", nameJa: "休団花子", status: "offstage" }),
+      ]);
+      renderPage();
+
+      expect(await screen.findByText("在団太郎")).toBeInTheDocument();
+      expect(screen.queryByText("休団花子")).not.toBeInTheDocument();
+      expect(screen.getByRole("combobox", { name: "在籍状況" })).toHaveValue("active");
+    },
+  );
+});
+
+describe("MembersPage（表示の切り替えと選択欄の名前）", () => {
+  it("表示切り替えのボタンに名前があり、選択中だけ押された状態になる", async () => {
+    const user = userEvent.setup();
+    vi.mocked(membersApi.list).mockResolvedValue([makeMember()]);
+    renderPage();
+
+    const card = await screen.findByRole("button", { name: "カード表示" });
+    const list = screen.getByRole("button", { name: "リスト表示" });
+    expect(card).toHaveAttribute("aria-pressed", "true");
+    expect(list).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(list);
+    expect(card).toHaveAttribute("aria-pressed", "false");
+    expect(list).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("絞り込み・並び替えの選択欄に名前がある", async () => {
+    vi.mocked(membersApi.list).mockResolvedValue([makeMember()]);
+    renderPage();
+
+    expect(await screen.findByRole("combobox", { name: "メンバー区分" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "在籍状況" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "並び順" })).toBeInTheDocument();
   });
 });
 

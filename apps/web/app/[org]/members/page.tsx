@@ -65,9 +65,10 @@ function MembersContent() {
   const [sortKey, setSortKey] = useState<SortKey>("nameJa");
   const [viewMode, setViewMode] = useState<ViewMode>("card");
   const [isMobile, setIsMobile] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
-    (searchParams.get("status") as StatusFilter) ?? "active",
-  );
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
+    const status = searchParams.get("status");
+    return STATUS_FILTERS.find((f) => f.value === status)?.value ?? "active";
+  });
   const [memberTypeFilter, setMemberTypeFilter] = useState<string>("all");
   const { roles: myRoles } = useMember();
   const [showInvite, setShowInvite] = useState(false);
@@ -219,6 +220,7 @@ function MembersContent() {
           <PageBleedRow className="flex flex-wrap items-center justify-between gap-y-2 py-3">
             <div className="flex items-center gap-2">
               <select
+                aria-label="在籍状況"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
                 className="focus:ring-brand-400 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-600 focus:ring-1 focus:outline-none"
@@ -231,6 +233,7 @@ function MembersContent() {
               </select>
               {memberTypes.length > 0 && (
                 <select
+                  aria-label="メンバー区分"
                   value={memberTypeFilter}
                   onChange={(e) => setMemberTypeFilter(e.target.value)}
                   className="focus:ring-brand-400 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-600 focus:ring-1 focus:outline-none"
@@ -251,6 +254,7 @@ function MembersContent() {
 
             <div className="flex items-center gap-3">
               <select
+                aria-label="並び順"
                 value={sortKey}
                 onChange={(e) => setSortKey(e.target.value as SortKey)}
                 className="focus:ring-brand-400 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-600 focus:ring-1 focus:outline-none"
@@ -265,6 +269,8 @@ function MembersContent() {
               <div className="hidden overflow-hidden rounded-lg border border-gray-200 sm:flex">
                 <button
                   type="button"
+                  aria-label="カード表示"
+                  aria-pressed={viewMode === "card"}
                   onClick={() => setViewMode("card")}
                   className={`p-1.5 transition-colors ${viewMode === "card" ? "bg-brand-600 text-white" : "text-gray-400 hover:bg-gray-50"}`}
                 >
@@ -272,6 +278,8 @@ function MembersContent() {
                 </button>
                 <button
                   type="button"
+                  aria-label="リスト表示"
+                  aria-pressed={viewMode === "list"}
                   onClick={() => setViewMode("list")}
                   className={`p-1.5 transition-colors ${viewMode === "list" ? "bg-brand-600 text-white" : "text-gray-400 hover:bg-gray-50"}`}
                 >

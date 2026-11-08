@@ -8,10 +8,10 @@ import { useQuery } from "@tanstack/react-query";
 import { membersApi, type MemberProfile } from "@/lib/members-api";
 import { visitorApplicationsApi } from "@/lib/visitor-applications-api";
 import { useMember } from "@/contexts/MemberContext";
-import { settingsApi } from "@/lib/settings-api";
+import { settingsApi, type MemberType } from "@/lib/settings-api";
 import { memberKeys, visitorApplicationKeys } from "@/lib/query-keys";
 import { MEMBER_STATUS_OPTIONS } from "@/lib/api-types";
-import type { MemberStatus } from "@/lib/api-types";
+import type { MemberStatus, PartSummary } from "@/lib/api-types";
 import { MEMBER_LEVEL_ROLES } from "@/lib/roles";
 import { comparePartOrder } from "@/lib/voice-order";
 import { InviteModal } from "./_components/InviteModal";
@@ -21,6 +21,7 @@ import { PageBleedRow } from "@/components/PageBleedRow";
 import { PageWithHeader } from "@/components/PageWithHeader";
 import { CsvExportButton } from "@/components/CsvExportButton";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
 import { EmptyState } from "@/components/EmptyState";
 
 type SortKey = "nameJa" | "joinedAt_asc" | "joinedAt_desc";
@@ -52,6 +53,10 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   ...MEMBER_STATUS_OPTIONS,
 ];
 
+const NO_MEMBERS: MemberProfile[] = [];
+const NO_PARTS: PartSummary[] = [];
+const NO_MEMBER_TYPES: MemberType[] = [];
+
 // ── メインページ ──
 
 function MembersContent() {
@@ -77,24 +82,27 @@ function MembersContent() {
     enabled: isAdmin,
   });
 
-  const {
-    data: members = [],
-    isLoading: membersLoading,
-    error: membersError,
-  } = useQuery({
+  const membersQuery = useQuery({
     queryKey: memberKeys.list(org),
     queryFn: () => membersApi.list(org),
   });
-  const { data: parts = [], isLoading: partsLoading } = useQuery({
+  const partsQuery = useQuery({
     queryKey: memberKeys.parts(org),
     queryFn: () => membersApi.parts(org),
   });
-  const { data: memberTypes = [], isLoading: typesLoading } = useQuery({
+  const typesQuery = useQuery({
     queryKey: memberKeys.types(org),
     queryFn: () => settingsApi.listMemberTypes(org),
   });
 
-  const loading = membersLoading || partsLoading || typesLoading;
+  const members = membersQuery.data ?? NO_MEMBERS;
+  const parts = partsQuery.data ?? NO_PARTS;
+  const memberTypes = typesQuery.data ?? NO_MEMBER_TYPES;
+  const membersError = membersQuery.data ? null : membersQuery.error;
+  const partsError = partsQuery.data ? null : partsQuery.error;
+  const typesError = typesQuery.data ? null : typesQuery.error;
+
+  const loading = membersQuery.isLoading || partsQuery.isLoading || typesQuery.isLoading;
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -120,19 +128,18 @@ function MembersContent() {
       return true;
     });
 
+    const partsOf = (list: MemberProfile[]) => {
+      const partMap = new Map<string, PartSummary>();
+      list.forEach((m) => {
+        if (m.part && !partMap.has(m.part.id)) partMap.set(m.part.id, m.part);
+      });
+      return Array.from(partMap.values());
+    };
+
     // フィルタ中は全パートを表示、非フィルタ中は filtered に存在するパートのみ
-    const baseParts = isFiltering
-      ? [...parts].sort(comparePartOrder)
-      : (() => {
-          const partMap = new Map<
-            string,
-            { id: string; name: string; voiceType: string; sortOrder: number }
-          >();
-          filtered.forEach((m) => {
-            if (m.part && !partMap.has(m.part.id)) partMap.set(m.part.id, m.part);
-          });
-          return Array.from(partMap.values()).sort(comparePartOrder);
-        })();
+    const baseParts = [
+      ...(isFiltering ? (partsError ? partsOf(members) : parts) : partsOf(filtered)),
+    ].sort(comparePartOrder);
 
     const groups = baseParts.map((part) => ({
       partId: part.id,
@@ -150,7 +157,7 @@ function MembersContent() {
     }
 
     return groups;
-  }, [members, parts, sortKey, statusFilter, memberTypeFilter]);
+  }, [members, parts, partsError, sortKey, statusFilter, memberTypeFilter]);
 
   const totalCount = grouped.reduce((s, g) => s + g.members.length, 0);
 
@@ -237,7 +244,9 @@ function MembersContent() {
                   <option value="__none__">未設定</option>
                 </select>
               )}
-              {!loading && <span className="text-xs text-gray-400">{totalCount}名</span>}
+              {!loading && !membersError && (
+                <span className="text-xs text-gray-400">{totalCount}名</span>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
@@ -273,7 +282,35 @@ function MembersContent() {
           </PageBleedRow>
         }
       >
-        {membersError && <ErrorMessage variant="section">{membersError.message}</ErrorMessage>}
+        {membersError && (
+          <ErrorMessage variant="section" autoScroll={false}>
+            {userErrorMessage(
+              membersError,
+              "メンバーの読み込みに失敗しました。ページを再読み込みしてください。",
+            )}
+          </ErrorMessage>
+        )}
+
+        {!membersError && (partsError || typesError) && (
+          <div className="space-y-2">
+            {partsError && (
+              <ErrorMessage autoScroll={false}>
+                {userErrorMessage(
+                  partsError,
+                  "パートの読み込みに失敗しました。パートでの絞り込み・招待・見学者の追加でパートを選べません。ページを再読み込みしてください。",
+                )}
+              </ErrorMessage>
+            )}
+            {typesError && (
+              <ErrorMessage autoScroll={false}>
+                {userErrorMessage(
+                  typesError,
+                  "メンバー区分の読み込みに失敗しました。区分で絞り込めません。ページを再読み込みしてください。",
+                )}
+              </ErrorMessage>
+            )}
+          </div>
+        )}
 
         {!membersError && grouped.length === 0 && (
           <EmptyState icon={Users} title="該当するメンバーがいません" />

@@ -3,6 +3,7 @@ import { Wallet, Plus, ChevronRight } from "lucide-react";
 import type { CollectionSummaryItem } from "@/lib/accounting-api";
 import { CsvExportButton } from "@/components/CsvExportButton";
 import { jstParts } from "@/lib/date";
+import { EmptyState } from "@/components/EmptyState";
 
 function yen(n: number) {
   return `¥${n.toLocaleString()}`;
@@ -45,10 +46,7 @@ export function CollectionsTab({
       </div>
 
       {collections.length === 0 ? (
-        <div className="py-12 text-center text-gray-400">
-          <Wallet size={28} className="mx-auto mb-2 opacity-40" />
-          <p className="text-sm">徴収が登録されていません</p>
-        </div>
+        <EmptyState icon={Wallet} title="徴収が登録されていません" />
       ) : (
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
           <div className="divide-y divide-gray-100">

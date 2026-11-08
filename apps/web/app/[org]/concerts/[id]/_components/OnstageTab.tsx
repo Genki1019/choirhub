@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Eye, Plus, Trash2, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, Plus, Trash2, Users, ListMusic } from "lucide-react";
 import {
   concertsApi,
   type ConcertDetail,
@@ -19,6 +19,7 @@ import { ErrorMessage } from "@/components/ErrorMessage";
 import { userErrorMessage } from "@/lib/api-client";
 import { InlineEditActions, InlineEditButton } from "@/components/InlineEdit";
 import { useInlineEdit } from "@/hooks/useInlineEdit";
+import { EmptyState } from "@/components/EmptyState";
 
 interface OnstageTabProps {
   concert: ConcertDetail;
@@ -150,17 +151,15 @@ export function OnstageTab({ concert, org, canManageStage, onStagesChanged }: On
 
   if (concert.assignments.length === 0) {
     return (
-      <div className="py-12 text-center text-gray-400">
-        <Users size={32} className="mx-auto mb-3 opacity-40" />
-        <p className="text-sm">
-          オンステ確定後に、出演メンバーとフォーメーションがここに表示されます
-        </p>
-      </div>
+      <EmptyState
+        icon={Users}
+        title="オンステ確定後に、出演メンバーとフォーメーションがここに表示されます"
+      />
     );
   }
 
   if (stages.length === 0) {
-    return <p className="py-8 text-center text-sm text-gray-400">ステージが登録されていません</p>;
+    return <EmptyState icon={ListMusic} title="ステージが登録されていません" />;
   }
 
   const stageId = selectedStageId ?? stages[0].id;

@@ -3,7 +3,17 @@
 import { useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Pencil, Loader2, ChevronRight, Trophy, Plus, Lock, LockOpen, Bus } from "lucide-react";
+import {
+  Pencil,
+  Loader2,
+  ChevronRight,
+  Trophy,
+  Plus,
+  Lock,
+  LockOpen,
+  Bus,
+  Ticket,
+} from "lucide-react";
 import {
   ticketsApi,
   type TicketDetail,
@@ -26,6 +36,7 @@ import { CsvExportButton } from "@/components/CsvExportButton";
 import { PageErrorState } from "@/components/PageErrorState";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { formatJaDate, formatShortDate } from "@/lib/date";
+import { EmptyState } from "@/components/EmptyState";
 
 export default function TicketDetailPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -285,17 +296,20 @@ export default function TicketDetailPage() {
         </ErrorMessage>
         <ErrorMessage className="mb-4">{inputToggleError}</ErrorMessage>
         {detail.batches.length === 0 ? (
-          <div className="py-12 text-center">
-            <p className="mb-4 text-sm text-gray-400">席種が登録されていません</p>
-            <button
-              type="button"
-              onClick={() => setShowCreateBatch(true)}
-              className="bg-brand-600 hover:bg-brand-700 mx-auto flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors"
-            >
-              <Plus size={14} />
-              最初の席種を追加
-            </button>
-          </div>
+          <EmptyState
+            icon={Ticket}
+            title="席種が登録されていません"
+            action={
+              <button
+                type="button"
+                onClick={() => setShowCreateBatch(true)}
+                className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors"
+              >
+                <Plus size={14} />
+                最初の席種を追加
+              </button>
+            }
+          />
         ) : activeBatchIdx === "outreach" ? (
           <OutreachExpenseTab orgSlug={org} concertId={concertId} />
         ) : activeBatch ? (

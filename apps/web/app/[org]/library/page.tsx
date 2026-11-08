@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { FileText, Loader2, Plus, Trash2 } from "lucide-react";
+import { FileText, Loader2, Plus, Trash2, FolderOpen } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
@@ -24,6 +24,7 @@ import { FileRow } from "./_components/FileRow";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { userErrorMessage } from "@/lib/api-client";
+import { EmptyState } from "@/components/EmptyState";
 
 type CategoryTab = DocumentCategory | "all";
 type MainTab = "documents" | CrossFileKind;
@@ -247,9 +248,7 @@ export default function LibraryPage() {
               )}
             </ErrorMessage>
           ) : documents.length === 0 ? (
-            <p className="py-12 text-center text-sm text-gray-400">
-              登録されている資料はありません
-            </p>
+            <EmptyState icon={FileText} title="登録されている資料はありません" />
           ) : (
             <div className="space-y-1.5">
               {documents.map((doc) => (
@@ -303,9 +302,7 @@ export default function LibraryPage() {
             )}
           </ErrorMessage>
         ) : crossFiles.length === 0 ? (
-          <p className="py-12 text-center text-sm text-gray-400">
-            登録されているファイルはありません
-          </p>
+          <EmptyState icon={FolderOpen} title="登録されているファイルはありません" />
         ) : (
           <div className="space-y-1.5">
             {crossFiles.map((file) => (

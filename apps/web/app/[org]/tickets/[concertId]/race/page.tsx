@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { Loader2, Users, User, Globe, EyeOff, Settings } from "lucide-react";
+import { Loader2, Users, User, Globe, EyeOff, Settings, Trophy } from "lucide-react";
 import { ticketsApi, type RaceData } from "@/lib/tickets-api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ticketKeys } from "@/lib/query-keys";
@@ -17,6 +17,7 @@ import { userErrorMessage } from "@/lib/api-client";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { formatShortDate } from "@/lib/date";
+import { EmptyState } from "@/components/EmptyState";
 
 export default function RacePage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -76,7 +77,7 @@ export default function RacePage() {
             )}
         </ErrorMessage>
         <div className="flex flex-1 items-center justify-center">
-          <p className="text-sm text-gray-400">まだ配布・販売データがありません</p>
+          <EmptyState icon={Trophy} title="まだ配布・販売データがありません" />
         </div>
       </div>
     );
@@ -176,10 +177,10 @@ export default function RacePage() {
         subtitle={<span className="text-sm text-gray-400">{data.concert.title}</span>}
         backHref={backHref}
         actions={
-          <div className="flex items-center gap-2">
+          <>
             {scoringSettingsButton}
             {publishAction}
-          </div>
+          </>
         }
       >
         {publishedBanner}

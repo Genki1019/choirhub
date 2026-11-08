@@ -15,6 +15,7 @@ import { userErrorMessage } from "@/lib/api-client";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { useOutreachActivities } from "@/hooks/useOutreachActivities";
 import { canManageTickets } from "@/lib/roles";
+import { EmptyState } from "@/components/EmptyState";
 
 export default function OutreachPage() {
   const { org, concertId } = useParams<{ org: string; concertId: string }>();
@@ -97,11 +98,11 @@ export default function OutreachPage() {
             )}
         </ErrorMessage>
         {activities.length === 0 ? (
-          <div className="py-16 text-center text-gray-400">
-            <MapPin size={32} className="mx-auto mb-3 opacity-30" />
-            <p className="text-sm">情宣活動の申請がありません</p>
-            <p className="mt-1 text-xs">「新規申請」から追加してください</p>
-          </div>
+          <EmptyState
+            icon={MapPin}
+            title="情宣活動の申請がありません"
+            description="「新規申請」から追加してください"
+          />
         ) : (
           activities.map((a) => (
             <ActivityCard

@@ -3,25 +3,26 @@
 import { useState, useMemo, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { LayoutGrid, List, UserPlus, UserRoundPlus, Loader2, Users } from "lucide-react";
+import { LayoutGrid, List, UserPlus, UserRoundPlus, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { membersApi, type MemberProfile } from "@/lib/members-api";
 import { visitorApplicationsApi } from "@/lib/visitor-applications-api";
 import { useMember } from "@/contexts/MemberContext";
-import { settingsApi } from "@/lib/settings-api";
+import { settingsApi, type MemberType } from "@/lib/settings-api";
 import { memberKeys, visitorApplicationKeys } from "@/lib/query-keys";
 import { MEMBER_STATUS_OPTIONS } from "@/lib/api-types";
-import type { MemberStatus } from "@/lib/api-types";
+import type { MemberStatus, PartSummary } from "@/lib/api-types";
 import { MEMBER_LEVEL_ROLES } from "@/lib/roles";
 import { comparePartOrder } from "@/lib/voice-order";
 import { InviteModal } from "./_components/InviteModal";
 import { AddVisitorApplicationModal } from "./_components/AddVisitorApplicationModal";
 import { MemberPartSection } from "./_components/MemberPartSection";
-import { PageMain } from "@/components/PageMain";
 import { PageBleedRow } from "@/components/PageBleedRow";
-import { PageHeader } from "@/components/PageHeader";
+import { PageWithHeader } from "@/components/PageWithHeader";
 import { CsvExportButton } from "@/components/CsvExportButton";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { userErrorMessage } from "@/lib/api-client";
+import { EmptyState } from "@/components/EmptyState";
 
 type SortKey = "nameJa" | "joinedAt_asc" | "joinedAt_desc";
 type ViewMode = "card" | "list";
@@ -52,6 +53,10 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   ...MEMBER_STATUS_OPTIONS,
 ];
 
+const NO_MEMBERS: MemberProfile[] = [];
+const NO_PARTS: PartSummary[] = [];
+const NO_MEMBER_TYPES: MemberType[] = [];
+
 // ── メインページ ──
 
 function MembersContent() {
@@ -60,9 +65,10 @@ function MembersContent() {
   const [sortKey, setSortKey] = useState<SortKey>("nameJa");
   const [viewMode, setViewMode] = useState<ViewMode>("card");
   const [isMobile, setIsMobile] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
-    (searchParams.get("status") as StatusFilter) ?? "active",
-  );
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
+    const status = searchParams.get("status");
+    return STATUS_FILTERS.find((f) => f.value === status)?.value ?? "active";
+  });
   const [memberTypeFilter, setMemberTypeFilter] = useState<string>("all");
   const { roles: myRoles } = useMember();
   const [showInvite, setShowInvite] = useState(false);
@@ -77,24 +83,27 @@ function MembersContent() {
     enabled: isAdmin,
   });
 
-  const {
-    data: members = [],
-    isLoading: membersLoading,
-    error: membersError,
-  } = useQuery({
+  const membersQuery = useQuery({
     queryKey: memberKeys.list(org),
     queryFn: () => membersApi.list(org),
   });
-  const { data: parts = [], isLoading: partsLoading } = useQuery({
+  const partsQuery = useQuery({
     queryKey: memberKeys.parts(org),
     queryFn: () => membersApi.parts(org),
   });
-  const { data: memberTypes = [], isLoading: typesLoading } = useQuery({
+  const typesQuery = useQuery({
     queryKey: memberKeys.types(org),
     queryFn: () => settingsApi.listMemberTypes(org),
   });
 
-  const loading = membersLoading || partsLoading || typesLoading;
+  const members = membersQuery.data ?? NO_MEMBERS;
+  const parts = partsQuery.data ?? NO_PARTS;
+  const memberTypes = typesQuery.data ?? NO_MEMBER_TYPES;
+  const membersError = membersQuery.data ? null : membersQuery.error;
+  const partsError = partsQuery.data ? null : partsQuery.error;
+  const typesError = typesQuery.data ? null : typesQuery.error;
+
+  const loading = membersQuery.isLoading || partsQuery.isLoading || typesQuery.isLoading;
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -120,19 +129,18 @@ function MembersContent() {
       return true;
     });
 
+    const partsOf = (list: MemberProfile[]) => {
+      const partMap = new Map<string, PartSummary>();
+      list.forEach((m) => {
+        if (m.part && !partMap.has(m.part.id)) partMap.set(m.part.id, m.part);
+      });
+      return Array.from(partMap.values());
+    };
+
     // フィルタ中は全パートを表示、非フィルタ中は filtered に存在するパートのみ
-    const baseParts = isFiltering
-      ? [...parts].sort(comparePartOrder)
-      : (() => {
-          const partMap = new Map<
-            string,
-            { id: string; name: string; voiceType: string; sortOrder: number }
-          >();
-          filtered.forEach((m) => {
-            if (m.part && !partMap.has(m.part.id)) partMap.set(m.part.id, m.part);
-          });
-          return Array.from(partMap.values()).sort(comparePartOrder);
-        })();
+    const baseParts = [
+      ...(isFiltering ? (partsError ? partsOf(members) : parts) : partsOf(filtered)),
+    ].sort(comparePartOrder);
 
     const groups = baseParts.map((part) => ({
       partId: part.id,
@@ -150,7 +158,7 @@ function MembersContent() {
     }
 
     return groups;
-  }, [members, parts, sortKey, statusFilter, memberTypeFilter]);
+  }, [members, parts, partsError, sortKey, statusFilter, memberTypeFilter]);
 
   const totalCount = grouped.reduce((s, g) => s + g.members.length, 0);
 
@@ -164,56 +172,55 @@ function MembersContent() {
           onClose={() => setShowAddVisitor(false)}
         />
       )}
-      <div className="flex flex-col">
-        <PageHeader
-          title="メンバー"
-          actions={
-            isAdmin || canAddVisitor ? (
-              <div className="flex items-center gap-2">
-                {isAdmin && <CsvExportButton onDownload={() => membersApi.exportCsv(org)} />}
-                {isAdmin && (
-                  <Link
-                    href={`/${org}/members/applications`}
-                    className="relative flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
-                  >
-                    見学申込
-                    {pendingApplications.length > 0 && (
-                      <span className="bg-brand-600 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white">
-                        {pendingApplications.length}
-                      </span>
-                    )}
-                  </Link>
-                )}
-                {canAddVisitor && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAddVisitor(true)}
-                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
-                  >
-                    <UserRoundPlus size={14} />
-                    見学者を追加
-                  </button>
-                )}
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => setShowInvite(true)}
-                    className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
-                  >
-                    <UserPlus size={14} />
-                    メンバーを招待
-                  </button>
-                )}
-              </div>
-            ) : undefined
-          }
-        />
-
-        {/* コントロールバー */}
-        <div className="shrink-0 border-b border-gray-100 bg-white">
+      <PageWithHeader
+        title="メンバー"
+        loading={loading}
+        mainClassName="space-y-8"
+        actions={
+          isAdmin || canAddVisitor ? (
+            <>
+              {isAdmin && <CsvExportButton onDownload={() => membersApi.exportCsv(org)} />}
+              {isAdmin && (
+                <Link
+                  href={`/${org}/members/applications`}
+                  className="relative flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                >
+                  見学申込
+                  {pendingApplications.length > 0 && (
+                    <span className="bg-brand-600 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white">
+                      {pendingApplications.length}
+                    </span>
+                  )}
+                </Link>
+              )}
+              {canAddVisitor && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddVisitor(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                >
+                  <UserRoundPlus size={14} />
+                  見学者を追加
+                </button>
+              )}
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setShowInvite(true)}
+                  className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors"
+                >
+                  <UserPlus size={14} />
+                  メンバーを招待
+                </button>
+              )}
+            </>
+          ) : undefined
+        }
+        toolbar={
           <PageBleedRow className="flex flex-wrap items-center justify-between gap-y-2 py-3">
             <div className="flex items-center gap-2">
               <select
+                aria-label="在籍状況"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
                 className="focus:ring-brand-400 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-600 focus:ring-1 focus:outline-none"
@@ -226,6 +233,7 @@ function MembersContent() {
               </select>
               {memberTypes.length > 0 && (
                 <select
+                  aria-label="メンバー区分"
                   value={memberTypeFilter}
                   onChange={(e) => setMemberTypeFilter(e.target.value)}
                   className="focus:ring-brand-400 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-600 focus:ring-1 focus:outline-none"
@@ -239,11 +247,14 @@ function MembersContent() {
                   <option value="__none__">未設定</option>
                 </select>
               )}
-              {!loading && <span className="text-xs text-gray-400">{totalCount}名</span>}
+              {!loading && !membersError && (
+                <span className="text-xs text-gray-400">{totalCount}名</span>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
               <select
+                aria-label="並び順"
                 value={sortKey}
                 onChange={(e) => setSortKey(e.target.value as SortKey)}
                 className="focus:ring-brand-400 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-600 focus:ring-1 focus:outline-none"
@@ -258,6 +269,8 @@ function MembersContent() {
               <div className="hidden overflow-hidden rounded-lg border border-gray-200 sm:flex">
                 <button
                   type="button"
+                  aria-label="カード表示"
+                  aria-pressed={viewMode === "card"}
                   onClick={() => setViewMode("card")}
                   className={`p-1.5 transition-colors ${viewMode === "card" ? "bg-brand-600 text-white" : "text-gray-400 hover:bg-gray-50"}`}
                 >
@@ -265,6 +278,8 @@ function MembersContent() {
                 </button>
                 <button
                   type="button"
+                  aria-label="リスト表示"
+                  aria-pressed={viewMode === "list"}
                   onClick={() => setViewMode("list")}
                   className={`p-1.5 transition-colors ${viewMode === "list" ? "bg-brand-600 text-white" : "text-gray-400 hover:bg-gray-50"}`}
                 >
@@ -273,42 +288,54 @@ function MembersContent() {
               </div>
             </div>
           </PageBleedRow>
-        </div>
+        }
+      >
+        {membersError && (
+          <ErrorMessage variant="section" autoScroll={false}>
+            {userErrorMessage(
+              membersError,
+              "メンバーの読み込みに失敗しました。ページを再読み込みしてください。",
+            )}
+          </ErrorMessage>
+        )}
 
-        {/* メインコンテンツ */}
-        <PageMain className="space-y-8">
-          {loading && (
-            <div className="flex items-center justify-center gap-2 py-16 text-gray-400">
-              <Loader2 size={18} className="animate-spin" />
-              <span className="text-sm">読み込み中...</span>
-            </div>
-          )}
+        {!membersError && (partsError || typesError) && (
+          <div className="space-y-2">
+            {partsError && (
+              <ErrorMessage autoScroll={false}>
+                {userErrorMessage(
+                  partsError,
+                  "パートの読み込みに失敗しました。パートでの絞り込み・招待・見学者の追加でパートを選べません。ページを再読み込みしてください。",
+                )}
+              </ErrorMessage>
+            )}
+            {typesError && (
+              <ErrorMessage autoScroll={false}>
+                {userErrorMessage(
+                  typesError,
+                  "メンバー区分の読み込みに失敗しました。区分で絞り込めません。ページを再読み込みしてください。",
+                )}
+              </ErrorMessage>
+            )}
+          </div>
+        )}
 
-          {!loading && membersError && (
-            <ErrorMessage variant="section">{membersError.message}</ErrorMessage>
-          )}
+        {!membersError && grouped.length === 0 && (
+          <EmptyState icon={Users} title="該当するメンバーがいません" />
+        )}
 
-          {!loading && !membersError && grouped.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-              <Users size={40} className="mb-3 opacity-40" />
-              <p className="text-sm">該当するメンバーがいません</p>
-            </div>
-          )}
-
-          {!loading &&
-            !membersError &&
-            grouped.map(({ partId, partName, members: partMembers }) => (
-              <MemberPartSection
-                key={partId}
-                partId={partId}
-                partName={partName}
-                members={partMembers}
-                viewMode={effectiveViewMode}
-                org={org}
-              />
-            ))}
-        </PageMain>
-      </div>
+        {!membersError &&
+          grouped.map(({ partId, partName, members: partMembers }) => (
+            <MemberPartSection
+              key={partId}
+              partId={partId}
+              partName={partName}
+              members={partMembers}
+              viewMode={effectiveViewMode}
+              org={org}
+            />
+          ))}
+      </PageWithHeader>
     </>
   );
 }
@@ -317,10 +344,9 @@ export default function MembersPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-full items-center justify-center gap-2 text-gray-400">
-          <Loader2 size={18} className="animate-spin" />
-          <span className="text-sm">読み込み中...</span>
-        </div>
+        <PageWithHeader title="メンバー" loading>
+          {null}
+        </PageWithHeader>
       }
     >
       <MembersContent />

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Loader2, Inbox } from "lucide-react";
 import { visitorApplicationsApi } from "@/lib/visitor-applications-api";
 import { useMember } from "@/contexts/MemberContext";
 import { useClipboardCopy } from "@/hooks/useClipboardCopy";
@@ -15,6 +15,7 @@ import { ApprovalDraftBanner } from "./_components/ApprovalDraftBanner";
 import { ApplicationRow } from "./_components/ApplicationRow";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { EmptyState } from "@/components/EmptyState";
 
 const ERROR_MESSAGE = "操作に失敗しました。もう一度お試しください。";
 
@@ -173,7 +174,7 @@ export default function VisitorApplicationsPage() {
       <ErrorMessage className="mb-4">{error}</ErrorMessage>
 
       {applications.length === 0 ? (
-        <p className="py-16 text-center text-sm text-gray-400">保留中の見学申込はありません</p>
+        <EmptyState icon={Inbox} title="保留中の見学申込はありません" />
       ) : (
         <div className="space-y-3">
           {applications.map((a) => (

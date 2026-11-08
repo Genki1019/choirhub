@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import MembersPage from "../page";
@@ -8,10 +8,13 @@ import { membersApi } from "@/lib/members-api";
 import { settingsApi } from "@/lib/settings-api";
 import type { MemberProfile, PartSummary } from "@/lib/api-types";
 import type { MemberType } from "@/lib/settings-api";
+import { ApiClientError } from "@/lib/api-client";
+
+let searchParams = new URLSearchParams();
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ org: "tokyo-men-choir" }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => searchParams,
 }));
 
 vi.mock("@/lib/members-api", () => ({
@@ -61,17 +64,19 @@ function makeMember(overrides: Partial<MemberProfile> = {}): MemberProfile {
 
 function renderPage(roles: string[] = ["member"]) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const result = render(
     <QueryClientProvider client={queryClient}>
       <MemberProvider memberId="member-self" roles={roles}>
         <MembersPage />
       </MemberProvider>
     </QueryClientProvider>,
   );
+  return { ...result, queryClient };
 }
 
 beforeEach(() => {
   vi.resetAllMocks();
+  searchParams = new URLSearchParams();
   vi.mocked(membersApi.parts).mockResolvedValue([partTenor, partBass]);
   vi.mocked(settingsApi.listMemberTypes).mockResolvedValue([memberTypeRegular]);
 });
@@ -84,11 +89,104 @@ describe("MembersPage（表示状態）", () => {
     expect(screen.getByText("読み込み中...")).toBeInTheDocument();
   });
 
-  it("取得エラー時はエラーメッセージを表示する", async () => {
-    vi.mocked(membersApi.list).mockRejectedValue(new Error("取得に失敗しました"));
+  it("データ取得中も見出しとフィルタ行を残し、読み込み表示は1つだけ出す", () => {
+    vi.mocked(membersApi.list).mockReturnValue(new Promise(() => {}));
     renderPage();
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("取得に失敗しました");
+    expect(screen.getByRole("heading", { name: "メンバー" })).toBeInTheDocument();
+    expect(screen.getAllByRole("combobox").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("読み込み中...")).toHaveLength(1);
+    expect(screen.queryByText(/^\d+名$/)).not.toBeInTheDocument();
+  });
+
+  it("取得エラー時は 4xx ならサーバーの理由を表示する", async () => {
+    vi.mocked(membersApi.list).mockRejectedValue(
+      new ApiClientError("FORBIDDEN", "この団体へのアクセス権限がありません", 403),
+    );
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "この団体へのアクセス権限がありません",
+    );
+  });
+
+  it("取得エラー時は 5xx でも日本語の理由を表示し、一覧・空表示・件数を出さない", async () => {
+    vi.mocked(membersApi.list).mockRejectedValue(new ApiClientError("INTERNAL", "", 500));
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "メンバーの読み込みに失敗しました。ページを再読み込みしてください。",
+    );
+    expect(screen.queryByText("Tenor I")).not.toBeInTheDocument();
+    expect(screen.queryByText("該当するメンバーがいません")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^\d+名$/)).not.toBeInTheDocument();
+  });
+
+  it("パートの取得に失敗しても、理由を出して団員をパートごとに表示する", async () => {
+    vi.mocked(membersApi.parts).mockRejectedValue(new ApiClientError("INTERNAL", "", 500));
+    vi.mocked(membersApi.list).mockResolvedValue([
+      makeMember({ id: "member-1", nameJa: "山田太郎", part: partTenor }),
+      makeMember({
+        id: "member-2",
+        nameJa: "鈴木一郎",
+        nameKana: "スズキイチロウ",
+        part: partBass,
+      }),
+    ]);
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("パートの読み込みに失敗しました");
+    expect(screen.getByText("Tenor I")).toBeInTheDocument();
+    expect(screen.getByText("Bass")).toBeInTheDocument();
+    expect(screen.getByText("山田太郎")).toBeInTheDocument();
+    expect(screen.getByText("鈴木一郎")).toBeInTheDocument();
+    expect(screen.getByText("2名")).toBeInTheDocument();
+  });
+
+  it("取得済みのあとで裏の取り直しだけが失敗しても、一覧を残してエラーを出さない", async () => {
+    vi.mocked(membersApi.list).mockResolvedValue([makeMember({ nameJa: "山田太郎" })]);
+    const { queryClient } = renderPage();
+    expect(await screen.findByText("山田太郎")).toBeInTheDocument();
+
+    vi.mocked(membersApi.list).mockRejectedValue(new ApiClientError("INTERNAL", "", 500));
+    vi.mocked(membersApi.parts).mockRejectedValue(new ApiClientError("INTERNAL", "", 500));
+    await act(async () => {
+      await queryClient.refetchQueries();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(screen.getByText("山田太郎")).toBeInTheDocument();
+    expect(screen.getByText("Bass")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("パートだけ裏の取り直しに失敗しても、パートの一覧とグループを残してエラーを出さない", async () => {
+    vi.mocked(membersApi.list).mockResolvedValue([makeMember({ nameJa: "山田太郎" })]);
+    const { queryClient } = renderPage();
+    expect(await screen.findByText("Bass")).toBeInTheDocument();
+
+    vi.mocked(membersApi.parts).mockRejectedValue(new ApiClientError("INTERNAL", "", 500));
+    await act(async () => {
+      await queryClient.refetchQueries();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(screen.getByText("Bass")).toBeInTheDocument();
+    expect(screen.getByText("山田太郎")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("メンバー区分の取得に失敗すると、理由を出して一覧はそのまま表示する", async () => {
+    vi.mocked(settingsApi.listMemberTypes).mockRejectedValue(
+      new ApiClientError("INTERNAL", "", 500),
+    );
+    vi.mocked(membersApi.list).mockResolvedValue([makeMember({ nameJa: "山田太郎" })]);
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "メンバー区分の読み込みに失敗しました",
+    );
+    expect(screen.getByText("山田太郎")).toBeInTheDocument();
   });
 
   it("組織にパートが1つも無く該当メンバーも0件の場合は「該当するメンバーがいません」を表示する", async () => {
@@ -184,6 +282,63 @@ describe("MembersPage（フィルタ）", () => {
 
     await screen.findByText("山田太郎");
     expect(screen.queryByText("全区分")).not.toBeInTheDocument();
+  });
+});
+
+describe("MembersPage（URL の在籍状況）", () => {
+  it("URL の status が選択肢にあれば、その状況で絞り込む", async () => {
+    searchParams = new URLSearchParams("status=offstage");
+    vi.mocked(membersApi.list).mockResolvedValue([
+      makeMember({ id: "member-1", nameJa: "在団太郎", status: "active" }),
+      makeMember({ id: "member-2", nameJa: "休団花子", status: "offstage" }),
+    ]);
+    renderPage();
+
+    expect(await screen.findByText("休団花子")).toBeInTheDocument();
+    expect(screen.queryByText("在団太郎")).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "在籍状況" })).toHaveValue("offstage");
+  });
+
+  it.each(["status=foo", "status="])(
+    "URL の status が選択肢にない（%s）ときは、在団で絞り込み選択欄も在団にする",
+    async (query) => {
+      searchParams = new URLSearchParams(query);
+      vi.mocked(membersApi.list).mockResolvedValue([
+        makeMember({ id: "member-1", nameJa: "在団太郎", status: "active" }),
+        makeMember({ id: "member-2", nameJa: "休団花子", status: "offstage" }),
+      ]);
+      renderPage();
+
+      expect(await screen.findByText("在団太郎")).toBeInTheDocument();
+      expect(screen.queryByText("休団花子")).not.toBeInTheDocument();
+      expect(screen.getByRole("combobox", { name: "在籍状況" })).toHaveValue("active");
+    },
+  );
+});
+
+describe("MembersPage（表示の切り替えと選択欄の名前）", () => {
+  it("表示切り替えのボタンに名前があり、選択中だけ押された状態になる", async () => {
+    const user = userEvent.setup();
+    vi.mocked(membersApi.list).mockResolvedValue([makeMember()]);
+    renderPage();
+
+    const card = await screen.findByRole("button", { name: "カード表示" });
+    const list = screen.getByRole("button", { name: "リスト表示" });
+    expect(card).toHaveAttribute("aria-pressed", "true");
+    expect(list).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(list);
+    expect(card).toHaveAttribute("aria-pressed", "false");
+    expect(list).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("絞り込み・並び替えの選択欄に名前がある", async () => {
+    vi.mocked(membersApi.list).mockResolvedValue([makeMember()]);
+    renderPage();
+
+    expect(await screen.findByRole("combobox", { name: "メンバー区分" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "在籍状況" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "並び順" })).toBeInTheDocument();
   });
 });
 

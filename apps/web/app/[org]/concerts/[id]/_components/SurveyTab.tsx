@@ -15,6 +15,7 @@ import { ErrorMessage } from "@/components/ErrorMessage";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { userErrorMessage } from "@/lib/api-client";
 import { formatJaDate } from "@/lib/date";
+import { EmptyState } from "@/components/EmptyState";
 
 function buildStateMap(rows: SurveyDetail["rows"]): Map<string, Map<string, AttendanceStatus>> {
   const m = new Map<string, Map<string, AttendanceStatus>>();
@@ -283,20 +284,22 @@ export function SurveyTab({
   if (surveys.length === 0) {
     return (
       <>
-        <div className="py-12 text-center text-gray-400">
-          <ClipboardList size={32} className="mx-auto mb-3 opacity-40" />
-          <p className="text-sm">オンステ調査はまだ開設されていません</p>
-          {canManageStage && (
-            <button
-              type="button"
-              onClick={() => setShowCreateModal(true)}
-              className="bg-brand-600 hover:bg-brand-700 mx-auto mt-4 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors"
-            >
-              <Plus size={14} />
-              調査を開設する
-            </button>
-          )}
-        </div>
+        <EmptyState
+          icon={ClipboardList}
+          title="オンステ調査はまだ開設されていません"
+          action={
+            canManageStage && (
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(true)}
+                className="bg-brand-600 hover:bg-brand-700 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors"
+              >
+                <Plus size={14} />
+                調査を開設する
+              </button>
+            )
+          }
+        />
         {showCreateModal && (
           <CreateSurveyModal
             orgSlug={org}

@@ -8,6 +8,7 @@ import { ErrorMessage } from "@/components/ErrorMessage";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { userErrorMessage } from "@/lib/api-client";
 import { formatShortDate } from "@/lib/date";
+import { EmptyState } from "@/components/EmptyState";
 
 interface OutreachExpenseTabProps {
   orgSlug: string;
@@ -135,10 +136,7 @@ export function OutreachExpenseTab({ orgSlug, concertId }: OutreachExpenseTabPro
       <ErrorMessage>{activitiesError}</ErrorMessage>
 
       {activities.length === 0 ? (
-        <div className="py-12 text-center text-sm text-gray-400">
-          <Bus size={24} className="mx-auto mb-2 opacity-30" />
-          情宣活動の申請がありません
-        </div>
+        <EmptyState icon={Bus} title="情宣活動の申請がありません" />
       ) : (
         <div className="space-y-3">
           {activities.map((a) => {
